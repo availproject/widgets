@@ -50,9 +50,7 @@ type ChainItemWithTokenMeta = ChainItem & {
   tokenLogo: string;
 };
 
-type AssetBreakdownWithOptionalIcon = UserAsset["breakdown"][number] & {
-  icon?: string;
-};
+
 
 function parseNonNegativeNumber(value: unknown): number {
   const parsed = Number.parseFloat(String(value));
@@ -60,15 +58,26 @@ function parseNonNegativeNumber(value: unknown): number {
   return parsed;
 }
 
+type OptionalIconMeta = {
+  icon?: string;
+  logo?: string;
+  tokenData?: { icon?: string };
+};
+
 function getBreakdownTokenMeta(
   breakdown: UserAsset["breakdown"][number],
   asset: UserAsset,
 ) {
-  const breakdownIcon = (breakdown as AssetBreakdownWithOptionalIcon).icon;
+  const breakdownMeta = breakdown as unknown as OptionalIconMeta;
+  const assetMeta = asset as unknown as OptionalIconMeta;
+  
+  const breakdownIcon = breakdownMeta.icon || breakdownMeta.logo;
+  const assetIcon = assetMeta.icon || assetMeta.logo || assetMeta.tokenData?.icon;
+  
   return {
     symbol: breakdown.symbol,
     decimals: breakdown.decimals ?? asset.decimals,
-    logo: breakdownIcon || "",
+    logo: breakdownIcon || assetIcon || "",
   };
 }
 
