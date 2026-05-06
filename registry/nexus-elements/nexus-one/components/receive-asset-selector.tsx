@@ -1,4 +1,5 @@
 "use client";
+import { nexusOneTheme } from "../theme";
 import React, { useState, useMemo } from "react";
 import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { type SwapTokenOption } from "./swap-asset-selector";
@@ -102,13 +103,13 @@ export function ReceiveAssetSelector({
             gap: "12px",
             borderRadius: "12px",
             borderWidth: "1px",
-            background: "var(--background-tertiary, #F0F0EF)",
+            background: "var(--background-tertiary, var(--background-tertiary, #F0F0EF))",
             borderColor: "transparent",
           }}
         >
           <Search
             className="shrink-0"
-            style={{ width: "20px", height: "20px", color: "var(--foreground-muted, #848483)" }}
+            style={{ width: "20px", height: "20px", color: "var(--foreground-muted, var(--foreground-muted, #848483))" }}
           />
           <input
             type="text"
@@ -118,7 +119,7 @@ export function ReceiveAssetSelector({
             className="w-full bg-transparent border-none outline-none text-[14px]"
             style={{
               fontFamily: "var(--font-geist-sans), sans-serif",
-              color: "var(--widget-card-foreground-primary, #161615)",
+              color: "var(--widget-card-foreground-primary, var(--foreground-primary, #161615))",
             }}
           />
         </div>
@@ -126,12 +127,12 @@ export function ReceiveAssetSelector({
         {/* Tokens List Container */}
         <div
           style={{
-            border: "1px solid var(--widget-card-border, #E8E8E7)",
+            border: "1px solid var(--widget-card-border, var(--border-default, #E8E8E7))",
             borderRadius: "8px",
             background: "var(--widget-card-background-primary, #FFFFFE)",
             overflow: "hidden",
           }}
-          className="flex flex-col divide-y divide-[#E8E8E7]"
+          className="flex flex-col divide-y divide-[var(--border-default, #E8E8E7)]"
         >
           {filteredTokens.length === 0 ? (
             <p className="text-sm text-center text-gray-400 py-8">No tokens found</p>
@@ -158,7 +159,7 @@ export function ReceiveAssetSelector({
                       fontFamily: "var(--font-geist-sans), sans-serif",
                       fontWeight: 500,
                       fontSize: "14px",
-                      color: "var(--foreground-primary, #161615)",
+                      color: "var(--foreground-primary, var(--foreground-primary, #161615))",
                     }}
                   >
                     {token.symbol}
@@ -198,7 +199,7 @@ export function ReceiveAssetSelector({
               fontFamily: "var(--font-geist-sans), sans-serif",
               fontSize: "16px",
               fontWeight: 500,
-              color: "var(--foreground-primary, #161615)",
+              color: "var(--foreground-primary, var(--foreground-primary, #161615))",
             }}
           >
             Select a Chain
@@ -214,12 +215,12 @@ export function ReceiveAssetSelector({
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           <div
             style={{
-              border: "1px solid var(--widget-card-border, #E8E8E7)",
+              border: "1px solid var(--widget-card-border, var(--border-default, #E8E8E7))",
               borderRadius: "8px",
               background: "var(--widget-card-background-primary, #FFFFFE)",
               overflow: "hidden",
             }}
-            className="flex flex-col divide-y divide-[#E8E8E7]"
+            className="flex flex-col divide-y divide-[var(--border-default, #E8E8E7)]"
           >
             {selectedToken?.supportedChains.map((chain) => (
               <button
@@ -249,7 +250,7 @@ export function ReceiveAssetSelector({
                       fontFamily: "var(--font-geist-sans), sans-serif",
                       fontWeight: 500,
                       fontSize: "15px",
-                      color: "var(--foreground-primary, #161615)",
+                      color: "var(--foreground-primary, var(--foreground-primary, #161615))",
                     }}
                   >
                     {chain.chainName === "Ethereum" ? "Mainnet" : chain.chainName}

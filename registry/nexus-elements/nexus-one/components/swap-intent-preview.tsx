@@ -1,4 +1,5 @@
 "use client";
+import { nexusOneTheme } from "../theme";
 import React, { useState } from "react";
 import {
   ArrowRight,
@@ -196,9 +197,9 @@ export function SwapIntentPreview({
       {/* ------------------------------------------------------------------ */}
       <div
         style={{
-          background: "#FFFFFF",
+          background: "var(--background-secondary, #FFFFFF)",
           borderRadius: "12px",
-          border: "1px solid var(--border-default, #E8E8E7)",
+          border: "1px solid var(--border-default, var(--border-default, #E8E8E7))",
           boxShadow: "0px 1px 12px 0px #5B5B5B0D",
           padding: "16px",
         }}
@@ -246,7 +247,7 @@ export function SwapIntentPreview({
                         width: 36,
                         height: 36,
                         background:
-                          "var(--interactive-button-primary-background, #006BF4)",
+                          "var(--interactive-button-primary-background, var(--foreground-brand, #006BF4))",
                       }}
                     >
                       {token.symbol.slice(0, 2)}
@@ -257,7 +258,7 @@ export function SwapIntentPreview({
                   <div
                     className="absolute left-1/2 -translate-x-1/2 top-full mt-2 opacity-0 group-hover/logo:opacity-100 transition-opacity whitespace-nowrap pointer-events-none flex items-center justify-center z-50 text-center"
                     style={{
-                      background: "var(--background-inverse, #161615)",
+                      background: "var(--background-inverse, var(--foreground-primary, #161615))",
                       boxShadow: "0px 1px 4px 0px #5555550D",
                       minWidth: 94,
                       height: 30,
@@ -283,7 +284,7 @@ export function SwapIntentPreview({
             style={{
               width: 24,
               height: 24,
-              color: "var(--foreground-muted, #848483)",
+              color: "var(--foreground-muted, var(--foreground-muted, #848483))",
             }}
           />
 
@@ -307,7 +308,7 @@ export function SwapIntentPreview({
                     width: 36,
                     height: 36,
                     background:
-                      "var(--interactive-button-primary-background, #006BF4)",
+                      "var(--interactive-button-primary-background, var(--foreground-brand, #006BF4))",
                   }}
                 >
                   {toToken.symbol.slice(0, 2)}
@@ -325,7 +326,7 @@ export function SwapIntentPreview({
               <div
                 className="absolute left-1/2 -translate-x-1/2 top-full mt-2 opacity-0 group-hover/logo:opacity-100 transition-opacity whitespace-nowrap pointer-events-none flex items-center justify-center z-50 text-center"
                 style={{
-                  background: "var(--background-inverse, #161615)",
+                  background: "var(--background-inverse, var(--foreground-primary, #161615))",
                   boxShadow: "0px 1px 4px 0px #5555550D",
                   minWidth: 94,
                   height: 30,
@@ -361,7 +362,7 @@ export function SwapIntentPreview({
               fontWeight: 400,
               fontSize: "13px",
               lineHeight: "18px",
-              color: "var(--widget-card-foreground-muted, #848483)",
+              color: "var(--widget-card-foreground-muted, var(--foreground-muted, #848483))",
             }}
           >
             in about {estimatedTime}
@@ -370,7 +371,7 @@ export function SwapIntentPreview({
             style={{
               width: 16,
               height: 16,
-              color: "var(--widget-card-foreground-muted, #848483)",
+              color: "var(--widget-card-foreground-muted, var(--foreground-muted, #848483))",
             }}
           />
         </div>
@@ -386,22 +387,22 @@ export function SwapIntentPreview({
             {mode === "deposit" ? (
               <svg
                 className="shrink-0 mt-0.5"
-                style={{ width: 20, height: 20, color: "var(--foreground-muted, #848483)" }}
+                style={{ width: 20, height: 20, color: "var(--foreground-muted, var(--foreground-muted, #848483))" }}
                 viewBox="0 0 20 20"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
               >
                 <path d="M16.25 3.75H3.75C3.25272 3.75 2.77581 3.94754 2.42417 4.29917C2.07254 4.65081 1.875 5.12772 1.875 5.625V14.375C1.875 14.8723 2.07254 15.3492 2.42417 15.7008C2.77581 16.0525 3.25272 16.25 3.75 16.25H16.25C16.7473 16.25 17.2242 16.0525 17.5758 15.7008C17.9275 15.3492 18.125 14.8723 18.125 14.375V5.625C18.125 5.12772 17.9275 4.65081 17.5758 4.29917C17.2242 3.94754 16.7473 3.75 16.25 3.75ZM3.125 7.5H16.875V8.75H12.5C12.3342 8.75 12.1753 8.81585 12.0581 8.93306C11.9408 9.05027 11.875 9.20924 11.875 9.375C11.875 9.87228 11.6775 10.3492 11.3258 10.7008C10.9742 11.0525 10.4973 11.25 10 11.25C9.50272 11.25 9.02581 11.0525 8.67417 10.7008C8.32254 10.3492 8.125 9.87228 8.125 9.375C8.125 9.20924 8.05915 9.05027 7.94194 8.93306C7.82473 8.81585 7.66576 8.75 7.5 8.75H3.125V7.5ZM3.75 5H16.25C16.4158 5 16.5747 5.06585 16.6919 5.18306C16.8092 5.30027 16.875 5.45924 16.875 5.625V6.25H3.125V5.625C3.125 5.45924 3.19085 5.30027 3.30806 5.18306C3.42527 5.06585 3.58424 5 3.75 5ZM16.25 15H3.75C3.58424 15 3.42527 14.9342 3.30806 14.8169C3.19085 14.6997 3.125 14.5408 3.125 14.375V10H6.9375C7.08095 10.7064 7.46421 11.3415 8.02234 11.7977C8.58047 12.2539 9.27915 12.5031 10 12.5031C10.7208 12.5031 11.4195 12.2539 11.9777 11.7977C12.5358 11.3415 12.9191 10.7064 13.0625 10H16.875V14.375C16.875 14.5408 16.8092 14.6997 16.6919 14.8169C16.5747 14.9342 16.4158 15 16.25 15Z" fill="currentColor"/>
               </svg>
-            ) : mode === "transfer" ? (
-              <Send className="shrink-0 mt-0.5" style={{ width: 20, height: 20, color: "var(--foreground-muted, #848483)" }} />
+            ) : mode === "send" ? (
+              <Send className="shrink-0 mt-0.5" style={{ width: 20, height: 20, color: "var(--foreground-muted, var(--foreground-muted, #848483))" }} />
             ) : (
               <svg
                 className="shrink-0 mt-0.5"
                 style={{
                   width: 20,
                   height: 20,
-                  color: "var(--foreground-muted, #848483)",
+                  color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                 }}
                 viewBox="0 0 20 20"
                 fill="none"
@@ -419,12 +420,12 @@ export function SwapIntentPreview({
                   fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                   fontWeight: 500,
                   fontSize: "14px",
-                  color: "var(--foreground-primary, #161615)",
+                  color: "var(--foreground-primary, var(--foreground-primary, #161615))",
                 }}
               >
                 {mode === "deposit"
                   ? "Paying with"
-                  : mode === "transfer"
+                  : mode === "send"
                     ? "You Send"
                     : "You Swap"}
               </span>
@@ -432,7 +433,7 @@ export function SwapIntentPreview({
                 style={{
                   fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                   fontSize: "13px",
-                  color: "var(--foreground-muted, #848483)",
+                  color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                 }}
               >
                 {sourceLabel}
@@ -445,7 +446,7 @@ export function SwapIntentPreview({
                 fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                 fontWeight: 500,
                 fontSize: "14px",
-                color: "var(--foreground-primary, #161615)",
+                color: "var(--foreground-primary, var(--foreground-primary, #161615))",
               }}
             >
               {displayFromAmountUsd}{" "}
@@ -458,7 +459,7 @@ export function SwapIntentPreview({
                 style={{
                   fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                   fontSize: "13px",
-                  color: "var(--foreground-muted, #848483)",
+                  color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                 }}
               >
                 {showDetails ? "hide details" : "view details"}
@@ -505,7 +506,7 @@ export function SwapIntentPreview({
                         width: 24,
                         height: 24,
                         background:
-                          "var(--interactive-button-primary-background, #006BF4)",
+                          "var(--interactive-button-primary-background, var(--foreground-brand, #006BF4))",
                       }}
                     >
                       {src.token.symbol.slice(0, 2)}
@@ -518,7 +519,7 @@ export function SwapIntentPreview({
                           "Geist, var(--font-geist-sans), sans-serif",
                         fontSize: "13px",
                         fontWeight: 500,
-                        color: "var(--foreground-primary, #161615)",
+                        color: "var(--foreground-primary, var(--foreground-primary, #161615))",
                       }}
                     >
                       {src.token.symbol}
@@ -528,7 +529,7 @@ export function SwapIntentPreview({
                         fontFamily:
                           "Geist, var(--font-geist-sans), sans-serif",
                         fontSize: "12px",
-                        color: "var(--foreground-muted, #848483)",
+                        color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                       }}
                     >
                       {src.chain.name}
@@ -542,7 +543,7 @@ export function SwapIntentPreview({
                         "Geist, var(--font-geist-sans), sans-serif",
                       fontSize: "13px",
                       fontWeight: 500,
-                      color: "var(--foreground-primary, #161615)",
+                      color: "var(--foreground-primary, var(--foreground-primary, #161615))",
                     }}
                   >
                     ${Number((src as any).value || src.amount || 0).toFixed(2)}
@@ -552,7 +553,7 @@ export function SwapIntentPreview({
                       fontFamily:
                         "Geist, var(--font-geist-sans), sans-serif",
                       fontSize: "12px",
-                      color: "var(--foreground-muted, #848483)",
+                      color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                     }}
                   >
                     {Number(src.amount || 0).toFixed(4)} {src.token.symbol}
@@ -567,7 +568,7 @@ export function SwapIntentPreview({
         <div
           style={{
             height: "1px",
-            background: "var(--border-default, #E8E8E7)",
+            background: "var(--border-default, var(--border-default, #E8E8E7))",
           }}
         />
 
@@ -579,7 +580,7 @@ export function SwapIntentPreview({
               style={{
                 width: 20,
                 height: 20,
-                color: "var(--red-400, #DC5253)",
+                color: "var(--red-400, var(--foreground-error, #DC5253))",
               }}
               viewBox="0 0 20 20"
               fill="none"
@@ -596,7 +597,7 @@ export function SwapIntentPreview({
                   fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                   fontWeight: 500,
                   fontSize: "14px",
-                  color: "var(--foreground-primary, #161615)",
+                  color: "var(--foreground-primary, var(--foreground-primary, #161615))",
                 }}
               >
                 Total Fees
@@ -605,7 +606,7 @@ export function SwapIntentPreview({
                 style={{
                   fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                   fontSize: "13px",
-                  color: "var(--foreground-muted, #848483)",
+                  color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                 }}
               >
                 Network &amp; protocol
@@ -617,7 +618,7 @@ export function SwapIntentPreview({
               fontFamily: "Geist, var(--font-geist-sans), sans-serif",
               fontWeight: 500,
               fontSize: "14px",
-              color: "var(--red-400, #DC5253)",
+              color: "var(--red-400, var(--foreground-error, #DC5253))",
             }}
           >
             {isLoading ? "…" : `- ${displayFeeUsd}`}{" "}
@@ -629,7 +630,7 @@ export function SwapIntentPreview({
         <div
           style={{
             height: "1px",
-            background: "var(--border-default, #E8E8E7)",
+            background: "var(--border-default, var(--border-default, #E8E8E7))",
           }}
         />
 
@@ -639,7 +640,7 @@ export function SwapIntentPreview({
             {mode === "deposit" ? (
               <svg
                 className="shrink-0 mt-0.5"
-                style={{ width: 20, height: 20, color: "var(--foreground-muted, #848483)" }}
+                style={{ width: 20, height: 20, color: "var(--foreground-muted, var(--foreground-muted, #848483))" }}
                 viewBox="0 0 20 20"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -652,7 +653,7 @@ export function SwapIntentPreview({
                 style={{
                   width: 20,
                   height: 20,
-                  color: "var(--foreground-muted, #848483)",
+                  color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                 }}
                 viewBox="0 0 20 20"
                 fill="none"
@@ -670,12 +671,12 @@ export function SwapIntentPreview({
                   fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                   fontWeight: 500,
                   fontSize: "14px",
-                  color: "var(--foreground-primary, #161615)",
+                  color: "var(--foreground-primary, var(--foreground-primary, #161615))",
                 }}
               >
                 {mode === "deposit"
                   ? "You Deposit"
-                  : mode === "transfer"
+                  : mode === "send"
                     ? "Recipient Receives"
                     : "You Receive"}
               </span>
@@ -683,7 +684,7 @@ export function SwapIntentPreview({
                 style={{
                   fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                   fontSize: "13px",
-                  color: "var(--foreground-muted, #848483)",
+                  color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                 }}
               >
                 {mode === "deposit"
@@ -698,7 +699,7 @@ export function SwapIntentPreview({
                 fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                 fontWeight: 500,
                 fontSize: "14px",
-                color: "var(--foreground-primary, #161615)",
+                color: "var(--foreground-primary, var(--foreground-primary, #161615))",
               }}
             >
               {isLoading ? "…" : displayToAmountUsd}{" "}
@@ -709,7 +710,7 @@ export function SwapIntentPreview({
                 style={{
                   fontFamily: "Geist, var(--font-geist-sans), sans-serif",
                   fontSize: "13px",
-                  color: "var(--foreground-muted, #848483)",
+                  color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                 }}
               >
                 {displayToAmountTokens}
@@ -728,13 +729,13 @@ export function SwapIntentPreview({
         disabled={isLoading || (!toAmount && !intentDest)}
         className="w-full font-medium text-white transition-opacity hover:opacity-90 active:opacity-100 text-[14px]"
         style={{
-          background: "var(--interactive-button-primary-background, #006BF4)",
+          background: "var(--interactive-button-primary-background, var(--foreground-brand, #006BF4))",
           boxShadow: "0px 1px 4px 0px #5555550D",
           height: "48px",
           borderRadius: "12px",
         }}
       >
-        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === "deposit" ? "Deposit now" : mode === "transfer" ? "Send now" : "Swap now"}
+        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === "deposit" ? "Deposit now" : mode === "send" ? "Send now" : "Swap now"}
       </Button>
     </div>
   );

@@ -864,6 +864,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/nexus-elements/nexus-one/components/deposit-idle-form.tsx",
+          "target": "components/nexus-one/components/deposit-idle-form.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/nexus-elements/nexus-one/components/opportunity-list.tsx",
           "target": "components/nexus-one/components/opportunity-list.tsx",
           "type": "registry:component"
@@ -884,6 +889,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/nexus-elements/nexus-one/components/send-idle-form.tsx",
+          "target": "components/nexus-one/components/send-idle-form.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/nexus-elements/nexus-one/components/status-alerts.tsx",
           "target": "components/nexus-one/components/status-alerts.tsx",
           "type": "registry:component"
@@ -894,6 +904,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/nexus-elements/nexus-one/components/swap-idle-form.tsx",
+          "target": "components/nexus-one/components/swap-idle-form.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/nexus-elements/nexus-one/components/swap-intent-preview.tsx",
           "target": "components/nexus-one/components/swap-intent-preview.tsx",
           "type": "registry:component"
@@ -901,6 +916,11 @@
         {
           "path": "registry/nexus-elements/nexus-one/nexus-one.tsx",
           "target": "components/nexus-one/nexus-one.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/nexus-elements/nexus-one/theme.ts",
+          "target": "components/nexus-one/theme.ts",
           "type": "registry:component"
         },
         {

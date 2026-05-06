@@ -4,36 +4,27 @@ import ShowcaseWrapper from "./showcase-wrapper";
 import { NexusOne } from "@/registry/nexus-elements/nexus-one/nexus-one";
 import { type NexusOneMode } from "@/registry/nexus-elements/nexus-one/types";
 
-const ALL_MODES: NexusOneMode[] = ["swap", "deposit", "transfer"];
+const ALL_MODES: NexusOneMode[] = ["swap", "deposit", "send"];
 
 const NexusOneShowcase = () => {
-  const [selectedModes, setSelectedModes] = useState<NexusOneMode[]>(ALL_MODES);
-
-  const toggleMode = (mode: NexusOneMode) => {
-    setSelectedModes((prev) => {
-      if (prev.includes(mode)) {
-        // Prevent removing the last selected mode
-        if (prev.length === 1) return prev;
-        return prev.filter((m) => m !== mode);
-      }
-      return [...prev, mode];
-    });
-  };
+  const [selectedMode, setSelectedMode] = useState<NexusOneMode>("swap");
 
   return (
     <div className="flex flex-col gap-y-4 w-full">
       <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl border border-gray-200 bg-white shadow-sm mb-4">
-        <span className="text-sm font-medium text-gray-700">Enabled Modes:</span>
+        <span className="text-sm font-medium text-gray-700">Mode:</span>
         {ALL_MODES.map((mode) => (
-          <label key={mode} className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={selectedModes.includes(mode)}
-              onChange={() => toggleMode(mode)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-            />
-            <span className="text-sm capitalize font-medium text-gray-700">{mode}</span>
-          </label>
+          <button
+            key={mode}
+            onClick={() => setSelectedMode(mode)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg capitalize transition-colors ${
+              selectedMode === mode
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {mode}
+          </button>
         ))}
       </div>
 
@@ -42,9 +33,9 @@ const NexusOneShowcase = () => {
         connectLabel="Connect wallet to use Nexus One"
       >
         <NexusOne
-          key={selectedModes.join(",")}
+          key={selectedMode}
           config={{
-            mode: selectedModes,
+            mode: selectedMode,
             opportunities: [
               {
                 id: "aave-arb",

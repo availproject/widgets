@@ -1,3 +1,4 @@
+import { nexusOneTheme } from "../theme";
 import { AlertCircle, Info } from "lucide-react";
 
 export type AlertType = "error" | "info" | "warning";

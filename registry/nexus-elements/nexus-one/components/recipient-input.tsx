@@ -1,3 +1,4 @@
+import { nexusOneTheme } from "../theme";
 import React from "react";
 import { Search } from "lucide-react";
 
@@ -16,9 +17,9 @@ export function RecipientInput({
 }: RecipientInputProps) {
   return (
     <div
-      className="flex items-center w-full px-4 overflow-hidden outline-none transition-all placeholder:text-[#848483] text-[#161615]"
+      className="flex items-center w-full px-4 overflow-hidden outline-none transition-all placeholder:text-[var(--foreground-muted, #848483)] text-[var(--foreground-primary, #161615)]"
       style={{
-        background: "var(--background-tertiary, #F0F0EF)",
+        background: "var(--background-tertiary, var(--background-tertiary, #F0F0EF))",
         height: "44px",
         borderRadius: "12px",
         borderWidth: "1px",
@@ -31,7 +32,7 @@ export function RecipientInput({
       <div
         className="shrink-0 font-geist select-none flex items-center"
         style={{
-          color: "var(--foreground-primary, #161615)",
+          color: "var(--foreground-primary, var(--foreground-primary, #161615))",
           fontSize: "14px",
           fontWeight: 400,
           lineHeight: "18px",

@@ -1,7 +1,7 @@
 import { type Address } from "viem";
 import { type SUPPORTED_CHAINS_IDS, type SUPPORTED_TOKENS } from "@avail-project/nexus-core";
 
-export type NexusOneMode = /* "bridge" | */ "swap" | "transfer" | "deposit";
+export type NexusOneMode = "swap" | "send" | "deposit";
 
 /** Exact In: user specifies the "from" amount. Exact Out: user specifies the "to" amount. */
 export type SwapType = "exactIn" | "exactOut";
@@ -22,11 +22,11 @@ export interface DepositOpportunity {
   title?: string;
   /** New subtitle for UI (e.g. "Deposit USDC on Arbitrum") */
   subtitle?: string;
-  chainId: SUPPORTED_CHAINS_IDS;
+  chainId: number;
   tokenSymbol: string;
   /** Optional custom token logo provided by developer */
   tokenLogo?: string;
-  tokenAddress: `0x${string}`;
+  tokenAddress: Address;
   /** Optional APY string shown in the card, e.g. "4.2%" */
   apy?: string;
   /** Short description shown in the card */
@@ -60,17 +60,23 @@ export interface DepositOpportunity {
 }
 
 export interface NexusOnePrefill {
-  token?: SUPPORTED_TOKENS;
-  chainId?: SUPPORTED_CHAINS_IDS;
+  token?: Address;
+  chain?: number;
   amount?: string;
   recipient?: Address;
 }
 
 export interface NexusOneConfig {
-  mode: NexusOneMode | NexusOneMode[];
+  mode: NexusOneMode;
   prefill?: NexusOnePrefill;
-  allowedChains?: SUPPORTED_CHAINS_IDS[];
-  allowedTokens?: SUPPORTED_TOKENS[];
+  allowedSourcePairs?: {
+    token: Address;
+    chain: number;
+  }[];
+  allowedDestinationPairs?: {
+    token: Address;
+    chain: number;
+  }[];
   /** For deposit mode: list of DeFi opportunities the user can pick from */
   opportunities?: DepositOpportunity[];
 }

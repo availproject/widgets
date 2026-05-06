@@ -1,3 +1,4 @@
+import { nexusOneTheme } from "../theme";
 import React from "react";
 import { Pencil, Settings } from "lucide-react";
 
@@ -24,7 +25,7 @@ export function PayUsingSelector({
         <div
           className="flex items-center justify-center w-8 h-8 rounded-full shrink-0"
           style={{
-            background: "var(--background-tertiary, #F0F0EF)",
+            background: "var(--background-tertiary, var(--background-tertiary, #F0F0EF))",
           }}
         >
           <Settings className="w-4 h-4 text-gray-500" />
@@ -35,7 +36,7 @@ export function PayUsingSelector({
               fontFamily: "var(--font-geist-sans), sans-serif",
               fontWeight: 500,
               fontSize: "13px",
-              color: "var(--foreground-primary, #161615)",
+              color: "var(--foreground-primary, var(--foreground-primary, #161615))",
             }}
           >
             {label}
@@ -44,7 +45,7 @@ export function PayUsingSelector({
             style={{
               fontFamily: "var(--font-geist-sans), sans-serif",
               fontSize: "11px",
-              color: "var(--foreground-muted, #848483)",
+              color: "var(--foreground-muted, var(--foreground-muted, #848483))",
             }}
           >
             {sublabel}
@@ -65,7 +66,7 @@ export function PayUsingSelector({
             fontFamily: "var(--font-geist-sans), sans-serif",
             fontSize: "12px",
             fontWeight: 500,
-            color: "var(--interactive-button-primary-background, #006BF4)",
+            color: "var(--interactive-button-primary-background, var(--foreground-brand, #006BF4))",
           }}
         >
           <Pencil className="w-3 h-3" />
@@ -85,7 +86,7 @@ export function PayUsingSelector({
           style={{
             background: "var(--background-secondary, #F5F5F4)",
             borderRadius: "12px",
-            border: "1px solid var(--border-default, #E8E8E7)",
+            border: "1px solid var(--border-default, var(--border-default, #E8E8E7))",
           }}
         >
           {content}
@@ -96,7 +97,7 @@ export function PayUsingSelector({
           style={{
             background: "var(--background-secondary, #F5F5F4)",
             borderRadius: "12px",
-            border: "1px solid var(--border-default, #E8E8E7)",
+            border: "1px solid var(--border-default, var(--border-default, #E8E8E7))",
           }}
         >
           {content}

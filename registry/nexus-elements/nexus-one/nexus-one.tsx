@@ -3,12 +3,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   type NexusOneProps,
-  type NexusOneMode,
   type SwapType,
   type DepositOpportunity,
 } from "./types";
-import { AmountInputUnified } from "./components/amount-input-unified";
-import { PayUsingSelector } from "./components/pay-using-selector";
+import { SwapIdleForm } from "./components/swap-idle-form";
+import { SendIdleForm } from "./components/send-idle-form";
+import { DepositIdleForm } from "./components/deposit-idle-form";
 import { RecipientInput } from "./components/recipient-input";
 import { StatusAlert } from "./components/status-alerts";
 import {
@@ -23,21 +23,16 @@ import { ReceiveAssetSelector } from "./components/receive-asset-selector";
 import { OpportunityList } from "./components/opportunity-list";
 import {
   ChevronDown,
-  X,
   ArrowLeft,
-  PlusCircleIcon,
-  PlusIcon,
+  Check,
 } from "lucide-react";
-import { Button } from "../ui/button";
 import { useNexus } from "../nexus/NexusProvider";
-import CardBG from "./card-bg.png";
 import { useTransactionSteps } from "../common/tx/useTransactionSteps";
 import { SWAP_EXPECTED_STEPS } from "../common/tx/steps";
 import TransactionProgress from "../swaps/components/transaction-progress";
 import {
   NEXUS_EVENTS,
   type SwapStepType,
-  TOKEN_CONTRACT_ADDRESSES,
   TOKEN_METADATA,
 } from "@avail-project/nexus-core";
 import { useWalletClient, usePublicClient } from "wagmi";
@@ -53,9 +48,11 @@ type SwapStep =
   | "idle" // main screen
   | "choose-swap-asset" // pick source token (exactIn) or dest token (exactOut)
   | "choose-receive-asset" // pick receive token (exactIn only)
+  | "enter-recipient" // pick recipient (send mode)
   | "preview-intent" // intent preview card
   | "progress" // transaction in flight
-  | "success"; // completed seamlessly
+  | "success" // completed seamlessly
+  | "history"; // transaction history
 
 // ---------------------------------------------------------------------------
 // NexusOne
@@ -78,11 +75,8 @@ export function NexusOne({
     supportedChainsAndTokens,
   } = useNexus();
 
-  // Mode tab
-  const availableModes = Array.isArray(config.mode) ? config.mode : [config.mode];
-  const initialMode = availableModes[0];
-  const [activeMode, setActiveMode] = useState<NexusOneMode>(initialMode);
-  const [prevMode, setPrevMode] = useState<NexusOneMode>(initialMode);
+  // Mode is a single value, not an array
+  const activeMode = config.mode;
 
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
@@ -94,7 +88,6 @@ export function NexusOne({
 
   // Swap-specific
   const [swapType, setSwapType] = useState<SwapType>("exactIn");
-  const [swapTypeOpen, setSwapTypeOpen] = useState(false);
   const [swapStep, setSwapStep] = useState<SwapStep>("idle");
   const [fromTokens, setFromTokens] = useState<SwapTokenOption[]>([]);
   const [toToken, setToToken] = useState<SwapTokenOption | undefined>(
@@ -119,6 +112,7 @@ export function NexusOne({
     undefined,
   );
   const [intentLoading, setIntentLoading] = useState(false);
+  const [quoteRefreshing, setQuoteRefreshing] = useState(false);
   const [intentData, setIntentData] = useState<SwapIntentData | null>(null);
   const [transferExplorerUrl, setTransferExplorerUrl] = useState<string | null>(
     null,
@@ -178,6 +172,71 @@ export function NexusOne({
     DepositOpportunity | undefined
   >(undefined);
 
+  const toTokenFromOpportunity = (opp: DepositOpportunity): SwapTokenOption => ({
+    chainId: opp.chainId,
+    contractAddress: opp.tokenAddress,
+    symbol: opp.tokenSymbol,
+    name: opp.tokenSymbol,
+    balance: "0",
+    balanceInFiat: "$0.00",
+    decimals: 18,
+    logo:
+      opp.tokenLogo ||
+      TOKEN_METADATA[opp.tokenSymbol as keyof typeof TOKEN_METADATA]?.icon,
+  });
+
+  useEffect(() => {
+    if (config.prefill?.amount) setAmount(config.prefill.amount);
+    if (config.prefill?.recipient) setRecipientAddress(config.prefill.recipient);
+  }, [config.prefill?.amount, config.prefill?.recipient]);
+
+  useEffect(() => {
+    if (activeMode !== "deposit") return;
+    if (selectedOpportunity) return;
+    if (config.opportunities?.length === 1) {
+      const [opp] = config.opportunities;
+      setSelectedOpportunity(opp);
+      setSwapType("exactOut");
+      setToToken(toTokenFromOpportunity(opp));
+    }
+  }, [activeMode, config.opportunities, selectedOpportunity]);
+
+  useEffect(() => {
+    if (swapStep !== "idle") return;
+
+    const hasEnoughForQuote =
+      activeMode === "swap"
+        ? Boolean(
+            amount &&
+              Number(amount) > 0 &&
+              toToken &&
+              (swapType === "exactOut" || fromTokens.length > 0),
+          )
+        : activeMode === "deposit"
+          ? Boolean(amount && Number(amount) > 0 && toToken)
+          : Boolean(amount && Number(amount) > 0 && toToken && recipientAddress);
+
+    if (!hasEnoughForQuote) {
+      setQuoteRefreshing(false);
+      return;
+    }
+
+    setQuoteRefreshing(true);
+    const timer = window.setTimeout(() => {
+      setQuoteRefreshing(false);
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    activeMode,
+    amount,
+    fromTokens,
+    recipientAddress,
+    swapStep,
+    swapType,
+    toToken,
+  ]);
+
   // Balance helpers
   const activeBalanceArray = swapBalance;
   const selectedToken = config.prefill?.token ?? "USDC";
@@ -200,9 +259,7 @@ export function NexusOne({
   // Handlers
   // ---------------------------------------------------------------------------
 
-  const handleModeChange = (mode: NexusOneMode) => {
-    setPrevMode(activeMode);
-    setActiveMode(mode);
+  const handleReset = () => {
     setAmount("");
     setRecipientAddress("");
     setTxError(null);
@@ -224,7 +281,7 @@ export function NexusOne({
       console.log("[DEBUG] Aborted: missing toToken or amount");
       return;
     }
-    const isExactOutFlow = activeMode === "transfer" || swapType === "exactOut";
+    const isExactOutFlow = activeMode === "send" || swapType === "exactOut";
 
     if (!isExactOutFlow && fromTokens.length === 0) {
       console.log("[DEBUG] Aborted: exactIn but no fromTokens");
@@ -234,9 +291,18 @@ export function NexusOne({
     setTxError(null);
 
     let resolvedRecipientAddress = recipientAddress;
-    if (activeMode === "transfer") {
+    if (activeMode === "send") {
       if (!recipientAddress) {
         setTxError("Recipient address is required");
+        return;
+      }
+
+      if (
+        connectedAddress &&
+        isAddress(recipientAddress) &&
+        recipientAddress.toLowerCase() === connectedAddress.toLowerCase()
+      ) {
+        setTxError("Recipient cannot be the connected wallet.");
         return;
       }
 
@@ -275,6 +341,17 @@ export function NexusOne({
           setIntentLoading(false);
           return;
         }
+      }
+
+      if (
+        connectedAddress &&
+        isAddress(resolvedRecipientAddress) &&
+        resolvedRecipientAddress.toLowerCase() === connectedAddress.toLowerCase()
+      ) {
+        setTxError("Recipient cannot be the connected wallet.");
+        setSwapStep("idle");
+        setIntentLoading(false);
+        return;
       }
     } else {
       console.log("[DEBUG] Proceeding to set preview-intent state...");
@@ -476,7 +553,7 @@ export function NexusOne({
           executeConfig = typeof selectedOpportunity.execute === "function"
               ? selectedOpportunity.execute(amountBigInt, connectedAddress as `0x${string}`)
               : selectedOpportunity.execute;
-        } else if (activeMode === "transfer") {
+        } else if (activeMode === "send") {
           if (isNative) {
             executeConfig = {
               to: resolvedRecipientAddress as `0x${string}`,
@@ -565,13 +642,14 @@ export function NexusOne({
   // Header title
   // ---------------------------------------------------------------------------
   const getTitle = () => {
+    if (swapStep === "history") return "Transaction History";
     // Asset selection screens share the exact same titles regardless of the active mode
     if (swapStep === "choose-swap-asset")
       return swapType === "exactIn"
         ? "Choose assets to Swap"
         : "Choose Asset to Receive";
     if (swapStep === "choose-receive-asset") {
-      return activeMode === "transfer"
+      return activeMode === "send"
         ? "Choose Asset to Send"
         : "Choose Asset to Receive";
     }
@@ -579,8 +657,8 @@ export function NexusOne({
     if (swapStep === "preview-intent") {
       return activeMode === "deposit"
         ? "Confirm Deposit"
-        : activeMode === "transfer"
-          ? "Confirm Transfer"
+        : activeMode === "send"
+          ? "Confirm Send"
           : "Confirm Swap";
     }
 
@@ -590,23 +668,31 @@ export function NexusOne({
     }
     if (activeMode === "deposit") {
       if (swapStep === "progress") return "Depositing…";
-      return "Deposit to"; // Chip handles the selected protocol logic inside header
+      return "Deposit";
     }
-    if (activeMode === "transfer") return "Send assets";
+    if (activeMode === "send") return "Send";
     return "Nexus One";
   };
 
   // Titles that should be center-aligned (main screens / confirm screens)
   // Left-aligned: choose-swap-asset, choose-receive-asset (sub-screens with subtitles)
   const isTitleCentered = () => {
-    if (swapStep === "choose-swap-asset" || swapStep === "choose-receive-asset")
+    if (swapStep === "choose-swap-asset" || swapStep === "choose-receive-asset" || swapStep === "history")
       return false;
     return true; // idle, preview-intent, progress, etc.
   };
 
   const canGoBack = swapStep !== "idle";
   const handleBack = () => {
+    if (swapStep === "history") {
+      setSwapStep("idle");
+      return;
+    }
     if (swapStep === "choose-receive-asset") {
+      setSwapStep("idle");
+      return;
+    }
+    if (swapStep === "enter-recipient") {
       setSwapStep("idle");
       return;
     }
@@ -623,228 +709,242 @@ export function NexusOne({
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
-  const getSlideDirection = () => {
-    const prevIdx = availableModes.indexOf(prevMode);
-    const currIdx = availableModes.indexOf(activeMode);
-    if (currIdx > prevIdx) return "slide-in-from-right-4";
-    if (currIdx < prevIdx) return "slide-in-from-left-4";
-    return "slide-in-from-bottom-4";
-  };
-  const slideClass = `animate-in fade-in ${getSlideDirection()} duration-500 space-y-3 w-full`;
+  const isSwapCtaDisabled =
+    !amount ||
+    Number(amount) <= 0 ||
+    (swapType === "exactIn" && (fromTokens.length === 0 || !toToken)) ||
+    (swapType === "exactOut" && !toToken) ||
+    quoteRefreshing;
+  const isDepositCtaDisabled =
+    !amount || Number(amount) <= 0 || !toToken || quoteRefreshing;
+  const isSendCtaDisabled =
+    !amount ||
+    Number(amount) <= 0 ||
+    !toToken ||
+    !recipientAddress ||
+    quoteRefreshing;
+  const quoteCtaLabel = (fallback: string) =>
+    quoteRefreshing
+      ? "Fetching quote..."
+      : !amount || Number(amount) <= 0
+        ? "Enter amount"
+        : fallback;
 
   return (
     <div
-      className="w-full max-w-sm relative overflow-hidden flex flex-col font-geist"
       style={{
+        backgroundColor: "#F9F9F8",
+        backgroundImage:
+          "url(https://app.paper.design/file-assets/01KPQEMGNQSQFDFT18A49JZ3RW/4CP45FEA7X8S1T82E2SXG5AQKV.png)",
+        backgroundPosition: "center",
+        backgroundPositionX: "center",
+        backgroundPositionY: "center",
+        backgroundSize: "cover",
         borderRadius: "16px",
-        background: "var(--widget-background, #F9F9F8)",
-        boxShadow: "0px 1px 12px 0px #5B5B5B0D",
-        border: "1px solid var(--border-default, #E8E8E7)",
+        boxShadow: "#5B5B5B0D 0px 1px 12px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        fontSize: "12px",
+        fontSynthesis: "none",
+        gap: "16px",
+        height: "fit-content",
+        lineHeight: "16px",
+        overflow: "clip",
+        position: "relative",
+        width: "450px",
       }}
     >
-      {/* card-bg.png blended texture */}
       <div
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none select-none"
-        style={{ zIndex: 0 }}
+        style={{
+          alignItems: "center",
+          boxSizing: "border-box",
+          display: "flex",
+          justifyContent: "space-between",
+          paddingLeft: "16px",
+          paddingRight: "16px",
+          paddingTop: "16px",
+          width: "450px",
+          position: "relative",
+          zIndex: 10,
+        }}
       >
-        <img
-          src={CardBG.src}
-          alt=""
-          className="w-full h-full object-cover"
-          style={{ opacity: 0.4, mixBlendMode: "multiply" }}
-        />
-      </div>
-
-      {/* All content above texture */}
-      <div className="relative z-10 flex flex-col flex-1">
-        {/* ------------------------------------------------------------------ */}
-        {/* Header */}
-        {/* ------------------------------------------------------------------ */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 relative">
-          {/* Left: Back button or placeholder */}
-          <div className="flex items-center gap-x-2 z-10">
-            {canGoBack ? (
-              <button
-                onClick={handleBack}
-                className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-black/5 transition-colors"
-                aria-label="Back"
-              >
-                <ArrowLeft className="w-4 h-4 text-gray-600" />
-              </button>
-            ) : (
-              <div></div>
-            )}
-
-            {/* Left-aligned title block (sub-screens only) */}
-            {!isTitleCentered() && (
-              <div className="flex flex-col items-start">
-                <h2
-                  style={{
-                    fontFamily: "var(--font-geist-sans), sans-serif",
-                    fontSize: "14px",
-                    color: "var(--foreground-primary, #161615)",
-                  }}
-                >
-                  {getTitle()}
-                </h2>
-                {activeMode === "swap" &&
-                  swapStep === "choose-swap-asset" &&
-                  swapType === "exactIn" && (
-                    <span
-                      style={{
-                        fontFamily: "var(--font-geist-sans), sans-serif",
-                        fontSize: "13px",
-                        color: "var(--foreground-muted, #848483)",
-                      }}
-                    >
-                      {fromTokens.length} asset(s) selected
-                    </span>
-                  )}
-              </div>
-            )}
+        <div className="flex items-center gap-x-2">
+          {canGoBack && (
+            <button
+              onClick={handleBack}
+              style={{
+                alignItems: "center",
+                backgroundColor: "transparent",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                padding: "4px",
+                marginRight: "4px",
+              }}
+              aria-label="Back"
+            >
+              <ArrowLeft className="w-5 h-5" style={{ color: "#161615" }} />
+            </button>
+          )}
+          <div
+            style={{
+              boxSizing: "border-box",
+              color: "#161615",
+              fontFamily: '"Delight-Medium", "Delight", system-ui, sans-serif',
+              fontSize: "15px",
+              fontWeight: 500,
+              letterSpacing: "0.02em",
+              lineHeight: "18px",
+            }}
+          >
+            {getTitle()}
           </div>
 
-          {/* Center-aligned title (main screens) */}
-          {isTitleCentered() && (
-            <div className="absolute inset-x-0 flex items-center justify-center gap-x-2 pointer-events-none">
-              <h2
-                className="pointer-events-auto"
+          {/* Sub-screen asset counts */}
+          {!isTitleCentered() &&
+            activeMode === "swap" &&
+            swapStep === "choose-swap-asset" &&
+            swapType === "exactIn" && (
+              <span
                 style={{
                   fontFamily: "var(--font-geist-sans), sans-serif",
-                  fontSize: "14px",
-                  color: "var(--foreground-primary, #161615)",
+                  fontSize: "13px",
+                  color: "var(--foreground-muted, #848483)",
+                  marginLeft: "8px",
                 }}
               >
-                {getTitle()}
-              </h2>
-              {/* Exact In / Exact Out dropdown appended next to Title */}
-              {activeMode === "swap" && swapStep === "idle" && (
-                <div className="relative pointer-events-auto">
-                  <button
-                    onClick={() => setSwapTypeOpen((v) => !v)}
-                    className="flex items-center gap-1 pl-2 pr-1.5 py-1 rounded-[4px] hover:bg-black/5 transition-colors"
-                    style={{
-                      fontFamily: "var(--font-geist-mono), sans-serif",
-                      fontSize: "10px",
-                      fontWeight: 500,
-                      color: "var(--foreground-muted, #848483)",
-                      background: "var(--background-tertiary, #F0F0EF)",
-                    }}
-                  >
-                    {swapType === "exactIn" ? "ExactIn" : "ExactOut"}
-                    <ChevronDown className="w-3 h-3" />
-                  </button>
-                  {swapTypeOpen && (
-                    <div
-                      className="absolute top-full left-0 mt-1 z-50 py-1 min-w-[120px]"
-                      style={{
-                        background: "#FFFFFF",
-                        borderRadius: "10px",
-                        border: "1px solid var(--border-default, #E8E8E7)",
-                        boxShadow: "0px 4px 16px 0px #00000014",
-                      }}
-                    >
-                      {(["exactIn", "exactOut"] as SwapType[]).map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => {
-                            setSwapType(t);
-                            setSwapTypeOpen(false);
-                            setFromTokens([]);
-                            setToToken(undefined);
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-black/5 transition-colors"
-                          style={{
-                            fontFamily: "var(--font-geist-sans), sans-serif",
-                            fontSize: "13px",
-                            fontWeight: swapType === t ? 600 : 400,
-                            color:
-                              swapType === t
-                                ? "var(--interactive-button-primary-background, #006BF4)"
-                                : "var(--foreground-primary, #161615)",
-                          }}
-                        >
-                          {t === "exactIn" ? "Exact In" : "Exact Out"}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* Protocol chip appended next to Title when Deposit Protocol selected */}
-              {activeMode === "deposit" &&
-                swapStep === "idle" &&
-                selectedOpportunity && (
-                  <div className="relative pointer-events-auto flex items-center">
-                    <button
-                      onClick={() => setSelectedOpportunity(undefined)}
-                      className="flex items-center gap-1 pl-2 pr-1.5 py-1 rounded-[4px] hover:bg-black/5 transition-colors"
-                      style={{
-                        fontFamily: "var(--font-geist-mono), sans-serif",
-                        fontSize: "10px",
-                        fontWeight: 500,
-                        color: "var(--foreground-muted, #848483)",
-                        background: "var(--background-tertiary, #F0F0EF)",
-                      }}
-                    >
-                      {selectedOpportunity.title ||
-                        selectedOpportunity.protocol}
-                      <ChevronDown className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
-            </div>
-          )}
+                {fromTokens.length} asset(s) selected
+              </span>
+            )}
 
-          {/* Close */}
-          <button
-            className="text-gray-400 hover:text-gray-600 p-1 rounded-md transition-colors z-10"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          {/* Protocol chip appended next to Title when Deposit Protocol selected */}
+          {isTitleCentered() &&
+            activeMode === "deposit" &&
+            swapStep === "idle" &&
+            selectedOpportunity && (
+              <div className="relative pointer-events-auto flex items-center ml-2">
+                <button
+                  onClick={() => setSelectedOpportunity(undefined)}
+                  className="flex items-center gap-1 pl-2 pr-1.5 py-1 rounded-[4px] hover:bg-black/5 transition-colors"
+                  style={{
+                    fontFamily: "var(--font-geist-mono), sans-serif",
+                    fontSize: "10px",
+                    fontWeight: 500,
+                    color: "var(--foreground-muted, #848483)",
+                    background: "var(--background-tertiary, #F0F0EF)",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {selectedOpportunity.title || selectedOpportunity.protocol}
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </div>
+            )}
         </div>
 
-        {/* ------------------------------------------------------------------ */}
-        {/* Mode tabs — only when multiple modes and on idle/main screens */}
-        {/* ------------------------------------------------------------------ */}
-        {Array.isArray(config.mode) &&
-          config.mode.length > 1 &&
-          swapStep === "idle" &&
-          !selectedOpportunity && (
-            <div className="px-4 pt-3">
-              <div
-                className="flex items-center p-1 rounded-xl w-full"
-                style={{ background: "var(--background-tertiary, #F0F0EF)" }}
-              >
-                {(config.mode as NexusOneMode[]).map((m: NexusOneMode) => (
-                  <button
-                    key={m}
-                    onClick={() => handleModeChange(m)}
-                    className={`flex-1 flex justify-center py-1.5 text-sm font-medium rounded-xl transition-all capitalize ${
-                      activeMode === m
-                        ? "bg-white shadow-sm text-gray-900"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                    style={{ fontFamily: "var(--font-geist-sans), sans-serif" }}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+        {/* Right side icons */}
+        <div
+          style={{
+            alignItems: "center",
+            boxSizing: "border-box",
+            display: "flex",
+            gap: "12px",
+          }}
+        >
+          <button
+            onClick={() => setSwapStep("history")}
+            style={{
+              alignItems: "center",
+              backgroundColor: "#FFFFFE",
+              borderRadius: "8px",
+              boxSizing: "border-box",
+              display: "flex",
+              flexShrink: 0,
+              height: "32px",
+              justifyContent: "center",
+              outline: "1px solid #E8E8E7",
+              width: "32px",
+              cursor: "pointer",
+              border: "none",
+              padding: 0,
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{ width: "16px", height: "16px", flexShrink: 0 }}
+            >
+              <path
+                d="M8 4V8L10.5 9.5"
+                stroke="#161615"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M14 8C14 11.314 11.314 14 8 14C4.686 14 2 11.314 2 8C2 4.686 4.686 2 8 2C10.196 2 12.117 3.179 13.163 4.936"
+                stroke="#161615"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+              <path
+                d="M13.5 2V5H10.5"
+                stroke="#161615"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <div
+            style={{
+              alignItems: "center",
+              backgroundColor: "#FFFFFE",
+              borderRadius: "8px",
+              boxSizing: "border-box",
+              display: "flex",
+              flexShrink: "0",
+              height: "32px",
+              justifyContent: "center",
+              outline: "1px solid #E8E8E7",
+              width: "32px",
+              cursor: "pointer",
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{ width: "16px", height: "16px", flexShrink: "0" }}
+            >
+              <path
+                d="M4 4L12 12M12 4L4 12"
+                stroke="#161615"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
 
         {/* ------------------------------------------------------------------ */}
         {/* Main content area */}
         {/* ------------------------------------------------------------------ */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3 space-y-3">
+        <div style={{ boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "16px", paddingInline: "16px", paddingBottom: "16px" }}>
           {/* =============================================================== */}
-          {/* SHARED SUB-SCREENS (Swap & Transfer)                             */}
+          {/* SHARED SUB-SCREENS (Swap & Send)                             */}
           {/* =============================================================== */}
           {(activeMode === "swap" ||
-            activeMode === "transfer" ||
+            activeMode === "send" ||
             activeMode === "deposit") &&
             swapStep !== "idle" && (
               <>
@@ -906,6 +1006,99 @@ export function NexusOne({
                       }}
                       onBack={() => setSwapStep("idle")}
                     />
+                  </div>
+                )}
+                {/* Panel: enter-recipient */}
+                {swapStep === "enter-recipient" && (
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-500 w-full flex flex-col gap-4">
+                    <div
+                      style={{
+                        backgroundColor: "#FFFFFE",
+                        border: "1px solid #E8E8E7",
+                        borderRadius: "12px",
+                        boxShadow: "#1616150A 0px 1px 2px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
+                        padding: "16px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: "#848483",
+                          fontFamily: '"Geist", system-ui, sans-serif',
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          letterSpacing: "0.08em",
+                          lineHeight: "20px",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Recipient
+                      </div>
+                      <RecipientInput
+                        value={recipientAddress}
+                        onChange={(next) => {
+                          setRecipientAddress(next);
+                          if (txError) setTxError(null);
+                        }}
+                        label="To"
+                        placeholder="ENS or address"
+                      />
+                      <div
+                        style={{
+                          color: "#848483",
+                          fontFamily: '"Geist", system-ui, sans-serif',
+                          fontSize: "13px",
+                          lineHeight: "18px",
+                        }}
+                      >
+                        Recipient must be different from the connected wallet.
+                      </div>
+                    </div>
+
+                    {txError && <StatusAlert type="error" message={txError} />}
+
+                    <button
+                      onClick={() => {
+                        const next = recipientAddress.trim();
+                        if (!next) {
+                          setTxError("Recipient address is required");
+                          return;
+                        }
+                        if (
+                          connectedAddress &&
+                          isAddress(next) &&
+                          next.toLowerCase() === connectedAddress.toLowerCase()
+                        ) {
+                          setTxError("Recipient cannot be the connected wallet.");
+                          return;
+                        }
+                        setRecipientAddress(next);
+                        setTxError(null);
+                        setSwapStep("idle");
+                      }}
+                      style={{
+                        alignItems: "center",
+                        backgroundColor: "#006BF4",
+                        border: "none",
+                        borderRadius: "8px",
+                        boxShadow: "#5555550D 0px 1px 4px",
+                        color: "#FFFFFE",
+                        cursor: "pointer",
+                        display: "flex",
+                        fontFamily: '"Geist", system-ui, sans-serif',
+                        fontSize: "16px",
+                        fontWeight: 500,
+                        gap: "8px",
+                        height: "48px",
+                        justifyContent: "center",
+                        width: "100%",
+                      }}
+                    >
+                      <Check style={{ height: "16px", width: "16px" }} />
+                      Done
+                    </button>
                   </div>
                 )}
                 {/* Panel: preview-intent */}
@@ -980,7 +1173,7 @@ export function NexusOne({
                               }))
                             : undefined
                         }
-                        isTransferMode={activeMode === "transfer"}
+                        isTransferMode={activeMode === "send"}
                         depositOpportunityName={
                           activeMode === "deposit"
                             ? selectedOpportunity?.title ||
@@ -990,19 +1183,29 @@ export function NexusOne({
                       />
                     </div>
                     {swapStep === "success" && (
-                      <Button
-                        onClick={() => handleModeChange(activeMode)}
-                        className="w-full mt-6"
+                      <button
+                        onClick={handleReset}
                         style={{
-                          background:
-                            "var(--interactive-button-primary-background, #006BF4)",
-                          color: "var(--foreground-inverse, #F0F0EF)",
+                          alignItems: "center",
+                          backgroundColor: "#006BF4",
+                          borderRadius: "8px",
+                          boxShadow: "#5555550D 0px 1px 4px",
+                          boxSizing: "border-box",
+                          display: "flex",
                           height: "48px",
-                          borderRadius: "12px",
+                          justifyContent: "center",
+                          width: "100%",
+                          marginTop: "16px",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#FFFFFE",
+                          fontFamily: '"Geist", system-ui, sans-serif',
+                          fontSize: "16px",
+                          fontWeight: 500,
                         }}
                       >
                         Done
-                      </Button>
+                      </button>
                     )}
                   </div>
                 )}
@@ -1010,559 +1213,298 @@ export function NexusOne({
             )}
 
           {/* =============================================================== */}
+          {/* HISTORY SCREEN (empty state)                                      */}
+          {/* =============================================================== */}
+          {swapStep === "history" && (
+            <div
+              style={{
+                alignItems: "center",
+                backgroundColor: "#FFFFFE",
+                borderColor: "#E8E8E7",
+                borderRadius: "14px",
+                borderStyle: "solid",
+                borderWidth: "1px",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                justifyContent: "center",
+                paddingBlock: "48px",
+                paddingInline: "24px",
+                width: "100%",
+              }}
+            >
+              {/* Clock icon */}
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "999px",
+                  backgroundColor: "#F4F4F3",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 4V8L10.5 9.5" stroke="#848483" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M14 8C14 11.314 11.314 14 8 14C4.686 14 2 11.314 2 8C2 4.686 4.686 2 8 2C10.196 2 12.117 3.179 13.163 4.936" stroke="#848483" strokeWidth="1.4" strokeLinecap="round" />
+                  <path d="M13.5 2V5H10.5" stroke="#848483" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div
+                style={{
+                  boxSizing: "border-box",
+                  color: "#161615",
+                  fontFamily: '"Geist", system-ui, sans-serif',
+                  fontSize: "16px",
+                  fontWeight: 500,
+                  lineHeight: "24px",
+                  textAlign: "center",
+                }}
+              >
+                No transactions yet
+              </div>
+              <div
+                style={{
+                  boxSizing: "border-box",
+                  color: "#848483",
+                  fontFamily: '"Geist", system-ui, sans-serif',
+                  fontSize: "14px",
+                  lineHeight: "20px",
+                  textAlign: "center",
+                  maxWidth: "280px",
+                }}
+              >
+                Your transaction history will appear here once you make your first swap, deposit, or send.
+              </div>
+            </div>
+          )}
+
+          {/* =============================================================== */}
           {/* SWAP IDLE SCREEN                                                 */}
           {/* =============================================================== */}
           {activeMode === "swap" && swapStep === "idle" && (
-            <div className={slideClass}>
-              {/* Amount input */}
-              <AmountInputUnified
+            <>
+              <SwapIdleForm
                 amount={amount}
-                onChange={setAmount}
-                maxAvailableAmount={
+                onAmountChange={(val, panel) => {
+                  setAmount(val);
+                  // Auto-switch swapType based on which panel the user types into
+                  if (panel === "send" && swapType !== "exactIn") {
+                    setSwapType("exactIn");
+                  } else if (panel === "receive" && swapType !== "exactOut") {
+                    setSwapType("exactOut");
+                  }
+                }}
+                fromTokens={fromTokens}
+                toToken={toToken}
+                totalBalance={
                   fromTokens.length > 0
                     ? String(fromTokens[0].balance).replace(/[^0-9.]/g, "")
-                    : maxBalance
+                    : maxBalance || "0"
                 }
-                unifiedBalances={swapBalance!}
-                usdValue={
-                  amount && usdValue > 0 ? usdValue.toFixed(2) : undefined
-                }
-                header={
-                  swapType === "exactIn" && fromTokens.length > 0
-                    ? (() => {
-                        const distinctTokens = Array.from(
-                          new Map(
-                            fromTokens.map((t) => [t.symbol, t]),
-                          ).values(),
-                        );
-                        return (
-                          <div
-                            onClick={() => setSwapStep("choose-swap-asset")}
-                            className="flex items-center gap-x-3 w-full justify-between cursor-pointer group"
-                          >
-                            <div className="flex items-center gap-x-3 pl-1">
-                              <div className="relative shrink-0 flex items-center -space-x-3">
-                                {distinctTokens.slice(0, 4).map((t, idx) =>
-                                  t.logo ? (
-                                    <img
-                                      key={`${t.contractAddress}-${t.chainId}`}
-                                      src={t.logo}
-                                      alt={t.symbol}
-                                      className="w-9 h-9 rounded-full object-cover relative"
-                                      style={{ zIndex: 4 - idx }}
-                                      onError={(e) => {
-                                        (
-                                          e.target as HTMLImageElement
-                                        ).style.display = "none";
-                                      }}
-                                    />
-                                  ) : (
-                                    <div
-                                      key={`${t.contractAddress}-${t.chainId}`}
-                                      className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600 relative"
-                                      style={{ zIndex: 4 - idx }}
-                                    >
-                                      {t.symbol.slice(0, 2)}
-                                    </div>
-                                  ),
-                                )}
-                              </div>
-                              <div className="flex flex-col items-start justify-center ml-1">
-                                <span
-                                  style={{
-                                    fontFamily:
-                                      "var(--font-geist-sans), sans-serif",
-                                    fontSize: "14px",
-                                    fontWeight: 500,
-                                    color: "var(--foreground-primary, #161615)",
-                                  }}
-                                >
-                                  Swapping
-                                </span>
-                                <span
-                                  style={{
-                                    fontFamily:
-                                      "var(--font-geist-sans), sans-serif",
-                                    fontSize: "13px",
-                                    color: "var(--foreground-muted, #848483)",
-                                  }}
-                                >
-                                  {distinctTokens[0].symbol}
-                                  {distinctTokens.length > 1
-                                    ? `, ${distinctTokens[1].symbol}`
-                                    : ""}
-                                  {distinctTokens.length > 2
-                                    ? ` +${distinctTokens.length - 2} more`
-                                    : ""}
-                                </span>
-                              </div>
-                            </div>
-                            <span
-                              style={{
-                                fontFamily:
-                                  "var(--font-geist-sans), sans-serif",
-                                fontSize: "12px",
-                                color: "var(--foreground-muted, #848483)",
-                              }}
-                              className="group-hover:text-gray-600 transition-colors pr-1"
-                            >
-                              Edit
-                            </span>
-                          </div>
-                        );
-                      })()
-                    : undefined
-                }
+                receiveBalance={toToken?.balance}
+                usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
+                swapType={swapType}
+                onOpenSourcePicker={() => setSwapStep("choose-swap-asset")}
+                onOpenDestPicker={() => setSwapStep("choose-receive-asset")}
+                onOpenRecipientPicker={undefined}
+                recipientAddress={recipientAddress}
               />
-
-              {/* Swap asset chip */}
-              {swapType === "exactIn" && fromTokens.length === 0 && (
-                <button
-                  onClick={() => setSwapStep("choose-swap-asset")}
-                  className="w-full flex items-center p-5 bg-white gap-y-3 min-h-[72px]"
-                  style={{
-                    borderRadius: "12px",
-                    border: "1px solid var(--border-default, #E8E8E7)",
-                    boxShadow: "0px 1px 12px 0px #5B5B5B0D",
-                    background: "#FFFFFF",
-                  }}
-                >
-                  <div className="flex items-center gap-x-3 w-full justify-between">
-                    <div className="flex gap-4 items-center">
-                      <div className="h-6 w-6 rounded-full flex items-center justify-center bg-[#006BF4]">
-                        <PlusIcon className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="flex flex-col gap-1 items-start">
-                        <span
-                          style={{
-                            fontFamily: "var(--font-geist-sans), sans-serif",
-                            fontSize: "14px",
-                            color: "var(--foreground-primary, #161615)",
-                          }}
-                        >
-                          Swap
-                        </span>
-                        <span
-                          style={{
-                            fontFamily: "var(--font-geist-sans), sans-serif",
-                            fontSize: "13px",
-                            color:
-                              "var(--widget-card-foreground-muted, #848483)",
-                          }}
-                        >
-                          Choose asset
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              )}
-
-              {/* Receive asset chip — shown in exactOut ALWAYS, or in exactIn IF fromTokens chosen */}
-              {(swapType === "exactOut" ||
-                (swapType === "exactIn" && fromTokens.length > 0)) && (
-                <button
-                  onClick={() => setSwapStep("choose-receive-asset")}
-                  className="w-full flex items-center p-5 bg-white gap-y-3 min-h-[72px]"
-                  style={{
-                    borderRadius: "12px",
-                    border: "1px solid var(--border-default, #E8E8E7)",
-                    boxShadow: "0px 1px 12px 0px #5B5B5B0D",
-                    background: "#FFFFFF",
-                  }}
-                >
-                  <div className="flex items-center gap-x-3 w-full justify-between">
-                    {toToken ? (
-                      <div className="flex items-center gap-x-3">
-                        <div className="relative shrink-0">
-                          {toToken.logo ? (
-                            <img
-                              src={toToken.logo}
-                              alt={toToken.symbol}
-                              className="w-9 h-9 rounded-full border border-gray-100 object-cover"
-                            />
-                          ) : (
-                            <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-xs font-bold text-green-600">
-                              {toToken.symbol.slice(0, 2)}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-start justify-center">
-                          <span
-                            style={{
-                              fontFamily: "var(--font-geist-sans), sans-serif",
-                              fontSize: "14px",
-                              fontWeight: 500,
-                              color: "var(--foreground-primary, #161615)",
-                            }}
-                          >
-                            {toToken.symbol}
-                          </span>
-                          {toToken.chainName && (
-                            <span
-                              style={{
-                                fontFamily:
-                                  "var(--font-geist-sans), sans-serif",
-                                fontSize: "12px",
-                                color: "var(--foreground-muted, #848483)",
-                              }}
-                            >
-                              {toToken.chainName}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex gap-4 items-center">
-                        <div className="h-6 w-6 rounded-full flex items-center justify-center bg-[#006BF4]">
-                          <PlusIcon className="h-4 w-4 text-white" />
-                        </div>
-                        <div className="flex flex-col gap-1 items-start">
-                          <span
-                            style={{
-                              fontFamily: "var(--font-geist-sans), sans-serif",
-                              fontSize: "14px",
-                              color: "var(--foreground-primary, #161615)",
-                            }}
-                          >
-                            Receive
-                          </span>
-                          <span
-                            style={{
-                              fontFamily: "var(--font-geist-sans), sans-serif",
-                              fontSize: "13px",
-                              color:
-                                "var(--widget-card-foreground-muted, #848483)",
-                            }}
-                          >
-                            Choose asset
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-x-1">
-                      {toToken && (
-                        <span
-                          style={{
-                            fontFamily: "var(--font-geist-sans), sans-serif",
-                            fontSize: "11px",
-                            color:
-                              "var(--interactive-button-primary-background, #006BF4)",
-                            fontWeight: 500,
-                          }}
-                        >
-                          Edit
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              )}
 
               {txError && <StatusAlert type="error" message={txError} />}
 
-              {/* Proceed to Swap */}
-              <Button
-                onClick={handleEnterPreview}
-                disabled={
-                  !amount ||
-                  Number(amount) <= 0 ||
-                  (swapType === "exactIn" &&
-                    (fromTokens.length === 0 || !toToken)) ||
-                  (swapType === "exactOut" && !toToken)
-                }
-                className="w-full font-medium text-white transition-opacity hover:opacity-90 active:opacity-100 text-[14px]"
-                style={{
-                  background:
-                    "var(--interactive-button-primary-background, #006BF4)",
-                  boxShadow: "0px 1px 4px 0px #5555550D",
-                  height: "48px",
-                  borderRadius: "12px",
-                }}
-              >
-                Proceed to Swap
-              </Button>
-            </div>
+              {/* CTA Button */}
+              <div style={{ boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+                <button
+                  onClick={handleEnterPreview}
+                  disabled={
+                    isSwapCtaDisabled
+                  }
+                  style={{
+                    alignItems: "center",
+                    backgroundColor: isSwapCtaDisabled ? "#F0F0EF" : "#006BF4",
+                    borderRadius: "8px",
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexShrink: 0,
+                    height: "48px",
+                    justifyContent: "center",
+                    paddingInline: "16px",
+                    border: "none",
+                    cursor: isSwapCtaDisabled ? "default" : "pointer",
+                    width: "100%",
+                  }}
+                >
+                  <div style={{ boxSizing: "border-box", color: isSwapCtaDisabled ? "#9E9E9C" : "#FFFFFE", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "16px", fontWeight: 500, lineHeight: "24px" }}>
+                    {quoteCtaLabel("Review swap")}
+                  </div>
+                </button>
+              </div>
+            </>
           )}
 
           {/* =============================================================== */}
           {/* DEPOSIT MODE LAYOUT                                              */}
           {/* =============================================================== */}
           {activeMode === "deposit" && swapStep === "idle" && (
-            <div className={slideClass}>
+            <>
               {/* Opportunity list */}
               {config.opportunities &&
                 config.opportunities.length > 0 &&
                 !selectedOpportunity && (
                   <>
-                    <p
-                      className="pb-1"
-                      style={{
-                        fontFamily: "var(--font-geist-sans), sans-serif",
-                        fontSize: "12px",
-                        color: "var(--foreground-muted, #848483)",
-                      }}
-                    >
-                      Choose a protocol to deposit into
-                    </p>
                     <OpportunityList
                       opportunities={config.opportunities}
+                      selectedId={undefined}
                       onSelect={(opp) => {
                         setSelectedOpportunity(opp);
                         setSwapType("exactOut");
-                        const coreChainAddrs =
-                          TOKEN_CONTRACT_ADDRESSES[
-                            opp.tokenSymbol as keyof typeof TOKEN_CONTRACT_ADDRESSES
-                          ];
-                        const fullTokenAddress =
-                          coreChainAddrs?.[
-                            opp.chainId as keyof typeof coreChainAddrs
-                          ];
-                        setToToken({
-                          chainId: opp.chainId,
-                          contractAddress: opp.tokenAddress,
-                          symbol: opp.tokenSymbol,
-                          name: opp.tokenSymbol,
-                          balance: "0",
-                          balanceInFiat: "$0.00",
-                          decimals: 18, // generic fallback
-                          logo:
-                            opp.tokenLogo ||
-                            TOKEN_METADATA[
-                              opp.tokenSymbol as keyof typeof TOKEN_METADATA
-                            ]?.icon,
-                        });
+                        setToToken(toTokenFromOpportunity(opp));
                       }}
                     />
+
+                    {/* Done button for opportunity selection */}
+                    <div style={{ boxSizing: "border-box", display: "flex", justifyContent: "center" }}>
+                      <button
+                        onClick={() => {
+                          if (selectedOpportunity) setSwapStep("idle");
+                        }}
+                        style={{
+                          alignItems: "center",
+                          backgroundColor: "#006BF4",
+                          borderRadius: "8px",
+                          boxShadow: "#5555550D 0px 1px 4px",
+                          boxSizing: "border-box",
+                          display: "flex",
+                          flex: 1,
+                          height: "48px",
+                          justifyContent: "center",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div style={{ boxSizing: "border-box", color: "#FFFFFE", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "15px", fontWeight: 500, lineHeight: "18px" }}>
+                          Done
+                        </div>
+                      </button>
+                    </div>
                   </>
                 )}
 
-              {/* After opportunity selected (or no opportunities configured) — show deposit form */}
+              {/* After opportunity selected — show deposit form */}
               {(!config.opportunities ||
                 config.opportunities.length === 0 ||
                 selectedOpportunity) && (
                 <>
-                  <AmountInputUnified
+                  <DepositIdleForm
                     amount={amount}
-                    onChange={setAmount}
-                    maxAvailableAmount={maxBalance}
-                    unifiedBalances={swapBalance!}
-                    usdValue={undefined}
-                    tokenIcon={
-                      <div className="relative shrink-0 flex items-center justify-center -mr-2 mb-1">
-                        <img
-                          src={
-                            toToken?.logo ||
-                            selectedOpportunity?.tokenLogo ||
-                            (selectedOpportunity?.tokenSymbol &&
-                              TOKEN_METADATA[
-                                selectedOpportunity.tokenSymbol as keyof typeof TOKEN_METADATA
-                              ]?.icon)
-                          }
-                          alt={selectedOpportunity?.tokenSymbol || "Token Logo"}
-                          className="w-10 h-10 rounded-full border border-gray-100 object-cover bg-white"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                          }}
-                        />
-                        {selectedOpportunity?.logo && (
-                          <img
-                            src={selectedOpportunity.logo}
-                            alt="Protocol Overlay"
-                            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white object-cover bg-white"
-                          />
-                        )}
-                      </div>
-                    }
-                  />
-
-                  <PayUsingSelector
-                    label="Paying with"
-                    sublabel={
+                    onAmountChange={setAmount}
+                    toToken={toToken}
+                    totalBalance={
                       fromTokens.length > 0
-                        ? `${fromTokens.length} source(s)`
-                        : "Auto-selected based on amount"
+                        ? String(fromTokens[0].balance).replace(/[^0-9.]/g, "")
+                        : maxBalance || "0"
                     }
-                    disabled={!amount || Number(amount) <= 0}
-                    hasSources={fromTokens.length > 0}
-                    onClick={() => {
-                      setSwapType("exactOut");
-                      setSwapStep("choose-swap-asset");
+                    usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
+                    fromTokens={fromTokens}
+                    onOpenSourcePicker={() => setSwapStep("choose-swap-asset")}
+                    onSetPercent={(pct) => {
+                       if (!maxBalance) return;
+                       const num = parseFloat(maxBalance) * (pct / 100);
+                       setAmount(num.toFixed(6).replace(/\.?0+$/, ""));
                     }}
                   />
 
                   {txError && <StatusAlert type="error" message={txError} />}
 
-                  <Button
-                    onClick={handleEnterPreview}
-                    disabled={!amount || Number(amount) <= 0 || !toToken}
-                    className="w-full font-medium text-white transition-opacity hover:opacity-90 active:opacity-100 text-[14px]"
-                    style={{
-                      background:
-                        "var(--interactive-button-primary-background, #006BF4)",
-                      boxShadow: "0px 1px 4px 0px #5555550D",
-                      height: "48px",
-                      borderRadius: "12px",
-                    }}
-                  >
-                    Proceed to Deposit
-                  </Button>
+                  <div style={{ boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+                    <button
+                      onClick={handleEnterPreview}
+                      disabled={
+                        isDepositCtaDisabled
+                      }
+                      style={{
+                        alignItems: "center",
+                        backgroundColor: isDepositCtaDisabled ? "#F0F0EF" : "#006BF4",
+                        borderRadius: "8px",
+                        boxSizing: "border-box",
+                        display: "flex",
+                        flexShrink: 0,
+                        height: "48px",
+                        justifyContent: "center",
+                        paddingInline: "16px",
+                        border: "none",
+                        cursor: isDepositCtaDisabled ? "default" : "pointer",
+                        width: "100%",
+                      }}
+                    >
+                      <div style={{ boxSizing: "border-box", color: isDepositCtaDisabled ? "#9E9E9C" : "#FFFFFE", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "16px", fontWeight: 500, lineHeight: "24px" }}>
+                        {quoteCtaLabel("Review deposit")}
+                      </div>
+                    </button>
+                  </div>
                 </>
               )}
-            </div>
+            </>
           )}
 
           {/* =============================================================== */}
-          {/* TRANSFER MODE — recipient first, then amount, then asset         */}
+          {/* SEND MODE — recipient first, then amount, then asset         */}
           {/* =============================================================== */}
-          {activeMode === "transfer" && swapStep === "idle" && (
-            <div className={slideClass}>
-              {/* 1. Recipient input */}
-              <div className="flex flex-col w-full mb-3">
-                <RecipientInput
-                  value={recipientAddress}
-                  onChange={setRecipientAddress}
-                  placeholder="ENS or Address"
-                  label="To"
-                />
-              </div>
-
-              {/* 2. Amount input + MAX + Balance */}
-              <AmountInputUnified
+          {activeMode === "send" && swapStep === "idle" && (
+            <>
+              <SendIdleForm
                 amount={amount}
-                onChange={setAmount}
-                maxAvailableAmount={maxBalance}
-                unifiedBalances={swapBalance!}
-                usdValue={
-                  amount && usdValue > 0 ? usdValue.toFixed(2) : undefined
+                onAmountChange={setAmount}
+                toToken={toToken}
+                totalBalance={
+                  fromTokens.length > 0
+                    ? String(fromTokens[0].balance).replace(/[^0-9.]/g, "")
+                    : maxBalance || "0"
                 }
-              />
-
-              {/* 3. Send (Choose Asset) -> styled like exact out relative */}
-              <button
-                onClick={() => setSwapStep("choose-receive-asset")}
-                className="w-full flex items-center p-5 bg-white gap-y-3 min-h-[72px]"
-                style={{
-                  borderRadius: "12px",
-                  border: "1px solid var(--border-default, #E8E8E7)",
-                  boxShadow: "0px 1px 12px 0px #5B5B5B0D",
-                  background: "#FFFFFF",
+                usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
+                onOpenAssetPicker={() => setSwapStep("choose-receive-asset")}
+                onOpenRecipientPicker={() => setSwapStep("enter-recipient")}
+                recipientAddress={recipientAddress || ""}
+                onMax={() => {
+                   if (!maxBalance) return;
+                   setAmount(maxBalance);
                 }}
-              >
-                <div className="flex items-center gap-x-3 w-full justify-between">
-                  {toToken ? (
-                    <div className="flex items-center gap-x-3">
-                      <div className="relative shrink-0">
-                        {toToken.logo ? (
-                          <img
-                            src={toToken.logo}
-                            alt={toToken.symbol}
-                            className="w-9 h-9 rounded-full border border-gray-100 object-cover"
-                          />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-xs font-bold text-green-600">
-                            {toToken.symbol.slice(0, 2)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-start justify-center">
-                        <span
-                          style={{
-                            fontFamily: "var(--font-geist-sans), sans-serif",
-                            fontSize: "14px",
-                            fontWeight: 500,
-                            color: "var(--foreground-primary, #161615)",
-                          }}
-                        >
-                          {toToken.symbol}
-                        </span>
-                        {toToken.chainName && (
-                          <span
-                            style={{
-                              fontFamily: "var(--font-geist-sans), sans-serif",
-                              fontSize: "12px",
-                              color: "var(--foreground-muted, #848483)",
-                            }}
-                          >
-                            {toToken.chainName}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-4 items-center">
-                      <div className="h-6 w-6 rounded-full flex items-center justify-center bg-[#006BF4]">
-                        <PlusIcon className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="flex flex-col gap-1 items-start">
-                        <span
-                          style={{
-                            fontFamily: "var(--font-geist-sans), sans-serif",
-                            fontSize: "14px",
-                            color: "var(--foreground-primary, #161615)",
-                          }}
-                        >
-                          Send
-                        </span>
-                        <span
-                          style={{
-                            fontFamily: "var(--font-geist-sans), sans-serif",
-                            fontSize: "13px",
-                            color:
-                              "var(--widget-card-foreground-muted, #848483)",
-                          }}
-                        >
-                          Choose asset
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-x-1">
-                    {toToken && (
-                      <span
-                        style={{
-                          fontFamily: "var(--font-geist-sans), sans-serif",
-                          fontSize: "11px",
-                          color:
-                            "var(--interactive-button-primary-background, #006BF4)",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Edit
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
+              />
 
               {txError && <StatusAlert type="error" message={txError} />}
 
-              <Button
-                onClick={handleEnterPreview}
-                disabled={
-                  !amount ||
-                  Number(amount) <= 0 ||
-                  !toToken ||
-                  !recipientAddress
-                }
-                className="w-full font-medium text-white transition-opacity hover:opacity-90 active:opacity-100 text-[14px]"
-                style={{
-                  background:
-                    "var(--interactive-button-primary-background, #006BF4)",
-                  boxShadow: "0px 1px 4px 0px #5555550D",
-                  height: "48px",
-                  borderRadius: "12px",
-                }}
-              >
-                Proceed to Send
-              </Button>
-            </div>
+              <div style={{ boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+                <button
+                  onClick={handleEnterPreview}
+                  disabled={
+                    isSendCtaDisabled
+                  }
+                  style={{
+                    alignItems: "center",
+                    backgroundColor: isSendCtaDisabled ? "#F0F0EF" : "#006BF4",
+                    borderRadius: "8px",
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexShrink: 0,
+                    height: "48px",
+                    justifyContent: "center",
+                    paddingInline: "16px",
+                    border: "none",
+                    cursor: isSendCtaDisabled ? "default" : "pointer",
+                    width: "100%",
+                  }}
+                >
+                  <div style={{ boxSizing: "border-box", color: isSendCtaDisabled ? "#9E9E9C" : "#FFFFFE", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "16px", fontWeight: 500, lineHeight: "24px" }}>
+                    {quoteCtaLabel("Review send")}
+                  </div>
+                </button>
+              </div>
+            </>
           )}
         </div>
-      </div>
     </div>
   );
 }

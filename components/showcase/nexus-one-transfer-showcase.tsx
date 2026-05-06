@@ -10,7 +10,7 @@ const NexusOneTransferShowcase = () => {
       connectLabel="Connect wallet to use Nexus One Transfer"
     >
       <NexusOne
-        config={{ mode: "transfer" }}
+        config={{ mode: "send" }}
         connectedAddress={"0x0000000000000000000000000000000000000000"}
       />
     </ShowcaseWrapper>

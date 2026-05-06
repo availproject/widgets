@@ -1,4 +1,5 @@
 "use client";
+import { nexusOneTheme } from "../theme";
 import React, { useMemo, useState } from "react";
 import { Search, X, ChevronLeft, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import {
@@ -81,7 +82,7 @@ const CheckboxBox = ({ selected }: { selected: boolean }) => {
           width: "20px",
           height: "20px",
           borderRadius: "4px",
-          background: "#006BF4",
+          background: "var(--foreground-brand, #006BF4)",
         }}
       >
         <div
@@ -89,7 +90,7 @@ const CheckboxBox = ({ selected }: { selected: boolean }) => {
             width: "8px",
             height: "8px",
             borderRadius: "2px",
-            background: "var(--white-0, #FFFFFE)",
+            background: "var(--white-0, var(--background-secondary, #FFFFFE))",
           }}
         />
       </div>
@@ -103,8 +104,8 @@ const CheckboxBox = ({ selected }: { selected: boolean }) => {
         height: "20px",
         borderRadius: "4px",
         borderWidth: "2px",
-        background: "var(--widget-card-background-primary, #FFFFFE)",
-        borderColor: "var(--widget-card-border, #E8E8E7)",
+        background: "var(--widget-card-background-primary, var(--background-secondary, #FFFFFE))",
+        borderColor: "var(--widget-card-border, var(--border-default, #E8E8E7))",
         borderStyle: "solid",
       }}
     />
@@ -239,7 +240,7 @@ export function SwapAssetSelector({
                 className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
                 style={{
                   background:
-                    "var(--interactive-button-primary-background, #006BF4)",
+                    "var(--interactive-button-primary-background, var(--foreground-brand, #006BF4))",
                 }}
               >
                 {token.symbol.slice(0, 2)}
@@ -262,7 +263,7 @@ export function SwapAssetSelector({
                 style={{
                   fontFamily: "var(--font-geist-sans), sans-serif",
                   fontSize: "12px",
-                  color: "var(--foreground-muted, #848483)",
+                  color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                 }}
               >
                 {token.chainName}
@@ -286,7 +287,7 @@ export function SwapAssetSelector({
               style={{
                 fontFamily: "var(--font-geist-sans), sans-serif",
                 fontSize: "12px",
-                color: "var(--foreground-muted, #848483)",
+                color: "var(--foreground-muted, var(--foreground-muted, #848483))",
               }}
             >
               {token.balance}
@@ -312,19 +313,19 @@ export function SwapAssetSelector({
             borderRadius: "12px",
             borderWidth: "1px",
             borderStyle: "solid",
-            borderColor: "var(--border-default, #E8E8E7)",
+            borderColor: "var(--border-default, var(--border-default, #E8E8E7))",
             paddingTop: "12px",
             paddingRight: "16px",
             paddingBottom: "12px",
             paddingLeft: "16px",
-            background: "var(--background-tertiary, #F0F0EF)",
+            background: "var(--background-tertiary, var(--background-tertiary, #F0F0EF))",
           }}
         >
           <Search
             style={{
               width: "20px",
               height: "20px",
-              color: "var(--foreground-muted, #848483)",
+              color: "var(--foreground-muted, var(--foreground-muted, #848483))",
             }}
             className="shrink-0"
           />
@@ -332,18 +333,18 @@ export function SwapAssetSelector({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search..."
-            className="flex-1 bg-transparent border-none outline-none placeholder:text-[#848483]"
+            className="flex-1 bg-transparent border-none outline-none placeholder:text-[var(--foreground-muted, #848483)]"
             style={{
               fontFamily: "Geist, var(--font-geist-sans), sans-serif",
               fontWeight: 400,
               fontSize: "14px",
               lineHeight: "18px",
-              color: "var(--widget-card-foreground-primary, #161615)",
+              color: "var(--widget-card-foreground-primary, var(--foreground-primary, #161615))",
             }}
           />
           {query && (
             <button onClick={() => setQuery("")} className="shrink-0">
-              <X className="w-4 h-4 text-[#848483]" />
+              <X className="w-4 h-4 text-[var(--foreground-muted, #848483)]" />
             </button>
           )}
         </div>
@@ -363,12 +364,12 @@ export function SwapAssetSelector({
         ) : (
           <div
             style={{
-              border: "1px solid var(--widget-card-border, #E8E8E7)",
+              border: "1px solid var(--widget-card-border, var(--border-default, #E8E8E7))",
               maxHeight: "288px",
               borderRadius: "8px",
               borderWidth: "1px",
               overflowY: "auto",
-              background: "var(--widget-card-background-primary, #FFFFFE)",
+              background: "var(--widget-card-background-primary, var(--background-secondary, #FFFFFE))",
             }}
             className="flex flex-col p-1 space-y-1"
           >
@@ -411,7 +412,7 @@ export function SwapAssetSelector({
                             className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
                             style={{
                               background:
-                                "var(--interactive-button-primary-background, #006BF4)",
+                                "var(--interactive-button-primary-background, var(--foreground-brand, #006BF4))",
                             }}
                           >
                             {group.symbol.slice(0, 2)}
@@ -433,7 +434,7 @@ export function SwapAssetSelector({
                           style={{
                             fontFamily: "var(--font-geist-sans), sans-serif",
                             fontSize: "12px",
-                            color: "var(--foreground-muted, #848483)",
+                            color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                           }}
                         >
                           {group.tokens.length} Chains
@@ -457,7 +458,7 @@ export function SwapAssetSelector({
                           style={{
                             fontFamily: "var(--font-geist-sans), sans-serif",
                             fontSize: "12px",
-                            color: "var(--foreground-muted, #848483)",
+                            color: "var(--foreground-muted, var(--foreground-muted, #848483))",
                           }}
                         >
                           {group.totalBal}
@@ -494,7 +495,7 @@ export function SwapAssetSelector({
             disabled={selectedTokens.length === 0}
             className="w-full font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50 active:opacity-100 flex items-center justify-center cursor-pointer"
             style={{
-              background: "#006BF4",
+              background: "var(--foreground-brand, #006BF4)",
               boxShadow: "0px 1px 4px 0px #5555550D",
               height: "48px",
               borderRadius: "12px",

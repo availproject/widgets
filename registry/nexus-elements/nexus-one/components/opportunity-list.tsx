@@ -1,35 +1,18 @@
 "use client";
 import React from "react";
-import { ChevronRight, TrendingUp } from "lucide-react";
 import { type DepositOpportunity } from "../types";
 
 interface OpportunityListProps {
   opportunities: DepositOpportunity[];
+  selectedId?: string;
   onSelect: (opportunity: DepositOpportunity) => void;
 }
 
-/** Chain display names for common IDs */
-const CHAIN_NAMES: Record<number, string> = {
-  1: "Ethereum",
-  137: "Polygon",
-  42161: "Arbitrum",
-  10: "Optimism",
-  8453: "Base",
-  43114: "Avalanche",
-  56: "BSC",
-};
-
-export function OpportunityList({ opportunities, onSelect }: OpportunityListProps) {
+export function OpportunityList({ opportunities, selectedId, onSelect }: OpportunityListProps) {
   if (!opportunities || opportunities.length === 0) {
     return (
-      <div className="w-full flex flex-col items-center justify-center py-8 gap-y-2">
-        <p
-          style={{
-            fontFamily: "var(--font-geist-sans), sans-serif",
-            fontSize: "14px",
-            color: "var(--foreground-muted, #848483)",
-          }}
-        >
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingBlock: "32px", gap: "8px" }}>
+        <p style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: "14px", color: "#848483" }}>
           No opportunities configured
         </p>
       </div>
@@ -37,77 +20,137 @@ export function OpportunityList({ opportunities, onSelect }: OpportunityListProp
   }
 
   return (
-    <div className="w-full flex flex-col gap-y-2">
-      {opportunities.map((opp) => (
-        <button
-          key={opp.id}
-          onClick={() => onSelect(opp)}
-          className="w-full flex items-center gap-x-3 px-4 py-3 text-left transition-all hover:shadow-sm group"
-          style={{
-            background: "#FFFFFF",
-            borderRadius: "12px",
-            border: "1px solid var(--border-default, #E8E8E7)",
-          }}
-        >
-          {/* Logo */}
-          <div className="shrink-0 relative">
-            {opp.logo ? (
-              <img
-                src={opp.logo}
-                alt={opp.title || opp.protocol}
-                className="w-10 h-10 rounded-full border border-gray-100 object-cover shadow-sm"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
-            ) : (
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{
-                  background: "var(--background-tertiary, #F0F0EF)",
-                }}
-              >
-                <TrendingUp className="w-5 h-5 text-blue-500" />
-              </div>
-            )}
-          </div>
+    <div
+      style={{
+        alignSelf: "stretch",
+        backgroundColor: "#FFFFFE",
+        borderColor: "#E8E8E7",
+        borderRadius: "14px",
+        borderStyle: "solid",
+        borderWidth: "1px",
+        boxShadow: "#5B5B5B0D 0px 1px 12px",
+        boxSizing: "border-box",
+        display: "flex",
+        flex: 1,
+        flexDirection: "column",
+        overflow: "clip",
+      }}
+    >
+      {opportunities.map((opp, idx) => {
+        const isSelected = selectedId === opp.id;
+        const isLast = idx === opportunities.length - 1;
 
-          {/* Info */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <span
-              className="truncate"
+        return (
+          <button
+            key={opp.id}
+            onClick={() => onSelect(opp)}
+            style={{
+              alignItems: "center",
+              backgroundColor: "#FFFFFE",
+              borderBottomColor: isLast ? "transparent" : "#F0F0EF",
+              borderBottomStyle: "solid",
+              borderBottomWidth: isLast ? "0px" : "1px",
+              borderTop: "none",
+              borderLeft: "none",
+              borderRight: "none",
+              boxSizing: "border-box",
+              display: "flex",
+              gap: "12px",
+              paddingBlock: "14px",
+              paddingInline: "16px",
+              cursor: "pointer",
+              width: "100%",
+              textAlign: "left",
+            }}
+          >
+            {/* Radio button */}
+            <div
               style={{
-                fontFamily: "var(--font-geist-sans), sans-serif",
-                fontWeight: 400,
-                fontSize: "15px",
-                color: "var(--foreground-primary, #161615)",
-                lineHeight: "20px"
+                backgroundColor: "#FFFFFE",
+                borderColor: isSelected ? "#006BF4" : "#E8E8E7",
+                borderRadius: "999px",
+                borderStyle: "solid",
+                borderWidth: isSelected ? "5px" : "1.5px",
+                boxSizing: "border-box",
+                flexShrink: 0,
+                height: "18px",
+                width: "18px",
+              }}
+            />
+
+            {/* Logo */}
+            <div
+              style={{
+                alignItems: "center",
+                borderRadius: "999px",
+                boxSizing: "border-box",
+                display: "flex",
+                flexShrink: 0,
+                height: "36px",
+                justifyContent: "center",
+                overflow: "clip",
+                width: "36px",
               }}
             >
-              {opp.title || opp.protocol}
-            </span>
-            {(opp.subtitle || opp.description) && (
-              <p
-                className="truncate"
-                style={{
-                  fontFamily: "var(--font-geist-sans), sans-serif",
-                  fontSize: "13px",
-                  color: "var(--foreground-muted, #848483)",
-                  lineHeight: "18px",
-                  marginTop: "1px"
-                }}
-              >
-                {opp.subtitle || opp.description}
-              </p>
-            )}
-          </div>
+              {opp.logo ? (
+                <img
+                  src={opp.logo}
+                  alt={opp.title || opp.protocol}
+                  style={{
+                    flexShrink: 0,
+                    height: "36px",
+                    width: "36px",
+                    objectFit: "cover",
+                  }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "999px",
+                    backgroundColor: "#F0F0EF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: '"Geist", system-ui, sans-serif',
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    color: "#848483",
+                  }}
+                >
+                  {(opp.title || opp.protocol).slice(0, 2)}
+                </div>
+              )}
+            </div>
 
-          {/* Chevron */}
-          <ChevronRight
-            className="w-4 h-4 shrink-0 text-gray-300 group-hover:text-gray-500 transition-colors"
-          />
-        </button>
-      ))}
+            {/* Info */}
+            <div
+              style={{
+                boxSizing: "border-box",
+                display: "flex",
+                flex: "1 1 0%",
+                flexDirection: "column",
+                gap: "3px",
+              }}
+            >
+              <div style={{ alignItems: "center", boxSizing: "border-box", display: "flex", gap: "6px" }}>
+                <div style={{ boxSizing: "border-box", color: "#161615", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "16px", fontWeight: 500, lineHeight: "18px" }}>
+                  {opp.title || opp.protocol}
+                </div>
+              </div>
+              {(opp.subtitle || opp.description) && (
+                <div style={{ boxSizing: "border-box", color: "#848483", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "14px", lineHeight: "16px" }}>
+                  {opp.subtitle || opp.description}
+                </div>
+              )}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
