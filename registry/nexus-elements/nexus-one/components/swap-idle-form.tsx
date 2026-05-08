@@ -9,7 +9,7 @@ interface SwapIdleFormProps {
   totalBalance: string;
   receiveBalance?: string;
   usdValue: string;
-  onOpenSourcePicker: () => void;
+  onOpenSourcePicker: (index?: number) => void;
   onOpenDestPicker: () => void;
   onOpenRecipientPicker?: () => void;
   recipientAddress?: string;
@@ -75,69 +75,57 @@ function PercentButtons({
         transition: "max-height 0.2s ease-out, opacity 0.2s ease-out, margin-top 0.15s ease-out",
       }}
     >
-      {[25, 50, 75].map((pct) => (
-        <button
-          key={pct}
-          onClick={() => onSelect(pct)}
-          style={{
-            alignItems: "center",
-            backgroundColor: "#F4F4F3",
-            borderRadius: "8px",
-            boxSizing: "border-box",
-            display: "flex",
-            flex: "1 1 0%",
-            justifyContent: "center",
-            paddingBlock: "5px",
-            paddingInline: "10px",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          <div
-            style={{
-              boxSizing: "border-box",
-              color: "#363635",
-              fontFamily: '"Geist", system-ui, sans-serif',
-              fontSize: "12px",
-              fontWeight: 500,
-              lineHeight: "20px",
-            }}
-          >
-            {pct}%
-          </div>
-        </button>
-      ))}
-      <button
-        onClick={() => onSelect(100)}
+      {[25, 50, 75, 100].map((pct) => {
+        const label = pct === 100 ? maxLabel : `${pct}%`;
+        return <PercentHoverButton key={pct} label={label} onClick={() => onSelect(pct)} />;
+      })}
+    </div>
+  );
+}
+
+function PercentHoverButton({ label, onClick }: { label: string; onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  const [active, setActive] = useState(false);
+
+  const isHighlighted = hover || active;
+
+  return (
+    <button
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setActive(false); }}
+      onMouseDown={() => setActive(true)}
+      onMouseUp={() => setActive(false)}
+      onClick={onClick}
+      style={{
+        alignItems: "center",
+        backgroundColor: isHighlighted ? "#E8F0FF" : "#F4F4F3",
+        borderRadius: "8px",
+        boxSizing: "border-box",
+        display: "flex",
+        flex: "1 1 0%",
+        justifyContent: "center",
+        paddingBlock: "5px",
+        paddingInline: "10px",
+        border: "none",
+        cursor: "pointer",
+        transition: "background-color 0.2s ease-out",
+      }}
+    >
+      <div
         style={{
-          alignItems: "center",
-          backgroundColor: "#E8F0FF",
-          borderRadius: "8px",
           boxSizing: "border-box",
-          display: "flex",
-          flex: "1 1 0%",
-          justifyContent: "center",
-          paddingBlock: "5px",
-          paddingInline: "10px",
-          border: "none",
-          cursor: "pointer",
+          color: isHighlighted ? "#006BF4" : "#363635",
+          fontFamily: '"Geist", system-ui, sans-serif',
+          fontSize: "12px",
+          fontWeight: 500,
+          lineHeight: "20px",
+          transition: "color 0.2s ease-out",
+          ...(label === "MAX" ? { letterSpacing: "0.02em" } : {})
         }}
       >
-        <div
-          style={{
-            boxSizing: "border-box",
-            color: "#006BF4",
-            fontFamily: '"Geist", system-ui, sans-serif',
-            fontSize: "12px",
-            fontWeight: 500,
-            letterSpacing: "0.02em",
-            lineHeight: "20px",
-          }}
-        >
-          {maxLabel}
-        </div>
-      </button>
-    </div>
+        {label}
+      </div>
+    </button>
   );
 }
 
@@ -232,6 +220,8 @@ export function SwapIdleForm({
 }: SwapIdleFormProps) {
   const [hoveredPanel, setHoveredPanel] = useState<"send" | "receive" | null>(null);
   const [focusedPanel, setFocusedPanel] = useState<"send" | "receive" | null>(null);
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [focusedRow, setFocusedRow] = useState<number | null>(null);
 
   const sanitizeInput = (raw: string): string => {
     let next = raw.replaceAll(/[^0-9.]/g, "");
@@ -341,7 +331,14 @@ export function SwapIdleForm({
         <div style={{ alignSelf: "stretch", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}>
           {(fromTokens.length > 0 ? fromTokens : [null]).map((token, index) => {
             return (
-              <div key={token ? `${token.contractAddress}-${token.chainId}` : "empty"} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div 
+                key={token ? `${token.contractAddress}-${token.chainId}` : "empty"} 
+                style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+                onMouseEnter={() => setHoveredRow(index)}
+                onMouseLeave={() => setHoveredRow(null)}
+                onFocusCapture={() => setFocusedRow(index)}
+                onBlurCapture={() => setFocusedRow(null)}
+              >
                 <div style={{ alignItems: "center", alignSelf: "stretch", boxSizing: "border-box", display: "flex", gap: "10px", justifyContent: "space-between", width: "100%" }}>
                   <input
                     type="text"
@@ -369,7 +366,7 @@ export function SwapIdleForm({
 
                   {/* Asset selector pill */}
                   <button
-                    onClick={onOpenSourcePicker}
+                    onClick={() => onOpenSourcePicker(index)}
                     style={{
                       alignItems: "center",
                       backgroundColor: "#FFFFFE",
@@ -425,7 +422,7 @@ export function SwapIdleForm({
 
                 {/* 25% 50% 75% MAX — hover transition */}
                 <PercentButtons
-                  visible={hoveredPanel === "send" || focusedPanel === "send"}
+                  visible={hoveredRow === index || focusedRow === index}
                   onSelect={(pct) => token ? handleSendPercentForToken(index, pct, token.balance) : handleSendPercent(pct)}
                 />
               </div>
@@ -437,7 +434,7 @@ export function SwapIdleForm({
         <AddAssetButton
           visible={fromTokens.length > 0}
           label="Add asset"
-          onClick={onOpenSourcePicker}
+          onClick={() => onOpenSourcePicker()}
         />
       </div>
 

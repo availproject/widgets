@@ -29,6 +29,7 @@ interface SwapAssetSelectorProps {
   onBack: () => void;
   isMulti?: boolean;
   selectedTokens?: SwapTokenOption[];
+  editingAssetIndex?: number | null;
   onToggle?: (token: SwapTokenOption) => void;
   onDone?: () => void;
 }
@@ -130,8 +131,25 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "stables", label: "Stables" },
   { key: "custom", label: "Custom" },
 ];
-const STABLE_SYMBOLS = new Set(["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "LUSD", "USDP", "GUSD", "sUSD", "cUSD", "USDbC"]);
-const NATIVE_SYMBOLS = new Set(["ETH", "MATIC", "POL", "BNB", "AVAX", "FTM", "CELO", "MOVR", "GLMR"]);
+const STABLE_SYMBOLS = new Set(["GHO", "USDC", "ctUSD", "USDT", "EURC", "PYUSD", "USDe", "DAI", "xDAI", "TUSD", "RLUSD", "AUSD", "USD0", "sUSD", "BUSD", "USDM", "USDS"]);
+
+function isNativeToken(t: SwapTokenOption) {
+  const sym = t.symbol.toUpperCase();
+  const chain = (t.chainName || "").toLowerCase();
+  
+  if (sym === "ETH") return !chain.includes("bnb") && !chain.includes("bsc") && !chain.includes("polygon") && !chain.includes("monad") && !chain.includes("hyperevm");
+  if (sym === "POL" || sym === "MATIC") return chain.includes("polygon");
+  if (sym === "HYPE") return chain.includes("hyperevm");
+  if (sym === "MON") return chain.includes("monad");
+  if (sym === "BNB") return chain.includes("bnb") || chain.includes("bsc");
+  if (sym === "AVAX") return chain.includes("avalanche");
+  if (sym === "FTM") return chain.includes("fantom");
+  if (sym === "CELO") return chain.includes("celo");
+  if (sym === "SUI") return chain.includes("sui");
+  if (sym === "APT") return chain.includes("aptos");
+  if (sym === "SOL") return chain.includes("solana");
+  return false;
+}
 
 const MIN_FIAT_THRESHOLD = 1;
 
@@ -143,12 +161,14 @@ export function SwapAssetSelector({
   onBack,
   isMulti,
   selectedTokens = [],
+  editingAssetIndex = null,
   onToggle,
   onDone,
 }: SwapAssetSelectorProps) {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [showBelowMin, setShowBelowMin] = useState(false);
+  const [showAllBelowMin, setShowAllBelowMin] = useState(false);
   const [showChainSelector, setShowChainSelector] = useState(false);
   const [chainQuery, setChainQuery] = useState("");
   const [selectedChainFilter, setSelectedChainFilter] = useState<number | null>(null);
@@ -176,8 +196,9 @@ export function SwapAssetSelector({
         );
       });
     }
-    if (activeTab === "native") result = result.filter((t) => NATIVE_SYMBOLS.has(t.symbol));
+    if (activeTab === "native") result = result.filter(isNativeToken);
     else if (activeTab === "stables") result = result.filter((t) => STABLE_SYMBOLS.has(t.symbol));
+    else if (activeTab === "custom") result = result.filter((t) => !isNativeToken(t) && !STABLE_SYMBOLS.has(t.symbol));
     return result;
   }, [allTokens, query, activeTab]);
 
@@ -244,24 +265,43 @@ export function SwapAssetSelector({
     // For now, let's adapt `SwapAssetSelector` to be strictly single select as requested.
   };
 
-  const isTokenSelected = (token: SwapTokenOption) =>
-    selectedTokens.some((st) => st.contractAddress === token.contractAddress && st.chainId === token.chainId);
+  const isTokenSelectedInOtherSlot = (token: SwapTokenOption) =>
+    selectedTokens.some((st, idx) => idx !== editingAssetIndex && st.contractAddress === token.contractAddress && st.chainId === token.chainId);
 
-  const isGroupUnifiedSelected = (group: typeof groupedFiltered[0]) => {
-    // Group is selected as unified if ALL its tokens are in selectedTokens? Or if a specific unified flag is set.
-    // If the parent manages unified, we might check if all tokens are selected.
-    const selectedCount = group.tokens.filter(isTokenSelected).length;
-    return selectedCount > 0 && selectedCount === group.tokens.length;
+  const isTokenSelectedInCurrentSlot = (token: SwapTokenOption) => {
+    if (editingAssetIndex === null) return false;
+    const st = selectedTokens[editingAssetIndex];
+    if (!st) return false;
+    return st.contractAddress === token.contractAddress && st.chainId === token.chainId;
+  };
+
+  const isGroupUnifiedSelectedInOtherSlot = (group: typeof groupedFiltered[0]) => {
+    const relevantTokens = selectedTokens.filter((_, idx) => idx !== editingAssetIndex);
+    return relevantTokens.some((st) => st.contractAddress === group.symbol + "-UNIFIED");
+  };
+
+  const isGroupUnifiedSelectedInCurrentSlot = (group: typeof groupedFiltered[0]) => {
+    if (editingAssetIndex === null) return false;
+    const st = selectedTokens[editingAssetIndex];
+    if (!st) return false;
+    return st.contractAddress === group.symbol + "-UNIFIED";
   };
   
-  const isAnyTokenInGroupSelected = (group: typeof groupedFiltered[0]) => {
-    return group.tokens.some(isTokenSelected);
+  const isAnyTokenInGroupSelectedInOtherSlot = (group: typeof groupedFiltered[0]) => {
+    const relevantTokens = selectedTokens.filter((_, idx) => idx !== editingAssetIndex);
+    return relevantTokens.some((st) =>
+      group.tokens.some((gt) => gt.contractAddress === st.contractAddress && gt.chainId === st.chainId) ||
+      st.contractAddress === group.symbol + "-UNIFIED"
+    );
   };
 
   /* ── Render a single-chain token row ── */
   const renderTokenRow = (token: SwapTokenOption, indent = false, isDisabledByUnified = false) => {
-    const selected = isTokenSelected(token);
-    const disabled = isDisabledByUnified || selected;
+    const selectedInOther = isTokenSelectedInOtherSlot(token);
+    if (selectedInOther) return null;
+
+    const selectedInCurrent = isTokenSelectedInCurrentSlot(token);
+    const disabled = isDisabledByUnified;
     // Also disable if it's already selected and we are adding a NEW asset, but we can rely on `selectedTokens` state from parent.
     // "once a token is selected, on next Add Asset that token should be disabled from selection"
     return (
@@ -280,7 +320,7 @@ export function SwapAssetSelector({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <RadioDot selected={selected} />
+          <RadioDot selected={selectedInCurrent} />
           {/* Token logo with chain badge */}
           <div style={{ position: "relative", flexShrink: 0, width: 40, height: 40 }}>
             {token.logo ? (
@@ -339,12 +379,22 @@ export function SwapAssetSelector({
 
   /* ── Render a unified (multi-chain) group row ── */
   const renderGroupRow = (group: typeof groupedFiltered[0]) => {
-    const isExpanded = expandedGroups.has(group.symbol);
-    const unifiedSelected = isGroupUnifiedSelected(group);
-    const anyIndividualSelected = isAnyTokenInGroupSelected(group) && !unifiedSelected;
-    // If individual is selected, unified is disabled
-    const isUnifiedDisabled = anyIndividualSelected;
+    const unifiedSelectedInOther = isGroupUnifiedSelectedInOtherSlot(group);
+    if (unifiedSelectedInOther) return null;
 
+    const visibleTokensCount = group.tokens.filter(t => !isTokenSelectedInOtherSlot(t)).length;
+    if (visibleTokensCount === 0) return null;
+
+    const isExpanded = expandedGroups.has(group.symbol);
+    const unifiedSelectedInCurrent = isGroupUnifiedSelectedInCurrentSlot(group);
+    const anyIndividualSelectedInOther = isAnyTokenInGroupSelectedInOtherSlot(group);
+    const anyIndividualSelectedInCurrent = group.tokens.some(isTokenSelectedInCurrentSlot);
+    
+    // If an individual token is selected in another slot, the unified option is completely unavailable.
+    // We will just hide the radio dot to prevent selection.
+    const isUnifiedHidden = anyIndividualSelectedInOther;
+    // If an individual token is selected in the current slot, unified isn't hidden but we don't show it as selected.
+    
     return (
       <div key={group.symbol} style={{ display: "flex", flexDirection: "column" }}>
         <button
@@ -359,11 +409,9 @@ export function SwapAssetSelector({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div onClick={(e) => {
-               e.stopPropagation();
-               if (!isUnifiedDisabled) {
-                 // Trigger unified selection: pass a special token option or an array.
-                 // For now, let's pass a synthetic token representing Unified.
+            {isUnifiedHidden ? <div style={{ width: 20, height: 20 }} /> : (
+              <div onClick={(e) => {
+                 e.stopPropagation();
                  onSelect({
                    ...group.tokens[0],
                    chainId: undefined,
@@ -372,10 +420,10 @@ export function SwapAssetSelector({
                    balanceInFiat: group.totalFiatStr,
                    contractAddress: group.tokens[0].symbol + "-UNIFIED"
                  });
-               }
-            }} style={{ opacity: isUnifiedDisabled ? 0.5 : 1, cursor: isUnifiedDisabled ? "not-allowed" : "pointer" }}>
-              <RadioDot selected={unifiedSelected} />
-            </div>
+              }} style={{ cursor: "pointer" }}>
+                <RadioDot selected={unifiedSelectedInCurrent} />
+              </div>
+            )}
             <div style={{ position: "relative", flexShrink: 0, width: 40, height: 40 }}>
               {group.logo ? (
                 <img
@@ -430,7 +478,7 @@ export function SwapAssetSelector({
           }}
         >
           <div style={{ overflow: "hidden" }}>
-            {group.tokens.map((token) => renderTokenRow(token, true, unifiedSelected))}
+            {group.tokens.map((token) => renderTokenRow(token, true, false))}
           </div>
         </div>
       </div>
@@ -607,6 +655,48 @@ export function SwapAssetSelector({
                       <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#6B6B6A", lineHeight: "18px" }}>
                         Tokens under $1 are unavailable for swaps — gas + protocol fees would exceed the value.
                       </span>
+                    </div>
+                    <div style={{ paddingBottom: "12px" }}>
+                      {belowMin.slice(0, showAllBelowMin ? belowMin.length : 3).map((token) => (
+                        <div key={`${token.contractAddress}-${token.chainId}`} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "10px 16px",
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <div style={{ position: "relative", width: 28, height: 28 }}>
+                              {token.logo ? (
+                                <img src={token.logo} alt={token.symbol} style={{ width: 28, height: 28, borderRadius: "999px", objectFit: "cover" }} />
+                              ) : (
+                                <div style={{ width: 28, height: 28, borderRadius: "999px", backgroundColor: "#006BF4", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700 }}>
+                                  {token.symbol.slice(0, 2)}
+                                </div>
+                              )}
+                              {token.chainLogo && (
+                                <img src={token.chainLogo} alt={token.chainName} style={{ position: "absolute", bottom: -2, right: -2, width: 12, height: 12, borderRadius: "999px", border: "1px solid #fff", objectFit: "cover" }} />
+                              )}
+                            </div>
+                            <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 14, color: "#161615" }}>
+                              {token.symbol} on {token.chainName}
+                            </span>
+                          </div>
+                          <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 14, color: "#161615", fontWeight: 500 }}>
+                            {token.balanceInFiat}
+                          </span>
+                        </div>
+                      ))}
+                      {belowMin.length > 3 && !showAllBelowMin && (
+                        <button
+                          onClick={() => setShowAllBelowMin(true)}
+                          style={{
+                            backgroundColor: "transparent", border: "none", cursor: "pointer",
+                            padding: "8px 16px", display: "flex", alignItems: "center", gap: 6,
+                            color: "#006BF4", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, fontWeight: 500,
+                          }}
+                        >
+                          Show {belowMin.length - 3} more
+                          <ChevronDown style={{ width: 14, height: 14, color: "#006BF4" }} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

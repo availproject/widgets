@@ -84,6 +84,7 @@ export function NexusOne({
   // Global form state
   const [amount, setAmount] = useState("");
   const [recipientAddress, setRecipientAddress] = useState("");
+  const [editingAssetIndex, setEditingAssetIndex] = useState<number | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
 
   // Swap-specific
@@ -926,6 +927,7 @@ export function NexusOne({
                         activeMode === "deposit" || swapType === "exactIn"
                       }
                       selectedTokens={fromTokens}
+                      editingAssetIndex={editingAssetIndex}
                       onToggle={(token) => {
                         setFromTokens((prev) => {
                           const exists = prev.find(
@@ -946,9 +948,24 @@ export function NexusOne({
                       }}
                       onDone={() => setSwapStep("idle")}
                       onSelect={(token) => {
-                        if (swapType === "exactIn") {
-                          setFromTokens((prev) => [...prev, { ...token, userAmount: prev.length === 0 ? amount : "" }]);
-                          setSwapStep("idle"); // "modal draws upwards from bottom" so we just go idle after selecting a single asset (since it's radio single-select)
+                        if (activeMode === "swap" && swapType === "exactIn") {
+                          setFromTokens((prev) => {
+                            const next = [...prev];
+                            const defaultAmount = next.length === 0 ? amount : "";
+                            const newToken = { ...token, userAmount: defaultAmount };
+                            if (editingAssetIndex !== null && editingAssetIndex < next.length) {
+                              // Preserve existing userAmount if replacing
+                              newToken.userAmount = next[editingAssetIndex].userAmount || defaultAmount;
+                              next[editingAssetIndex] = newToken;
+                            } else {
+                              next.push(newToken);
+                            }
+                            return next;
+                          });
+                          setSwapStep("idle");
+                        } else if (activeMode === "deposit" || activeMode === "send") {
+                          setFromTokens([{ ...token, userAmount: amount }]);
+                          setSwapStep("idle");
                         } else {
                           setToToken(token);
                           setSwapStep("idle");
@@ -1269,7 +1286,10 @@ export function NexusOne({
                 receiveBalance={toToken?.balance}
                 usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
                 swapType={swapType}
-                onOpenSourcePicker={() => setSwapStep("choose-swap-asset")}
+                onOpenSourcePicker={(index) => {
+                  setEditingAssetIndex(index ?? null);
+                  setSwapStep("choose-swap-asset");
+                }}
                 onOpenDestPicker={() => setSwapStep("choose-receive-asset")}
                 onOpenRecipientPicker={undefined}
                 recipientAddress={recipientAddress}
