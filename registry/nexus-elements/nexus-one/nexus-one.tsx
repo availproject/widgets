@@ -416,10 +416,22 @@ export function NexusOne({
             rawAmountStr = amount; // fallback for single-token case
           }
           
-          const cleanAmount = Number(rawAmountStr || "0");
+          let cleanAmount = Number(rawAmountStr || "0");
           if (cleanAmount <= 0) continue;
 
-          // Note: Here user entered token amount, not USD.
+          if (token.userAmountMode === "usd") {
+            const tokenBalance = Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+            const fiatBalance = Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+            const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
+            if (price > 0) {
+              cleanAmount = cleanAmount / price;
+            } else {
+              cleanAmount = 0;
+            }
+          }
+
+          if (cleanAmount <= 0) continue;
+
           const safeTokenAmountStr = cleanAmount.toFixed(
             Math.min(token.decimals || 18, 18),
           );

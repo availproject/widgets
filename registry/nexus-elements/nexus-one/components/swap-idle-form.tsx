@@ -24,10 +24,15 @@ const ChevronDownIcon = () => (
   </svg>
 );
 
-/** Plus icon for add asset button */
 const PlusIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
     <path d="M6 2V10M2 6H10" stroke="#006BF4" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+const ArrowUpDownIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+    <path d="M7 15L7 3M7 3L11 7M7 3L3 7M17 9L17 21M17 21L13 17M17 21L21 17" stroke="#848483" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
   </svg>
 );
 
@@ -228,7 +233,27 @@ export function SwapIdleForm({
     const parts = next.split(".");
     if (parts.length > 2) next = parts[0] + "." + parts.slice(1).join("");
     if (next === ".") next = "0.";
+    // Strip leading zeros
+    if (next.length > 1 && next.startsWith("0") && next[1] !== ".") {
+      next = next.replace(/^0+/, "");
+      if (next === "") next = "0";
+      if (next.startsWith(".")) next = "0" + next;
+    }
     return next;
+  };
+
+  const handleBlurAmount = (index: number) => {
+    if (!onUpdateTokens) return;
+    const token = fromTokens[index];
+    if (!token || !token.userAmount) return;
+    if (token.userAmount.includes(".")) {
+      const stripped = token.userAmount.replace(/0+$/, "").replace(/\.$/, "");
+      if (stripped !== token.userAmount) {
+        const next = [...fromTokens];
+        next[index] = { ...token, userAmount: stripped };
+        onUpdateTokens(next);
+      }
+    }
   };
 
   const handleSendInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -241,8 +266,27 @@ export function SwapIdleForm({
 
   const handleTokenAmountChange = (index: number, val: string) => {
     if (!onUpdateTokens) return;
+    const token = fromTokens[index];
+    if (!token) return;
+
+    let sanitized = sanitizeInput(val);
+
+    // Enforce max amount validation
+    const tokenBalance = Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+    const fiatBalance = Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+    const isUsdMode = token.userAmountMode === "usd";
+
+    const maxAmt = isUsdMode ? fiatBalance : tokenBalance;
+    if (Number(sanitized) > maxAmt) {
+      if (isUsdMode) {
+        sanitized = maxAmt.toFixed(2);
+      } else {
+        sanitized = String(token.balance).replace(/[^0-9.]/g, "");
+      }
+    }
+
     const next = [...fromTokens];
-    next[index] = { ...next[index], userAmount: sanitizeInput(val) };
+    next[index] = { ...token, userAmount: sanitized };
     onUpdateTokens(next);
     
     // Also update total amount for backwards compatibility if needed
@@ -250,15 +294,73 @@ export function SwapIdleForm({
     onAmountChange(total > 0 ? String(total) : "", "send");
   };
 
+  const handleToggleMode = (index: number) => {
+    if (!onUpdateTokens) return;
+    const token = fromTokens[index];
+    if (!token) return;
+
+    const tokenBalance = Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+    const fiatBalance = Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+    const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
+    if (price === 0) return;
+
+    const currentVal = Number(token.userAmount || 0);
+    const next = [...fromTokens];
+    if (token.userAmountMode === "usd") {
+      const newTokenVal = currentVal > 0 ? (currentVal / price).toString() : "";
+      next[index] = { ...token, userAmountMode: "token", userAmount: newTokenVal ? newTokenVal.substring(0, 10) : "" };
+    } else {
+      const newUsdVal = currentVal > 0 ? (currentVal * price).toFixed(2) : "";
+      next[index] = { ...token, userAmountMode: "usd", userAmount: newUsdVal };
+    }
+    onUpdateTokens(next);
+  };
+
+  const totalUsd = React.useMemo(() => {
+    return fromTokens.reduce((sum, token) => {
+      if (!token || !token.userAmount) return sum;
+      const tokenBalance = Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+      const fiatBalance = Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+      const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
+      const val = Number(token.userAmount);
+      if (token.userAmountMode === "usd") {
+        return sum + val;
+      }
+      return sum + (val * price);
+    }, 0);
+  }, [fromTokens]);
+
   const isExactIn = swapType === "exactIn";
 
-  const handleSendPercentForToken = (index: number, pct: number, balanceStr: string | undefined) => {
-    if (!balanceStr || !onUpdateTokens) return;
-    const bal = parseFloat(balanceStr.replace(/[^0-9.]/g, ""));
-    if (isNaN(bal)) return;
-    const val = bal * (pct / 100);
+  const handleSendPercentForToken = (index: number, pct: number, token: SwapTokenOption) => {
+    if (!token.balance || !onUpdateTokens) return;
+    let finalVal = "";
+    const isUsdMode = token.userAmountMode === "usd";
+
+    if (isUsdMode) {
+      const fiatBalStr = String(token.balanceInFiat || "0");
+      if (pct === 100) {
+        finalVal = fiatBalStr.replace(/[^0-9.]/g, "");
+      } else {
+        const bal = parseFloat(fiatBalStr.replace(/[^0-9.]/g, ""));
+        if (isNaN(bal)) return;
+        const val = bal * (pct / 100);
+        finalVal = val.toFixed(2);
+      }
+    } else {
+      const balanceStr = String(token.balance || "0");
+      if (pct === 100) {
+        finalVal = balanceStr.replace(/[^0-9.]/g, "");
+      } else {
+        const bal = parseFloat(balanceStr.replace(/[^0-9.]/g, ""));
+        if (isNaN(bal)) return;
+        const val = bal * (pct / 100);
+        finalVal = val.toFixed(18).replace(/\.?0+$/, "");
+      }
+    }
+
     const next = [...fromTokens];
-    next[index] = { ...next[index], userAmount: val.toFixed(6).replace(/\.?0+$/, "") };
+    next[index] = { ...next[index], userAmount: finalVal, userAmountMode: isUsdMode ? "usd" : "token" };
     onUpdateTokens(next);
   };
 
@@ -270,7 +372,7 @@ export function SwapIdleForm({
     // If there's only one token, or no tokens, update the main amount
     if (fromTokens.length <= 1) {
       if (fromTokens.length === 1 && onUpdateTokens) {
-        handleSendPercentForToken(0, pct, fromTokens[0].balance);
+        handleSendPercentForToken(0, pct, fromTokens[0]);
       }
       onAmountChange(val.toFixed(6).replace(/\.?0+$/, ""), "send");
     }
@@ -319,7 +421,7 @@ export function SwapIdleForm({
           </div>
           <div style={{ alignItems: "center", boxSizing: "border-box", display: "flex", gap: "4px" }}>
             <div style={{ boxSizing: "border-box", color: "#848483", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "14px", lineHeight: "20px" }}>
-              Total Balance:
+              Total of All chains:
             </div>
             <div style={{ boxSizing: "border-box", color: "#848483", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "14px", lineHeight: "20px" }}>
               ${totalBalance}
@@ -340,74 +442,142 @@ export function SwapIdleForm({
                 onBlurCapture={() => setFocusedRow(null)}
               >
                 <div style={{ alignItems: "center", alignSelf: "stretch", boxSizing: "border-box", display: "flex", gap: "10px", justifyContent: "space-between", width: "100%" }}>
-                  <input
-                    type="text"
-                    placeholder="0"
-                    value={isExactIn ? (token ? (token.userAmount || "") : amount) : ""}
-                    onChange={(e) => {
-                      if (token) handleTokenAmountChange(index, e.target.value);
-                      else handleSendInput(e);
-                    }}
-                    style={{
-                      boxSizing: "border-box",
-                      color: (isExactIn && (token ? token.userAmount : amount)) ? "#161615" : "#9E9E9C",
-                      fontFamily: '"Delight-Medium", "Delight", system-ui, sans-serif',
-                      fontSize: "36px",
-                      fontWeight: 500,
-                      lineHeight: "44px",
-                      background: "transparent",
-                      border: "none",
-                      outline: "none",
-                      padding: 0,
-                      width: "100%",
-                      minWidth: 0,
-                    }}
-                  />
-
-                  {/* Asset selector pill */}
-                  <button
-                    onClick={() => onOpenSourcePicker(index)}
-                    style={{
-                      alignItems: "center",
-                      backgroundColor: "#FFFFFE",
-                      borderColor: token ? "#E8E8E7" : "#C8C8C7",
-                      borderRadius: "999px",
-                      borderStyle: token ? "solid" : "dashed",
-                      borderWidth: "1px",
-                      boxShadow: token ? "#1616150A 0px 1px 2px" : "none",
-                      boxSizing: "border-box",
-                      display: "flex",
-                      gap: "8px",
-                      paddingBottom: "5px",
-                      paddingLeft: token ? "4px" : "8px",
-                      paddingRight: "10px",
-                      paddingTop: "5px",
-                      cursor: "pointer",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {token ? (
-                      <div style={{ boxSizing: "border-box", flexShrink: 0, height: "26px", position: "relative" as const, width: "26px" }}>
-                        <img src={token.logo} alt={token.symbol} style={{ borderRadius: "999px", height: "26px", width: "26px", objectFit: "cover" as const }} />
-                        {token.chainLogo && (
-                          <img src={token.chainLogo} alt={token.chainName} style={{ borderRadius: "999px", bottom: -2, height: "12px", outline: "1px solid #FFFFFE", position: "absolute" as const, right: -2, width: "12px", objectFit: "cover" as const }} />
-                        )}
-                      </div>
-                    ) : (
-                      <div style={{ borderColor: "#C8C8C7", borderRadius: "999px", borderStyle: "dashed", borderWidth: "1.5px", boxSizing: "border-box", flexShrink: 0, height: "22px", width: "22px" }} />
+                  <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+                    {token?.userAmountMode === "usd" && (
+                      <span style={{
+                        color: (isExactIn && (token ? token.userAmount : amount)) ? "#161615" : "#9E9E9C",
+                        fontFamily: '"Delight-Medium", "Delight", system-ui, sans-serif',
+                        fontSize: "36px",
+                        fontWeight: 500,
+                        lineHeight: "44px",
+                        marginRight: "4px"
+                      }}>
+                        $
+                      </span>
                     )}
-                    <div style={{ boxSizing: "border-box", color: "#161615", fontFamily: '"Geist", system-ui, sans-serif', fontSize: token ? "14px" : "16px", fontWeight: 500, lineHeight: token ? "18px" : "24px" }}>
-                      {token ? token.symbol : "Assets"}
-                    </div>
-                    <ChevronDownIcon />
-                  </button>
+                    <input
+                      type="text"
+                      placeholder="0"
+                      value={isExactIn ? (token ? (token.userAmount || "") : amount) : ""}
+                      onChange={(e) => {
+                        if (token) handleTokenAmountChange(index, e.target.value);
+                        else handleSendInput(e);
+                      }}
+                      onBlur={(e) => {
+                        if (token) handleBlurAmount(index);
+                      }}
+                      style={{
+                        boxSizing: "border-box",
+                        color: (isExactIn && (token ? token.userAmount : amount)) ? "#161615" : "#9E9E9C",
+                        fontFamily: '"Delight-Medium", "Delight", system-ui, sans-serif',
+                        fontSize: "36px",
+                        fontWeight: 500,
+                        lineHeight: "44px",
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        padding: 0,
+                        width: "100%",
+                        minWidth: 0,
+                      }}
+                    />
+                  </div>
+
+                  {/* Asset selector pill + cross button */}
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <button
+                      onClick={() => onOpenSourcePicker(index)}
+                      style={{
+                        alignItems: "center",
+                        backgroundColor: "#FFFFFE",
+                        borderColor: token ? "#E8E8E7" : "#C8C8C7",
+                        borderRadius: "999px",
+                        borderStyle: token ? "solid" : "dashed",
+                        borderWidth: "1px",
+                        boxShadow: token ? "#1616150A 0px 1px 2px" : "none",
+                        boxSizing: "border-box",
+                        display: "flex",
+                        gap: "8px",
+                        paddingBottom: "5px",
+                        paddingLeft: token ? "4px" : "8px",
+                        paddingRight: "10px",
+                        paddingTop: "5px",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {token ? (
+                        <div style={{ boxSizing: "border-box", flexShrink: 0, height: "26px", position: "relative" as const, width: "26px" }}>
+                          <img src={token.logo} alt={token.symbol} style={{ borderRadius: "999px", height: "26px", width: "26px", objectFit: "cover" as const }} />
+                          {token.chainLogo && (
+                            <img src={token.chainLogo} alt={token.chainName} style={{ borderRadius: "999px", bottom: -2, height: "12px", outline: "1px solid #FFFFFE", position: "absolute" as const, right: -2, width: "12px", objectFit: "cover" as const }} />
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ borderColor: "#C8C8C7", borderRadius: "999px", borderStyle: "dashed", borderWidth: "1.5px", boxSizing: "border-box", flexShrink: 0, height: "22px", width: "22px" }} />
+                      )}
+                      <div style={{ boxSizing: "border-box", color: "#161615", fontFamily: '"Geist", system-ui, sans-serif', fontSize: token ? "14px" : "16px", fontWeight: 500, lineHeight: token ? "18px" : "24px" }}>
+                        {token ? token.symbol : "Assets"}
+                      </div>
+                      <ChevronDownIcon />
+                    </button>
+                    {token && (
+                      <button
+                        onClick={() => {
+                          if (!onUpdateTokens) return;
+                          const next = [...fromTokens];
+                          next.splice(index, 1);
+                          onUpdateTokens(next);
+                          if (next.length === 0) onAmountChange("", "send");
+                        }}
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "999px",
+                          backgroundColor: "#F0F0EF",
+                          border: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          flexShrink: 0
+                        }}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#848483" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"></line>
+                          <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* USD value + balance row */}
                 <div style={{ alignItems: "center", alignSelf: "stretch", boxSizing: "border-box", display: "flex", justifyContent: "space-between", width: "100%" }}>
-                  <div style={{ boxSizing: "border-box", color: "#848483", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "14px", lineHeight: "20px" }}>
-                    ≈ ${token ? (Number(token.userAmount || 0) * (Number(token.balanceInFiat?.replace(/[^0-9.]/g, "")) / Number(token.balance?.replace(/[^0-9.]/g, ""))) || 0).toFixed(2) : (usdValue || "0.00")}
-                  </div>
+                  {(() => {
+                    if (!token) return (
+                      <div style={{ boxSizing: "border-box", color: "#848483", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "14px", lineHeight: "20px" }}>
+                        ≈ ${usdValue || "0.00"}
+                      </div>
+                    );
+                    const tokenBalance = Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+                    const fiatBalance = Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+                    const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
+                    const isUsdMode = token.userAmountMode === "usd";
+                    const userAmtNum = Number(token.userAmount || 0);
+                    const approxValue = isUsdMode ? (price > 0 ? (userAmtNum / price).toFixed(6) : "0.000000") : (userAmtNum * price).toFixed(2);
+                    const approxPrefix = isUsdMode ? "≈" : "≈ $";
+                    const approxSuffix = isUsdMode ? ` ${token.symbol}` : "";
+
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", cursor: price > 0 ? "pointer" : "default" }} onClick={() => handleToggleMode(index)}>
+                        <div style={{ boxSizing: "border-box", color: "#848483", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "14px", lineHeight: "20px" }}>
+                          {approxPrefix}{approxValue}{approxSuffix}
+                        </div>
+                        {price > 0 && <ArrowUpDownIcon />}
+                      </div>
+                    );
+                  })()}
                   {token && (
                     <div style={{ alignItems: "center", boxSizing: "border-box", display: "flex", gap: "5px" }}>
                       <div style={{ boxSizing: "border-box", color: "#848483", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "14px", fontVariantNumeric: "tabular-nums", lineHeight: "20px" }}>
@@ -423,7 +593,7 @@ export function SwapIdleForm({
                 {/* 25% 50% 75% MAX — hover transition */}
                 <PercentButtons
                   visible={hoveredRow === index || focusedRow === index}
-                  onSelect={(pct) => token ? handleSendPercentForToken(index, pct, token.balance) : handleSendPercent(pct)}
+                  onSelect={(pct) => token ? handleSendPercentForToken(index, pct, token) : handleSendPercent(pct)}
                 />
               </div>
             );
@@ -436,6 +606,14 @@ export function SwapIdleForm({
           label="Add asset"
           onClick={() => onOpenSourcePicker()}
         />
+
+        {/* Total USD */}
+        {totalUsd > 0 && (
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", paddingTop: "8px", alignSelf: "flex-start", justifyContent: "flex-start" }}>
+            <span style={{ fontSize: "18px", fontWeight: 600, color: "#161615", fontFamily: '"Geist", system-ui, sans-serif' }}>≈ ${totalUsd.toFixed(2)}</span>
+            <span style={{ fontSize: "12px", color: "#848483", fontWeight: 600, fontFamily: '"Geist", system-ui, sans-serif', letterSpacing: "0.05em" }}>TOTAL</span>
+          </div>
+        )}
       </div>
 
       {/* ─── RECEIVE PANEL ─── */}

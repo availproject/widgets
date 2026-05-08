@@ -19,6 +19,7 @@ export interface SwapTokenOption {
   chainName?: string;
   chainLogo?: string;
   userAmount?: string;
+  userAmountMode?: "token" | "usd";
 }
 
 interface SwapAssetSelectorProps {
@@ -216,10 +217,20 @@ export function SwapAssetSelector({
 
   /* Group by symbol */
   const groupedFiltered = useMemo(() => {
+    const getUnifiedSymbol = (symbol: string) => {
+      const s = symbol.toUpperCase();
+      if (s.includes("USDC") || s === "USDM") return "USDC";
+      if (s.includes("USDT")) return "USDT";
+      if (s.includes("ETH")) return "ETH";
+      if (s.includes("BTC")) return "BTC";
+      return symbol;
+    };
+
     const groups: Record<string, SwapTokenOption[]> = {};
     for (const token of aboveMin) {
-      if (!groups[token.symbol]) groups[token.symbol] = [];
-      groups[token.symbol].push(token);
+      const unifiedSym = getUnifiedSymbol(token.symbol);
+      if (!groups[unifiedSym]) groups[unifiedSym] = [];
+      groups[unifiedSym].push(token);
     }
     return Object.values(groups)
       .map((group) => {
@@ -229,12 +240,13 @@ export function SwapAssetSelector({
           totalFiatVal += Number(t.balanceInFiat.replace(/[^0-9.]/g, "") || 0);
           totalBalVal += Number(t.balance.replace(/[^0-9.]/g, "") || 0);
         }
+        const unifiedSym = getUnifiedSymbol(group[0].symbol);
         return {
-          symbol: group[0].symbol,
+          symbol: unifiedSym,
           logo: group[0].logo,
           totalFiat: totalFiatVal,
           totalFiatStr: `$${totalFiatVal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`,
-          totalBalStr: `${totalBalVal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${group[0].symbol}`,
+          totalBalStr: `${totalBalVal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${unifiedSym}`,
           tokens: group,
         };
       })
@@ -392,7 +404,8 @@ export function SwapAssetSelector({
     
     // If an individual token is selected in another slot, the unified option is completely unavailable.
     // We will just hide the radio dot to prevent selection.
-    const isUnifiedHidden = anyIndividualSelectedInOther;
+    // Also, if the total fiat value of all unified tokens is less than $1, hide it.
+    const isUnifiedHidden = anyIndividualSelectedInOther || group.totalFiat < 1;
     // If an individual token is selected in the current slot, unified isn't hidden but we don't show it as selected.
     
     return (
@@ -416,6 +429,7 @@ export function SwapAssetSelector({
                    ...group.tokens[0],
                    chainId: undefined,
                    chainName: "All Chains",
+                   chainLogo: "/nexus-one/all-chains.png",
                    balance: group.totalBalStr.split(" ")[0],
                    balanceInFiat: group.totalFiatStr,
                    contractAddress: group.tokens[0].symbol + "-UNIFIED"
@@ -547,16 +561,15 @@ export function SwapAssetSelector({
             }}
           >
             {selectedChainFilter === null ? (
-               <div style={{ display: "flex", alignItems: "center", position: "relative", width: 32, height: 18 }}>
-                 {/* Dummy multi-chain icon */}
-                 <div style={{ position: "absolute", left: 0, top: 1, width: 16, height: 16, borderRadius: "999px", backgroundColor: "#161615" }} />
-                 <div style={{ position: "absolute", left: 8, top: 1, width: 16, height: 16, borderRadius: "999px", backgroundColor: "#006BF4", border: "1px solid #fff" }} />
-                 <div style={{ position: "absolute", left: 16, top: 1, width: 16, height: 16, borderRadius: "999px", backgroundColor: "#8A2BE2", border: "1px solid #fff" }} />
-               </div>
+               <img 
+                 src="/nexus-one/all-chains.png" 
+                 alt="All Chains"
+                 style={{ width: 20, height: 20, borderRadius: "999px", objectFit: "cover" }} 
+               />
             ) : (
                <img 
                  src={allTokens.find(t => t.chainId === selectedChainFilter)?.chainLogo} 
-                 style={{ width: 16, height: 16, borderRadius: "999px" }} 
+                 style={{ width: 20, height: 20, borderRadius: "999px", objectFit: "cover" }} 
                />
             )}
             <ChevronDown style={{ width: 14, height: 14, color: "#848483" }} />
@@ -804,9 +817,7 @@ export function SwapAssetSelector({
                 }}
               >
                 <RadioDot selected={selectedChainFilter === null} />
-                <div style={{ marginLeft: 12, width: 32, height: 32, borderRadius: "999px", backgroundColor: "#161615", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ color: "#fff", fontSize: 12 }}>All</span>
-                </div>
+                <img src="/nexus-one/all-chains.png" alt="All Chains" style={{ marginLeft: 12, width: 32, height: 32, borderRadius: "999px", objectFit: "cover" }} />
                 <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 15, fontWeight: 500, marginLeft: 12, color: "#161615" }}>
                   All Chains
                 </span>
