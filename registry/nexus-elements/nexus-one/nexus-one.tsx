@@ -19,13 +19,9 @@ import {
   SwapIntentPreview,
   type SwapIntentData,
 } from "./components/swap-intent-preview";
-import { ReceiveAssetSelector } from "./components/receive-asset-selector";
+import { ReceiveAssetSelector, preloadReceiveTokens } from "./components/receive-asset-selector";
 import { OpportunityList } from "./components/opportunity-list";
-import {
-  ChevronDown,
-  ArrowLeft,
-  Check,
-} from "lucide-react";
+import { ChevronDown, ArrowLeft, Check } from "lucide-react";
 import { useNexus } from "../nexus/NexusProvider";
 import { useTransactionSteps } from "../common/tx/useTransactionSteps";
 import { SWAP_EXPECTED_STEPS } from "../common/tx/steps";
@@ -36,9 +32,16 @@ import {
   TOKEN_METADATA,
 } from "@avail-project/nexus-core";
 import { useWalletClient, usePublicClient } from "wagmi";
-import { erc20Abi, isAddress, createPublicClient, http, encodeFunctionData } from "viem";
+import {
+  erc20Abi,
+  isAddress,
+  createPublicClient,
+  http,
+  encodeFunctionData,
+} from "viem";
 import { normalize } from "viem/ens";
 import { mainnet } from "viem/chains";
+import Decimal from "decimal.js";
 
 // ---------------------------------------------------------------------------
 // Types for swap step machine
@@ -78,13 +81,22 @@ export function NexusOne({
   // Mode is a single value, not an array
   const activeMode = config.mode;
 
+  // Preload receive tokens once SDK is available
+  useEffect(() => {
+    if (nexusSDK) {
+      preloadReceiveTokens();
+    }
+  }, [nexusSDK]);
+
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
   // Global form state
   const [amount, setAmount] = useState("");
   const [recipientAddress, setRecipientAddress] = useState("");
-  const [editingAssetIndex, setEditingAssetIndex] = useState<number | null>(null);
+  const [editingAssetIndex, setEditingAssetIndex] = useState<number | null>(
+    null,
+  );
   const [txError, setTxError] = useState<string | null>(null);
 
   // Swap-specific
@@ -173,7 +185,9 @@ export function NexusOne({
     DepositOpportunity | undefined
   >(undefined);
 
-  const toTokenFromOpportunity = (opp: DepositOpportunity): SwapTokenOption => ({
+  const toTokenFromOpportunity = (
+    opp: DepositOpportunity,
+  ): SwapTokenOption => ({
     chainId: opp.chainId,
     contractAddress: opp.tokenAddress,
     symbol: opp.tokenSymbol,
@@ -188,7 +202,8 @@ export function NexusOne({
 
   useEffect(() => {
     if (config.prefill?.amount) setAmount(config.prefill.amount);
-    if (config.prefill?.recipient) setRecipientAddress(config.prefill.recipient);
+    if (config.prefill?.recipient)
+      setRecipientAddress(config.prefill.recipient);
   }, [config.prefill?.amount, config.prefill?.recipient]);
 
   useEffect(() => {
@@ -209,13 +224,15 @@ export function NexusOne({
       activeMode === "swap"
         ? Boolean(
             amount &&
-              Number(amount) > 0 &&
-              toToken &&
-              (swapType === "exactOut" || fromTokens.length > 0),
+            Number(amount) > 0 &&
+            toToken &&
+            (swapType === "exactOut" || fromTokens.length > 0),
           )
         : activeMode === "deposit"
           ? Boolean(amount && Number(amount) > 0 && toToken)
-          : Boolean(amount && Number(amount) > 0 && toToken && recipientAddress);
+          : Boolean(
+              amount && Number(amount) > 0 && toToken && recipientAddress,
+            );
 
     if (!hasEnoughForQuote) {
       setQuoteRefreshing(false);
@@ -347,7 +364,8 @@ export function NexusOne({
       if (
         connectedAddress &&
         isAddress(resolvedRecipientAddress) &&
-        resolvedRecipientAddress.toLowerCase() === connectedAddress.toLowerCase()
+        resolvedRecipientAddress.toLowerCase() ===
+          connectedAddress.toLowerCase()
       ) {
         setTxError("Recipient cannot be the connected wallet.");
         setSwapStep("idle");
@@ -415,13 +433,15 @@ export function NexusOne({
           if (!rawAmountStr && fromTokens.length === 1) {
             rawAmountStr = amount; // fallback for single-token case
           }
-          
+
           let cleanAmount = Number(rawAmountStr || "0");
           if (cleanAmount <= 0) continue;
 
           if (token.userAmountMode === "usd") {
-            const tokenBalance = Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
-            const fiatBalance = Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+            const tokenBalance =
+              Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+            const fiatBalance =
+              Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
             const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
             if (price > 0) {
               cleanAmount = cleanAmount / price;
@@ -525,8 +545,12 @@ export function NexusOne({
 
         let executeConfig: any;
         if (activeMode === "deposit" && selectedOpportunity?.execute) {
-          executeConfig = typeof selectedOpportunity.execute === "function"
-              ? selectedOpportunity.execute(amountBigInt, connectedAddress as `0x${string}`)
+          executeConfig =
+            typeof selectedOpportunity.execute === "function"
+              ? selectedOpportunity.execute(
+                  amountBigInt,
+                  connectedAddress as `0x${string}`,
+                )
               : selectedOpportunity.execute;
         } else if (activeMode === "send") {
           if (isNative) {
@@ -652,7 +676,11 @@ export function NexusOne({
   // Titles that should be center-aligned (main screens / confirm screens)
   // Left-aligned: choose-swap-asset, choose-receive-asset (sub-screens with subtitles)
   const isTitleCentered = () => {
-    if (swapStep === "choose-swap-asset" || swapStep === "choose-receive-asset" || swapStep === "history")
+    if (
+      swapStep === "choose-swap-asset" ||
+      swapStep === "choose-receive-asset" ||
+      swapStep === "history"
+    )
       return false;
     return true; // idle, preview-intent, progress, etc.
   };
@@ -793,7 +821,6 @@ export function NexusOne({
               </span>
             )}
 
-
           {/* Protocol chip appended next to Title when Deposit Protocol selected */}
           {isTitleCentered() &&
             activeMode === "deposit" &&
@@ -911,23 +938,70 @@ export function NexusOne({
         </div>
       </div>
 
-        {/* ------------------------------------------------------------------ */}
-        {/* Main content area */}
-        {/* ------------------------------------------------------------------ */}
-        <div style={{ boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "16px", paddingInline: "16px", paddingBottom: "16px" }}>
-          {/* =============================================================== */}
-          {/* SHARED SUB-SCREENS (Swap & Send)                             */}
-          {/* =============================================================== */}
-          {(activeMode === "swap" ||
-            activeMode === "send" ||
-            activeMode === "deposit") &&
-            swapStep !== "idle" && (
-              <>
-                {/* Panel: choose-swap-asset */}
-                {swapStep === "choose-swap-asset" && (
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, pointerEvents: "none", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", pointerEvents: "auto", transition: "opacity 0.3s" }} onClick={() => setSwapStep("idle")} />
-                    <div style={{ position: "relative", width: "100%", maxHeight: "90%", backgroundColor: "#FFFFFE", borderRadius: "24px 24px 0 0", display: "flex", flexDirection: "column", pointerEvents: "auto", boxShadow: "0 -4px 12px rgba(0,0,0,0.05)" }} className="animate-in slide-in-from-bottom-full duration-300">
+      {/* ------------------------------------------------------------------ */}
+      {/* Main content area */}
+      {/* ------------------------------------------------------------------ */}
+      <div
+        style={{
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          paddingInline: "16px",
+          paddingBottom: "16px",
+        }}
+      >
+        {/* =============================================================== */}
+        {/* SHARED SUB-SCREENS (Swap & Send)                             */}
+        {/* =============================================================== */}
+        {(activeMode === "swap" ||
+          activeMode === "send" ||
+          activeMode === "deposit") &&
+          swapStep !== "idle" && (
+            <>
+              {/* Panel: choose-swap-asset */}
+              {swapStep === "choose-swap-asset" && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 40,
+                    pointerEvents: "none",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: "rgba(0,0,0,0.4)",
+                      pointerEvents: "auto",
+                      transition: "opacity 0.3s",
+                    }}
+                    onClick={() => setSwapStep("idle")}
+                  />
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "100%",
+                      maxHeight: "90%",
+                      backgroundColor: "#FFFFFE",
+                      borderRadius: "24px 24px 0 0",
+                      display: "flex",
+                      flexDirection: "column",
+                      pointerEvents: "auto",
+                      boxShadow: "0 -4px 12px rgba(0,0,0,0.05)",
+                    }}
+                    className="animate-in slide-in-from-bottom-full duration-300"
+                  >
                     <SwapAssetSelector
                       title={
                         activeMode === "deposit"
@@ -957,7 +1031,13 @@ export function NexusOne({
                                   t.chainId === token.chainId
                                 ),
                             );
-                          return [...prev, { ...token, userAmount: prev.length === 0 ? amount : "" }];
+                          return [
+                            ...prev,
+                            {
+                              ...token,
+                              userAmount: prev.length === 0 ? amount : "",
+                            },
+                          ];
                         });
                       }}
                       onDone={() => setSwapStep("idle")}
@@ -965,11 +1045,20 @@ export function NexusOne({
                         if (activeMode === "swap" && swapType === "exactIn") {
                           setFromTokens((prev) => {
                             const next = [...prev];
-                            const defaultAmount = next.length === 0 ? amount : "";
-                            const newToken = { ...token, userAmount: defaultAmount };
-                            if (editingAssetIndex !== null && editingAssetIndex < next.length) {
+                            const defaultAmount =
+                              next.length === 0 ? amount : "";
+                            const newToken = {
+                              ...token,
+                              userAmount: defaultAmount,
+                            };
+                            if (
+                              editingAssetIndex !== null &&
+                              editingAssetIndex < next.length
+                            ) {
                               // Preserve existing userAmount if replacing
-                              newToken.userAmount = next[editingAssetIndex].userAmount || defaultAmount;
+                              newToken.userAmount =
+                                next[editingAssetIndex].userAmount ||
+                                defaultAmount;
                               next[editingAssetIndex] = newToken;
                             } else {
                               next.push(newToken);
@@ -977,7 +1066,10 @@ export function NexusOne({
                             return next;
                           });
                           setSwapStep("idle");
-                        } else if (activeMode === "deposit" || activeMode === "send") {
+                        } else if (
+                          activeMode === "deposit" ||
+                          activeMode === "send"
+                        ) {
                           setFromTokens([{ ...token, userAmount: amount }]);
                           setSwapStep("idle");
                         } else {
@@ -987,36 +1079,127 @@ export function NexusOne({
                       }}
                       onBack={() => setSwapStep("idle")}
                     />
-                    </div>
                   </div>
-                )}
-                {/* Panel: choose-receive-asset */}
-                {swapStep === "choose-receive-asset" && (
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, pointerEvents: "none", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", pointerEvents: "auto", transition: "opacity 0.3s" }} onClick={() => setSwapStep("idle")} />
-                    <div style={{ position: "relative", width: "100%", maxHeight: "90%", backgroundColor: "#FFFFFE", borderRadius: "24px 24px 0 0", display: "flex", flexDirection: "column", pointerEvents: "auto", boxShadow: "0 -4px 12px rgba(0,0,0,0.05)", boxSizing: "border-box" }} className="animate-in slide-in-from-bottom-full duration-300">
-                      <div style={{ padding: "16px 16px 0 16px" }}>
-                        <div style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: 16 }}>
-                          <div style={{ width: 32, height: 4, borderRadius: 2, backgroundColor: "#E8E8E7" }} />
-                        </div>
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 16 }}>
-                          <button onClick={() => setSwapStep("idle")} style={{
-                            width: 32, height: 32, borderRadius: 8, border: "1px solid #E8E8E7",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            backgroundColor: "#FFFFFE", cursor: "pointer", flexShrink: 0
-                          }}>
-                            <ChevronDown style={{ width: 16, height: 16, transform: "rotate(90deg)" }} />
-                          </button>
-                          <div style={{ display: "flex", flexDirection: "column" }}>
-                            <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 18, fontWeight: 600, color: "#161615" }}>
-                              Choose asset to Receive
-                            </span>
-                            <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
-                              Select token and chain
-                            </span>
-                          </div>
+                </div>
+              )}
+              {/* Panel: choose-receive-asset */}
+              {swapStep === "choose-receive-asset" && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 40,
+                    pointerEvents: "none",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: "rgba(0,0,0,0.4)",
+                      pointerEvents: "auto",
+                      transition: "opacity 0.3s",
+                    }}
+                    onClick={() => setSwapStep("idle")}
+                  />
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "100%",
+                      maxHeight: "90%",
+                      backgroundColor: "#FFFFFE",
+                      borderRadius: "24px 24px 0 0",
+                      display: "flex",
+                      flexDirection: "column",
+                      pointerEvents: "auto",
+                      boxShadow: "0 -4px 12px rgba(0,0,0,0.05)",
+                      boxSizing: "border-box",
+                    }}
+                    className="animate-in slide-in-from-bottom-full duration-300"
+                  >
+                    <div style={{ padding: "16px 16px 0 16px" }}>
+                      <div
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          justifyContent: "center",
+                          marginBottom: 16,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 32,
+                            height: 4,
+                            borderRadius: 2,
+                            backgroundColor: "#E8E8E7",
+                          }}
+                        />
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 16,
+                          marginBottom: 16,
+                        }}
+                      >
+                        <button
+                          onClick={() => setSwapStep("idle")}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            border: "1px solid #E8E8E7",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: "#FFFFFE",
+                            cursor: "pointer",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <ChevronDown
+                            style={{
+                              width: 16,
+                              height: 16,
+                              transform: "rotate(90deg)",
+                            }}
+                          />
+                        </button>
+                        <div
+                          style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+                        >
+                          <span
+                            style={{
+                              fontFamily: '"Geist", system-ui, sans-serif',
+                              fontSize: 18,
+                              fontWeight: 600,
+                              color: "#161615",
+                            }}
+                          >
+                            Choose asset to Receive
+                          </span>
+                          <span
+                            style={{
+                              fontFamily: '"Geist", system-ui, sans-serif',
+                              fontSize: 13,
+                              color: "#848483",
+                            }}
+                          >
+                            Select token and chain
+                          </span>
                         </div>
                       </div>
+                    </div>
                     <ReceiveAssetSelector
                       onSelect={(token) => {
                         setToToken(token);
@@ -1024,286 +1207,329 @@ export function NexusOne({
                       }}
                       onBack={() => setSwapStep("idle")}
                     />
-                    </div>
                   </div>
-                )}
-                {/* Panel: enter-recipient */}
-                {swapStep === "enter-recipient" && (
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, backgroundColor: "#FFFFFE", display: "flex", flexDirection: "column" }} className="animate-in slide-in-from-bottom-full duration-300">
+                </div>
+              )}
+              {/* Panel: enter-recipient */}
+              {swapStep === "enter-recipient" && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 40,
+                    backgroundColor: "#FFFFFE",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                  className="animate-in slide-in-from-bottom-full duration-300"
+                >
+                  <div
+                    style={{
+                      backgroundColor: "#FFFFFE",
+                      border: "1px solid #E8E8E7",
+                      borderRadius: "12px",
+                      boxShadow: "#1616150A 0px 1px 2px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                      padding: "16px",
+                    }}
+                  >
                     <div
                       style={{
-                        backgroundColor: "#FFFFFE",
-                        border: "1px solid #E8E8E7",
-                        borderRadius: "12px",
-                        boxShadow: "#1616150A 0px 1px 2px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "12px",
-                        padding: "16px",
+                        color: "#848483",
+                        fontFamily: '"Geist", system-ui, sans-serif',
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        letterSpacing: "0.08em",
+                        lineHeight: "20px",
+                        textTransform: "uppercase",
                       }}
                     >
-                      <div
-                        style={{
-                          color: "#848483",
-                          fontFamily: '"Geist", system-ui, sans-serif',
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          letterSpacing: "0.08em",
-                          lineHeight: "20px",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        Recipient
-                      </div>
-                      <RecipientInput
-                        value={recipientAddress}
-                        onChange={(next) => {
-                          setRecipientAddress(next);
-                          if (txError) setTxError(null);
-                        }}
-                        label="To"
-                        placeholder="ENS or address"
-                      />
-                      <div
-                        style={{
-                          color: "#848483",
-                          fontFamily: '"Geist", system-ui, sans-serif',
-                          fontSize: "13px",
-                          lineHeight: "18px",
-                        }}
-                      >
-                        Recipient must be different from the connected wallet.
-                      </div>
+                      Recipient
                     </div>
-
-                    {txError && <StatusAlert type="error" message={txError} />}
-
-                    <button
-                      onClick={() => {
-                        const next = recipientAddress.trim();
-                        if (!next) {
-                          setTxError("Recipient address is required");
-                          return;
-                        }
-                        if (
-                          connectedAddress &&
-                          isAddress(next) &&
-                          next.toLowerCase() === connectedAddress.toLowerCase()
-                        ) {
-                          setTxError("Recipient cannot be the connected wallet.");
-                          return;
-                        }
+                    <RecipientInput
+                      value={recipientAddress}
+                      onChange={(next) => {
                         setRecipientAddress(next);
-                        setTxError(null);
-                        setSwapStep("idle");
+                        if (txError) setTxError(null);
                       }}
+                      label="To"
+                      placeholder="ENS or address"
+                    />
+                    <div
+                      style={{
+                        color: "#848483",
+                        fontFamily: '"Geist", system-ui, sans-serif',
+                        fontSize: "13px",
+                        lineHeight: "18px",
+                      }}
+                    >
+                      Recipient must be different from the connected wallet.
+                    </div>
+                  </div>
+
+                  {txError && <StatusAlert type="error" message={txError} />}
+
+                  <button
+                    onClick={() => {
+                      const next = recipientAddress.trim();
+                      if (!next) {
+                        setTxError("Recipient address is required");
+                        return;
+                      }
+                      if (
+                        connectedAddress &&
+                        isAddress(next) &&
+                        next.toLowerCase() === connectedAddress.toLowerCase()
+                      ) {
+                        setTxError("Recipient cannot be the connected wallet.");
+                        return;
+                      }
+                      setRecipientAddress(next);
+                      setTxError(null);
+                      setSwapStep("idle");
+                    }}
+                    style={{
+                      alignItems: "center",
+                      backgroundColor: "#006BF4",
+                      border: "none",
+                      borderRadius: "8px",
+                      boxShadow: "#5555550D 0px 1px 4px",
+                      color: "#FFFFFE",
+                      cursor: "pointer",
+                      display: "flex",
+                      fontFamily: '"Geist", system-ui, sans-serif',
+                      fontSize: "16px",
+                      fontWeight: 500,
+                      gap: "8px",
+                      height: "48px",
+                      justifyContent: "center",
+                      width: "100%",
+                    }}
+                  >
+                    <Check style={{ height: "16px", width: "16px" }} />
+                    Done
+                  </button>
+                </div>
+              )}
+              {/* Panel: preview-intent */}
+              {swapStep === "preview-intent" && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full h-full">
+                  <SwapIntentPreview
+                    fromTokens={fromTokens}
+                    fromToken={fromTokens[0]}
+                    toToken={toToken}
+                    fromAmount={amount}
+                    fromAmountUsd={amount}
+                    toAmount={intentToAmount}
+                    toAmountUsd={intentToAmount}
+                    toAmountTokens={
+                      intentToAmount ? `${intentToAmount}` : undefined
+                    }
+                    totalFeeUsd={intentFeeUsd}
+                    estimatedTime="10s"
+                    isLoading={intentLoading}
+                    intentData={intentData}
+                    swapBalances={swapBalance}
+                    supportedTokenAssets={supportedChainsAndTokens}
+                    activeMode={activeMode}
+                    mode={activeMode}
+                    opportunity={selectedOpportunity}
+                    onAccept={handleSwapAccept}
+                    onReject={() => {
+                      swapIntentRef.current?.deny();
+                      swapIntentRef.current = null;
+                      setSwapStep("idle");
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Panel: progress AND SUCCESS */}
+              {(swapStep === "progress" || swapStep === "success") && (
+                <div className="flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+                  <div
+                    style={{
+                      background: "#FFFFFF",
+                      borderRadius: "12px",
+                      border: "1px solid var(--border-default, #E8E8E7)",
+                      boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+                      padding: "16px",
+                    }}
+                  >
+                    <TransactionProgress
+                      steps={steps}
+                      explorerUrls={explorerUrls}
+                      sourceSymbol={
+                        fromTokens.length > 1
+                          ? `${fromTokens.length} sources`
+                          : (fromTokens[0]?.symbol ?? "Unknown")
+                      }
+                      destinationSymbol={toToken?.symbol ?? "Unknown"}
+                      sourceLogos={{
+                        token: fromTokens[0]?.logo ?? "",
+                        chain: fromTokens[0]?.chainLogo ?? "",
+                      }}
+                      destinationLogos={{
+                        token: toToken?.logo ?? "",
+                        chain: toToken?.chainLogo ?? "",
+                      }}
+                      hasMultipleSources={fromTokens.length > 1}
+                      sources={
+                        fromTokens.length > 1
+                          ? fromTokens.map((t) => ({
+                              tokenLogo: t.logo ?? "",
+                              chainLogo: t.chainLogo ?? "",
+                              symbol: t.symbol,
+                            }))
+                          : undefined
+                      }
+                      isTransferMode={activeMode === "send"}
+                      depositOpportunityName={
+                        activeMode === "deposit"
+                          ? selectedOpportunity?.title ||
+                            selectedOpportunity?.protocol
+                          : undefined
+                      }
+                    />
+                  </div>
+                  {swapStep === "success" && (
+                    <button
+                      onClick={handleReset}
                       style={{
                         alignItems: "center",
                         backgroundColor: "#006BF4",
-                        border: "none",
                         borderRadius: "8px",
                         boxShadow: "#5555550D 0px 1px 4px",
-                        color: "#FFFFFE",
-                        cursor: "pointer",
+                        boxSizing: "border-box",
                         display: "flex",
-                        fontFamily: '"Geist", system-ui, sans-serif',
-                        fontSize: "16px",
-                        fontWeight: 500,
-                        gap: "8px",
                         height: "48px",
                         justifyContent: "center",
                         width: "100%",
+                        marginTop: "16px",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#FFFFFE",
+                        fontFamily: '"Geist", system-ui, sans-serif',
+                        fontSize: "16px",
+                        fontWeight: 500,
                       }}
                     >
-                      <Check style={{ height: "16px", width: "16px" }} />
                       Done
                     </button>
-                  </div>
-                )}
-                {/* Panel: preview-intent */}
-                {swapStep === "preview-intent" && (
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full h-full">
-                    <SwapIntentPreview
-                      fromTokens={fromTokens}
-                      fromToken={fromTokens[0]}
-                      toToken={toToken}
-                      fromAmount={amount}
-                      fromAmountUsd={amount}
-                      toAmount={intentToAmount}
-                      toAmountUsd={intentToAmount}
-                      toAmountTokens={
-                        intentToAmount ? `${intentToAmount}` : undefined
-                      }
-                      totalFeeUsd={intentFeeUsd}
-                      estimatedTime="10s"
-                      isLoading={intentLoading}
-                      intentData={intentData}
-                      swapBalances={swapBalance}
-                      supportedTokenAssets={supportedChainsAndTokens}
-                      activeMode={activeMode}
-                      mode={activeMode}
-                      opportunity={selectedOpportunity}
-                      onAccept={handleSwapAccept}
-                      onReject={() => {
-                        swapIntentRef.current?.deny();
-                        swapIntentRef.current = null;
-                        setSwapStep("idle");
-                      }}
-                    />
-                  </div>
-                )}
-
-                {/* Panel: progress AND SUCCESS */}
-                {(swapStep === "progress" || swapStep === "success") && (
-                  <div className="flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-                    <div
-                      style={{
-                        background: "#FFFFFF",
-                        borderRadius: "12px",
-                        border: "1px solid var(--border-default, #E8E8E7)",
-                        boxShadow: "0px 1px 12px 0px #5B5B5B0D",
-                        padding: "16px",
-                      }}
-                    >
-                      <TransactionProgress
-                        steps={steps}
-                        explorerUrls={explorerUrls}
-                        sourceSymbol={
-                          fromTokens.length > 1
-                            ? `${fromTokens.length} sources`
-                            : (fromTokens[0]?.symbol ?? "Unknown")
-                        }
-                        destinationSymbol={toToken?.symbol ?? "Unknown"}
-                        sourceLogos={{
-                          token: fromTokens[0]?.logo ?? "",
-                          chain: fromTokens[0]?.chainLogo ?? "",
-                        }}
-                        destinationLogos={{
-                          token: toToken?.logo ?? "",
-                          chain: toToken?.chainLogo ?? "",
-                        }}
-                        hasMultipleSources={fromTokens.length > 1}
-                        sources={
-                          fromTokens.length > 1
-                            ? fromTokens.map((t) => ({
-                                tokenLogo: t.logo ?? "",
-                                chainLogo: t.chainLogo ?? "",
-                                symbol: t.symbol,
-                              }))
-                            : undefined
-                        }
-                        isTransferMode={activeMode === "send"}
-                        depositOpportunityName={
-                          activeMode === "deposit"
-                            ? selectedOpportunity?.title ||
-                              selectedOpportunity?.protocol
-                            : undefined
-                        }
-                      />
-                    </div>
-                    {swapStep === "success" && (
-                      <button
-                        onClick={handleReset}
-                        style={{
-                          alignItems: "center",
-                          backgroundColor: "#006BF4",
-                          borderRadius: "8px",
-                          boxShadow: "#5555550D 0px 1px 4px",
-                          boxSizing: "border-box",
-                          display: "flex",
-                          height: "48px",
-                          justifyContent: "center",
-                          width: "100%",
-                          marginTop: "16px",
-                          border: "none",
-                          cursor: "pointer",
-                          color: "#FFFFFE",
-                          fontFamily: '"Geist", system-ui, sans-serif',
-                          fontSize: "16px",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Done
-                      </button>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-
-          {/* =============================================================== */}
-          {/* HISTORY SCREEN (empty state)                                      */}
-          {/* =============================================================== */}
-          {swapStep === "history" && (
-            <div
-              style={{
-                alignItems: "center",
-                backgroundColor: "#FFFFFE",
-                borderColor: "#E8E8E7",
-                borderRadius: "14px",
-                borderStyle: "solid",
-                borderWidth: "1px",
-                boxSizing: "border-box",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-                justifyContent: "center",
-                paddingBlock: "48px",
-                paddingInline: "24px",
-                width: "100%",
-              }}
-            >
-              {/* Clock icon */}
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "999px",
-                  backgroundColor: "#F4F4F3",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <svg width="24" height="24" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 4V8L10.5 9.5" stroke="#848483" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M14 8C14 11.314 11.314 14 8 14C4.686 14 2 11.314 2 8C2 4.686 4.686 2 8 2C10.196 2 12.117 3.179 13.163 4.936" stroke="#848483" strokeWidth="1.4" strokeLinecap="round" />
-                  <path d="M13.5 2V5H10.5" stroke="#848483" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div
-                style={{
-                  boxSizing: "border-box",
-                  color: "#161615",
-                  fontFamily: '"Geist", system-ui, sans-serif',
-                  fontSize: "16px",
-                  fontWeight: 500,
-                  lineHeight: "24px",
-                  textAlign: "center",
-                }}
-              >
-                No transactions yet
-              </div>
-              <div
-                style={{
-                  boxSizing: "border-box",
-                  color: "#848483",
-                  fontFamily: '"Geist", system-ui, sans-serif',
-                  fontSize: "14px",
-                  lineHeight: "20px",
-                  textAlign: "center",
-                  maxWidth: "280px",
-                }}
-              >
-                Your transaction history will appear here once you make your first swap, deposit, or send.
-              </div>
-            </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
-          {/* =============================================================== */}
-          {/* SWAP IDLE SCREEN                                                 */}
-          {/* =============================================================== */}
-          {activeMode === "swap" && ["idle", "choose-swap-asset", "choose-receive-asset", "enter-recipient"].includes(swapStep) && (
+        {/* =============================================================== */}
+        {/* HISTORY SCREEN (empty state)                                      */}
+        {/* =============================================================== */}
+        {swapStep === "history" && (
+          <div
+            style={{
+              alignItems: "center",
+              backgroundColor: "#FFFFFE",
+              borderColor: "#E8E8E7",
+              borderRadius: "14px",
+              borderStyle: "solid",
+              borderWidth: "1px",
+              boxSizing: "border-box",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              justifyContent: "center",
+              paddingBlock: "48px",
+              paddingInline: "24px",
+              width: "100%",
+            }}
+          >
+            {/* Clock icon */}
+            <div
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "999px",
+                backgroundColor: "#F4F4F3",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M8 4V8L10.5 9.5"
+                  stroke="#848483"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M14 8C14 11.314 11.314 14 8 14C4.686 14 2 11.314 2 8C2 4.686 4.686 2 8 2C10.196 2 12.117 3.179 13.163 4.936"
+                  stroke="#848483"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M13.5 2V5H10.5"
+                  stroke="#848483"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div
+              style={{
+                boxSizing: "border-box",
+                color: "#161615",
+                fontFamily: '"Geist", system-ui, sans-serif',
+                fontSize: "16px",
+                fontWeight: 500,
+                lineHeight: "24px",
+                textAlign: "center",
+              }}
+            >
+              No transactions yet
+            </div>
+            <div
+              style={{
+                boxSizing: "border-box",
+                color: "#848483",
+                fontFamily: '"Geist", system-ui, sans-serif',
+                fontSize: "14px",
+                lineHeight: "20px",
+                textAlign: "center",
+                maxWidth: "280px",
+              }}
+            >
+              Your transaction history will appear here once you make your first
+              swap, deposit, or send.
+            </div>
+          </div>
+        )}
+
+        {/* =============================================================== */}
+        {/* SWAP IDLE SCREEN                                                 */}
+        {/* =============================================================== */}
+        {activeMode === "swap" &&
+          [
+            "idle",
+            "choose-swap-asset",
+            "choose-receive-asset",
+            "enter-recipient",
+          ].includes(swapStep) && (
             <>
               <SwapIdleForm
                 amount={amount}
@@ -1318,11 +1544,14 @@ export function NexusOne({
                 }}
                 fromTokens={fromTokens}
                 toToken={toToken}
-                totalBalance={
-                  fromTokens.length > 0
-                    ? String(fromTokens[0].balance).replace(/[^0-9.]/g, "")
-                    : maxBalance || "0"
-                }
+                totalBalance={new Decimal(
+                  swapBalance?.reduce(
+                    (a, b) => a.add(b.balanceInFiat || 0),
+                    new Decimal(0),
+                  ) || 0,
+                )
+                  .toDecimalPlaces(2)
+                  .toFixed()}
                 receiveBalance={toToken?.balance}
                 usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
                 swapType={swapType}
@@ -1339,12 +1568,16 @@ export function NexusOne({
               {txError && <StatusAlert type="error" message={txError} />}
 
               {/* CTA Button */}
-              <div style={{ boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+              <div
+                style={{
+                  boxSizing: "border-box",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
                 <button
                   onClick={handleEnterPreview}
-                  disabled={
-                    isSwapCtaDisabled
-                  }
+                  disabled={isSwapCtaDisabled}
                   style={{
                     alignItems: "center",
                     backgroundColor: isSwapCtaDisabled ? "#F0F0EF" : "#006BF4",
@@ -1360,7 +1593,16 @@ export function NexusOne({
                     width: "100%",
                   }}
                 >
-                  <div style={{ boxSizing: "border-box", color: isSwapCtaDisabled ? "#9E9E9C" : "#FFFFFE", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "16px", fontWeight: 500, lineHeight: "24px" }}>
+                  <div
+                    style={{
+                      boxSizing: "border-box",
+                      color: isSwapCtaDisabled ? "#9E9E9C" : "#FFFFFE",
+                      fontFamily: '"Geist", system-ui, sans-serif',
+                      fontSize: "16px",
+                      fontWeight: 500,
+                      lineHeight: "24px",
+                    }}
+                  >
                     {quoteCtaLabel("Review swap")}
                   </div>
                 </button>
@@ -1368,10 +1610,16 @@ export function NexusOne({
             </>
           )}
 
-          {/* =============================================================== */}
-          {/* DEPOSIT MODE LAYOUT                                              */}
-          {/* =============================================================== */}
-          {activeMode === "deposit" && ["idle", "choose-swap-asset", "choose-receive-asset", "enter-recipient"].includes(swapStep) && (
+        {/* =============================================================== */}
+        {/* DEPOSIT MODE LAYOUT                                              */}
+        {/* =============================================================== */}
+        {activeMode === "deposit" &&
+          [
+            "idle",
+            "choose-swap-asset",
+            "choose-receive-asset",
+            "enter-recipient",
+          ].includes(swapStep) && (
             <>
               {/* Opportunity list */}
               {config.opportunities &&
@@ -1389,7 +1637,13 @@ export function NexusOne({
                     />
 
                     {/* Done button for opportunity selection */}
-                    <div style={{ boxSizing: "border-box", display: "flex", justifyContent: "center" }}>
+                    <div
+                      style={{
+                        boxSizing: "border-box",
+                        display: "flex",
+                        justifyContent: "center",
+                      }}
+                    >
                       <button
                         onClick={() => {
                           if (selectedOpportunity) setSwapStep("idle");
@@ -1408,7 +1662,16 @@ export function NexusOne({
                           cursor: "pointer",
                         }}
                       >
-                        <div style={{ boxSizing: "border-box", color: "#FFFFFE", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "15px", fontWeight: 500, lineHeight: "18px" }}>
+                        <div
+                          style={{
+                            boxSizing: "border-box",
+                            color: "#FFFFFE",
+                            fontFamily: '"Geist", system-ui, sans-serif',
+                            fontSize: "15px",
+                            fontWeight: 500,
+                            lineHeight: "18px",
+                          }}
+                        >
                           Done
                         </div>
                       </button>
@@ -1434,23 +1697,29 @@ export function NexusOne({
                     fromTokens={fromTokens}
                     onOpenSourcePicker={() => setSwapStep("choose-swap-asset")}
                     onSetPercent={(pct) => {
-                       if (!maxBalance) return;
-                       const num = parseFloat(maxBalance) * (pct / 100);
-                       setAmount(num.toFixed(6).replace(/\.?0+$/, ""));
+                      if (!maxBalance) return;
+                      const num = parseFloat(maxBalance) * (pct / 100);
+                      setAmount(num.toFixed(6).replace(/\.?0+$/, ""));
                     }}
                   />
 
                   {txError && <StatusAlert type="error" message={txError} />}
 
-                  <div style={{ boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+                  <div
+                    style={{
+                      boxSizing: "border-box",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
                     <button
                       onClick={handleEnterPreview}
-                      disabled={
-                        isDepositCtaDisabled
-                      }
+                      disabled={isDepositCtaDisabled}
                       style={{
                         alignItems: "center",
-                        backgroundColor: isDepositCtaDisabled ? "#F0F0EF" : "#006BF4",
+                        backgroundColor: isDepositCtaDisabled
+                          ? "#F0F0EF"
+                          : "#006BF4",
                         borderRadius: "8px",
                         boxSizing: "border-box",
                         display: "flex",
@@ -1463,7 +1732,16 @@ export function NexusOne({
                         width: "100%",
                       }}
                     >
-                      <div style={{ boxSizing: "border-box", color: isDepositCtaDisabled ? "#9E9E9C" : "#FFFFFE", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "16px", fontWeight: 500, lineHeight: "24px" }}>
+                      <div
+                        style={{
+                          boxSizing: "border-box",
+                          color: isDepositCtaDisabled ? "#9E9E9C" : "#FFFFFE",
+                          fontFamily: '"Geist", system-ui, sans-serif',
+                          fontSize: "16px",
+                          fontWeight: 500,
+                          lineHeight: "24px",
+                        }}
+                      >
                         {quoteCtaLabel("Review deposit")}
                       </div>
                     </button>
@@ -1473,10 +1751,16 @@ export function NexusOne({
             </>
           )}
 
-          {/* =============================================================== */}
-          {/* SEND MODE — recipient first, then amount, then asset         */}
-          {/* =============================================================== */}
-          {activeMode === "send" && ["idle", "choose-swap-asset", "choose-receive-asset", "enter-recipient"].includes(swapStep) && (
+        {/* =============================================================== */}
+        {/* SEND MODE — recipient first, then amount, then asset         */}
+        {/* =============================================================== */}
+        {activeMode === "send" &&
+          [
+            "idle",
+            "choose-swap-asset",
+            "choose-receive-asset",
+            "enter-recipient",
+          ].includes(swapStep) && (
             <>
               <SendIdleForm
                 amount={amount}
@@ -1492,19 +1776,23 @@ export function NexusOne({
                 onOpenRecipientPicker={() => setSwapStep("enter-recipient")}
                 recipientAddress={recipientAddress || ""}
                 onMax={() => {
-                   if (!maxBalance) return;
-                   setAmount(maxBalance);
+                  if (!maxBalance) return;
+                  setAmount(maxBalance);
                 }}
               />
 
               {txError && <StatusAlert type="error" message={txError} />}
 
-              <div style={{ boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+              <div
+                style={{
+                  boxSizing: "border-box",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
                 <button
                   onClick={handleEnterPreview}
-                  disabled={
-                    isSendCtaDisabled
-                  }
+                  disabled={isSendCtaDisabled}
                   style={{
                     alignItems: "center",
                     backgroundColor: isSendCtaDisabled ? "#F0F0EF" : "#006BF4",
@@ -1520,14 +1808,23 @@ export function NexusOne({
                     width: "100%",
                   }}
                 >
-                  <div style={{ boxSizing: "border-box", color: isSendCtaDisabled ? "#9E9E9C" : "#FFFFFE", fontFamily: '"Geist", system-ui, sans-serif', fontSize: "16px", fontWeight: 500, lineHeight: "24px" }}>
+                  <div
+                    style={{
+                      boxSizing: "border-box",
+                      color: isSendCtaDisabled ? "#9E9E9C" : "#FFFFFE",
+                      fontFamily: '"Geist", system-ui, sans-serif',
+                      fontSize: "16px",
+                      fontWeight: 500,
+                      lineHeight: "24px",
+                    }}
+                  >
                     {quoteCtaLabel("Review send")}
                   </div>
                 </button>
               </div>
             </>
           )}
-        </div>
+      </div>
     </div>
   );
 }

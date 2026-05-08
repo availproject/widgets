@@ -70,7 +70,7 @@ function deriveTokenOptions(swapBalance: UserAsset[]): SwapTokenOption[] {
 }
 
 /* ── Radio dot (circular) ── */
-const RadioDot = ({ selected }: { selected: boolean }) => (
+export const RadioDot = ({ selected }: { selected: boolean }) => (
   <div
     style={{
       width: 22, height: 22, borderRadius: "999px", boxSizing: "border-box",
@@ -517,7 +517,7 @@ export function SwapAssetSelector({
         }}>
           <ChevronDown style={{ width: 16, height: 16, transform: "rotate(90deg)" }} />
         </button>
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 18, fontWeight: 600, color: "#161615" }}>
             {title}
           </span>
@@ -578,18 +578,16 @@ export function SwapAssetSelector({
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: "flex", gap: 0, marginBottom: 8, borderBottom: "1px solid #E8E8E7" }}>
+      <div style={{ display: "flex", gap: 0, backgroundColor: "#F0F0EF", borderRadius: 8, padding: 4, marginBottom: 8 }}>
         {FILTER_TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             style={{
-              flex: 1, padding: "10px 0", backgroundColor: "transparent", border: "none",
-              borderBottom: activeTab === tab.key ? "2px solid #161615" : "2px solid transparent",
-              cursor: "pointer",
-              fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, fontWeight: 500,
-              color: activeTab === tab.key ? "#161615" : "#848483",
-              transition: "color 0.15s, border-color 0.15s",
+              flex: 1, padding: "6px 0", backgroundColor: activeTab === tab.key ? "#FFFFFE" : "transparent", border: "none",
+              borderRadius: 6, cursor: "pointer", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, fontWeight: 500,
+              color: activeTab === tab.key ? "#161615" : "#848483", boxShadow: activeTab === tab.key ? "0px 1px 2px rgba(0,0,0,0.05)" : "none",
+              transition: "all 0.15s",
             }}
           >
             {tab.label}
