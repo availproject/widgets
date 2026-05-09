@@ -28,6 +28,27 @@ const getAvatarColor = (str: string) => {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 };
 
+const TokenLogo = ({ token, size = 40, fontSize = 16 }: { token: SwapTokenOption, size?: number, fontSize?: number }) => {
+  const [error, setError] = useState(false);
+
+  if (!token.logo || error) {
+    return (
+      <div style={{ position: "absolute", inset: 0, borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: getAvatarColor(token.symbol), color: "#fff", fontWeight: 600, fontSize }}>
+        {token.symbol.charAt(0).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={token.logo} 
+      alt={token.symbol} 
+      style={{ position: "absolute", inset: 0, width: size, height: size, borderRadius: "999px", objectFit: "cover" }} 
+      onError={() => setError(true)} 
+    />
+  );
+};
+
 const STABLE_SYMBOLS = new Set([
   "USDC", "USDT", "DAI", "FRAX", "LUSD", "TUSD", "USDD", "GHO", "crvUSD", "sUSD", "USDe"
 ]);
@@ -45,8 +66,8 @@ export const preloadReceiveTokens = () => {
   if (typeof window === "undefined") return null;
   if (!rawTokensPromise) {
     rawTokensPromise = (async () => {
-      const CACHE_KEY = "nexus_receive_tokens_cache";
-      const CACHE_TIME_KEY = "nexus_receive_tokens_time";
+      const CACHE_KEY = "nexus_receive_tokens_cache_v2";
+      const CACHE_TIME_KEY = "nexus_receive_tokens_time_v2";
       
       try {
         const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
@@ -58,15 +79,38 @@ export const preloadReceiveTokens = () => {
         }
       } catch (err) {}
 
-      let data: any = { tokens: {} };
+      let data: any = { tokens: {}, stableSymbols: [] };
       try {
-        const res = await fetch("https://api.jumper.xyz/pipeline/v1/tokens?chainTypes=EVM%2CSVM%2CUTXO%2CMVM%2CTVM&orderBy=volumeUSD24H&extended=true&limit=1000&minPriceUSD=0.000001");
-        if (res.ok) data = await res.json();
-        else throw new Error("Jumper API failed");
+        const [resAll, resStables] = await Promise.all([
+          fetch("https://li.quest/v1/tokens"),
+          fetch("https://li.quest/v1/tokens?tags=stablecoin")
+        ]);
+        
+        let allTokens = {};
+        if (resAll.ok) {
+          const allData = await resAll.json();
+          allTokens = allData.tokens || {};
+        }
+
+        const stableSymbols = new Set<string>();
+        if (resStables.ok) {
+          const stablesData = await resStables.json();
+          const stableChains = stablesData.tokens || {};
+          for (const chainId of Object.keys(stableChains)) {
+            for (const t of stableChains[chainId]) {
+              stableSymbols.add(t.symbol);
+            }
+          }
+        }
+        
+        data = {
+          tokens: allTokens,
+          stableSymbols: Array.from(stableSymbols)
+        };
       } catch (err) {
-        const res = await fetch("https://li.quest/v1/tokens");
-        data = await res.json();
+        console.error("Failed to fetch tokens from li.quest", err);
       }
+      
       rawTokensCache = data;
 
       try {
@@ -99,12 +143,14 @@ export function ReceiveAssetSelector({
   const [selectedTokenHash, setSelectedTokenHash] = useState<string | null>(null);
   const [selectedTokenFull, setSelectedTokenFull] = useState<SwapTokenOption | null>(null);
   const [hoveredHash, setHoveredHash] = useState<string | null>(null);
+  const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(30);
   const [tooltipState, setTooltipState] = useState<{ x: number, y: number, t: SwapTokenOption } | null>(null);
   const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const [apiTokens, setApiTokens] = useState<SwapTokenOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dynamicStableSymbols, setDynamicStableSymbols] = useState<Set<string>>(STABLE_SYMBOLS);
 
   useEffect(() => {
     const handleGlobalClick = () => setTooltipState(null);
@@ -143,6 +189,10 @@ export function ReceiveAssetSelector({
 
         const data = await rawTokensPromise;
         if (!active) return;
+
+        if (data.stableSymbols && Array.isArray(data.stableSymbols)) {
+          setDynamicStableSymbols(new Set([...Array.from(STABLE_SYMBOLS), ...data.stableSymbols]));
+        }
 
         const allParsed: SwapTokenOption[] = [];
         const chains = data.tokens || {};
@@ -191,13 +241,13 @@ export function ReceiveAssetSelector({
       });
     }
     if (activeTab === "native") result = result.filter(isNativeToken);
-    else if (activeTab === "stables") result = result.filter(t => STABLE_SYMBOLS.has(t.symbol));
+    else if (activeTab === "stables") result = result.filter(t => dynamicStableSymbols.has(t.symbol));
     
     return result;
-  }, [apiTokens, selectedChainFilter, query, activeTab]);
+  }, [apiTokens, selectedChainFilter, query, activeTab, dynamicStableSymbols]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", position: "relative" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, width: "100%", position: "relative" }}>
       <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12, position: "relative", zIndex: 10 }}>
         
         {/* Search */}
@@ -242,7 +292,7 @@ export function ReceiveAssetSelector({
 
       {/* Token list */}
       <div 
-        style={{ flex: 1, overflowY: "auto", paddingBottom: 80, position: "relative", zIndex: hoveredHash ? 20 : 1 }}
+        style={{ flex: 1, overflowY: "auto", position: "relative", zIndex: hoveredHash ? 20 : 1 }}
         onScroll={(e) => {
           const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
           if (scrollHeight - scrollTop - clientHeight < 200) {
@@ -277,10 +327,7 @@ export function ReceiveAssetSelector({
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <RadioDot selected={isSelected} />
                     <div style={{ position: "relative", flexShrink: 0, width: 40, height: 40 }}>
-                      <div style={{ position: "absolute", inset: 0, borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: getAvatarColor(t.symbol), color: "#fff", fontWeight: 600, fontSize: 16 }}>
-                        {t.symbol.charAt(0).toUpperCase()}
-                      </div>
-                      {t.logo && <img src={t.logo} alt={t.symbol} style={{ position: "absolute", inset: 0, width: 40, height: 40, borderRadius: "999px", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+                      <TokenLogo token={t} size={40} fontSize={16} />
                       {t.chainLogo && <img src={t.chainLogo} alt={t.chainName} style={{ position: "absolute", bottom: -2, right: -2, width: 14, height: 14, borderRadius: "999px", border: "2px solid #FFFFFE", zIndex: 2 }} />}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
@@ -291,10 +338,19 @@ export function ReceiveAssetSelector({
                         </span>
                         {isHovered && (
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                          <Copy
-                            style={{ width: 12, height: 12, color: "#848483", cursor: "pointer" }}
-                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(t.contractAddress); }}
-                          />
+                          {copiedHash === hash ? (
+                            <Check style={{ width: 12, height: 12, color: "#006BF4" }} />
+                          ) : (
+                            <Copy
+                              style={{ width: 12, height: 12, color: "#848483", cursor: "pointer" }}
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                navigator.clipboard.writeText(t.contractAddress); 
+                                setCopiedHash(hash);
+                                setTimeout(() => setCopiedHash(null), 2000);
+                              }}
+                            />
+                          )}
                           <div 
                             className="relative"
                             onClick={(e) => {
@@ -337,7 +393,7 @@ export function ReceiveAssetSelector({
       </div>
 
       {/* Done Button Footer */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, background: "linear-gradient(to top, #FFFFFE 80%, transparent)" }}>
+      <div style={{ padding: 16, backgroundColor: "#FFFFFE", borderTop: "1px solid #E8E8E7", flexShrink: 0, zIndex: 10 }}>
         <button
           onClick={() => {
             if (selectedTokenFull) onSelect(selectedTokenFull);
@@ -422,10 +478,7 @@ export function ReceiveAssetSelector({
 
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, position: "relative", zIndex: 2 }}>
               <div style={{ position: "relative", width: 24, height: 24 }}>
-                <div style={{ position: "absolute", inset: 0, borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: getAvatarColor(tooltipState.t.symbol), color: "#fff", fontWeight: 600, fontSize: 10 }}>
-                  {tooltipState.t.symbol.charAt(0).toUpperCase()}
-                </div>
-                {tooltipState.t.logo && <img src={tooltipState.t.logo} alt={tooltipState.t.symbol} style={{ position: "absolute", inset: 0, width: 24, height: 24, borderRadius: "999px", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+                <TokenLogo token={tooltipState.t} size={24} fontSize={10} />
                 {tooltipState.t.chainLogo && <img src={tooltipState.t.chainLogo} alt={tooltipState.t.chainName} style={{ position: "absolute", bottom: -2, right: -2, width: 10, height: 10, borderRadius: "999px", border: "1px solid #FFFFFE", zIndex: 2 }} />}
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>

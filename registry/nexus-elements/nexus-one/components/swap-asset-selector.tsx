@@ -502,7 +502,7 @@ export function SwapAssetSelector({
   const isLoading = !staticOptions && swapBalance === null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", padding: "16px", boxSizing: "border-box" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, width: "100%", padding: "16px", boxSizing: "border-box" }}>
       {/* Drawer Handle */}
       <div style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: 16 }}>
         <div style={{ width: 32, height: 4, borderRadius: 2, backgroundColor: "#E8E8E7" }} />
