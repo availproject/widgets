@@ -73,14 +73,14 @@ function deriveTokenOptions(swapBalance: UserAsset[]): SwapTokenOption[] {
 export const RadioDot = ({ selected }: { selected: boolean }) => (
   <div
     style={{
-      width: 22, height: 22, borderRadius: "999px", boxSizing: "border-box",
-      border: selected ? "2px solid #006BF4" : "2px solid #D0D0CF",
-      backgroundColor: "#FFFFFE", display: "flex", alignItems: "center",
+      width: 20, height: 20, borderRadius: "999px", boxSizing: "border-box",
+      border: selected ? "none" : "2px solid #E8E8E7",
+      backgroundColor: selected ? "#006BF4" : "#FFFFFE", display: "flex", alignItems: "center",
       justifyContent: "center", flexShrink: 0,
     }}
   >
     {selected && (
-      <div style={{ width: 12, height: 12, borderRadius: "999px", backgroundColor: "#006BF4" }} />
+      <div style={{ width: 8, height: 8, borderRadius: "999px", backgroundColor: "#FFFFFE" }} />
     )}
   </div>
 );

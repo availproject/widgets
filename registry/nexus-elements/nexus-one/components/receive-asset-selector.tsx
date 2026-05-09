@@ -1,10 +1,12 @@
 "use client";
 import { nexusOneTheme } from "../theme";
 import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Search, X, ChevronDown, Check, Info, Copy } from "lucide-react";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { useNexus } from "../../nexus/NexusProvider";
 import { RadioDot } from "./swap-asset-selector";
+import { CHAIN_METADATA } from "@avail-project/nexus-core";
 
 interface ReceiveAssetSelectorProps {
   onSelect: (token: SwapTokenOption) => void;
@@ -98,9 +100,23 @@ export function ReceiveAssetSelector({
   const [selectedTokenFull, setSelectedTokenFull] = useState<SwapTokenOption | null>(null);
   const [hoveredHash, setHoveredHash] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(30);
+  const [tooltipState, setTooltipState] = useState<{ x: number, y: number, t: SwapTokenOption } | null>(null);
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const [apiTokens, setApiTokens] = useState<SwapTokenOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const handleGlobalClick = () => setTooltipState(null);
+    if (tooltipState) {
+      window.addEventListener("click", handleGlobalClick);
+      window.addEventListener("touchstart", handleGlobalClick);
+    }
+    return () => {
+      window.removeEventListener("click", handleGlobalClick);
+      window.removeEventListener("touchstart", handleGlobalClick);
+    };
+  }, [tooltipState]);
 
   // Reset visible count when filters change
   useEffect(() => {
@@ -182,7 +198,7 @@ export function ReceiveAssetSelector({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", position: "relative" }}>
-      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12, position: "relative", zIndex: 10 }}>
         
         {/* Search */}
         <div style={{ display: "flex", alignItems: "center", height: 44, gap: 8, borderRadius: 12, border: "1px solid #E8E8E7", padding: "0 8px 0 16px", backgroundColor: "#F0F0EF" }}>
@@ -226,7 +242,7 @@ export function ReceiveAssetSelector({
 
       {/* Token list */}
       <div 
-        style={{ flex: 1, overflowY: "auto", paddingBottom: 80 }}
+        style={{ flex: 1, overflowY: "auto", paddingBottom: 80, position: "relative", zIndex: hoveredHash ? 20 : 1 }}
         onScroll={(e) => {
           const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
           if (scrollHeight - scrollTop - clientHeight < 200) {
@@ -253,7 +269,9 @@ export function ReceiveAssetSelector({
                   style={{
                     width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "12px 16px", backgroundColor: isSelected ? "#F4F7FE" : "transparent", border: "none",
-                    cursor: "pointer", borderBottom: "1px solid #F0F0EF", boxSizing: "border-box"
+                    cursor: "pointer", borderBottom: "1px solid #F0F0EF", boxSizing: "border-box",
+                    position: isHovered ? "relative" : "static",
+                    zIndex: isHovered ? 50 : 1
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -272,46 +290,35 @@ export function ReceiveAssetSelector({
                           {t.contractAddress.slice(0, 6)}...{t.contractAddress.slice(-4)}
                         </span>
                         {isHovered && (
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <Copy
-                              style={{ width: 12, height: 12, color: "#848483", cursor: "pointer" }}
-                              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(t.contractAddress); }}
-                            />
-                            <div className="relative group/info">
-                              <Info style={{ width: 12, height: 12, color: "#848483", cursor: "pointer" }} />
-                              <div className="hidden group-hover/info:flex absolute left-0 bottom-full mb-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-4 flex-col z-50 text-left cursor-default" onClick={(e) => e.stopPropagation()}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                                  <div style={{ position: "relative", width: 24, height: 24 }}>
-                                    <div style={{ position: "absolute", inset: 0, borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: getAvatarColor(t.symbol), color: "#fff", fontWeight: 600, fontSize: 10 }}>
-                                      {t.symbol.charAt(0).toUpperCase()}
-                                    </div>
-                                    {t.logo && <img src={t.logo} alt={t.symbol} style={{ position: "absolute", inset: 0, width: 24, height: 24, borderRadius: "999px", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
-                                    {t.chainLogo && <img src={t.chainLogo} alt={t.chainName} style={{ position: "absolute", bottom: -2, right: -2, width: 10, height: 10, borderRadius: "999px", border: "1px solid #FFFFFE", zIndex: 2 }} />}
-                                  </div>
-                                  <div style={{ display: "flex", flexDirection: "column" }}>
-                                    <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, fontSize: 14, color: "#161615" }}>{t.name}</span>
-                                    <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>on {t.chainName}</span>
-                                  </div>
-                                </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>Symbol:</span>
-                                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#161615", fontWeight: 500 }}>{t.symbol}</span>
-                                </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>Chain:</span>
-                                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#161615", fontWeight: 500 }}>{t.chainName}</span>
-                                </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>Decimals:</span>
-                                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#161615", fontWeight: 500 }}>{t.decimals}</span>
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>Contract address:</span>
-                                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 11, color: "#161615", wordBreak: "break-all" }}>{t.contractAddress}</span>
-                                </div>
-                              </div>
-                            </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <Copy
+                            style={{ width: 12, height: 12, color: "#848483", cursor: "pointer" }}
+                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(t.contractAddress); }}
+                          />
+                          <div 
+                            className="relative"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (tooltipState?.t.contractAddress === t.contractAddress) {
+                                setTooltipState(null);
+                              } else {
+                                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setTooltipState({ x: rect.left + rect.width / 2, y: rect.top, t });
+                              }
+                            }}
+                            onMouseEnter={(e) => {
+                              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setTooltipState({ x: rect.left + rect.width / 2, y: rect.top, t });
+                            }}
+                            onMouseLeave={() => {
+                              hoverTimeoutRef.current = setTimeout(() => setTooltipState(null), 150);
+                            }}
+                          >
+                            <Info style={{ width: 12, height: 12, color: "#848483", cursor: "pointer" }} />
                           </div>
+                        </div>
                         )}
                       </div>
                     </div>
@@ -349,33 +356,111 @@ export function ReceiveAssetSelector({
       {/* Chain Selector Modal */}
       {showChainSelector && (
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#FFFFFE", zIndex: 10, display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #E8E8E7" }}>
-            <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, fontSize: 16, color: "#161615" }}>Select a Chain</span>
-            <button onClick={() => setShowChainSelector(false)} style={{ background: "none", border: "none", cursor: "pointer" }}><X style={{ width: 20, height: 20, color: "#161615" }} /></button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottom: "1px solid #E8E8E7" }}>
+            <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, fontSize: 18, color: "#161615" }}>Select Chain</span>
+            <button onClick={() => setShowChainSelector(false)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+              <X style={{ width: 20, height: 20, color: "#848483" }} />
+            </button>
           </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+          <div style={{ flex: 1, overflowY: "auto" }}>
             <button
               onClick={() => { setSelectedChainFilter(null); setShowChainSelector(false); }}
-              style={{ width: "100%", display: "flex", alignItems: "center", padding: "12px", backgroundColor: "transparent", border: "none", cursor: "pointer", borderBottom: "1px solid #F0F0EF" }}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", backgroundColor: "transparent", border: "none", borderBottom: "1px solid #F0F0EF", cursor: "pointer" }}
             >
-              <RadioDot selected={selectedChainFilter === null} />
-              <img src="/nexus-one/all-chains.png" alt="All Chains" style={{ marginLeft: 12, width: 32, height: 32, borderRadius: "999px", objectFit: "cover" }} />
-              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 15, fontWeight: 500, marginLeft: 12, color: "#161615" }}>All Chains</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <img src="/nexus-one/all-chains.png" style={{ width: 32, height: 32, borderRadius: "999px", objectFit: "cover" }} />
+                <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 16, color: "#161615" }}>All Chains</span>
+              </div>
+              {selectedChainFilter === null && <Check style={{ width: 20, height: 20, color: "#006BF4" }} />}
             </button>
-            {Array.from(chainMetaMap.entries()).map(([id, meta]) => (
-              <button
-                key={id}
-                onClick={() => { setSelectedChainFilter(id); setShowChainSelector(false); }}
-                style={{ width: "100%", display: "flex", alignItems: "center", padding: "12px", backgroundColor: "transparent", border: "none", cursor: "pointer", borderBottom: "1px solid #F0F0EF" }}
-              >
-                <RadioDot selected={selectedChainFilter === id} />
-                <img src={meta.logo} alt={meta.name} style={{ marginLeft: 12, width: 32, height: 32, borderRadius: "999px", objectFit: "cover" }} />
-                <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 15, fontWeight: 500, marginLeft: 12, color: "#161615" }}>{meta.name}</span>
-              </button>
-            ))}
+            {Array.from(SUPPORTED_RECEIVE_CHAIN_IDS).map(id => {
+              const meta = chainMetaMap.get(id);
+              if (!meta) return null;
+              return (
+                <button
+                  key={id}
+                  onClick={() => { setSelectedChainFilter(id); setShowChainSelector(false); }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", backgroundColor: "transparent", border: "none", borderBottom: "1px solid #F0F0EF", cursor: "pointer" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <img src={meta.logo} style={{ width: 32, height: 32, borderRadius: "999px", objectFit: "cover" }} />
+                    <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 16, color: "#161615" }}>{meta.name}</span>
+                  </div>
+                  {selectedChainFilter === id && <Check style={{ width: 20, height: 20, color: "#006BF4" }} />}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
+
+      {/* Portal Tooltip */}
+      {tooltipState && typeof window !== "undefined" && (() => {
+        const explorerUrl = tooltipState.t.chainId ? CHAIN_METADATA[tooltipState.t.chainId]?.blockExplorerUrls?.[0] : null;
+        
+        return createPortal(
+          <div 
+            style={{ 
+              position: "fixed", top: tooltipState.y - 12, left: tooltipState.x, transform: "translate(-50%, -100%)", 
+              zIndex: 2147483647, display: "flex", flexDirection: "column",
+              pointerEvents: "auto"
+            }}
+            className="w-[280px] bg-white border border-[#E8E8E7] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.12)] p-4 text-left"
+            onClick={(e) => e.stopPropagation()}
+            onMouseEnter={() => {
+              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+            }}
+            onMouseLeave={() => {
+              hoverTimeoutRef.current = setTimeout(() => setTooltipState(null), 150);
+            }}
+          >
+            {/* Triangle pointer */}
+            <div style={{
+              position: "absolute", bottom: "-6px", left: "50%", transform: "translateX(-50%) rotate(45deg)",
+              width: "12px", height: "12px", backgroundColor: "#fff", borderRight: "1px solid #E8E8E7", borderBottom: "1px solid #E8E8E7", zIndex: 1
+            }}></div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, position: "relative", zIndex: 2 }}>
+              <div style={{ position: "relative", width: 24, height: 24 }}>
+                <div style={{ position: "absolute", inset: 0, borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: getAvatarColor(tooltipState.t.symbol), color: "#fff", fontWeight: 600, fontSize: 10 }}>
+                  {tooltipState.t.symbol.charAt(0).toUpperCase()}
+                </div>
+                {tooltipState.t.logo && <img src={tooltipState.t.logo} alt={tooltipState.t.symbol} style={{ position: "absolute", inset: 0, width: 24, height: 24, borderRadius: "999px", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+                {tooltipState.t.chainLogo && <img src={tooltipState.t.chainLogo} alt={tooltipState.t.chainName} style={{ position: "absolute", bottom: -2, right: -2, width: 10, height: 10, borderRadius: "999px", border: "1px solid #FFFFFE", zIndex: 2 }} />}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, fontSize: 14, color: "#161615" }}>{tooltipState.t.name}</span>
+                <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>on {tooltipState.t.chainName}</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, position: "relative", zIndex: 2 }}>
+              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>Symbol:</span>
+              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#161615", fontWeight: 500 }}>{tooltipState.t.symbol}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, position: "relative", zIndex: 2 }}>
+              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>Chain:</span>
+              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#161615", fontWeight: 500 }}>{tooltipState.t.chainName}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, position: "relative", zIndex: 2 }}>
+              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>Decimals:</span>
+              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#161615", fontWeight: 500 }}>{tooltipState.t.decimals}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, position: "relative", zIndex: 2 }}>
+              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>Market cap:</span>
+              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#161615", fontWeight: 500 }}>Unavailable</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, position: "relative", zIndex: 2 }}>
+              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>Contract address:</span>
+              {explorerUrl ? (
+                <a href={`${explorerUrl}/address/${tooltipState.t.contractAddress}`} target="_blank" rel="noreferrer" style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 11, color: "#006BF4", wordBreak: "break-all", textDecoration: "underline", outline: "none", cursor: "pointer" }}>{tooltipState.t.contractAddress}</a>
+              ) : (
+                <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 11, color: "#161615", wordBreak: "break-all" }}>{tooltipState.t.contractAddress}</span>
+              )}
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }
