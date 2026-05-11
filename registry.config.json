@@ -7,7 +7,7 @@
   "outputPath": "registry.json",
   "peerDependencies": ["react", "react-dom"],
   "pinnedDependencies": {
-    "@avail-project/nexus-core": "1.2.0"
+    "@avail-project/nexus-core": "github:availproject/nexus-sdk#6829e4ccac5c913656e623758382d5d23b7a5379"
   },
   "aliases": {
     "@/lib/utils": "lib/utils.ts",
