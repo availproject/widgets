@@ -65,6 +65,7 @@ export interface SwapIntentPreviewProps {
   intentData?: SwapIntentData | null;
   mode?: NexusOneMode;
   opportunity?: DepositOpportunity;
+  recipientAddress?: string;
   swapBalances?: any[] | null;
   supportedTokenAssets?: any[] | null;
   activeMode?: NexusOneMode;
@@ -284,6 +285,99 @@ function DetailToggle({
   );
 }
 
+function TruncatedAddress({ address }: { address: string }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const label =
+    address.length > 12 ? `${address.slice(0, 6)}...${address.slice(-4)}` : address;
+
+  return (
+    <span
+      onBlur={() => setShowTooltip(false)}
+      onFocus={() => setShowTooltip(true)}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      tabIndex={0}
+      style={{
+        color: brand,
+        display: "inline-flex",
+        fontFamily,
+        fontSize: "13px",
+        fontWeight: 500,
+        lineHeight: "17px",
+        outline: "none",
+        position: "relative",
+      }}
+    >
+      {label}
+      {showTooltip && (
+        <span
+          role="tooltip"
+          style={{
+            background: "#FFFFFE",
+            border: `1px solid ${border}`,
+            borderRadius: "8px",
+            boxShadow: "0 6px 18px rgba(22,22,21,0.10)",
+            color: primary,
+            fontFamily,
+            fontSize: "11px",
+            fontWeight: 500,
+            lineHeight: "15px",
+            padding: "7px 9px",
+            pointerEvents: "none",
+            position: "absolute",
+            right: 0,
+            top: "calc(100% + 8px)",
+            whiteSpace: "nowrap",
+            zIndex: 10000,
+          }}
+        >
+          {address}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function RecipientRow({ address }: { address: string }) {
+  return (
+    <div
+      style={{
+        borderTop: `1px solid ${border}`,
+        display: "flex",
+        justifyContent: "space-between",
+        padding: "18px 18px",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div
+          style={{
+            color: primary,
+            fontFamily,
+            fontSize: "14px",
+            fontWeight: 600,
+            lineHeight: "18px",
+          }}
+        >
+          Recipient
+        </div>
+        <div
+          style={{
+            color: muted,
+            fontFamily,
+            fontSize: "13px",
+            lineHeight: "17px",
+          }}
+        >
+          Wallet address
+        </div>
+      </div>
+      <div style={{ alignItems: "flex-end", display: "flex" }}>
+        <TruncatedAddress address={address} />
+      </div>
+    </div>
+  );
+}
+
 function Row({
   title,
   subtitle,
@@ -430,17 +524,19 @@ export function SwapIntentPreview({
   intentData,
   mode,
   opportunity,
+  recipientAddress,
   activeMode,
   onAccept,
 }: SwapIntentPreviewProps) {
   const [showSourceDetails, setShowSourceDetails] = useState(false);
   const [showFeeDetails, setShowFeeDetails] = useState(false);
-  const [showDepositGasDetails, setShowDepositGasDetails] = useState(false);
+  const [showGasDetails, setShowGasDetails] = useState(false);
   const [showImpactDetails, setShowImpactDetails] = useState(false);
   const sourceDetailsScrollRef = useRef<HTMLDivElement | null>(null);
 
   const flowMode = mode ?? activeMode ?? "swap";
   const isDepositMode = flowMode === "deposit";
+  const isSendMode = flowMode === "send";
   const intentSources = intentData?.sources ?? [];
   const intentDest = intentData?.destination;
   const normalizedIntentSources = intentSources.map((source) => ({
@@ -529,7 +625,8 @@ export function SwapIntentPreview({
   const depositGasValueNumber = parseDecimal(normalizedIntentDest?.gas?.value);
   const depositGasAmount = normalizedIntentDest?.gas?.amount;
   const depositGasTokenSymbol = normalizedIntentDest?.gas?.token?.symbol || "";
-  const hasDepositGasDetails = isDepositMode && Boolean(normalizedIntentDest?.gas);
+  const hasGasDetails =
+    (isDepositMode || isSendMode) && Boolean(normalizedIntentDest?.gas);
   const explicitFeeNumber =
     bridgeTotalNumber ??
     parseDecimal(totalFeeUsd) ??
@@ -818,7 +915,7 @@ export function SwapIntentPreview({
         </div>
 
         <Row
-          title={isDepositMode ? "Paying With" : "You Swap"}
+          title={isDepositMode || isSendMode ? "Paying With" : "You Swap"}
           subtitle={sourceLabel}
           value={sourceUsd}
         >
@@ -1003,13 +1100,19 @@ export function SwapIntentPreview({
         </AnimatedDetails>
 
         <Row
-          title={isDepositMode ? "You Deposit" : "You Receive"}
+          title={
+            isDepositMode ? "You Deposit" : isSendMode ? "You Send" : "You Receive"
+          }
           subtitle={
             destChainName ? `${destTokenSymbol} on ${destChainName}` : destTokenSymbol
           }
           value={receiveUsd}
           secondaryValue={destinationTokenDisplay}
         />
+
+        {isSendMode && recipientAddress && (
+          <RecipientRow address={recipientAddress} />
+        )}
 
         <Row title="Total Fees" subtitle="Network & protocol" value={feeUsd}>
           <DetailToggle
@@ -1055,20 +1158,20 @@ export function SwapIntentPreview({
           )}
         </AnimatedDetails>
 
-        {hasDepositGasDetails && (
+        {hasGasDetails && (
           <>
             <Row
-              title="Deposit Gas Fees"
-              subtitle="Destination execution"
+              title={isSendMode ? "Gas Fee" : "Deposit Gas Fees"}
+              subtitle={isSendMode ? "Destination transfer" : "Destination execution"}
               value={depositGasUsdDisplay}
             >
               <DetailToggle
-                expanded={showDepositGasDetails}
-                onClick={() => setShowDepositGasDetails((value) => !value)}
+                expanded={showGasDetails}
+                onClick={() => setShowGasDetails((value) => !value)}
               />
             </Row>
 
-            <AnimatedDetails open={showDepositGasDetails}>
+            <AnimatedDetails open={showGasDetails}>
               <div
                 style={{
                   alignItems: "center",
@@ -1192,7 +1295,7 @@ export function SwapIntentPreview({
         }}
       >
         {isExecuting ? (
-          isDepositMode ? "Depositing..." : "Swapping..."
+          isDepositMode ? "Depositing..." : isSendMode ? "Sending..." : "Swapping..."
         ) : isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : isRefreshing ? (
