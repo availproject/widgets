@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   type NexusOneProps,
   type SwapType,
@@ -25,7 +25,6 @@ import { ChevronDown, ArrowLeft } from "lucide-react";
 import { useNexus } from "../nexus/NexusProvider";
 import { useTransactionSteps } from "../common/tx/useTransactionSteps";
 import { SWAP_EXPECTED_STEPS } from "../common/tx/steps";
-import TransactionProgress from "../swaps/components/transaction-progress";
 import {
   CHAIN_METADATA,
   NEXUS_EVENTS,
@@ -57,7 +56,943 @@ type SwapStep =
   | "preview-intent" // intent preview card
   | "progress" // transaction in flight
   | "success" // completed seamlessly
+  | "failed" // failed swap receipt
   | "history"; // transaction history
+
+type SwapHistoryStatus =
+  | "pending"
+  | "fulfilled"
+  | "failed"
+  | "refund-initiated";
+
+interface SwapHistoryEntry {
+  id: string;
+  status: SwapHistoryStatus;
+  startedAt: number;
+  endedAt?: number;
+  durationSeconds?: number;
+  intentData: SwapIntentData | null;
+  fromTokens: SwapTokenOption[];
+  toToken?: SwapTokenOption;
+  feeUsd?: string;
+  intentId?: number;
+  intentExplorerUrl?: string | null;
+  sourceExplorerUrl?: string | null;
+  finalExplorerUrl?: string | null;
+  error?: string;
+}
+
+const QUOTE_REFRESH_INTERVAL_MS = 30000;
+const REFUND_FALLBACK_DELAY_MS = 30 * 60 * 1000;
+const tooltipSurface = "#FFFFFE";
+const tooltipText = "var(--foreground-primary, #161615)";
+const tooltipBorder = "var(--border-default, #E8E8E7)";
+const uiFont = '"Geist", var(--font-geist-sans), system-ui, sans-serif';
+
+function QuoteRefreshCountdown({
+  progress,
+  isRefreshing,
+  secondsRemaining,
+}: {
+  progress: number;
+  isRefreshing: boolean;
+  secondsRemaining: number;
+}) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const radius = 7;
+  const circumference = 2 * Math.PI * radius;
+  const clampedProgress = Math.max(0, Math.min(1, progress));
+  const tooltipLabel = isRefreshing
+    ? "Refreshing quotes..."
+    : `Refreshing quotes in ${Math.max(0, secondsRemaining)} second${
+        secondsRemaining === 1 ? "" : "s"
+      }`;
+
+  return (
+    <div
+      aria-label={tooltipLabel}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      onFocus={() => setShowTooltip(true)}
+      onBlur={() => setShowTooltip(false)}
+      tabIndex={0}
+      style={{
+        alignItems: "center",
+        backgroundColor: "#FFFFFE",
+        borderRadius: "999px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexShrink: 0,
+        height: "22px",
+        justifyContent: "center",
+        outline: "1px solid #E8E8E7",
+        position: "relative",
+        width: "22px",
+      }}
+    >
+      {showTooltip && (
+        <div
+          role="tooltip"
+          style={{
+            background: tooltipSurface,
+            border: `1px solid ${tooltipBorder}`,
+            borderRadius: "8px",
+            boxShadow: "0 6px 18px rgba(22,22,21,0.10)",
+            color: tooltipText,
+            fontFamily: uiFont,
+            fontSize: "11px",
+            fontWeight: 500,
+            left: "50%",
+            lineHeight: "15px",
+            padding: "7px 9px",
+            pointerEvents: "none",
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            transform: "translateX(-50%)",
+            whiteSpace: "nowrap",
+            zIndex: 10000,
+          }}
+        >
+          {tooltipLabel}
+        </div>
+      )}
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 18 18"
+        fill="none"
+        style={{
+          opacity: isRefreshing ? 0.55 : 1,
+          transform: "rotate(-90deg)",
+          transition: "opacity 0.18s ease-out",
+        }}
+      >
+        <circle
+          cx="9"
+          cy="9"
+          r={radius}
+          stroke="#E8E8E7"
+          strokeWidth="2"
+        />
+        <circle
+          cx="9"
+          cy="9"
+          r={radius}
+          stroke="#006BF4"
+          strokeLinecap="round"
+          strokeWidth="2"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - clampedProgress)}
+          style={{ transition: "stroke-dashoffset 0.25s linear" }}
+        />
+      </svg>
+    </div>
+  );
+}
+
+const parseDecimalLoose = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return undefined;
+  if (Decimal.isDecimal(value)) return value;
+  const cleaned = String(value).replace(/[^0-9.-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
+    return undefined;
+  }
+  try {
+    const parsed = new Decimal(cleaned);
+    return parsed.isFinite() ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const formatDecimalDisplay = (
+  value: unknown,
+  options: { min?: number; max?: number } = {},
+) => {
+  const amount = parseDecimalLoose(value) ?? new Decimal(0);
+  const max = options.max ?? 2;
+  return amount.toDecimalPlaces(max).toFixed();
+};
+
+const formatUsdDisplay = (value: unknown) => {
+  const amount = parseDecimalLoose(value) ?? new Decimal(0);
+  if (amount.gt(0) && amount.lt(0.01)) return "<$0.01";
+  return `$${formatDecimalDisplay(amount, { min: 2, max: 2 })}`;
+};
+
+const formatTokenDisplay = (value: unknown) => {
+  const amount = parseDecimalLoose(value) ?? new Decimal(0);
+  const max = amount.abs().gte(1) ? 6 : 8;
+  return formatDecimalDisplay(amount, { max });
+};
+
+const extractIntentIdFromUrl = (url?: string | null) => {
+  if (!url) return undefined;
+  const match = url.match(/(\d+)(?:\/)?$/);
+  return match ? Number(match[1]) : undefined;
+};
+
+function MiniLogo({
+  src,
+  label,
+  size = 30,
+  fontSize = 13,
+  outline,
+  style,
+}: {
+  src?: string;
+  label?: string;
+  size?: number;
+  fontSize?: number;
+  outline?: string;
+  style?: React.CSSProperties;
+}) {
+  const [failed, setFailed] = useState(!src);
+
+  useEffect(() => {
+    setFailed(!src);
+  }, [src]);
+
+  if (!failed && src) {
+    return (
+      <img
+        src={src}
+        alt={label || ""}
+        onError={() => setFailed(true)}
+        style={{
+          background: "#FFFFFE",
+          borderRadius: "999px",
+          height: size,
+          objectFit: "cover",
+          outline,
+          width: size,
+          ...style,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        background: "#E8F0FF",
+        borderRadius: "999px",
+        color: "#006BF4",
+        display: "flex",
+        fontFamily: uiFont,
+        fontSize,
+        fontWeight: 700,
+        height: size,
+        justifyContent: "center",
+        outline,
+        width: size,
+        ...style,
+      }}
+    >
+      {(label || "?").trim().slice(0, 1).toUpperCase()}
+    </div>
+  );
+}
+
+function TokenLogoPair({
+  tokenLogo,
+  chainLogo,
+  tokenSymbol,
+  chainName,
+  size = 34,
+}: {
+  tokenLogo?: string;
+  chainLogo?: string;
+  tokenSymbol?: string;
+  chainName?: string;
+  size?: number;
+}) {
+  return (
+    <div style={{ flexShrink: 0, height: size, position: "relative", width: size }}>
+      <MiniLogo src={tokenLogo} label={tokenSymbol} size={size} fontSize={14} />
+      {chainLogo && (
+        <MiniLogo
+          src={chainLogo}
+          label={chainName}
+          size={Math.round(size * 0.44)}
+          fontSize={6}
+          outline="1px solid #FFFFFE"
+          style={{ bottom: -2, position: "absolute", right: -2 }}
+        />
+      )}
+    </div>
+  );
+}
+
+const getSourceRows = (entry: SwapHistoryEntry) => {
+  const sources = entry.intentData?.sources ?? [];
+  if (sources.length > 0) {
+    return sources.map((source, index) => {
+      const fallback = entry.fromTokens.find(
+        (token) =>
+          token.chainId === source.chain.id &&
+          (token.contractAddress?.toLowerCase() ===
+            source.token.contractAddress?.toLowerCase() ||
+            token.symbol === source.token.symbol),
+      );
+
+      return {
+        key: `${source.chain.id}-${source.token.contractAddress}-${index}`,
+        tokenLogo: fallback?.logo,
+        chainLogo: source.chain.logo || fallback?.chainLogo,
+        symbol: source.token.symbol,
+        chainName: source.chain.name,
+        amount: source.amount,
+        value: source.value,
+      };
+    });
+  }
+
+  return entry.fromTokens.map((token, index) => ({
+    key: `${token.chainId}-${token.contractAddress}-${index}`,
+    tokenLogo: token.logo,
+    chainLogo: token.chainLogo,
+    symbol: token.symbol,
+    chainName: token.chainName || "",
+    amount: token.userAmount || "0",
+    value: token.balanceInFiat,
+  }));
+};
+
+function SourceRowsList({
+  entry,
+  maxHeight = 236,
+  borderTopFirst = true,
+}: {
+  entry: SwapHistoryEntry;
+  maxHeight?: number;
+  borderTopFirst?: boolean;
+}) {
+  const rows = getSourceRows(entry);
+  const shouldScroll = rows.length > 4;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div
+        ref={scrollRef}
+        style={{
+          maxHeight: shouldScroll ? maxHeight : undefined,
+          overflowY: shouldScroll ? "auto" : undefined,
+        }}
+      >
+        {rows.map((row, index) => (
+          <div
+            key={row.key}
+            style={{
+              alignItems: "center",
+              borderTop:
+                borderTopFirst || index > 0 ? "1px solid #E8E8E7" : "none",
+              display: "flex",
+              justifyContent: "space-between",
+              minHeight: "64px",
+              padding: "10px 20px",
+            }}
+          >
+            <div
+              style={{
+                alignItems: "center",
+                display: "flex",
+                gap: "10px",
+                minWidth: 0,
+              }}
+            >
+              <TokenLogoPair
+                tokenLogo={row.tokenLogo}
+                chainLogo={row.chainLogo}
+                tokenSymbol={row.symbol}
+                chainName={row.chainName}
+              />
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span
+                  style={{
+                    color: "#161615",
+                    fontFamily: uiFont,
+                    fontSize: "13px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {row.symbol}
+                </span>
+                <span
+                  style={{
+                    color: "#848483",
+                    fontFamily: uiFont,
+                    fontSize: "12px",
+                  }}
+                >
+                  on {row.chainName || "Unknown chain"}
+                </span>
+              </div>
+            </div>
+            <div
+              style={{
+                alignItems: "flex-end",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                textAlign: "right",
+              }}
+            >
+              <span style={{ color: "#161615", fontFamily: uiFont, fontSize: "13px" }}>
+                {formatTokenDisplay(row.amount)} {row.symbol}
+              </span>
+              <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "12px" }}>
+                {formatUsdDisplay(row.value)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      {shouldScroll && (
+        <button
+          aria-label="Scroll source assets"
+          type="button"
+          onClick={() => scrollRef.current?.scrollBy({ top: 72, behavior: "smooth" })}
+          style={{
+            alignItems: "center",
+            background: "#FFFFFE",
+            border: "1px solid #E8E8E7",
+            borderRadius: "999px",
+            bottom: "6px",
+            boxShadow: "0 2px 8px rgba(22,22,21,0.08)",
+            display: "flex",
+            height: "22px",
+            justifyContent: "center",
+            left: "50%",
+            padding: 0,
+            position: "absolute",
+            transform: "translateX(-50%)",
+            width: "22px",
+          }}
+        >
+          <ChevronDown size={14} color="#848483" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SwapReceiptPanel({
+  entry,
+  onDone,
+}: {
+  entry: SwapHistoryEntry;
+  onDone: () => void;
+}) {
+  const [showSourceDetails, setShowSourceDetails] = useState(false);
+  const destination = entry.intentData?.destination;
+  const isFailed = entry.status === "failed";
+  const tokenSymbol = destination?.token.symbol || entry.toToken?.symbol || "";
+  const chainName = destination?.chain.name || entry.toToken?.chainName || "";
+  const amount = destination?.amount || "";
+  const value = destination?.value;
+  const duration = entry.durationSeconds ?? 0;
+  const intentLabel = entry.intentId ? `Intent #${entry.intentId}` : "View Intent";
+  const sourceCount = getSourceRows(entry).length;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+      <div
+        style={{
+          background: "#FFFFFE",
+          border: "1px solid #E8E8E7",
+          borderRadius: "12px",
+          boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+          padding: "28px 20px",
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "inline-flex",
+            marginBottom: "14px",
+            position: "relative",
+          }}
+        >
+          <MiniLogo
+            src={entry.toToken?.logo}
+            label={tokenSymbol}
+            size={58}
+            fontSize={22}
+          />
+          <div
+            style={{
+              alignItems: "center",
+              background: isFailed ? "#E92C2C" : "#006BF4",
+              border: "2px solid #FFFFFE",
+              borderRadius: "999px",
+              bottom: -2,
+              color: "#FFFFFE",
+              display: "flex",
+              fontFamily: uiFont,
+              fontSize: "15px",
+              fontWeight: 700,
+              height: "22px",
+              justifyContent: "center",
+              position: "absolute",
+              right: -4,
+              width: "22px",
+            }}
+          >
+            {isFailed ? "x" : "✓"}
+          </div>
+        </div>
+        <div style={{ color: "#848483", fontFamily: uiFont, fontSize: "14px" }}>
+          {isFailed ? "You were about to receive" : "You received"}
+        </div>
+        <div
+          style={{
+            alignItems: "baseline",
+            color: "#161615",
+            display: "flex",
+            fontFamily: '"Delight-Medium", "Delight", system-ui, sans-serif',
+            fontSize: "42px",
+            fontWeight: 500,
+            gap: "8px",
+            justifyContent: "center",
+            lineHeight: "50px",
+            marginTop: "8px",
+          }}
+        >
+          {amount ? formatTokenDisplay(amount) : "--"}
+          <span style={{ fontFamily: uiFont, fontSize: "15px", fontWeight: 600 }}>
+            {tokenSymbol}
+          </span>
+        </div>
+        <div style={{ color: "#848483", fontFamily: uiFont, fontSize: "14px" }}>
+          ≈ {formatUsdDisplay(value)}
+        </div>
+        <div
+          style={{
+            color: "#848483",
+            fontFamily: uiFont,
+            fontSize: "13px",
+            marginTop: "14px",
+          }}
+        >
+          {chainName ? `on ${chainName} · ` : ""}
+          {isFailed ? "failed" : "completed"} in {duration || 0}s
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: "#FFFFFE",
+          border: "1px solid #E8E8E7",
+          borderRadius: "12px",
+          boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            alignItems: "center",
+            display: "flex",
+            justifyContent: "space-between",
+            padding: "16px 20px",
+          }}
+        >
+          <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "14px" }}>
+            You Swapped
+          </span>
+          <div
+            style={{
+              alignItems: "flex-end",
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              textAlign: "right",
+            }}
+          >
+            <div style={{ color: "#161615", fontFamily: uiFont, fontSize: "14px", fontWeight: 700 }}>
+              {formatUsdDisplay(
+                (entry.intentData?.sources ?? []).reduce(
+                  (sum, source) => sum.plus(parseDecimalLoose(source.value) ?? 0),
+                  new Decimal(0),
+                ),
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSourceDetails((current) => !current)}
+              style={{
+                alignItems: "center",
+                background: "transparent",
+                border: "none",
+                color: "#006BF4",
+                cursor: "pointer",
+                display: "inline-flex",
+                fontFamily: uiFont,
+                fontSize: "12px",
+                gap: "4px",
+                padding: 0,
+              }}
+            >
+              {showSourceDetails ? "Hide Details" : `${sourceCount} asset${sourceCount === 1 ? "" : "s"}`}
+              <ChevronDown
+                size={13}
+                style={{
+                  transform: showSourceDetails
+                    ? "rotate(180deg)"
+                    : "rotate(0deg)",
+                  transition: "transform 180ms ease",
+                }}
+              />
+            </button>
+          </div>
+        </div>
+        <div
+          aria-hidden={!showSourceDetails}
+          style={{
+            borderTop: showSourceDetails ? "1px solid #E8E8E7" : 0,
+            display: "grid",
+            gridTemplateRows: showSourceDetails ? "1fr" : "0fr",
+            opacity: showSourceDetails ? 1 : 0,
+            overflow: "hidden",
+            transition:
+              "grid-template-rows 220ms ease, opacity 180ms ease, border-top-width 220ms ease",
+          }}
+        >
+          <div style={{ minHeight: 0, overflow: "hidden" }}>
+            <SourceRowsList entry={entry} borderTopFirst={false} />
+          </div>
+        </div>
+        {entry.intentExplorerUrl && (
+          <div
+            style={{
+              alignItems: "center",
+              borderTop: "1px solid #E8E8E7",
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "14px 20px",
+            }}
+          >
+            <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}>
+              Intent Explorer
+            </span>
+            <a
+              href={entry.intentExplorerUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+              style={{ color: "#006BF4", fontFamily: uiFont, fontSize: "13px" }}
+            >
+              {intentLabel} ↗
+            </a>
+          </div>
+        )}
+        {entry.finalExplorerUrl && (
+          <div
+            style={{
+              alignItems: "center",
+              borderTop: "1px solid #E8E8E7",
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "14px 20px",
+            }}
+          >
+            <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}>
+              Final Transaction
+            </span>
+            <a
+              href={entry.finalExplorerUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+              style={{ color: "#006BF4", fontFamily: uiFont, fontSize: "13px" }}
+            >
+              View Explorer ↗
+            </a>
+          </div>
+        )}
+        <div
+          style={{
+            alignItems: "center",
+            borderTop: "1px solid #E8E8E7",
+            display: "flex",
+            justifyContent: "space-between",
+            padding: "14px 20px",
+          }}
+        >
+          <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}>
+            Total Fees
+          </span>
+          <span style={{ color: "#161615", fontFamily: uiFont, fontSize: "13px" }}>
+            {formatUsdDisplay(entry.feeUsd)}
+          </span>
+        </div>
+      </div>
+
+      <button
+        onClick={onDone}
+        style={{
+          alignItems: "center",
+          background: "#006BF4",
+          border: "none",
+          borderRadius: "8px",
+          color: "#FFFFFE",
+          cursor: "pointer",
+          display: "flex",
+          fontFamily: uiFont,
+          fontSize: "14px",
+          fontWeight: 600,
+          height: "48px",
+          justifyContent: "center",
+          width: "100%",
+        }}
+      >
+        Done
+      </button>
+    </div>
+  );
+}
+
+const getRelativeTime = (time: number, now: number) => {
+  const seconds = Math.max(1, Math.floor((now - time) / 1000));
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"} ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+};
+
+function HistoryStatusPill({
+  status,
+}: {
+  status: SwapHistoryStatus | "auto-refund-failed";
+}) {
+  const config =
+    status === "fulfilled"
+      ? { label: "Fulfilled", bg: "#E8F6EF", fg: "#168A47" }
+      : status === "pending"
+        ? { label: "Pending", bg: "#FFF3DE", fg: "#B7791F" }
+        : status === "refund-initiated"
+          ? { label: "Refund initiated", bg: "#FFF3DE", fg: "#B7791F" }
+          : status === "auto-refund-failed"
+            ? { label: "Auto-refund failed", bg: "#FFE6EA", fg: "#E92C2C" }
+            : { label: "Failed", bg: "#FFE6EA", fg: "#E92C2C" };
+
+  return (
+    <span
+      style={{
+        background: config.bg,
+        borderRadius: "999px",
+        color: config.fg,
+        fontFamily: uiFont,
+        fontSize: "12px",
+        fontWeight: 600,
+        padding: "4px 9px",
+      }}
+    >
+      {config.label}
+    </span>
+  );
+}
+
+function SwapHistoryPanel({
+  entries,
+  now,
+  onRefund,
+}: {
+  entries: SwapHistoryEntry[];
+  now: number;
+  onRefund: (entry: SwapHistoryEntry) => void;
+}) {
+  if (entries.length === 0) {
+    return (
+      <div
+        style={{
+          alignItems: "center",
+          backgroundColor: "#FFFFFE",
+          border: "1px solid #E8E8E7",
+          borderRadius: "14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+          justifyContent: "center",
+          padding: "48px 24px",
+          width: "100%",
+        }}
+      >
+        <div
+          style={{
+            alignItems: "center",
+            backgroundColor: "#F4F4F3",
+            borderRadius: "999px",
+            display: "flex",
+            height: "48px",
+            justifyContent: "center",
+            width: "48px",
+          }}
+        >
+          <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "22px" }}>
+            ↻
+          </span>
+        </div>
+        <div style={{ color: "#161615", fontFamily: uiFont, fontSize: "16px", fontWeight: 500 }}>
+          No transactions yet
+        </div>
+        <div style={{ color: "#848483", fontFamily: uiFont, fontSize: "14px", maxWidth: "280px", textAlign: "center" }}>
+          Your transaction history will appear here once you make your first swap,
+          deposit, or send.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
+      {entries.map((entry) => {
+        const destination = entry.intentData?.destination;
+        const destinationLogo = entry.toToken?.logo;
+        const destinationChainLogo =
+          destination?.chain.logo || entry.toToken?.chainLogo || "";
+        const destinationChainName =
+          destination?.chain.name || entry.toToken?.chainName || "";
+        const destinationSymbol = destination?.token.symbol || entry.toToken?.symbol || "";
+        const destinationValue = destination?.value;
+        const destinationAmount = destination?.amount || "";
+        const viewUrl = entry.intentExplorerUrl || entry.finalExplorerUrl;
+        const autoRefundFailed =
+          entry.status === "failed" &&
+          Boolean(entry.intentId) &&
+          now - entry.startedAt >= REFUND_FALLBACK_DELAY_MS;
+        const status = autoRefundFailed ? "auto-refund-failed" : entry.status;
+        const sourceRows = getSourceRows(entry);
+        const firstSource = sourceRows[0];
+
+        return (
+          <div
+            key={entry.id}
+            style={{
+              background: "#FFFFFE",
+              border: "1px solid #E8E8E7",
+              borderRadius: "12px",
+              boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+              padding: "14px 18px",
+            }}
+          >
+            <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between" }}>
+              <div style={{ alignItems: "center", display: "flex", gap: "12px" }}>
+                <TokenLogoPair
+                  tokenLogo={destinationLogo}
+                  chainLogo={destinationChainLogo}
+                  tokenSymbol={destinationSymbol}
+                  chainName={destinationChainName}
+                  size={42}
+                />
+                <div>
+                  <div style={{ alignItems: "baseline", color: "#161615", display: "flex", fontFamily: uiFont, fontSize: "19px", fontWeight: 700, gap: "6px" }}>
+                    {destinationAmount ? formatTokenDisplay(destinationAmount) : "--"}
+                    <span style={{ color: "#848483", fontSize: "12px", fontWeight: 600 }}>
+                      {destinationSymbol}
+                    </span>
+                  </div>
+                  <div style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}>
+                    ≈ {formatUsdDisplay(destinationValue)}
+                  </div>
+                </div>
+              </div>
+              <div style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", gap: "8px" }}>
+                <HistoryStatusPill status={status} />
+                <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "12px" }}>
+                  {getRelativeTime(entry.startedAt, now)}
+                </span>
+              </div>
+            </div>
+
+            {autoRefundFailed && (
+              <div
+                style={{
+                  alignItems: "center",
+                  background: "#FFF3F3",
+                  borderRadius: "8px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: "14px",
+                  padding: "10px 12px",
+                }}
+              >
+                <span style={{ color: "#161615", fontFamily: uiFont, fontSize: "13px" }}>
+                  Try again
+                </span>
+                <button
+                  onClick={() => onRefund(entry)}
+                  style={{
+                    background: "#006BF4",
+                    border: "none",
+                    borderRadius: "8px",
+                    color: "#FFFFFE",
+                    cursor: "pointer",
+                    fontFamily: uiFont,
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    padding: "8px 14px",
+                  }}
+                >
+                  Refund
+                </button>
+              </div>
+            )}
+
+            <div
+              style={{
+                alignItems: "center",
+                borderTop: "1px solid #E8E8E7",
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: "14px",
+                paddingTop: "12px",
+              }}
+            >
+              <div style={{ alignItems: "center", display: "flex", gap: "8px", minWidth: 0 }}>
+                {firstSource && (
+                  <TokenLogoPair
+                    tokenLogo={firstSource.tokenLogo}
+                    chainLogo={firstSource.chainLogo}
+                    tokenSymbol={firstSource.symbol}
+                    chainName={firstSource.chainName}
+                    size={24}
+                  />
+                )}
+                <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}>
+                  →
+                </span>
+                <TokenLogoPair
+                  tokenLogo={destinationLogo}
+                  chainLogo={destinationChainLogo}
+                  tokenSymbol={destinationSymbol}
+                  chainName={destinationChainName}
+                  size={24}
+                />
+                <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}>
+                  {entry.intentId ? `Intent #${entry.intentId}` : "Intent"}
+                </span>
+              </div>
+              {viewUrl && (
+                <a
+                  href={viewUrl}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                  style={{ color: "#006BF4", fontFamily: uiFont, fontSize: "13px" }}
+                >
+                  View ↗
+                </a>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // NexusOne
@@ -162,12 +1097,30 @@ export function NexusOne({
   );
   const [intentLoading, setIntentLoading] = useState(false);
   const [quoteRefreshing, setQuoteRefreshing] = useState(false);
+  const [receiveMaxCalculating, setReceiveMaxCalculating] = useState(false);
+  const [previewQuoteRefreshing, setPreviewQuoteRefreshing] = useState(false);
+  const [quoteRefreshProgress, setQuoteRefreshProgress] = useState(0);
+  const [quoteRefreshSecondsRemaining, setQuoteRefreshSecondsRemaining] =
+    useState(0);
   const [intentData, setIntentData] = useState<SwapIntentData | null>(null);
   const [transferExplorerUrl, setTransferExplorerUrl] = useState<string | null>(
     null,
   );
   const swapStepRef = useRef<SwapStep>(swapStep);
   const syncingIntentSourcesRef = useRef(false);
+  const lastSwapIntentRefreshAtRef = useRef(0);
+  const [destinationBalance, setDestinationBalance] = useState<string | null>(
+    null,
+  );
+  const [swapHistory, setSwapHistory] = useState<SwapHistoryEntry[]>([]);
+  const [currentSwapId, setCurrentSwapId] = useState<string | null>(null);
+  const [historyNow, setHistoryNow] = useState(() => Date.now());
+  const currentSwapIdRef = useRef<string | null>(null);
+  const currentSwapStartedAtRef = useRef(0);
+  const explorerUrlsRef = useRef<{
+    sourceExplorerUrl: string | null;
+    destinationExplorerUrl: string | null;
+  }>({ sourceExplorerUrl: null, destinationExplorerUrl: null });
 
   // Ref to store swap intent hook allow/deny callbacks
   const swapIntentRef = useRef<{
@@ -180,6 +1133,16 @@ export function NexusOne({
 
   useEffect(() => {
     swapStepRef.current = swapStep;
+  }, [swapStep]);
+
+  useEffect(() => {
+    currentSwapIdRef.current = currentSwapId;
+  }, [currentSwapId]);
+
+  useEffect(() => {
+    if (swapStep !== "history") return;
+    const timer = window.setInterval(() => setHistoryNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
   }, [swapStep]);
 
   const normalizeAddress = (value?: string | null) =>
@@ -213,16 +1176,27 @@ export function NexusOne({
 
     const chainMeta = CHAIN_METADATA[source.chain.id];
     const sourceValue = Number((source as any).value ?? 0);
+    const isNativeSource = isNativeTokenAddress(source.token.contractAddress);
+    const nativeCurrency = chainMeta?.nativeCurrency;
+    const sourceSymbol =
+      isNativeSource && (!source.token.symbol || !matchedAsset?.icon)
+        ? nativeCurrency?.symbol || source.token.symbol
+        : source.token.symbol || nativeCurrency?.symbol || "";
+    const sourceDecimals =
+      isNativeSource && nativeCurrency?.decimals !== undefined
+        ? nativeCurrency.decimals
+        : source.token.decimals;
+    const sourceLogo = matchedAsset?.icon ?? (isNativeSource ? chainMeta?.logo : "");
 
     return {
       contractAddress: source.token.contractAddress,
-      symbol: source.token.symbol,
-      name: source.token.symbol,
-      logo: matchedAsset?.icon ?? "",
-      decimals: source.token.decimals,
+      symbol: sourceSymbol,
+      name: sourceSymbol,
+      logo: sourceLogo ?? "",
+      decimals: sourceDecimals,
       balance: matchedBreakdown?.balance
-        ? `${matchedBreakdown.balance} ${source.token.symbol}`
-        : `${source.amount} ${source.token.symbol}`,
+        ? `${matchedBreakdown.balance} ${sourceSymbol}`
+        : `${source.amount} ${sourceSymbol}`,
       balanceInFiat: Number.isFinite(sourceValue)
         ? `$${sourceValue.toFixed(2)}`
         : "$0.00",
@@ -240,6 +1214,8 @@ export function NexusOne({
     swapIntentRef.current = null;
     setIntentLoading(false);
     setQuoteRefreshing(false);
+    setReceiveMaxCalculating(false);
+    setPreviewQuoteRefreshing(false);
     if (clearQuote) {
       setIntentToAmount(undefined);
       setIntentFeeUsd(undefined);
@@ -255,6 +1231,201 @@ export function NexusOne({
     return total > 0 ? String(total) : "";
   };
 
+  const parseFiatNumber = (value: unknown) => {
+    if (value === null || value === undefined || value === "") return undefined;
+    if (Decimal.isDecimal(value)) return value;
+    const cleaned = String(value).replace(/[^0-9.-]/g, "");
+    if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
+      return undefined;
+    }
+    try {
+      const parsed = new Decimal(cleaned);
+      return parsed.isFinite() ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const getTokenUsdRate = (token: SwapTokenOption) => {
+    const tokenBalance = parseFiatNumber(token.balance) ?? new Decimal(0);
+    const fiatBalance = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
+    if (tokenBalance.gt(0) && fiatBalance.gt(0)) {
+      return fiatBalance.div(tokenBalance);
+    }
+
+    const fallbackRate = getFiatValue(1, token.symbol);
+    return Number.isFinite(fallbackRate) && fallbackRate > 0
+      ? new Decimal(fallbackRate)
+      : new Decimal(0);
+  };
+
+  const getTokenUsdValue = (
+    token: SwapTokenOption,
+    fallbackAmount?: string,
+  ) => {
+    const amountNumber =
+      parseFiatNumber(token.userAmount || fallbackAmount) ?? new Decimal(0);
+    if (amountNumber.lte(0)) return new Decimal(0);
+    if (token.userAmountMode === "usd") return amountNumber;
+
+    const rate = getTokenUsdRate(token);
+    return rate.gt(0) ? amountNumber.mul(rate) : new Decimal(0);
+  };
+
+  const isNativeTokenAddress = (address?: string) =>
+    !address ||
+    address.toLowerCase() === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" ||
+    address.toLowerCase() === "0x0000000000000000000000000000000000000000";
+
+  const formatReadableTokenAmount = (rawAmount: bigint, decimals: number) =>
+    new Decimal(rawAmount.toString()).div(new Decimal(10).pow(decimals)).toFixed();
+
+  const trimDecimalString = (value: string) =>
+    value.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+
+  const receiveMaxSafetyMultiplier = new Decimal("0.9");
+  const currentSwapEntry =
+    currentSwapId !== null
+      ? swapHistory.find((entry) => entry.id === currentSwapId)
+      : undefined;
+
+  const patchSwapHistoryEntry = (
+    id: string | null | undefined,
+    patch: Partial<SwapHistoryEntry>,
+  ) => {
+    if (!id) return;
+    setSwapHistory((prev) =>
+      prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)),
+    );
+  };
+
+  const patchCurrentSwapHistoryEntry = (patch: Partial<SwapHistoryEntry>) => {
+    patchSwapHistoryEntry(currentSwapIdRef.current, patch);
+  };
+
+  const resetExplorerUrls = () => {
+    const next = { sourceExplorerUrl: null, destinationExplorerUrl: null };
+    explorerUrlsRef.current = next;
+    setExplorerUrls(next);
+  };
+
+  const mergeExplorerUrls = (
+    patch: Partial<{
+      sourceExplorerUrl: string | null;
+      destinationExplorerUrl: string | null;
+    }>,
+  ) => {
+    const next = { ...explorerUrlsRef.current, ...patch };
+    explorerUrlsRef.current = next;
+    setExplorerUrls(next);
+    patchCurrentSwapHistoryEntry({
+      sourceExplorerUrl: next.sourceExplorerUrl,
+      finalExplorerUrl: next.destinationExplorerUrl,
+    });
+  };
+
+  const startSwapHistoryEntry = () => {
+    const id = `${Date.now()}-${swapRunIdRef.current}`;
+    const now = Date.now();
+    const resolvedToToken =
+      toToken && destinationBalance
+        ? { ...toToken, balance: destinationBalance }
+        : toToken;
+    const entry: SwapHistoryEntry = {
+      id,
+      status: "pending",
+      startedAt: now,
+      intentData,
+      fromTokens,
+      toToken: resolvedToToken,
+      feeUsd: intentFeeUsd,
+      sourceExplorerUrl: null,
+      finalExplorerUrl: null,
+      intentExplorerUrl: null,
+    };
+
+    currentSwapStartedAtRef.current = 0;
+    currentSwapIdRef.current = id;
+    setCurrentSwapId(id);
+    setSwapHistory((prev) => [entry, ...prev]);
+    return id;
+  };
+
+  const finishCurrentSwapHistoryEntry = (
+    status: "fulfilled" | "failed",
+    patch: Partial<SwapHistoryEntry> = {},
+  ) => {
+    const now = Date.now();
+    const startedAt = currentSwapStartedAtRef.current || now;
+    patchSwapHistoryEntry(currentSwapIdRef.current, {
+      status,
+      endedAt: now,
+      durationSeconds: Math.max(
+        1,
+        Math.round((now - startedAt) / 1000),
+      ),
+      sourceExplorerUrl: explorerUrlsRef.current.sourceExplorerUrl,
+      finalExplorerUrl: explorerUrlsRef.current.destinationExplorerUrl,
+      ...patch,
+    });
+  };
+
+  const markSwapExecutionStarted = () => {
+    if (currentSwapStartedAtRef.current > 0) return;
+    const now = Date.now();
+    currentSwapStartedAtRef.current = now;
+    patchCurrentSwapHistoryEntry({ startedAt: now });
+  };
+
+  const handleRefundIntent = async (entry: SwapHistoryEntry) => {
+    if (!nexusSDK || !entry.intentId) return;
+    patchSwapHistoryEntry(entry.id, { status: "refund-initiated" });
+    try {
+      await nexusSDK.refundIntent(entry.intentId);
+    } catch (error: any) {
+      patchSwapHistoryEntry(entry.id, {
+        status: "failed",
+        error: error?.message || "Refund failed. Please try again.",
+      });
+    }
+  };
+
+  const applySwapIntent = useCallback(
+    (intent: SwapIntentData) => {
+      lastSwapIntentRefreshAtRef.current = Date.now();
+      setIntentData(intent);
+      setIntentToAmount(intent.destination?.amount || undefined);
+
+      if (activeMode === "swap" && swapType === "exactOut") {
+        const intentSources = intent.sources ?? [];
+        if (intentSources.length > 0) {
+          syncingIntentSourcesRef.current = true;
+          setFromTokens(intentSources.map(buildIntentSourceToken));
+        }
+      }
+
+      try {
+        const bridgeFees = intent.feesAndBuffer?.bridge;
+        const bridgeTotal =
+          typeof bridgeFees === "string"
+            ? parseFiatNumber(bridgeFees)
+            : parseFiatNumber(bridgeFees?.total);
+
+        if (bridgeTotal !== undefined) {
+          setIntentFeeUsd(
+            bridgeTotal.gt(0) ? bridgeTotal.toDecimalPlaces(6).toFixed() : "0",
+          );
+        } else {
+          setIntentFeeUsd(undefined);
+        }
+      } catch (err) {
+        console.warn("Could not resolve bridge fee total", err);
+        setIntentFeeUsd(undefined);
+      }
+    },
+    [activeMode, swapType, swapBalance],
+  );
+
   // Register swap intent hook immediately before executing a swap to prevent race conditions across multiple components
   const registerIntentHook = (runId: number) => {
     if (!nexusSDK) return;
@@ -266,38 +1437,13 @@ export function NexusOne({
       // Store callbacks so accept/reject buttons can call them
       swapIntentRef.current = { intent, allow, deny, refresh, runId };
       // Populate intent data for preview
-      setIntentData(intent);
+      applySwapIntent(intent);
       console.log("on hook intent swap intent", intent, "swap intent");
-      // SDK returns amount as human-readable strings (e.g. "0.91") and value as USD fiat string
-      setIntentToAmount(intent.destination?.amount || undefined);
-      if (activeMode === "swap" && swapType === "exactOut") {
-        const intentSources = intent.sources ?? [];
-        if (intentSources.length > 0) {
-          syncingIntentSourcesRef.current = true;
-          setFromTokens(intentSources.map(buildIntentSourceToken));
-        }
-      }
-
-      try {
-        // [Regenerated] Computed fee natively using FIAT string parsing
-        const totalInUsd = intent.sources.reduce(
-          (sum: number, s: any) => sum + Number(s.value || s.amount || 0),
-          0,
-        );
-        const totalOutUsd = Number(
-          intent.destination?.value || intent.destination?.amount || 0,
-        );
-
-        const fee = totalInUsd - totalOutUsd;
-        setIntentFeeUsd(fee > 0 ? fee.toFixed(2) : "0.00");
-      } catch (err) {
-        console.warn("Could not calculate proper feeUsd", err);
-        setIntentFeeUsd("0.00");
-      }
 
       console.log("[DEBUG] Successfully parsed intent data! Removing loader.");
       setIntentLoading(false);
       setQuoteRefreshing(false);
+      setPreviewQuoteRefreshing(false);
     });
   };
 
@@ -334,6 +1480,97 @@ export function NexusOne({
     if (config.prefill?.recipient)
       setRecipientAddress(config.prefill.recipient);
   }, [config.prefill?.amount, config.prefill?.recipient]);
+
+  useEffect(() => {
+    setDestinationBalance(null);
+
+    if (!toToken?.chainId || !ownerAddress) return;
+
+    const chainMeta = CHAIN_METADATA[toToken.chainId];
+    const rpcUrl = chainMeta?.rpcUrls?.[0];
+    if (!rpcUrl) return;
+
+    let cancelled = false;
+    const client = createPublicClient({
+      chain: {
+        id: toToken.chainId,
+        name: chainMeta?.name ?? toToken.chainName ?? "Destination Chain",
+        nativeCurrency: chainMeta?.nativeCurrency ?? {
+          decimals: 18,
+          name: "Ether",
+          symbol: "ETH",
+        },
+        rpcUrls: {
+          default: { http: [rpcUrl] },
+          public: { http: [rpcUrl] },
+        },
+        blockExplorers: chainMeta?.blockExplorerUrls?.[0]
+          ? {
+              default: {
+                name: chainMeta.name,
+                url: chainMeta.blockExplorerUrls[0],
+              },
+            }
+          : undefined,
+      } as any,
+      transport: http(rpcUrl),
+    });
+
+    const fetchDestinationBalance = async () => {
+      try {
+        let rawBalance: bigint;
+        let decimals = toToken.decimals || 18;
+
+        if (isNativeTokenAddress(toToken.contractAddress)) {
+          rawBalance = await client.getBalance({
+            address: ownerAddress as `0x${string}`,
+          });
+          decimals = chainMeta?.nativeCurrency.decimals ?? decimals;
+        } else {
+          const tokenAddress = toToken.contractAddress as `0x${string}`;
+          const [balanceResult, decimalsResult] = await Promise.all([
+            client.readContract({
+              abi: erc20Abi,
+              address: tokenAddress,
+              functionName: "balanceOf",
+              args: [ownerAddress as `0x${string}`],
+            }) as Promise<bigint>,
+            client
+              .readContract({
+                abi: erc20Abi,
+                address: tokenAddress,
+                functionName: "decimals",
+              })
+              .catch(() => decimals),
+          ]);
+
+          rawBalance = balanceResult;
+          decimals = Number(decimalsResult) || decimals;
+        }
+
+        if (!cancelled) {
+          setDestinationBalance(
+            `${formatReadableTokenAmount(rawBalance, decimals)} ${toToken.symbol}`,
+          );
+        }
+      } catch (error) {
+        console.warn("Unable to fetch destination token balance", error);
+      }
+    };
+
+    void fetchDestinationBalance();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    ownerAddress,
+    toToken?.chainId,
+    toToken?.chainName,
+    toToken?.contractAddress,
+    toToken?.decimals,
+    toToken?.symbol,
+  ]);
 
   useEffect(() => {
     if (activeMode !== "deposit") return;
@@ -477,6 +1714,7 @@ export function NexusOne({
       intentData &&
       !intentLoading
     ) {
+      swapStepRef.current = "preview-intent";
       setSwapStep("preview-intent");
       return;
     }
@@ -553,6 +1791,7 @@ export function NexusOne({
 
     console.log("[DEBUG] Proceeding to set preview-intent state...");
     if (!background) {
+      swapStepRef.current = "preview-intent";
       setSwapStep("preview-intent");
     }
     setIntentLoading(true);
@@ -590,17 +1829,35 @@ export function NexusOne({
     const handleSwapEvent = (event: { name: string; args: SwapStepType }) => {
       if (event.name === NEXUS_EVENTS.SWAP_STEP_COMPLETE) {
         const step = event.args;
+        if (
+          [
+            "SOURCE_SWAP_BATCH_TX",
+            "SOURCE_SWAP_HASH",
+            "BRIDGE_DEPOSIT",
+            "RFF_ID",
+            "DESTINATION_SWAP_BATCH_TX",
+            "DESTINATION_SWAP_HASH",
+            "SWAP_COMPLETE",
+          ].includes(step?.type ?? "")
+        ) {
+          markSwapExecutionStarted();
+        }
         if (step?.type === "SOURCE_SWAP_HASH" && step.explorerURL) {
-          setExplorerUrls((prev) => ({
-            ...prev,
-            sourceExplorerUrl: step.explorerURL,
-          }));
+          mergeExplorerUrls({ sourceExplorerUrl: step.explorerURL });
         }
         if (step?.type === "DESTINATION_SWAP_HASH" && step.explorerURL) {
-          setExplorerUrls((prev) => ({
-            ...prev,
-            destinationExplorerUrl: step.explorerURL,
-          }));
+          mergeExplorerUrls({ destinationExplorerUrl: step.explorerURL });
+        }
+        if (step?.type === "BRIDGE_DEPOSIT" && (step as any).data?.explorerURL) {
+          mergeExplorerUrls({
+            sourceExplorerUrl: (step as any).data.explorerURL,
+          });
+        }
+        if (step?.type === "RFF_ID") {
+          const nextIntentId = Number((step as any).data);
+          if (Number.isFinite(nextIntentId) && nextIntentId > 0) {
+            patchCurrentSwapHistoryEntry({ intentId: nextIntentId });
+          }
         }
         onStepComplete(step);
       }
@@ -658,12 +1915,9 @@ export function NexusOne({
           toChainId: toToken.chainId!,
           toTokenAddress: toToken.contractAddress as `0x${string}`,
         });
-        setExplorerUrls({
-          sourceExplorerUrl: null,
-          destinationExplorerUrl: null,
-        });
+        resetExplorerUrls();
         // Start exact-in swap — the intent hook will fire and populate preview
-        await nexusSDK.swapWithExactIn(
+        const result = await nexusSDK.swapWithExactIn(
           {
             from: fromPayload,
             toChainId: toToken.chainId!,
@@ -676,10 +1930,23 @@ export function NexusOne({
             },
           },
         );
+        if (!result?.success) {
+          throw new Error(result?.error || "Swap failed");
+        }
+        const intentExplorerUrl = result.result.explorerURL || null;
+        const intentId =
+          extractIntentIdFromUrl(intentExplorerUrl) ?? currentSwapEntry?.intentId;
         if (
           swapRunIdRef.current === runId &&
           swapStepRef.current === "progress"
         ) {
+          finishCurrentSwapHistoryEntry("fulfilled", {
+            intentExplorerUrl,
+            intentId,
+            finalExplorerUrl:
+              explorerUrlsRef.current.destinationExplorerUrl ||
+              explorerUrlsRef.current.sourceExplorerUrl,
+          });
           onComplete?.();
           setSwapStep("success");
         }
@@ -697,10 +1964,7 @@ export function NexusOne({
           toAmount: amountBigInt,
         });
 
-        setExplorerUrls({
-          sourceExplorerUrl: null,
-          destinationExplorerUrl: null,
-        });
+        resetExplorerUrls();
 
         const fromSourcesPayload =
           fromTokens.length > 0
@@ -755,7 +2019,7 @@ export function NexusOne({
         }
 
         if (executeConfig) {
-          await nexusSDK.swapAndExecute(
+          const result = await nexusSDK.swapAndExecute(
             {
               toChainId: toToken.chainId!,
               toTokenAddress: toToken.contractAddress as `0x${string}`,
@@ -770,8 +2034,15 @@ export function NexusOne({
               },
             },
           );
+          if (!result?.swapResult) {
+            throw new Error("Swap failed");
+          }
+          const intentExplorerUrl = result.swapResult.explorerURL || null;
+          const intentId =
+            extractIntentIdFromUrl(intentExplorerUrl) ?? currentSwapEntry?.intentId;
+          patchCurrentSwapHistoryEntry({ intentExplorerUrl, intentId });
         } else {
-          await nexusSDK.swapWithExactOut(
+          const result = await nexusSDK.swapWithExactOut(
             {
               toChainId: toToken.chainId!,
               toTokenAddress: toToken.contractAddress as `0x${string}`,
@@ -785,12 +2056,20 @@ export function NexusOne({
               },
             },
           );
+          if (!result?.success) {
+            throw new Error(result?.error || "Swap failed");
+          }
+          const intentExplorerUrl = result.result.explorerURL || null;
+          const intentId =
+            extractIntentIdFromUrl(intentExplorerUrl) ?? currentSwapEntry?.intentId;
+          patchCurrentSwapHistoryEntry({ intentExplorerUrl, intentId });
         }
 
         if (
           swapRunIdRef.current === runId &&
           swapStepRef.current === "progress"
         ) {
+          finishCurrentSwapHistoryEntry("fulfilled");
           onComplete?.();
           setSwapStep("success");
         }
@@ -803,19 +2082,27 @@ export function NexusOne({
       setQuoteRefreshing(false);
       setIntentLoading(false);
       if (err?.code === "USER_DENIED_INTENT") {
-        if (!background && swapStepRef.current === "preview-intent") {
+        if (currentSwapIdRef.current) {
+          finishCurrentSwapHistoryEntry("failed", {
+            error: "Transaction cancelled by user",
+          });
+          setSwapStep("failed");
+        } else if (!background && swapStepRef.current === "preview-intent") {
           setSwapStep("idle");
         }
         return;
-      }
-      if (!background || swapStepRef.current === "preview-intent") {
-        setSwapStep("idle");
       }
       const errorMessage =
         err?.message ||
         (typeof err === "string"
           ? err
           : "Transaction failed. Please try again or check console.");
+      if (currentSwapIdRef.current || swapStepRef.current === "progress") {
+        finishCurrentSwapHistoryEntry("failed", { error: errorMessage });
+        setSwapStep("failed");
+      } else if (!background || swapStepRef.current === "preview-intent") {
+        setSwapStep("idle");
+      }
       setTxError(errorMessage);
       onError?.(errorMessage);
     }
@@ -852,10 +2139,136 @@ export function NexusOne({
     };
   }, [activeMode, amount, fromTokens, swapStep, swapType, toToken]);
 
+  const refreshActiveSwapIntent = useCallback(async () => {
+    const activeIntent = swapIntentRef.current;
+    if (
+      !activeIntent ||
+      intentLoading ||
+      quoteRefreshing ||
+      receiveMaxCalculating ||
+      previewQuoteRefreshing
+    ) {
+      return;
+    }
+
+    const runId = activeIntent.runId;
+    const isPreviewRefresh = swapStepRef.current === "preview-intent";
+    if (isPreviewRefresh) {
+      setPreviewQuoteRefreshing(true);
+    } else {
+      setQuoteRefreshing(true);
+    }
+    try {
+      const updated = await activeIntent.refresh();
+      if (!updated || swapRunIdRef.current !== runId) return;
+
+      if (swapIntentRef.current) {
+        swapIntentRef.current.intent = updated;
+      }
+      applySwapIntent(updated);
+    } catch (err) {
+      console.error("Unable to refresh swap intent", err);
+    } finally {
+      if (swapRunIdRef.current === runId) {
+        if (isPreviewRefresh) {
+          setPreviewQuoteRefreshing(false);
+        } else {
+          setQuoteRefreshing(false);
+        }
+      }
+    }
+  }, [
+    applySwapIntent,
+    intentLoading,
+    previewQuoteRefreshing,
+    quoteRefreshing,
+    receiveMaxCalculating,
+  ]);
+
+  useEffect(() => {
+    const hasRefreshableIntent =
+      activeMode === "swap" &&
+      Boolean(intentData && swapIntentRef.current) &&
+      (swapStep === "idle" || swapStep === "preview-intent");
+
+    if (!hasRefreshableIntent) return;
+
+    let cancelled = false;
+    let timeout: number | undefined;
+
+    const scheduleRefresh = () => {
+      const quoteAge = Date.now() - lastSwapIntentRefreshAtRef.current;
+      const delay = Math.max(0, QUOTE_REFRESH_INTERVAL_MS - quoteAge);
+      timeout = window.setTimeout(() => {
+        if (
+          intentLoading ||
+          quoteRefreshing ||
+          receiveMaxCalculating ||
+          previewQuoteRefreshing
+        ) {
+          if (!cancelled) {
+            timeout = window.setTimeout(scheduleRefresh, 1000);
+          }
+          return;
+        }
+
+        void refreshActiveSwapIntent().finally(() => {
+          if (!cancelled) {
+            scheduleRefresh();
+          }
+        });
+      }, delay);
+    };
+
+    scheduleRefresh();
+
+    return () => {
+      cancelled = true;
+      if (timeout !== undefined) {
+        window.clearTimeout(timeout);
+      }
+    };
+  }, [
+    activeMode,
+    intentData,
+    intentLoading,
+    previewQuoteRefreshing,
+    quoteRefreshing,
+    receiveMaxCalculating,
+    refreshActiveSwapIntent,
+    swapStep,
+  ]);
+
+  useEffect(() => {
+    const hasRefreshableIntent =
+      activeMode === "swap" &&
+      Boolean(intentData && swapIntentRef.current) &&
+      (swapStep === "idle" || swapStep === "preview-intent");
+
+    if (!hasRefreshableIntent) {
+      setQuoteRefreshProgress(0);
+      setQuoteRefreshSecondsRemaining(0);
+      return;
+    }
+
+    const updateProgress = () => {
+      const quoteAge = Date.now() - lastSwapIntentRefreshAtRef.current;
+      const remaining = Math.max(0, QUOTE_REFRESH_INTERVAL_MS - quoteAge);
+      setQuoteRefreshProgress(remaining / QUOTE_REFRESH_INTERVAL_MS);
+      setQuoteRefreshSecondsRemaining(Math.ceil(remaining / 1000));
+    };
+
+    updateProgress();
+    const interval = window.setInterval(updateProgress, 250);
+
+    return () => window.clearInterval(interval);
+  }, [activeMode, intentData, swapStep]);
+
   /** User accepted swap from the preview — call allow() from the intent hook */
   const handleSwapAccept = () => {
     if (swapIntentRef.current) {
       onStart?.();
+      startSwapHistoryEntry();
       setSwapStep("progress");
       setQuoteRefreshing(false);
       seed(SWAP_EXPECTED_STEPS);
@@ -882,6 +2295,8 @@ export function NexusOne({
 
     if (activeMode === "swap") {
       if (swapStep === "progress") return "Swapping…";
+      if (swapStep === "success") return "Swap Complete";
+      if (swapStep === "failed") return "Swap Failed";
       return "Swap";
     }
     if (activeMode === "deposit") {
@@ -928,6 +2343,112 @@ export function NexusOne({
     setSwapStep("idle");
   };
 
+  const handleSwapAmountChange = (
+    val: string,
+    panel: "send" | "receive",
+  ) => {
+    clearPendingSwapIntent();
+    setAmount(val);
+    if (panel === "receive") {
+      setFromTokens((prev) =>
+        prev.map((token) => ({ ...token, userAmount: "" })),
+      );
+    }
+    // Auto-switch swapType based on which panel the user changes.
+    if (panel === "send" && swapType !== "exactIn") {
+      setSwapType("exactIn");
+    } else if (panel === "receive" && swapType !== "exactOut") {
+      setSwapType("exactOut");
+    }
+  };
+
+  const handleReceivePercentSelect = async (pct: number) => {
+    if (!nexusSDK || !toToken?.chainId) return;
+
+    const calculateMaxForSwap = nexusSDK.calculateMaxForSwap;
+    if (typeof calculateMaxForSwap !== "function") return;
+
+    const toTokenAddress = (
+      toToken.contractAddress || zeroAddress
+    ) as `0x${string}`;
+    const selectedSources = fromTokens
+      .filter((token) => token.chainId && token.contractAddress)
+      .map((token) => ({
+        chainId: token.chainId!,
+        tokenAddress: token.contractAddress as `0x${string}`,
+      }));
+
+    if (fromTokens.length > 0 && selectedSources.length === 0) {
+      setTxError("Select a valid source token before using receive MAX.");
+      return;
+    }
+
+    setTxError(null);
+    setQuoteRefreshing(false);
+    setReceiveMaxCalculating(true);
+
+    try {
+      const max = await calculateMaxForSwap({
+        toChainId: toToken.chainId,
+        toTokenAddress,
+        ...(selectedSources.length > 0
+          ? { fromSources: selectedSources }
+          : {}),
+      });
+      const decimals = Number.isFinite(Number(max.decimals))
+        ? Number(max.decimals)
+        : toToken.decimals || 18;
+      const maxAmount =
+        parseFiatNumber(max.maxAmount) ??
+        (max.maxAmountRaw !== undefined
+          ? new Decimal(max.maxAmountRaw.toString()).div(
+              new Decimal(10).pow(decimals),
+            )
+          : undefined);
+
+      if (!maxAmount || maxAmount.lte(0)) {
+        setReceiveMaxCalculating(false);
+        setQuoteRefreshing(false);
+        setTxError("No swappable amount is available for this destination.");
+        return;
+      }
+
+      const safeMaxAmount = maxAmount.mul(receiveMaxSafetyMultiplier);
+      const receiveAmount =
+        pct === 100 ? safeMaxAmount : safeMaxAmount.mul(pct).div(100);
+      const roundedAmount = receiveAmount.toDecimalPlaces(
+        Math.max(0, decimals),
+        Decimal.ROUND_DOWN,
+      );
+      const nextAmount = trimDecimalString(roundedAmount.toFixed());
+
+      if (!nextAmount || new Decimal(nextAmount).lte(0)) {
+        setReceiveMaxCalculating(false);
+        setQuoteRefreshing(false);
+        setTxError("The calculated receive amount is too small to quote.");
+        return;
+      }
+
+      handleSwapAmountChange(nextAmount, "receive");
+      setQuoteRefreshing(true);
+    } catch (error: any) {
+      console.error("Unable to calculate max swap amount", error);
+      setReceiveMaxCalculating(false);
+      setQuoteRefreshing(false);
+      setTxError(
+        error?.message || "Unable to calculate the max swappable amount.",
+      );
+    }
+  };
+
+  const canCalculateReceiveMax =
+    activeMode === "swap" &&
+    Boolean(
+      nexusSDK &&
+        toToken?.chainId &&
+        typeof nexusSDK.calculateMaxForSwap === "function",
+    );
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -936,6 +2457,7 @@ export function NexusOne({
     Number(amount) <= 0 ||
     (swapType === "exactIn" && (fromTokens.length === 0 || !toToken)) ||
     (swapType === "exactOut" && !toToken) ||
+    receiveMaxCalculating ||
     quoteRefreshing;
   const isDepositCtaDisabled =
     !amount || Number(amount) <= 0 || !toToken || quoteRefreshing;
@@ -946,11 +2468,54 @@ export function NexusOne({
     !recipientAddress ||
     quoteRefreshing;
   const quoteCtaLabel = (fallback: string) =>
-    quoteRefreshing
-      ? "Fetching quote..."
-      : !amount || Number(amount) <= 0
-        ? "Enter amount"
-        : fallback;
+    receiveMaxCalculating
+      ? "Calculating..."
+      : quoteRefreshing
+        ? "Fetching quotes..."
+        : !amount || Number(amount) <= 0
+          ? "Enter amount"
+          : fallback;
+  const previewSourceUsdNumber =
+    fromTokens.length > 0
+      ? fromTokens.reduce(
+          (sum, token) =>
+            sum.plus(
+              getTokenUsdValue(
+                token,
+                swapType === "exactIn" && fromTokens.length === 1
+                  ? amount
+                  : undefined,
+              ),
+            ),
+          new Decimal(0),
+        )
+      : undefined;
+  const previewDestinationUsdNumber =
+    parseFiatNumber((intentData?.destination as any)?.value);
+  const previewFromAmountUsd =
+    previewSourceUsdNumber && previewSourceUsdNumber.gt(0)
+      ? previewSourceUsdNumber.toDecimalPlaces(6).toFixed()
+      : undefined;
+  const previewToAmountUsd =
+    previewDestinationUsdNumber && previewDestinationUsdNumber.gt(0)
+      ? previewDestinationUsdNumber.toDecimalPlaces(6).toFixed()
+      : undefined;
+  const toTokenWithFetchedBalance =
+    toToken && destinationBalance
+      ? { ...toToken, balance: destinationBalance }
+      : toToken;
+  const isIdleSwapQuoteLoading =
+    activeMode === "swap" && swapStep === "idle" && quoteRefreshing;
+  const isReceiveAmountLoading =
+    receiveMaxCalculating ||
+    (isIdleSwapQuoteLoading && swapType === "exactIn" && !intentToAmount);
+  const isReceiveUsdLoading =
+    receiveMaxCalculating ||
+    (isIdleSwapQuoteLoading && !previewToAmountUsd);
+  const hasQuoteRefreshCountdown =
+    activeMode === "swap" &&
+    Boolean(intentData && swapIntentRef.current) &&
+    (swapStep === "idle" || swapStep === "preview-intent");
 
   return (
     <div
@@ -1075,6 +2640,13 @@ export function NexusOne({
             gap: "12px",
           }}
         >
+          {hasQuoteRefreshCountdown && (
+            <QuoteRefreshCountdown
+              progress={quoteRefreshProgress}
+              isRefreshing={quoteRefreshing || previewQuoteRefreshing}
+              secondsRemaining={quoteRefreshSecondsRemaining}
+            />
+          )}
           <button
             onClick={() => setSwapStep("history")}
             style={{
@@ -1187,17 +2759,19 @@ export function NexusOne({
                   <SwapIntentPreview
                     fromTokens={fromTokens}
                     fromToken={fromTokens[0]}
-                    toToken={toToken}
+                    toToken={toTokenWithFetchedBalance}
                     fromAmount={amount}
-                    fromAmountUsd={amount}
+                    fromAmountUsd={previewFromAmountUsd}
                     toAmount={intentToAmount}
-                    toAmountUsd={intentToAmount}
+                    toAmountUsd={previewToAmountUsd}
                     toAmountTokens={
                       intentToAmount ? `${intentToAmount}` : undefined
                     }
                     totalFeeUsd={intentFeeUsd}
                     estimatedTime="10s"
                     isLoading={intentLoading}
+                    isRefreshing={previewQuoteRefreshing}
+                    swapType={swapType}
                     intentData={intentData}
                     swapBalances={swapBalance}
                     supportedTokenAssets={supportedChainsAndTokens}
@@ -1213,175 +2787,55 @@ export function NexusOne({
                 </div>
               )}
 
-              {/* Panel: progress AND SUCCESS */}
-              {(swapStep === "progress" || swapStep === "success") && (
-                <div className="flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-                  <div
-                    style={{
-                      background: "#FFFFFF",
-                      borderRadius: "12px",
-                      border: "1px solid var(--border-default, #E8E8E7)",
-                      boxShadow: "0px 1px 12px 0px #5B5B5B0D",
-                      padding: "16px",
-                    }}
-                  >
-                    <TransactionProgress
-                      steps={steps}
-                      explorerUrls={explorerUrls}
-                      sourceSymbol={
-                        fromTokens.length > 1
-                          ? `${fromTokens.length} sources`
-                          : (fromTokens[0]?.symbol ?? "Unknown")
-                      }
-                      destinationSymbol={toToken?.symbol ?? "Unknown"}
-                      sourceLogos={{
-                        token: fromTokens[0]?.logo ?? "",
-                        chain: fromTokens[0]?.chainLogo ?? "",
-                      }}
-                      destinationLogos={{
-                        token: toToken?.logo ?? "",
-                        chain: toToken?.chainLogo ?? "",
-                      }}
-                      hasMultipleSources={fromTokens.length > 1}
-                      sources={
-                        fromTokens.length > 1
-                          ? fromTokens.map((t) => ({
-                              tokenLogo: t.logo ?? "",
-                              chainLogo: t.chainLogo ?? "",
-                              symbol: t.symbol,
-                            }))
-                          : undefined
-                      }
-                      isTransferMode={activeMode === "send"}
-                      depositOpportunityName={
-                        activeMode === "deposit"
-                          ? selectedOpportunity?.title ||
-                            selectedOpportunity?.protocol
-                          : undefined
-                      }
-                    />
-                  </div>
-                  {swapStep === "success" && (
-                    <button
-                      onClick={handleReset}
-                      style={{
-                        alignItems: "center",
-                        backgroundColor: "#006BF4",
-                        borderRadius: "8px",
-                        boxShadow: "#5555550D 0px 1px 4px",
-                        boxSizing: "border-box",
-                        display: "flex",
-                        height: "48px",
-                        justifyContent: "center",
-                        width: "100%",
-                        marginTop: "16px",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "#FFFFFE",
-                        fontFamily: '"Geist", system-ui, sans-serif',
-                        fontSize: "16px",
-                        fontWeight: 500,
-                      }}
-                    >
-                      Done
-                    </button>
-                  )}
+              {swapStep === "progress" && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+                  <SwapIntentPreview
+                    fromTokens={fromTokens}
+                    fromToken={fromTokens[0]}
+                    toToken={toTokenWithFetchedBalance}
+                    fromAmount={amount}
+                    fromAmountUsd={previewFromAmountUsd}
+                    toAmount={intentToAmount}
+                    toAmountUsd={previewToAmountUsd}
+                    toAmountTokens={
+                      intentToAmount ? `${intentToAmount}` : undefined
+                    }
+                    totalFeeUsd={intentFeeUsd}
+                    estimatedTime="10s"
+                    isExecuting
+                    swapType={swapType}
+                    intentData={intentData}
+                    swapBalances={swapBalance}
+                    supportedTokenAssets={supportedChainsAndTokens}
+                    activeMode={activeMode}
+                    mode={activeMode}
+                    onAccept={() => undefined}
+                    onReject={() => undefined}
+                  />
                 </div>
               )}
+
+              {(swapStep === "success" || swapStep === "failed") &&
+                currentSwapEntry && (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+                    <SwapReceiptPanel
+                      entry={currentSwapEntry}
+                      onDone={handleReset}
+                    />
+                  </div>
+                )}
             </>
           )}
 
         {/* =============================================================== */}
-        {/* HISTORY SCREEN (empty state)                                      */}
+        {/* HISTORY SCREEN                                                   */}
         {/* =============================================================== */}
         {swapStep === "history" && (
-          <div
-            style={{
-              alignItems: "center",
-              backgroundColor: "#FFFFFE",
-              borderColor: "#E8E8E7",
-              borderRadius: "14px",
-              borderStyle: "solid",
-              borderWidth: "1px",
-              boxSizing: "border-box",
-              display: "flex",
-              flexDirection: "column",
-              gap: "12px",
-              justifyContent: "center",
-              paddingBlock: "48px",
-              paddingInline: "24px",
-              width: "100%",
-            }}
-          >
-            {/* Clock icon */}
-            <div
-              style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "999px",
-                backgroundColor: "#F4F4F3",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M8 4V8L10.5 9.5"
-                  stroke="#848483"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M14 8C14 11.314 11.314 14 8 14C4.686 14 2 11.314 2 8C2 4.686 4.686 2 8 2C10.196 2 12.117 3.179 13.163 4.936"
-                  stroke="#848483"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M13.5 2V5H10.5"
-                  stroke="#848483"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-            <div
-              style={{
-                boxSizing: "border-box",
-                color: "#161615",
-                fontFamily: '"Geist", system-ui, sans-serif',
-                fontSize: "16px",
-                fontWeight: 500,
-                lineHeight: "24px",
-                textAlign: "center",
-              }}
-            >
-              No transactions yet
-            </div>
-            <div
-              style={{
-                boxSizing: "border-box",
-                color: "#848483",
-                fontFamily: '"Geist", system-ui, sans-serif',
-                fontSize: "14px",
-                lineHeight: "20px",
-                textAlign: "center",
-                maxWidth: "280px",
-              }}
-            >
-              Your transaction history will appear here once you make your first
-              swap, deposit, or send.
-            </div>
-          </div>
+          <SwapHistoryPanel
+            entries={swapHistory}
+            now={historyNow}
+            onRefund={handleRefundIntent}
+          />
         )}
 
         {/* =============================================================== */}
@@ -1400,23 +2854,19 @@ export function NexusOne({
                 receiveQuoteAmount={
                   swapType === "exactIn" ? intentToAmount : undefined
                 }
+                isReceiveAmountLoading={isReceiveAmountLoading}
+                isReceiveUsdLoading={isReceiveUsdLoading}
                 onAmountChange={(val, panel) => {
-                  clearPendingSwapIntent();
-                  setAmount(val);
-                  if (panel === "receive") {
-                    setFromTokens((prev) =>
-                      prev.map((token) => ({ ...token, userAmount: "" })),
-                    );
-                  }
-                  // Auto-switch swapType based on which panel the user types into
-                  if (panel === "send" && swapType !== "exactIn") {
-                    setSwapType("exactIn");
-                  } else if (panel === "receive" && swapType !== "exactOut") {
-                    setSwapType("exactOut");
-                  }
+                  handleSwapAmountChange(val, panel);
                 }}
+                onReceivePercentSelect={
+                  canCalculateReceiveMax
+                    ? handleReceivePercentSelect
+                    : undefined
+                }
                 fromTokens={fromTokens}
-                toToken={toToken}
+                toToken={toTokenWithFetchedBalance}
+                receiveQuoteUsd={previewToAmountUsd}
                 totalBalance={new Decimal(
                   swapBalance?.reduce(
                     (a, b) => a.add(b.balanceInFiat || 0),
@@ -1425,7 +2875,6 @@ export function NexusOne({
                 )
                   .toDecimalPlaces(2)
                   .toFixed()}
-                receiveBalance={toToken?.balance}
                 usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
                 swapType={swapType}
                 onOpenSourcePicker={(index) => {
@@ -1561,7 +3010,7 @@ export function NexusOne({
                   <DepositIdleForm
                     amount={amount}
                     onAmountChange={setAmount}
-                    toToken={toToken}
+                    toToken={toTokenWithFetchedBalance}
                     totalBalance={
                       fromTokens.length > 0
                         ? String(fromTokens[0].balance).replace(/[^0-9.]/g, "")
@@ -1639,7 +3088,7 @@ export function NexusOne({
               <SendIdleForm
                 amount={amount}
                 onAmountChange={setAmount}
-                toToken={toToken}
+                toToken={toTokenWithFetchedBalance}
                 totalBalance={
                   fromTokens.length > 0
                     ? String(fromTokens[0].balance).replace(/[^0-9.]/g, "")

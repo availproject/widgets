@@ -1,14 +1,18 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import Decimal from "decimal.js";
 import { type SwapTokenOption } from "./swap-asset-selector";
 
 interface SwapIdleFormProps {
   amount: string;
   receiveQuoteAmount?: string;
+  receiveQuoteUsd?: string;
+  isReceiveAmountLoading?: boolean;
+  isReceiveUsdLoading?: boolean;
   onAmountChange: (val: string, panel: "send" | "receive") => void;
+  onReceivePercentSelect?: (pct: number) => void;
   fromTokens: SwapTokenOption[];
   toToken?: SwapTokenOption;
   totalBalance: string;
-  receiveBalance?: string;
   usdValue: string;
   onOpenSourcePicker: (index?: number) => void;
   onOpenDestPicker: () => void;
@@ -189,6 +193,165 @@ function PercentHoverButton({
   );
 }
 
+function SkeletonBar({
+  width,
+  height,
+  borderRadius = "8px",
+}: {
+  width: string;
+  height: string;
+  borderRadius?: string;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        background:
+          "linear-gradient(90deg, #F0F0EF 0%, #E6EEFF 48%, #F0F0EF 100%)",
+        backgroundSize: "200% 100%",
+        borderRadius,
+        height,
+        maxWidth: "100%",
+        width,
+        animation: "nexusSwapSkeletonShimmer 1.2s ease-in-out infinite",
+      }}
+    />
+  );
+}
+
+function LogoCircle({
+  src,
+  alt,
+  label,
+  size,
+  fontSize,
+  outline,
+  style,
+}: {
+  src?: string;
+  alt?: string;
+  label?: string;
+  size: number;
+  fontSize: number;
+  outline?: string;
+  style?: React.CSSProperties;
+}) {
+  const [failed, setFailed] = useState(!src);
+
+  useEffect(() => {
+    setFailed(!src);
+  }, [src]);
+
+  const fallbackLabel = (label || alt || "?").trim().slice(0, 1).toUpperCase();
+
+  if (!failed && src) {
+    return (
+      <img
+        src={src}
+        alt={alt || label || ""}
+        onError={() => setFailed(true)}
+        style={{
+          backgroundColor: "#FFFFFE",
+          borderRadius: "999px",
+          height: `${size}px`,
+          objectFit: "cover",
+          outline,
+          width: `${size}px`,
+          ...style,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      aria-label={alt || label || "Token"}
+      role="img"
+      style={{
+        alignItems: "center",
+        backgroundColor: "#E8F0FF",
+        borderRadius: "999px",
+        color: "#006BF4",
+        display: "flex",
+        fontFamily: '"Geist", system-ui, sans-serif',
+        fontSize: `${fontSize}px`,
+        fontWeight: 700,
+        height: `${size}px`,
+        justifyContent: "center",
+        lineHeight: `${size}px`,
+        outline,
+        width: `${size}px`,
+        ...style,
+      }}
+    >
+      {fallbackLabel || "?"}
+    </div>
+  );
+}
+
+function SourceLogoHint({
+  rows,
+  extraCount,
+}: {
+  rows: Array<{ token: SwapTokenOption; index: number }>;
+  extraCount: number;
+}) {
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        display: "flex",
+        flexShrink: 0,
+        minWidth: 0,
+      }}
+    >
+      {rows.slice(0, 3).map(({ token, index }, hintIndex) => (
+        <div
+          key={`${token.contractAddress}-${token.chainId}-${index}`}
+          style={{
+            height: "20px",
+            marginLeft: hintIndex === 0 ? 0 : "-6px",
+            position: "relative",
+            width: "20px",
+          }}
+        >
+          <LogoCircle
+            src={token.logo}
+            alt={token.symbol}
+            label={token.symbol}
+            size={20}
+            fontSize={10}
+            outline="1px solid #FFFFFE"
+          />
+        </div>
+      ))}
+      {extraCount > 0 && (
+        <div
+          style={{
+            alignItems: "center",
+            backgroundColor: "#E8E8E7",
+            border: "1px solid #FFFFFE",
+            borderRadius: "999px",
+            color: "#5F5F5E",
+            display: "flex",
+            fontFamily: '"Geist", system-ui, sans-serif',
+            fontSize: "10px",
+            fontWeight: 600,
+            height: "20px",
+            justifyContent: "center",
+            lineHeight: "14px",
+            marginLeft: rows.length > 0 ? "-6px" : 0,
+            minWidth: "20px",
+            paddingInline: "4px",
+          }}
+        >
+          +{extraCount}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const sameAddress = (a?: string, b?: string) =>
   Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 
@@ -201,12 +364,54 @@ const formatShortAddress = (address?: string) => {
 
 const formatTokenBalanceLabel = (token?: SwapTokenOption) => {
   if (!token) return "";
-  const balance = String(token.balance || "0").trim() || "0";
-  if (!token.symbol) return balance;
-  return balance.toLowerCase().includes(token.symbol.toLowerCase())
-    ? balance
-    : `${balance} ${token.symbol}`;
+  const rawBalance = String(token.balance || "0").trim() || "0";
+  const symbol = token.symbol || "";
+  const numeric = rawBalance.replace(/[^0-9.-]/g, "");
+
+  if (!numeric || numeric === "-" || numeric === "." || numeric === "-.") {
+    return symbol && !rawBalance.toLowerCase().includes(symbol.toLowerCase())
+      ? `${rawBalance} ${symbol}`
+      : rawBalance;
+  }
+
+  try {
+    const balance = new Decimal(numeric);
+    const displayDecimals = 8;
+    const minDisplay = new Decimal(1).div(new Decimal(10).pow(displayDecimals));
+    const formatted =
+      balance.gt(0) && balance.lt(minDisplay)
+        ? `>${minDisplay.toFixed(displayDecimals)}`
+        : balance
+            .toDecimalPlaces(displayDecimals, Decimal.ROUND_DOWN)
+            .toFixed()
+            .replace(/(\.\d*?)0+$/, "$1")
+            .replace(/\.$/, "");
+
+    return symbol ? `${formatted} ${symbol}` : formatted;
+  } catch {
+    return symbol && !rawBalance.toLowerCase().includes(symbol.toLowerCase())
+      ? `${rawBalance} ${symbol}`
+      : rawBalance;
+  }
 };
+
+const parseDecimal = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return undefined;
+  if (Decimal.isDecimal(value)) return value;
+  const cleaned = String(value).replace(/[^0-9.-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
+    return undefined;
+  }
+  try {
+    const parsed = new Decimal(cleaned);
+    return parsed.isFinite() ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const formatUsdValue = (value: Decimal) =>
+  value.gt(0) && value.lt(0.01) ? "<0.01" : value.toDecimalPlaces(2).toFixed(2);
 
 /** Add asset button with smooth transition */
 function AddAssetButton({
@@ -285,11 +490,14 @@ function AddAssetButton({
 export function SwapIdleForm({
   amount,
   receiveQuoteAmount,
+  receiveQuoteUsd,
+  isReceiveAmountLoading = false,
+  isReceiveUsdLoading = false,
   onAmountChange,
+  onReceivePercentSelect,
   fromTokens,
   toToken,
   totalBalance,
-  receiveBalance,
   usdValue,
   onOpenSourcePicker,
   onOpenDestPicker,
@@ -308,6 +516,13 @@ export function SwapIdleForm({
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [focusedRow, setFocusedRow] = useState<number | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
+  const [showAllSourceAssets, setShowAllSourceAssets] = useState(false);
+
+  useEffect(() => {
+    if (fromTokens.length <= 2) {
+      setShowAllSourceAssets(false);
+    }
+  }, [fromTokens.length]);
 
   const sanitizeInput = (raw: string): string => {
     let next = raw.replaceAll(/[^0-9.]/g, "");
@@ -403,26 +618,85 @@ export function SwapIdleForm({
       next[index] = { ...token, userAmountMode: "usd", userAmount: newUsdVal };
     }
     onUpdateTokens(next);
+    const total = getTokenAmountTotal(next);
+    onAmountChange(total > 0 ? String(total) : "", "send");
   };
 
+  const getSourceUsdValue = React.useCallback((token: SwapTokenOption) => {
+    if (!token || !token.userAmount) return 0;
+    const tokenBalance =
+      Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+    const fiatBalance =
+      Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+    const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
+    const amountNumber = Number(token.userAmount || 0);
+    if (!Number.isFinite(amountNumber)) return 0;
+    if (token.userAmountMode === "usd") return amountNumber;
+    return amountNumber * price;
+  }, []);
+
   const totalUsd = React.useMemo(() => {
-    return fromTokens.reduce((sum, token) => {
-      if (!token || !token.userAmount) return sum;
-      const tokenBalance =
-        Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
-      const fiatBalance =
-        Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
-      const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
-      const val = Number(token.userAmount);
-      if (token.userAmountMode === "usd") {
-        return sum + val;
-      }
-      return sum + val * price;
-    }, 0);
-  }, [fromTokens]);
+    return fromTokens.reduce((sum, token) => sum + getSourceUsdValue(token), 0);
+  }, [fromTokens, getSourceUsdValue]);
+
+  const sortedSourceRows = React.useMemo(
+    () =>
+      fromTokens
+        .map((token, index) => ({
+          token,
+          index,
+          usdValue: getSourceUsdValue(token),
+        }))
+        .sort((a, b) => b.usdValue - a.usdValue || a.index - b.index),
+    [fromTokens, getSourceUsdValue],
+  );
+  const hasSourceOverflow = sortedSourceRows.length > 2;
+  const visibleSourceRows =
+    hasSourceOverflow && !showAllSourceAssets
+      ? sortedSourceRows.slice(0, 2)
+      : sortedSourceRows;
+  const overflowHintRows = sortedSourceRows.slice(2, 5);
+  const overflowHintExtraCount = Math.max(sortedSourceRows.length - 5, 0);
+  const sourceRowsToRender: Array<{
+    token: SwapTokenOption | null;
+    index: number;
+    position: number;
+  }> =
+    fromTokens.length > 0
+      ? (hasSourceOverflow ? sortedSourceRows : visibleSourceRows).map(
+          ({ token, index }, position) => ({ token, index, position }),
+        )
+      : [{ token: null, index: 0, position: 0 }];
 
   const isExactIn = swapType === "exactIn";
   const receiveBalanceLabel = formatTokenBalanceLabel(toToken);
+  const getReceiveUsdRate = () => {
+    const quoteTokenAmount = parseDecimal(receiveQuoteAmount);
+    const quoteUsdAmount = parseDecimal(receiveQuoteUsd);
+    if (quoteTokenAmount?.gt(0) && quoteUsdAmount?.gt(0)) {
+      return quoteUsdAmount.div(quoteTokenAmount);
+    }
+
+    const tokenBalance = parseDecimal(toToken?.balance);
+    const fiatBalance = parseDecimal(toToken?.balanceInFiat);
+    if (tokenBalance?.gt(0) && fiatBalance?.gt(0)) {
+      return fiatBalance.div(tokenBalance);
+    }
+
+    return undefined;
+  };
+  const receiveInputValue = isExactIn ? receiveQuoteAmount ?? "" : amount;
+  const receiveUsdRate = getReceiveUsdRate();
+  const receiveTokenAmount = parseDecimal(receiveInputValue);
+  const receiveUsdAmount =
+    receiveQuoteUsd
+      ? parseDecimal(receiveQuoteUsd)
+      : receiveTokenAmount && receiveUsdRate
+          ? receiveTokenAmount.mul(receiveUsdRate)
+          : undefined;
+  const receiveAltValue = `≈ $${
+    receiveUsdAmount ? formatUsdValue(receiveUsdAmount) : "0.00"
+  }`;
   const isDefaultRecipient = sameAddress(
     recipientAddress,
     defaultRecipientAddress,
@@ -492,14 +766,6 @@ export function SwapIdleForm({
     }
   };
 
-  const handleReceivePercent = (pct: number) => {
-    if (!receiveBalance) return;
-    const bal = parseFloat(receiveBalance.replace(/[^0-9.]/g, ""));
-    if (isNaN(bal)) return;
-    const val = bal * (pct / 100);
-    onAmountChange(val.toFixed(6).replace(/\.?0+$/, ""), "receive");
-  };
-
   return (
     <div
       style={{
@@ -509,6 +775,15 @@ export function SwapIdleForm({
         width: "100%",
       }}
     >
+      {(isReceiveAmountLoading || isReceiveUsdLoading) && (
+        <style>
+          {`@keyframes nexusSwapSkeletonShimmer {
+            0% { background-position: 100% 0; opacity: 0.72; }
+            50% { opacity: 1; }
+            100% { background-position: -100% 0; opacity: 0.72; }
+          }`}
+        </style>
+      )}
       {/* ─── SEND PANEL ─── */}
       <div
         onMouseEnter={() => setHoveredPanel("send")}
@@ -608,7 +883,7 @@ export function SwapIdleForm({
                 padding: "16px",
                 display: "flex",
                 flexDirection: "column",
-                zIndex: 50,
+                zIndex: 10000,
                 pointerEvents: "none",
                 textAlign: "left"
               }}>
@@ -631,16 +906,57 @@ export function SwapIdleForm({
             display: "flex",
             flexDirection: "column",
             gap: "16px",
+            maxHeight: hasSourceOverflow
+              ? showAllSourceAssets
+                ? "204px"
+                : "160px"
+              : undefined,
+            overflowX: hasSourceOverflow ? "hidden" : undefined,
+            overflowY: hasSourceOverflow
+              ? showAllSourceAssets
+                ? "auto"
+                : "hidden"
+              : undefined,
+            paddingRight:
+              hasSourceOverflow && showAllSourceAssets ? "4px" : undefined,
+            overscrollBehavior:
+              hasSourceOverflow && showAllSourceAssets ? "contain" : undefined,
+            transition:
+              "max-height 0.28s ease, padding-right 0.2s ease, opacity 0.2s ease",
             width: "100%",
           }}
         >
-          {(fromTokens.length > 0 ? fromTokens : [null]).map((token, index) => {
+          {sourceRowsToRender.map(({ token, index, position }) => {
+            const isSourceRowClipped =
+              hasSourceOverflow && !showAllSourceAssets && position >= 2;
+            const showTooltipBelow = position === 0;
             return (
               <div
                 key={
-                  token ? `${token.contractAddress}-${token.chainId}` : "empty"
+                  token
+                    ? `${token.contractAddress}-${token.chainId}-${index}`
+                    : "empty"
                 }
-                style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+                aria-hidden={isSourceRowClipped ? true : undefined}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  opacity: isSourceRowClipped ? 0 : 1,
+                  pointerEvents: isSourceRowClipped ? "none" : undefined,
+                  position: "relative",
+                  transform: isSourceRowClipped
+                    ? "translateY(-4px)"
+                    : "translateY(0)",
+                  transition:
+                    "opacity 0.18s ease, transform 0.18s ease",
+                  zIndex:
+                    tooltip === `asset-send-${index}`
+                      ? 1000
+                      : isSourceRowClipped
+                        ? 0
+                        : 1,
+                }}
                 onMouseEnter={() => setHoveredRow(index)}
                 onMouseLeave={() => setHoveredRow(null)}
                 onFocusCapture={() => setFocusedRow(index)}
@@ -688,6 +1004,7 @@ export function SwapIdleForm({
                     <input
                       type="text"
                       placeholder="0"
+                      tabIndex={isSourceRowClipped ? -1 : undefined}
                       value={
                         token
                           ? token.userAmount || ""
@@ -736,6 +1053,7 @@ export function SwapIdleForm({
                   >
                     <button
                       onClick={() => onOpenSourcePicker(index)}
+                      tabIndex={isSourceRowClipped ? -1 : undefined}
                       style={{
                         alignItems: "center",
                         backgroundColor: "#FFFFFE",
@@ -765,29 +1083,25 @@ export function SwapIdleForm({
                             width: "26px",
                           }}
                         >
-                          <img
+                          <LogoCircle
                             src={token.logo}
                             alt={token.symbol}
-                            style={{
-                              borderRadius: "999px",
-                              height: "26px",
-                              width: "26px",
-                              objectFit: "cover" as const,
-                            }}
+                            label={token.symbol}
+                            size={26}
+                            fontSize={13}
                           />
                           {token.chainLogo && (
-                            <img
+                            <LogoCircle
                               src={token.chainLogo}
                               alt={token.chainName}
+                              label={token.chainName}
+                              size={12}
+                              fontSize={6}
+                              outline="1px solid #FFFFFE"
                               style={{
-                                borderRadius: "999px",
                                 bottom: -2,
-                                height: "12px",
-                                outline: "1px solid #FFFFFE",
-                                position: "absolute" as const,
+                                position: "absolute",
                                 right: -2,
-                                width: "12px",
-                                objectFit: "cover" as const,
                               }}
                             />
                           )}
@@ -833,6 +1147,7 @@ export function SwapIdleForm({
                             "send",
                           );
                         }}
+                        tabIndex={isSourceRowClipped ? -1 : undefined}
                         style={{
                           width: "24px",
                           height: "24px",
@@ -971,7 +1286,7 @@ export function SwapIdleForm({
                           lineHeight: "20px",
                         }}
                       >
-                        {token.balance}
+                        {formatTokenBalanceLabel(token)}
                       </div>
                       
                       {/* Tooltip */}
@@ -979,7 +1294,9 @@ export function SwapIdleForm({
                         <div style={{
                           position: "absolute",
                           right: 0,
-                          top: "calc(100% + 12px)",
+                          ...(showTooltipBelow
+                            ? { top: "calc(100% + 8px)" }
+                            : { bottom: "calc(100% + 8px)" }),
                           width: "220px",
                           backgroundColor: "#fff",
                           border: "1px solid #E8E8E7",
@@ -988,7 +1305,7 @@ export function SwapIdleForm({
                           padding: "16px",
                           display: "flex",
                           flexDirection: "column",
-                          zIndex: 50,
+                          zIndex: 10000,
                           pointerEvents: "none",
                           textAlign: "left"
                         }}>
@@ -1006,7 +1323,10 @@ export function SwapIdleForm({
 
                 {/* 25% 50% 75% MAX — hover transition */}
                 <PercentButtons
-                  visible={hoveredRow === index || focusedRow === index}
+                  visible={
+                    Boolean(token) &&
+                    (hoveredRow === index || focusedRow === index)
+                  }
                   onSelect={(pct) =>
                     token
                       ? handleSendPercentForToken(index, pct, token)
@@ -1017,6 +1337,69 @@ export function SwapIdleForm({
             );
           })}
         </div>
+
+        {hasSourceOverflow && (
+          <button
+            type="button"
+            onClick={() => setShowAllSourceAssets((current) => !current)}
+            style={{
+              alignItems: "center",
+              alignSelf: "stretch",
+              backgroundColor: "#F4F4F3",
+              border: "none",
+              borderRadius: "8px",
+              boxSizing: "border-box",
+              cursor: "pointer",
+              display: "flex",
+              gap: "8px",
+              justifyContent: "space-between",
+              minHeight: "30px",
+              paddingBlock: "5px",
+              paddingInline: "10px",
+              width: "100%",
+            }}
+          >
+            <span
+              style={{
+                alignItems: "center",
+                color: "#363635",
+                display: "flex",
+                fontFamily: '"Geist", system-ui, sans-serif',
+                fontSize: "10px",
+                fontWeight: 600,
+                gap: "20px",
+                letterSpacing: "0.06em",
+                lineHeight: "16px",
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <span>
+                {showAllSourceAssets ? "View less assets" : "View more assets"}
+              </span>
+              {!showAllSourceAssets && (
+                <SourceLogoHint
+                  rows={overflowHintRows.map(({ token, index }) => ({
+                    token,
+                    index,
+                  }))}
+                  extraCount={overflowHintExtraCount}
+                />
+              )}
+            </span>
+            <span
+              style={{
+                display: "flex",
+                transform: showAllSourceAssets
+                  ? "rotate(180deg)"
+                  : "rotate(0deg)",
+                transition: "transform 0.18s ease-out",
+              }}
+            >
+              <ChevronDownIcon />
+            </span>
+          </button>
+        )}
 
         {/* Add asset button — only after first source selected */}
         <AddAssetButton
@@ -1123,30 +1506,45 @@ export function SwapIdleForm({
               width: "100%",
             }}
           >
-            <input
-              type="text"
-              placeholder="0"
-              value={!isExactIn ? amount : receiveQuoteAmount ?? ""}
-              onChange={handleReceiveInput}
-              style={{
-                boxSizing: "border-box",
-                color:
-                  (!isExactIn && amount) || (isExactIn && receiveQuoteAmount)
-                    ? "#161615"
-                    : "#9E9E9C",
-                fontFamily:
-                  '"Delight-Medium", "Delight", system-ui, sans-serif',
-                fontSize: "36px",
-                fontWeight: 500,
-                lineHeight: "44px",
-                background: "transparent",
-                border: "none",
-                outline: "none",
-                padding: 0,
-                width: "100%",
-                minWidth: 0,
-              }}
-            />
+            {isReceiveAmountLoading ? (
+              <div
+                style={{
+                  alignItems: "center",
+                  boxSizing: "border-box",
+                  display: "flex",
+                  minHeight: "44px",
+                  minWidth: 0,
+                  width: "100%",
+                }}
+              >
+                <SkeletonBar width="68%" height="36px" />
+              </div>
+            ) : (
+              <input
+                type="text"
+                placeholder="0"
+                value={receiveInputValue}
+                onChange={handleReceiveInput}
+                style={{
+                  boxSizing: "border-box",
+                  color:
+                    (!isExactIn && amount) || (isExactIn && receiveQuoteAmount)
+                      ? "#161615"
+                      : "#9E9E9C",
+                  fontFamily:
+                    '"Delight-Medium", "Delight", system-ui, sans-serif',
+                  fontSize: "36px",
+                  fontWeight: 500,
+                  lineHeight: "44px",
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  padding: 0,
+                  width: "100%",
+                  minWidth: 0,
+                }}
+              />
+            )}
 
             {/* Destination asset pill */}
             <button
@@ -1180,29 +1578,25 @@ export function SwapIdleForm({
                     width: "26px",
                   }}
                 >
-                  <img
+                  <LogoCircle
                     src={toToken.logo}
                     alt={toToken.symbol}
-                    style={{
-                      borderRadius: "999px",
-                      height: "26px",
-                      width: "26px",
-                      objectFit: "cover" as const,
-                    }}
+                    label={toToken.symbol}
+                    size={26}
+                    fontSize={13}
                   />
                   {toToken.chainLogo && (
-                    <img
+                    <LogoCircle
                       src={toToken.chainLogo}
                       alt={toToken.chainName}
+                      label={toToken.chainName}
+                      size={12}
+                      fontSize={6}
+                      outline="1px solid #FFFFFE"
                       style={{
-                        borderRadius: "999px",
                         bottom: -2,
-                        height: "12px",
-                        outline: "1px solid #FFFFFE",
-                        position: "absolute" as const,
+                        position: "absolute",
                         right: -2,
-                        width: "12px",
-                        objectFit: "cover" as const,
                       }}
                     />
                   )}
@@ -1248,17 +1642,21 @@ export function SwapIdleForm({
               width: "100%",
             }}
           >
-            <div
-              style={{
-                boxSizing: "border-box",
-                color: "#848483",
-                fontFamily: '"Geist", system-ui, sans-serif',
-                fontSize: "14px",
-                lineHeight: "20px",
-              }}
-            >
-              ≈ $0.00
-            </div>
+            {isReceiveUsdLoading ? (
+              <SkeletonBar width="74px" height="18px" borderRadius="6px" />
+            ) : (
+              <div
+                style={{
+                  boxSizing: "border-box",
+                  color: "#848483",
+                  fontFamily: '"Geist", system-ui, sans-serif',
+                  fontSize: "14px",
+                  lineHeight: "20px",
+                }}
+              >
+                {receiveAltValue}
+              </div>
+            )}
             {toToken && (
               <div
                 onMouseEnter={() => setTooltip("asset-receive")}
@@ -1302,7 +1700,7 @@ export function SwapIdleForm({
                   <div style={{
                     position: "absolute",
                     right: 0,
-                    top: "calc(100% + 12px)",
+                    bottom: "calc(100% + 8px)",
                     width: "220px",
                     backgroundColor: "#fff",
                     border: "1px solid #E8E8E7",
@@ -1311,7 +1709,7 @@ export function SwapIdleForm({
                     padding: "16px",
                     display: "flex",
                     flexDirection: "column",
-                    zIndex: 50,
+                    zIndex: 10000,
                     pointerEvents: "none",
                     textAlign: "left"
                   }}>
@@ -1327,11 +1725,13 @@ export function SwapIdleForm({
             )}
           </div>
 
-          {/* 25% 50% 75% MAX — hover transition (receive side) */}
-          <PercentButtons
-            visible={hoveredPanel === "receive" || focusedPanel === "receive"}
-            onSelect={handleReceivePercent}
-          />
+          {/* 25% 50% 75% MAX — backed by calculateMaxForSwap when available */}
+          {onReceivePercentSelect && (
+            <PercentButtons
+              visible={hoveredPanel === "receive" || focusedPanel === "receive"}
+              onSelect={onReceivePercentSelect}
+            />
+          )}
         </div>
 
         {/* Recipient section — only shown when handler exists */}
