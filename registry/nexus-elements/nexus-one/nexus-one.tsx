@@ -1412,6 +1412,7 @@ export function NexusOne({
   const {
     steps,
     seed,
+    onStepsList,
     onStepComplete,
     reset: resetSteps,
   } = useTransactionSteps<SwapStepType>();
@@ -1551,13 +1552,16 @@ export function NexusOne({
       balance: matchedBreakdown?.balance
         ? `${matchedBreakdown.balance} ${sourceSymbol}`
         : `${source.amount} ${sourceSymbol}`,
-      balanceInFiat: Number.isFinite(sourceValue)
+      balanceInFiat: matchedBreakdown?.balanceInFiat != null
+        ? `$${Number(matchedBreakdown.balanceInFiat).toFixed(2)}`
+        : Number.isFinite(sourceValue)
         ? `$${sourceValue.toFixed(2)}`
         : "$0.00",
       chainId: source.chain.id,
       chainName: chainMeta?.name ?? source.chain.name,
       chainLogo: chainMeta?.logo ?? source.chain.logo,
       userAmount: source.amount,
+      userAmountUsd: Number.isFinite(sourceValue) ? source.value : undefined,
       userAmountMode: "token",
     };
   };
@@ -1621,6 +1625,8 @@ export function NexusOne({
     const amountNumber =
       parseFiatNumber(token.userAmount || fallbackAmount) ?? new Decimal(0);
     if (amountNumber.lte(0)) return new Decimal(0);
+    const quotedUsd = parseFiatNumber(token.userAmountUsd);
+    if (quotedUsd && quotedUsd.gte(0)) return quotedUsd;
     if (token.userAmountMode === "usd") return amountNumber;
 
     const rate = getTokenUsdRate(token);
@@ -1640,6 +1646,86 @@ export function NexusOne({
       return true;
     });
   };
+
+  const getNativeGasBalanceForChain = (chainId: number) => {
+    const nativeSymbol = CHAIN_METADATA[chainId]?.nativeCurrency?.symbol?.toUpperCase();
+    let balance = new Decimal(0);
+
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        if (breakdown.chain?.id !== chainId) continue;
+        const breakdownSymbol = (breakdown.symbol ?? asset.symbol ?? "").toUpperCase();
+        const assetSymbol = (asset.symbol ?? "").toUpperCase();
+        const isNativeBalance =
+          isNativeTokenAddress(breakdown.contractAddress) ||
+          Boolean(nativeSymbol && (breakdownSymbol === nativeSymbol || assetSymbol === nativeSymbol));
+
+        if (!isNativeBalance) continue;
+        balance = balance.plus(parseFiatNumber(breakdown.balance) ?? new Decimal(0));
+      }
+    }
+
+    return balance;
+  };
+
+  const hasGasForSource = (token: SwapTokenOption) => {
+    if (!token.chainId || !token.contractAddress) return false;
+    const tokenBalance = parseFiatNumber(token.balance) ?? new Decimal(0);
+    if (tokenBalance.lte(0)) return false;
+    if (isNativeTokenAddress(token.contractAddress)) return true;
+    return getNativeGasBalanceForChain(token.chainId).gt(0);
+  };
+
+  const getGasCapableBalanceSourceTokens = () => {
+    const tokens: SwapTokenOption[] = [];
+
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        const chainId = breakdown.chain?.id;
+        const contractAddress = breakdown.contractAddress;
+        const balance = parseFiatNumber(breakdown.balance) ?? new Decimal(0);
+        if (!chainId || !contractAddress || balance.lte(0)) continue;
+
+        const chainMeta = CHAIN_METADATA[chainId];
+        const symbol = breakdown.symbol ?? asset.symbol;
+        tokens.push({
+          chainId,
+          chainLogo: chainMeta?.logo ?? breakdown.chain?.logo,
+          chainName: chainMeta?.name ?? breakdown.chain?.name,
+          contractAddress,
+          decimals: breakdown.decimals ?? asset.decimals ?? 18,
+          logo: asset.icon ?? "",
+          name: symbol,
+          symbol,
+          balance: `${breakdown.balance} ${symbol}`,
+          balanceInFiat:
+            breakdown.balanceInFiat != null
+              ? `$${Number(breakdown.balanceInFiat).toFixed(2)}`
+              : "$0.00",
+        });
+      }
+    }
+
+    return getExpandedSourceTokens(tokens).filter(hasGasForSource);
+  };
+
+  const getExactOutSourceTokens = () => {
+    const selectedTokens = getExpandedSourceTokens(fromTokens);
+    if (selectedTokens.length > 0) {
+      return selectedTokens.filter(hasGasForSource);
+    }
+    return getGasCapableBalanceSourceTokens();
+  };
+
+  const buildFromSourcesPayload = (tokens: SwapTokenOption[]) =>
+    tokens.length > 0
+      ? {
+          fromSources: tokens.map((token) => ({
+            chainId: token.chainId!,
+            tokenAddress: token.contractAddress as `0x${string}`,
+          })),
+        }
+      : {};
 
   const getErrorText = (error: unknown) => {
     const err = error as any;
@@ -2396,6 +2482,18 @@ export function NexusOne({
     registerIntentHook(runId);
 
     const handleSwapEvent = (event: { name: string; args: SwapStepType }) => {
+      if (event.name === NEXUS_EVENTS.STEPS_LIST) {
+        const args = (event as any).args;
+        const stepList = Array.isArray(args)
+          ? args
+          : Array.isArray(args?.steps)
+            ? args.steps
+            : [];
+        if (stepList.length > 0) {
+          onStepsList(stepList);
+        }
+        return;
+      }
       if (event.name === NEXUS_EVENTS.STEP_COMPLETE) {
         const step = event.args as any;
         if (
@@ -2562,16 +2660,12 @@ export function NexusOne({
 
         resetExplorerUrls();
 
-        const expandedSourceTokens = getExpandedSourceTokens(fromTokens);
-        const fromSourcesPayload =
-          expandedSourceTokens.length > 0
-            ? {
-                fromSources: expandedSourceTokens.map((token) => ({
-                  chainId: token.chainId!,
-                  tokenAddress: token.contractAddress as `0x${string}`,
-                })),
-              }
-            : {};
+        const selectedSourceTokens = getExpandedSourceTokens(fromTokens);
+        const expandedSourceTokens = getExactOutSourceTokens();
+        if (selectedSourceTokens.length > 0 && expandedSourceTokens.length === 0) {
+          throw new Error("Selected sources need native gas on their chains.");
+        }
+        const fromSourcesPayload = buildFromSourcesPayload(expandedSourceTokens);
 
         const isNative =
           !toToken.contractAddress ||
@@ -3130,15 +3224,15 @@ export function NexusOne({
     const toTokenAddress = (
       toToken.contractAddress || zeroAddress
     ) as `0x${string}`;
-    const selectedSources = fromTokens
-      .filter((token) => token.chainId && token.contractAddress)
-      .map((token) => ({
+    const selectedSourceTokens = getExpandedSourceTokens(fromTokens);
+    const sourceTokensForMax = getExactOutSourceTokens();
+    const selectedSources = sourceTokensForMax.map((token) => ({
         chainId: token.chainId!,
         tokenAddress: token.contractAddress as `0x${string}`,
       }));
 
-    if (fromTokens.length > 0 && selectedSources.length === 0) {
-      setTxError("Select a valid source token before using receive MAX.");
+    if (selectedSourceTokens.length > 0 && selectedSources.length === 0) {
+      setTxError("Selected sources need native gas on their chains.");
       return;
     }
 
@@ -3214,10 +3308,17 @@ export function NexusOne({
     const calculateMaxForSwap = nexusSDK.calculateMaxForSwap;
     if (typeof calculateMaxForSwap !== "function") return;
 
-    const selectedSources = getExpandedSourceTokens(fromTokens).map((token) => ({
+    const selectedSourceTokens = getExpandedSourceTokens(fromTokens);
+    const sourceTokensForMax = getExactOutSourceTokens();
+    const selectedSources = sourceTokensForMax.map((token) => ({
       chainId: token.chainId!,
       tokenAddress: token.contractAddress as `0x${string}`,
     }));
+
+    if (selectedSourceTokens.length > 0 && selectedSources.length === 0) {
+      setTxError("Selected sources need native gas on their chains.");
+      return;
+    }
 
     setTxError(null);
     setSwapQuoteIssue(null);
@@ -3281,10 +3382,17 @@ export function NexusOne({
     const calculateMaxForSwap = nexusSDK.calculateMaxForSwap;
     if (typeof calculateMaxForSwap !== "function") return;
 
-    const selectedSources = getExpandedSourceTokens(fromTokens).map((token) => ({
+    const selectedSourceTokens = getExpandedSourceTokens(fromTokens);
+    const sourceTokensForMax = getExactOutSourceTokens();
+    const selectedSources = sourceTokensForMax.map((token) => ({
       chainId: token.chainId!,
       tokenAddress: token.contractAddress as `0x${string}`,
     }));
+
+    if (selectedSourceTokens.length > 0 && selectedSources.length === 0) {
+      setTxError("Selected sources need native gas on their chains.");
+      return;
+    }
 
     setTxError(null);
     setSwapQuoteIssue(null);
@@ -3396,8 +3504,14 @@ export function NexusOne({
         : !amount || Number(amount) <= 0
           ? "Enter amount"
           : fallback;
+  const previewIntentSourceUsdNumber = (intentData?.sources ?? []).reduce(
+    (sum, source) => sum.plus(parseFiatNumber((source as any).value) ?? new Decimal(0)),
+    new Decimal(0),
+  );
   const previewSourceUsdNumber =
-    fromTokens.length > 0
+    previewIntentSourceUsdNumber.gt(0)
+      ? previewIntentSourceUsdNumber
+      : fromTokens.length > 0
       ? fromTokens.reduce(
           (sum, token) =>
             sum.plus(
@@ -3730,6 +3844,8 @@ export function NexusOne({
                     activeMode={activeMode}
                     mode={activeMode}
                     opportunity={selectedOpportunity}
+                    steps={steps}
+                    explorerUrls={explorerUrls}
                     recipientAddress={
                       activeMode === "send" ? recipientAddress : undefined
                     }

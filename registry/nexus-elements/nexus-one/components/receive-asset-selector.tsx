@@ -49,6 +49,11 @@ const TokenLogo = ({ token, size = 40, fontSize = 16 }: { token: SwapTokenOption
   );
 };
 
+const parseFiatValue = (value: unknown) => {
+  const parsed = Number(String(value ?? "0").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const STABLE_SYMBOLS = new Set([
   "USDC", "USDT", "DAI", "FRAX", "LUSD", "TUSD", "USDD", "GHO", "crvUSD", "sUSD", "USDe"
 ]);
@@ -302,6 +307,15 @@ export function ReceiveAssetSelector({
     return result;
   }, [tokensWithBalances, selectedChainFilter, query, activeTab, dynamicStableSymbols]);
 
+  const sortedFiltered = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const aFiat = parseFiatValue(a.balanceInFiat);
+      const bFiat = parseFiatValue(b.balanceInFiat);
+      if (aFiat !== bFiat) return bFiat - aFiat;
+      return `${a.symbol} ${a.chainName}`.localeCompare(`${b.symbol} ${b.chainName}`);
+    });
+  }, [filtered]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, width: "100%", position: "relative" }}>
       <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12, position: "relative", zIndex: 10 }}>
@@ -317,12 +331,12 @@ export function ReceiveAssetSelector({
           {query && <button onClick={() => setQuery("")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}><X style={{ width: 16, height: 16, color: "#848483" }} /></button>}
           <button 
             onClick={() => setShowChainSelector(true)}
-            style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 999, backgroundColor: "#FFFFFE", border: "1px solid #E8E8E7", cursor: "pointer", height: 32, flexShrink: 0, boxShadow: "0px 1px 2px rgba(0,0,0,0.05)" }}
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px 4px 5px", borderRadius: 999, backgroundColor: "#FFFFFE", border: "1px solid #E8E8E7", cursor: "pointer", height: 38, flexShrink: 0, boxShadow: "0px 1px 2px rgba(0,0,0,0.05)" }}
           >
             {selectedChainFilter === null ? (
-               <img src="/nexus-one/all-chains.png" alt="All Chains" style={{ width: 20, height: 20, borderRadius: "999px", objectFit: "cover" }} />
+               <img src="/nexus-one/all-chains.png" alt="All Chains" style={{ width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }} />
             ) : (
-               <img src={chainMetaMap.get(selectedChainFilter)?.logo} style={{ width: 20, height: 20, borderRadius: "999px", objectFit: "cover" }} />
+               <img src={chainMetaMap.get(selectedChainFilter)?.logo} style={{ width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }} />
             )}
             <ChevronDown style={{ width: 14, height: 14, color: "#848483" }} />
           </button>
@@ -358,11 +372,11 @@ export function ReceiveAssetSelector({
       >
         {isLoading ? (
           <div style={{ textAlign: "center", padding: "40px", color: "#848483", fontFamily: '"Geist", system-ui, sans-serif' }}>Loading...</div>
-        ) : filtered.length === 0 ? (
+        ) : sortedFiltered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px", color: "#848483", fontFamily: '"Geist", system-ui, sans-serif' }}>No tokens found</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {filtered.slice(0, visibleCount).map(t => {
+            {sortedFiltered.slice(0, visibleCount).map(t => {
               const hash = `${t.chainId}-${t.contractAddress}`;
               const isSelected = selectedTokenHash === hash;
               const isHovered = hoveredHash === hash;
@@ -389,7 +403,7 @@ export function ReceiveAssetSelector({
                     <RadioDot selected={isSelected} />
                     <div style={{ position: "relative", flexShrink: 0, width: 40, height: 40 }}>
                       <TokenLogo token={t} size={40} fontSize={16} />
-                      {t.chainLogo && <img src={t.chainLogo} alt={t.chainName} style={{ position: "absolute", bottom: -2, right: -2, width: 14, height: 14, borderRadius: "999px", border: "2px solid #FFFFFE", zIndex: 2 }} />}
+                      {t.chainLogo && <img src={t.chainLogo} alt={t.chainName} style={{ position: "absolute", bottom: -3, right: -3, width: 22, height: 22, borderRadius: "999px", border: "2px solid #FFFFFE", zIndex: 2 }} />}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                       <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 15, color: "#161615" }}>{t.symbol}</span>

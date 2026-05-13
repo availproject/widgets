@@ -6,7 +6,8 @@ import { ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { type NexusOneMode, type DepositOpportunity } from "../types";
 import { type SwapTokenOption } from "./swap-asset-selector";
-import { CHAIN_METADATA } from "@avail-project/nexus-core";
+import { CHAIN_METADATA, type SwapStepType } from "@avail-project/nexus-core";
+import TransactionProgress from "../../swaps/components/transaction-progress";
 
 export interface SwapIntentSource {
   amount: string;
@@ -69,6 +70,11 @@ export interface SwapIntentPreviewProps {
   swapBalances?: any[] | null;
   supportedTokenAssets?: any[] | null;
   activeMode?: NexusOneMode;
+  steps?: Array<{ id: number; completed: boolean; step: SwapStepType }>;
+  explorerUrls?: {
+    sourceExplorerUrl: string | null;
+    destinationExplorerUrl: string | null;
+  };
   onAccept: () => void;
   onReject: () => void;
 }
@@ -127,8 +133,7 @@ const formatUsdValue = (value: Decimal) => {
 
 const formatTokenAmount = (value: unknown) => {
   const amount = toDecimal(value);
-  const max = amount.abs().gte(1) ? 6 : 8;
-  return amount.toDecimalPlaces(max).toFixed();
+  return amount.toDecimalPlaces(9).toFixed();
 };
 
 const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
@@ -526,6 +531,8 @@ export function SwapIntentPreview({
   opportunity,
   recipientAddress,
   activeMode,
+  steps,
+  explorerUrls,
   onAccept,
 }: SwapIntentPreviewProps) {
   const [showSourceDetails, setShowSourceDetails] = useState(false);
@@ -702,7 +709,7 @@ export function SwapIntentPreview({
         })}%`
       : pendingValue;
   const destinationHeaderAmount = hasResolvedQuote
-    ? formatAmount(destinationTokenAmount)
+    ? formatTokenAmount(destinationTokenAmount)
     : pendingValue;
   const destinationTokenDisplay = hasResolvedQuote
     ? `${formatTokenAmount(destinationTokenAmount)} ${destTokenSymbol}`
@@ -773,6 +780,24 @@ export function SwapIntentPreview({
           };
         });
   const shouldScrollSourceDetails = sourceDetailRows.length > 5;
+  const progressExplorerUrls = explorerUrls ?? {
+    destinationExplorerUrl: null,
+    sourceExplorerUrl: null,
+  };
+  const progressSources = sourceDetailRows.map((source) => ({
+    chainLogo: source.chainLogo,
+    symbol: source.symbol,
+    tokenLogo: source.tokenLogo,
+  }));
+  const primarySourceForProgress = progressSources[0] ?? {
+    chainLogo: fromToken?.chainLogo ?? "",
+    symbol: sourceSymbols[0] ?? "",
+    tokenLogo: fromToken?.logo ?? "",
+  };
+  const destinationProgressLogos = {
+    chain: normalizedIntentDest?.chain.logo || toToken?.chainLogo || "",
+    token: normalizedIntentDest?.token.logo || toToken?.logo || "",
+  };
 
   const ctaLabel =
     flowMode === "deposit"
@@ -1278,6 +1303,39 @@ export function SwapIntentPreview({
           )}
         </AnimatedDetails>
       </div>
+
+      {isExecuting && steps && steps.length > 0 && (
+        <div
+          style={{
+            background: "#FFFFFE",
+            border: `1px solid ${border}`,
+            borderRadius: "12px",
+            boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+            padding: "14px 16px",
+            width: "100%",
+          }}
+        >
+          <TransactionProgress
+            steps={steps}
+            explorerUrls={progressExplorerUrls}
+            sourceSymbol={primarySourceForProgress.symbol}
+            destinationSymbol={destTokenSymbol}
+            sourceLogos={{
+              chain: primarySourceForProgress.chainLogo,
+              token: primarySourceForProgress.tokenLogo,
+            }}
+            destinationLogos={destinationProgressLogos}
+            hasMultipleSources={progressSources.length > 1}
+            sources={progressSources.length > 1 ? progressSources : undefined}
+            isTransferMode={isSendMode}
+            depositOpportunityName={
+              isDepositMode
+                ? opportunity?.title || opportunity?.protocol
+                : undefined
+            }
+          />
+        </div>
+      )}
 
       <Button
         onClick={onAccept}

@@ -628,6 +628,8 @@ export function SwapIdleForm({
 
   const getSourceUsdValue = React.useCallback((token: SwapTokenOption) => {
     if (!token || !token.userAmount) return 0;
+    const quotedUsd = parseDecimal(token.userAmountUsd);
+    if (quotedUsd && quotedUsd.gte(0)) return quotedUsd.toNumber();
     const tokenBalance =
       Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
     const fiatBalance =
@@ -673,12 +675,9 @@ export function SwapIdleForm({
       : [{ token: null, index: 0, position: 0 }];
 
   const isExactIn = swapType === "exactIn";
-  const showSourceRouteSkeleton =
-    !isExactIn && Boolean(sourceRouteStatus) && fromTokens.length === 0;
+  const showSourceRouteSkeleton = !isExactIn && sourceRouteStatus === "loading";
   const sourceRouteHelper =
-    !isExactIn && sourceRouteStatus === "loading"
-      ? "Calculating best route..."
-      : !isExactIn && sourceRouteStatus === "insufficient"
+    !isExactIn && sourceRouteStatus === "insufficient"
         ? sourceRouteMessage
         : undefined;
   const receiveBalanceLabel = formatTokenBalanceLabel(toToken);
@@ -1226,68 +1225,77 @@ export function SwapIdleForm({
                     width: "100%",
                   }}
                 >
-                  {(() => {
-                    if (!token)
+                  {showSourceRouteSkeleton ? (
+                    <SkeletonBar width="88px" height="20px" />
+                  ) : (
+                    (() => {
+                      if (!token)
+                        return (
+                          <div
+                            style={{
+                              boxSizing: "border-box",
+                              color: "#848483",
+                              fontFamily: '"Geist", system-ui, sans-serif',
+                              fontSize: "14px",
+                              lineHeight: "20px",
+                            }}
+                          >
+                            ≈ ${usdValue || "0.00"}
+                          </div>
+                        );
+                      const tokenBalance =
+                        Number(String(token.balance).replace(/[^0-9.]/g, "")) ||
+                        0;
+                      const fiatBalance =
+                        Number(
+                          String(token.balanceInFiat).replace(/[^0-9.]/g, ""),
+                        ) || 0;
+                      const price =
+                        tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
+                      const isUsdMode = token.userAmountMode === "usd";
+                      const userAmtNum = Number(token.userAmount || 0);
+                      const quotedUsd = parseDecimal(token.userAmountUsd);
+                      const approxValue = isUsdMode
+                        ? price > 0
+                          ? (userAmtNum / price).toFixed(6)
+                          : "0.000000"
+                        : quotedUsd
+                          ? quotedUsd.toDecimalPlaces(2).toFixed()
+                          : (userAmtNum * price).toFixed(2);
+                      const approxPrefix = isUsdMode ? "≈" : "≈ $";
+                      const approxSuffix = isUsdMode ? ` ${token.symbol}` : "";
+
                       return (
                         <div
                           style={{
-                            boxSizing: "border-box",
-                            color: "#848483",
-                            fontFamily: '"Geist", system-ui, sans-serif',
-                            fontSize: "14px",
-                            lineHeight: "20px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            cursor: price > 0 ? "pointer" : "default",
                           }}
+                          onClick={() => handleToggleMode(index)}
                         >
-                          ≈ ${usdValue || "0.00"}
+                          <div
+                            style={{
+                              boxSizing: "border-box",
+                              color: "#848483",
+                              fontFamily: '"Geist", system-ui, sans-serif',
+                              fontSize: "14px",
+                              lineHeight: "20px",
+                            }}
+                          >
+                            {approxPrefix}
+                            {approxValue}
+                            {approxSuffix}
+                          </div>
+                          {price > 0 && <ArrowUpDownIcon />}
                         </div>
                       );
-                    const tokenBalance =
-                      Number(String(token.balance).replace(/[^0-9.]/g, "")) ||
-                      0;
-                    const fiatBalance =
-                      Number(
-                        String(token.balanceInFiat).replace(/[^0-9.]/g, ""),
-                      ) || 0;
-                    const price =
-                      tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
-                    const isUsdMode = token.userAmountMode === "usd";
-                    const userAmtNum = Number(token.userAmount || 0);
-                    const approxValue = isUsdMode
-                      ? price > 0
-                        ? (userAmtNum / price).toFixed(6)
-                        : "0.000000"
-                      : (userAmtNum * price).toFixed(2);
-                    const approxPrefix = isUsdMode ? "≈" : "≈ $";
-                    const approxSuffix = isUsdMode ? ` ${token.symbol}` : "";
-
-                    return (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          cursor: price > 0 ? "pointer" : "default",
-                        }}
-                        onClick={() => handleToggleMode(index)}
-                      >
-                        <div
-                          style={{
-                            boxSizing: "border-box",
-                            color: "#848483",
-                            fontFamily: '"Geist", system-ui, sans-serif',
-                            fontSize: "14px",
-                            lineHeight: "20px",
-                          }}
-                        >
-                          {approxPrefix}
-                          {approxValue}
-                          {approxSuffix}
-                        </div>
-                        {price > 0 && <ArrowUpDownIcon />}
-                      </div>
-                    );
-                  })()}
-                  {token && (
+                    })()
+                  )}
+                  {showSourceRouteSkeleton ? (
+                    <SkeletonBar width="132px" height="20px" />
+                  ) : token && (
                     <div
                       onMouseEnter={() => setTooltip(`asset-send-${index}`)}
                       onMouseLeave={() => setTooltip(null)}

@@ -239,7 +239,7 @@ function PayWithSources({
         )}
       </div>
 
-      {routeStatus === "loading" && fromTokens.length === 0 ? (
+      {routeStatus === "loading" ? (
         <>
           <SkeletonRow />
           <div
@@ -347,7 +347,7 @@ function PayWithSources({
                       fontSize: "12px",
                     }}
                   >
-                    {formatUsd(token.balanceInFiat)}
+                    {formatUsd(token.userAmountUsd || token.balanceInFiat)}
                   </span>
                 </div>
               </div>
@@ -445,6 +445,17 @@ export function SendIdleForm({
   isCalculatingMax,
   isQuoteRefreshing,
 }: SendIdleFormProps) {
+  const [pendingPercent, setPendingPercent] = useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (!isCalculatingMax) setPendingPercent(null);
+  }, [isCalculatingMax]);
+
+  const handlePercentSelect = (pct: number) => {
+    setPendingPercent(pct);
+    onSetPercent(pct);
+  };
+
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     let next = e.target.value.replaceAll(/[^0-9.]/g, "");
     const parts = next.split(".");
@@ -788,40 +799,55 @@ export function SendIdleForm({
               }}
             >
               {[25, 50, 75].map((pct) => (
-                <button
-                  key={pct}
-                  onClick={() => onSetPercent(pct)}
-                  style={{
-                    alignItems: "center",
-                    backgroundColor: "#F4F4F3",
-                    border: "none",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    display: "flex",
-                    flex: "1 1 0%",
-                    justifyContent: "center",
-                    padding: "6px 10px",
-                  }}
-                  type="button"
-                >
-                  <span
-                    style={{
-                      color: "#363635",
-                      fontFamily: uiFont,
-                      fontSize: "12px",
-                      fontWeight: 500,
-                      lineHeight: "20px",
-                    }}
-                  >
-                    {pct}%
-                  </span>
-                </button>
+                (() => {
+                  const isPending = Boolean(isCalculatingMax && pendingPercent === pct);
+                  return (
+                    <button
+                      key={pct}
+                      onClick={() => handlePercentSelect(pct)}
+                      style={{
+                        alignItems: "center",
+                        backgroundColor: isPending ? "#E8F0FF" : "#F4F4F3",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        display: "flex",
+                        flex: "1 1 0%",
+                        gap: "6px",
+                        justifyContent: "center",
+                        padding: "6px 10px",
+                      }}
+                      type="button"
+                    >
+                      {isPending && (
+                        <Loader2
+                          className="animate-spin"
+                          style={{ color: brand, height: 13, width: 13 }}
+                        />
+                      )}
+                      <span
+                        style={{
+                          color: isPending ? brand : "#363635",
+                          fontFamily: uiFont,
+                          fontSize: "12px",
+                          fontWeight: isPending ? 600 : 500,
+                          lineHeight: "20px",
+                        }}
+                      >
+                        {pct}%
+                      </span>
+                    </button>
+                  );
+                })()
               ))}
+              {(() => {
+                const isPending = Boolean(isCalculatingMax && pendingPercent === 100);
+                return (
               <button
-                onClick={() => onSetPercent(100)}
+                onClick={() => handlePercentSelect(100)}
                 style={{
                   alignItems: "center",
-                  backgroundColor: "#E8F0FF",
+                  backgroundColor: isPending ? "#E8F0FF" : "#F4F4F3",
                   border: "none",
                   borderRadius: "8px",
                   cursor: "pointer",
@@ -833,7 +859,7 @@ export function SendIdleForm({
                 }}
                 type="button"
               >
-                {isCalculatingMax && (
+                {isPending && (
                   <Loader2
                     className="animate-spin"
                     style={{ color: brand, height: 13, width: 13 }}
@@ -841,10 +867,10 @@ export function SendIdleForm({
                 )}
                 <span
                   style={{
-                    color: brand,
+                    color: isPending ? brand : "#363635",
                     fontFamily: uiFont,
                     fontSize: "12px",
-                    fontWeight: 600,
+                    fontWeight: isPending ? 600 : 500,
                     letterSpacing: "0.02em",
                     lineHeight: "20px",
                   }}
@@ -852,6 +878,8 @@ export function SendIdleForm({
                   MAX
                 </span>
               </button>
+                );
+              })()}
             </div>
           )}
         </div>

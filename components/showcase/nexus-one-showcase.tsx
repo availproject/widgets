@@ -11,7 +11,6 @@ import { encodeFunctionData } from "viem";
 import { useAccount } from "wagmi";
 
 const ALL_MODES: NexusOneMode[] = ["swap", "deposit", "send"];
-const DEMO_RECIPIENT = "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E";
 
 const AAVE_ABI = [
   {
@@ -176,9 +175,6 @@ const CONFIG_SNIPPETS: Record<NexusOneMode, string> = {
 } satisfies NexusOneConfig;`,
   send: `const config = {
   mode: "send",
-  prefill: {
-    recipient: "${DEMO_RECIPIENT}",
-  },
 } satisfies NexusOneConfig;`,
   deposit: `const config = {
   mode: "deposit",
@@ -221,9 +217,6 @@ const NexusOneShowcase = () => {
     if (selectedMode === "send") {
       return {
         mode: "send",
-        prefill: {
-          recipient: DEMO_RECIPIENT,
-        },
       };
     }
 

@@ -19,6 +19,7 @@ export interface SwapTokenOption {
   chainName?: string;
   chainLogo?: string;
   userAmount?: string;
+  userAmountUsd?: string;
   userAmountMode?: "token" | "usd";
   isUnified?: boolean;
   unifiedSymbol?: "USDC" | "USDT" | "ETH";
@@ -238,6 +239,19 @@ const UNIFIED_MAINNET_CHAIN_IDS = new Set([
   1, 10, 56, 137, 143, 999, 4114, 8217, 8453, 42161, 43114, 534352, 4326,
 ]);
 
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const formatBalanceWithSymbol = (token: Pick<SwapTokenOption, "balance" | "symbol">) => {
+  const balance = String(token.balance ?? "").trim();
+  const symbol = token.symbol?.trim();
+  if (!symbol) return balance || "0";
+  if (new RegExp(`(?:^|\\s)${escapeRegExp(symbol)}$`, "i").test(balance)) {
+    return balance || `0 ${symbol}`;
+  }
+  return `${balance || "0"} ${symbol}`;
+};
+
 function getUnifiedSymbol(token: Pick<SwapTokenOption, "symbol" | "chainId">) {
   if (token.chainId && !UNIFIED_MAINNET_CHAIN_IDS.has(token.chainId)) {
     return null;
@@ -450,7 +464,7 @@ export function SwapAssetSelector({
                 src={token.chainLogo} alt={token.chainName}
                 style={{
                   position: "absolute", bottom: -2, right: -2,
-                  width: 16, height: 16, borderRadius: "999px",
+                  width: 22, height: 22, borderRadius: "999px",
                   border: "2px solid #FFFFFE", objectFit: "cover",
                 }}
               />
@@ -462,9 +476,6 @@ export function SwapAssetSelector({
             </span>
             {token.chainName && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                {token.chainLogo && (
-                  <img src={token.chainLogo} alt="" style={{ width: 14, height: 14, borderRadius: "999px", objectFit: "cover" }} />
-                )}
                 <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
                   {token.chainName}
                 </span>
@@ -474,7 +485,7 @@ export function SwapAssetSelector({
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
           <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 14, color: "#161615" }}>
-            {token.balance} {token.symbol}
+            {formatBalanceWithSymbol(token)}
           </span>
           <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
             ≈ {token.balanceInFiat}
@@ -656,24 +667,24 @@ export function SwapAssetSelector({
             </button>
           )}
           {/* Chain Selector Badge */}
-          <button 
+          <button
             onClick={() => setShowChainSelector(true)}
             style={{
-              display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 999,
+              display: "flex", alignItems: "center", gap: 5, padding: "4px 8px 4px 5px", borderRadius: 999,
               backgroundColor: "#FFFFFE", border: "1px solid #E8E8E7", cursor: "pointer",
-              height: 32, flexShrink: 0, boxShadow: "0px 1px 2px rgba(0,0,0,0.05)"
+              height: 38, flexShrink: 0, boxShadow: "0px 1px 2px rgba(0,0,0,0.05)"
             }}
           >
             {selectedChainFilter === null ? (
-               <img 
-                 src="/nexus-one/all-chains.png" 
+               <img
+                 src="/nexus-one/all-chains.png"
                  alt="All Chains"
-                 style={{ width: 20, height: 20, borderRadius: "999px", objectFit: "cover" }} 
+                 style={{ width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }}
                />
             ) : (
-               <img 
-                 src={allTokens.find(t => t.chainId === selectedChainFilter)?.chainLogo} 
-                 style={{ width: 20, height: 20, borderRadius: "999px", objectFit: "cover" }} 
+               <img
+                 src={allTokens.find(t => t.chainId === selectedChainFilter)?.chainLogo}
+                 style={{ width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }}
                />
             )}
             <ChevronDown style={{ width: 14, height: 14, color: "#848483" }} />
@@ -817,7 +828,7 @@ export function SwapAssetSelector({
                                 </div>
                               )}
                               {token.chainLogo && (
-                                <img src={token.chainLogo} alt={token.chainName} style={{ position: "absolute", bottom: -2, right: -2, width: 12, height: 12, borderRadius: "999px", border: "1px solid #fff", objectFit: "cover" }} />
+                                <img src={token.chainLogo} alt={token.chainName} style={{ position: "absolute", bottom: -3, right: -3, width: 18, height: 18, borderRadius: "999px", border: "1.5px solid #fff", objectFit: "cover" }} />
                               )}
                             </div>
                             <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 14, color: "#161615" }}>

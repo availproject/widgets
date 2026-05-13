@@ -623,12 +623,11 @@
         "https://elements.nexus.availproject.org/r/tooltip.json",
         "https://elements.nexus.availproject.org/r/utils.json"
       ],
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations.",
-        "replacement": "@nexus-elements/nexus-one"
-      }
+        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+      },
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
     },
     {
       "name": "dialog",
@@ -822,12 +821,11 @@
         "https://elements.nexus.availproject.org/r/utils.json",
         "https://elements.nexus.availproject.org/r/view-history.json"
       ],
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
-        "replacement": "@nexus-elements/nexus-one"
-      }
+        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+      },
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
     },
     {
       "name": "input",
@@ -1045,7 +1043,8 @@
       ],
       "registryDependencies": [
         "https://elements.nexus.availproject.org/r/button.json",
-        "https://elements.nexus.availproject.org/r/nexus-provider.json"
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/swaps.json"
       ]
     },
     {
@@ -1330,12 +1329,11 @@
         "https://elements.nexus.availproject.org/r/tooltip.json",
         "https://elements.nexus.availproject.org/r/utils.json"
       ],
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Swaps is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations.",
-        "replacement": "@nexus-elements/nexus-one"
-      }
+        "deprecationMessage": "Swaps is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
+      },
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
     },
     {
       "name": "tabs",
@@ -1547,12 +1545,11 @@
         "https://elements.nexus.availproject.org/r/utils.json",
         "https://elements.nexus.availproject.org/r/view-history.json"
       ],
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations.",
-        "replacement": "@nexus-elements/nexus-one"
-      }
+        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations."
+      },
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations."
     },
     {
       "name": "unified-balance",
