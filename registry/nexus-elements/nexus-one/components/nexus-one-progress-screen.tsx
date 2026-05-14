@@ -2,16 +2,25 @@
 
 import React, { useEffect, useState } from "react";
 import Decimal from "decimal.js";
-import { Check, Loader2 } from "lucide-react";
-import { type SwapStepType } from "@avail-project/nexus-core";
+import { Check, Loader2, X } from "lucide-react";
+import { type BridgeStepType, type SwapStepType } from "@avail-project/nexus-core";
 import { type NexusOneMode, type DepositOpportunity } from "../types";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
 
+type ProgressSdkStep = SwapStepType | BridgeStepType;
+
 type ProgressStep = {
   id: number;
   completed: boolean;
-  step: SwapStepType;
+  step: ProgressSdkStep;
+};
+
+export type NexusOneProgressEvent = {
+  id: string;
+  name: string;
+  completed: boolean;
+  step: ProgressSdkStep;
 };
 
 interface NexusOneProgressScreenProps {
@@ -24,6 +33,8 @@ interface NexusOneProgressScreenProps {
   mode: NexusOneMode;
   opportunity?: DepositOpportunity;
   steps?: ProgressStep[];
+  progressEvents?: NexusOneProgressEvent[];
+  failedStep?: ProgressSdkStep | null;
 }
 
 const fontFamily = '"Geist", var(--font-geist-sans), system-ui, sans-serif';
@@ -31,6 +42,7 @@ const primary = "var(--foreground-primary, #161615)";
 const muted = "var(--foreground-muted, #848483)";
 const border = "var(--border-default, #E8E8E7)";
 const brand = "var(--foreground-brand, #006BF4)";
+const danger = "var(--foreground-negative, #E92C2C)";
 
 const parseDecimal = (value: unknown) => {
   if (value === null || value === undefined || value === "") return undefined;
@@ -60,10 +72,47 @@ const formatSymbolSummary = (symbols: string[]) => {
   return `${symbols.slice(0, 2).join(", ")} and ${symbols.length - 2} others`;
 };
 
-const getStepType = (step?: SwapStepType) =>
+const getStepType = (step?: ProgressSdkStep) =>
   String((step as any)?.type ?? (step as any)?.typeID ?? "").toUpperCase();
 
-const getStatusForStep = (step: SwapStepType | undefined, mode: NexusOneMode) => {
+type ProgressStatusId =
+  | "verifying"
+  | "source"
+  | "bridge"
+  | "destination"
+  | "action";
+
+type ProgressStatusState = "loading" | "completed" | "error";
+
+type ProgressStatusRow = {
+  id: ProgressStatusId;
+  label: string;
+  state: ProgressStatusState;
+};
+
+const STATUS_ORDER: ProgressStatusId[] = [
+  "verifying",
+  "source",
+  "bridge",
+  "destination",
+  "action",
+];
+
+const getActionStatusLabel = (mode: NexusOneMode) =>
+  mode === "deposit" ? "Depositing" : "Sending";
+
+const getStatusLabel = (id: ProgressStatusId, mode: NexusOneMode) => {
+  if (id === "verifying") return "Verifying Intent";
+  if (id === "source") return "Swapping at sources";
+  if (id === "bridge") return "Bridging";
+  if (id === "destination") return "Swapping at destination";
+  return getActionStatusLabel(mode);
+};
+
+const getStatusForStep = (
+  step: ProgressSdkStep | undefined,
+  mode: NexusOneMode,
+): ProgressStatusId => {
   const type = getStepType(step);
 
   if (
@@ -71,60 +120,144 @@ const getStatusForStep = (step: SwapStepType | undefined, mode: NexusOneMode) =>
       "SWAP_START",
       "DETERMINING_SWAP",
       "CREATE_PERMIT_EOA_TO_EPHEMERAL",
-      "CREATE_PERMIT_FOR_SOURCE_SWAP",
       "INTENT_ACCEPTED",
       "INTENT_HASH_SIGNED",
       "INTENT_SUBMITTED",
       "ALLOWANCE_USER_APPROVAL",
       "ALLOWANCE_APPROVAL_MINED",
       "ALLOWANCE_ALL_DONE",
-      "APPROVAL",
     ].some((token) => type.includes(token))
   ) {
-    return "Verifying Intent";
+    return "verifying";
   }
 
   if (
+    type.includes("CREATE_PERMIT_FOR_SOURCE_SWAP") ||
     type.includes("SOURCE_SWAP") ||
     type.includes("SOURCE_BATCH") ||
     type.includes("SWAP_SOURCE")
   ) {
-    return "Swapping at sources";
+    return "source";
   }
 
   if (
-    type.includes("BRIDGE") ||
+    type.includes("BRIDGE_DEPOSIT") ||
     type.includes("RFF") ||
     type.includes("INTENT_DEPOSIT") ||
     type.includes("INTENT_COLLECTION") ||
+    type.includes("INTENT_DEPOSITS_CONFIRMED") ||
     type.includes("INTENT_FULFILLED")
   ) {
-    return "Bridging";
+    return "bridge";
   }
 
   if (type.includes("DESTINATION_SWAP") || type.includes("DESTINATION_BATCH")) {
-    return "Swapping at destination";
+    return "destination";
   }
 
-  if (type.includes("TRANSACTION_SENT") || type.includes("TRANSACTION_CONFIRMED")) {
-    return mode === "deposit" ? "Depositing" : "Transferring / Sending";
+  if (
+    type.includes("APPROVAL") ||
+    type.includes("TRANSACTION_SENT") ||
+    type.includes("TRANSACTION_CONFIRMED")
+  ) {
+    return mode === "swap" ? "destination" : "action";
   }
 
   if (type.includes("SWAP_COMPLETE")) {
-    if (mode === "deposit") return "Depositing";
-    if (mode === "send") return "Transferring / Sending";
-    return "Swapping at destination";
+    return mode === "swap" ? "destination" : "action";
   }
 
-  if (mode === "deposit") return "Depositing";
-  if (mode === "send") return "Transferring / Sending";
-  return "Verifying Intent";
+  return "verifying";
 };
 
-const getCurrentStatus = (steps: ProgressStep[] | undefined, mode: NexusOneMode) => {
-  if (!steps || steps.length === 0) return "Verifying Intent";
-  const current = steps.find((item) => !item.completed)?.step ?? steps.at(-1)?.step;
-  return getStatusForStep(current, mode);
+const hasCompletedType = (
+  events: NexusOneProgressEvent[],
+  tokens: string[],
+) =>
+  events.some((event) => {
+    if (!event.completed) return false;
+    const type = getStepType(event.step);
+    return tokens.some((token) => type.includes(token));
+  });
+
+const hasStartedLaterStatus = (
+  events: NexusOneProgressEvent[],
+  id: ProgressStatusId,
+  mode: NexusOneMode,
+) => {
+  const index = STATUS_ORDER.indexOf(id);
+  return events.some((event) => {
+    const eventIndex = STATUS_ORDER.indexOf(getStatusForStep(event.step, mode));
+    return eventIndex > index;
+  });
+};
+
+const isStatusCompleted = (
+  id: ProgressStatusId,
+  events: NexusOneProgressEvent[],
+  mode: NexusOneMode,
+) => {
+  if (hasStartedLaterStatus(events, id, mode)) return true;
+
+  if (id === "verifying") {
+    return hasCompletedType(events, ["INTENT_SUBMITTED", "DETERMINING_SWAP"]);
+  }
+  if (id === "source") {
+    return hasCompletedType(events, ["SOURCE_SWAP_HASH"]);
+  }
+  if (id === "bridge") {
+    return hasCompletedType(events, ["INTENT_FULFILLED"]);
+  }
+  if (id === "destination") {
+    return hasCompletedType(events, ["DESTINATION_SWAP_HASH", "SWAP_COMPLETE"]);
+  }
+  return hasCompletedType(events, ["TRANSACTION_CONFIRMED"]);
+};
+
+const buildStatusRows = ({
+  events,
+  failedStep,
+  mode,
+}: {
+  events: NexusOneProgressEvent[];
+  failedStep?: ProgressSdkStep | null;
+  mode: NexusOneMode;
+}): ProgressStatusRow[] => {
+  const failedStatus = failedStep ? getStatusForStep(failedStep, mode) : null;
+  const involvedStatuses: ProgressStatusId[] = [];
+  const addStatus = (id: ProgressStatusId | null) => {
+    if (!id) return;
+    if (mode === "swap" && id === "action") return;
+    if (!involvedStatuses.includes(id)) {
+      involvedStatuses.push(id);
+    }
+  };
+
+  for (const event of events) {
+    addStatus(getStatusForStep(event.step, mode));
+  }
+  addStatus(failedStatus);
+
+  if (involvedStatuses.length === 0) {
+    addStatus("verifying");
+  }
+
+  return involvedStatuses
+    .sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))
+    .map((id) => {
+      const state: ProgressStatusState =
+        failedStatus === id
+          ? "error"
+          : isStatusCompleted(id, events, mode)
+            ? "completed"
+            : "loading";
+
+      return {
+        id,
+        label: getStatusLabel(id, mode),
+        state,
+      };
+    });
 };
 
 function MiniLogo({
@@ -232,6 +365,8 @@ export function NexusOneProgressScreen({
   mode,
   opportunity,
   steps,
+  progressEvents = [],
+  failedStep,
 }: NexusOneProgressScreenProps) {
   const intentSources = intentData?.sources ?? [];
   const intentDestination = intentData?.destination;
@@ -253,8 +388,11 @@ export function NexusOneProgressScreen({
     mode === "deposit"
       ? opportunity?.title || opportunity?.protocol || intentDestination?.chain.name || ""
       : intentDestination?.chain.name || toToken?.chainName || "";
-  const status = getCurrentStatus(steps, mode);
-  const isComplete = Boolean(steps?.length && steps.every((step) => step.completed));
+  const statusRows = buildStatusRows({
+    events: progressEvents,
+    failedStep,
+    mode,
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -356,45 +494,68 @@ export function NexusOneProgressScreen({
       <div
         aria-live="polite"
         style={{
-          alignItems: "center",
-          background: "#FFFFFE",
-          border: `1px solid ${border}`,
-          borderRadius: "10px",
-          boxShadow: "0px 1px 12px 0px #5B5B5B0D",
-          boxSizing: "border-box",
-          color: primary,
           display: "flex",
-          fontFamily,
-          fontSize: "13px",
-          fontWeight: 600,
-          gap: "10px",
-          minHeight: "48px",
-          padding: "12px 16px",
-          width: "100%",
+          flexDirection: "column",
+          gap: "8px",
         }}
       >
-        {isComplete ? (
-          <span
-            style={{
-              alignItems: "center",
-              background: brand,
-              borderRadius: "999px",
-              color: "#FFFFFE",
-              display: "inline-flex",
-              height: "18px",
-              justifyContent: "center",
-              width: "18px",
-            }}
-          >
-            <Check style={{ height: 13, width: 13 }} />
-          </span>
-        ) : (
-          <Loader2
-            className="animate-spin"
-            style={{ color: brand, height: 18, width: 18 }}
-          />
-        )}
-        <span>{status}</span>
+        {statusRows.map((row) => {
+          const isCompleted = row.state === "completed";
+          const isError = row.state === "error";
+
+          return (
+            <div
+              key={row.id}
+              className="animate-in fade-in slide-in-from-top-2 duration-300"
+              style={{
+                alignItems: "center",
+                background: "#FFFFFE",
+                border: `1px solid ${border}`,
+                borderRadius: "10px",
+                boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+                boxSizing: "border-box",
+                color: primary,
+                display: "flex",
+                fontFamily,
+                fontSize: "13px",
+                fontWeight: 600,
+                gap: "10px",
+                minHeight: "48px",
+                padding: "12px 16px",
+                transition:
+                  "opacity 220ms ease, transform 220ms ease, min-height 220ms ease",
+                width: "100%",
+              }}
+            >
+              {isCompleted || isError ? (
+                <span
+                  style={{
+                    alignItems: "center",
+                    background: isError ? danger : brand,
+                    borderRadius: "999px",
+                    color: "#FFFFFE",
+                    display: "inline-flex",
+                    height: "18px",
+                    justifyContent: "center",
+                    width: "18px",
+                  }}
+                >
+                  {isError ? (
+                    <X style={{ height: 12, width: 12 }} />
+                  ) : (
+                    <Check style={{ height: 13, width: 13 }} />
+                  )}
+                </span>
+              ) : (
+                <Loader2
+                  className="animate-spin"
+                  style={{ color: brand, height: 18, width: 18 }}
+                />
+              )}
+              <span>{row.label}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

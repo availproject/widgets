@@ -894,6 +894,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/nexus-elements/nexus-one/components/pay-with-sources.tsx",
+          "target": "components/nexus-one/components/pay-with-sources.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/nexus-elements/nexus-one/components/receive-asset-selector.tsx",
           "target": "components/nexus-one/components/receive-asset-selector.tsx",
           "type": "registry:component"

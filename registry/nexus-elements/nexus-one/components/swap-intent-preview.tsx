@@ -628,7 +628,7 @@ export function SwapIntentPreview({
   const protocolFeeNumber = parseDecimal(bridgeFeeData?.protocol);
   const solverFeeNumber = parseDecimal(bridgeFeeData?.solver);
   const gasSuppliedNumber = parseDecimal(bridgeFeeData?.gasSupplied);
-  const slippageBufferNumber = parseDecimal(intentData?.feesAndBuffer?.buffer);
+  const swapBufferNumber = parseDecimal(intentData?.feesAndBuffer?.buffer);
   const depositGasValueNumber = parseDecimal(normalizedIntentDest?.gas?.value);
   const depositGasAmount = normalizedIntentDest?.gas?.amount;
   const depositGasTokenSymbol = normalizedIntentDest?.gas?.token?.symbol || "";
@@ -640,17 +640,32 @@ export function SwapIntentPreview({
     parseDecimal((intentData as any)?.fees?.total);
   const feeNumber =
     explicitFeeNumber ?? (hasFiatQuote ? new Decimal(0) : undefined);
-  const quoteDeltaUsd = hasFiatQuote
-    ? Decimal.max(sourceUsdNumber.minus(destinationUsdNumber), 0)
-    : undefined;
+  const priceImpactBaseUsd =
+    hasFiatQuote && feeNumber !== undefined
+      ? sourceUsdNumber.minus(feeNumber).minus(swapBufferNumber ?? new Decimal(0))
+      : undefined;
+  const quoteImpactUsd =
+    hasFiatQuote && feeNumber !== undefined
+      ? Decimal.max(
+          sourceUsdNumber
+            .minus(destinationUsdNumber)
+            .minus(feeNumber)
+            .minus(swapBufferNumber ?? new Decimal(0)),
+          0,
+        )
+      : undefined;
   const priceImpactUsd =
     parseDecimal((intentData as any)?.priceImpactUsd) ??
-    quoteDeltaUsd;
+    quoteImpactUsd;
   const swapImpactPercent =
     parseDecimal((intentData as any)?.swapImpactPercent) ??
     parseDecimal((intentData as any)?.priceImpactPercent) ??
-    (hasFiatQuote
-      ? destinationUsdNumber.minus(sourceUsdNumber).div(sourceUsdNumber).mul(100)
+    (hasFiatQuote && priceImpactUsd !== undefined
+      ? priceImpactUsd.eq(0)
+        ? new Decimal(0)
+        : priceImpactBaseUsd !== undefined && priceImpactBaseUsd.gt(0)
+          ? priceImpactUsd.neg().div(priceImpactBaseUsd).mul(100)
+          : undefined
       : undefined);
 
   const destinationTokenAmount =
@@ -714,9 +729,9 @@ export function SwapIntentPreview({
   const destinationTokenDisplay = hasResolvedQuote
     ? `${formatTokenAmount(destinationTokenAmount)} ${destTokenSymbol}`
     : pendingLabel;
-  const slippageAmountDisplay =
-    slippageBufferNumber !== undefined
-      ? formatUsdValue(slippageBufferNumber)
+  const swapBufferDisplay =
+    swapBufferNumber !== undefined
+      ? formatUsdValue(swapBufferNumber)
       : pendingValue;
   const minReceivedDisplay = hasResolvedQuote
     ? `${formatTokenAmount(minReceived)} ${destTokenSymbol}`
@@ -779,6 +794,22 @@ export function SwapIntentPreview({
             index,
           };
         });
+  const sourceHeaderSubtitle = (() => {
+    if (normalizedIntentSources.length === 1) {
+      const source = normalizedIntentSources[0];
+      return `${source.token.symbol} on ${source.chain.name}`;
+    }
+
+    if (normalizedIntentSources.length === 0 && fallbackSources.length === 1) {
+      const source = fallbackSources[0];
+      return source.chainName
+        ? `${source.symbol} on ${source.chainName}`
+        : source.symbol;
+    }
+
+    const count = sourceAssetCount || 1;
+    return `${count} asset${count === 1 ? "" : "s"}`;
+  })();
   const shouldScrollSourceDetails = sourceDetailRows.length > 5;
   const progressExplorerUrls = explorerUrls ?? {
     destinationExplorerUrl: null,
@@ -808,16 +839,14 @@ export function SwapIntentPreview({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {isExecuting && (
-        <style>
-          {`
-            @keyframes nexusSwapRouteDot {
-              0%, 14% { background: #006BF4; opacity: 1; transform: scale(1.18); }
-              28%, 100% { background: #9FC4FF; opacity: 0.45; transform: scale(1); }
-            }
-          `}
-        </style>
-      )}
+      <style>
+        {`
+          @keyframes nexusSwapRouteDot {
+            0%, 12% { background: #006BF4; opacity: 1; transform: scale(1.18); }
+            30%, 100% { background: #9FC4FF; opacity: 0.45; transform: scale(1); }
+          }
+        `}
+      </style>
       <div
         style={{
           background: "#FFFFFE",
@@ -864,7 +893,7 @@ export function SwapIntentPreview({
                 lineHeight: "17px",
               }}
             >
-              {sourceAssetCount || 1} asset{(sourceAssetCount || 1) === 1 ? "" : "s"}
+              {sourceHeaderSubtitle}
             </div>
           </div>
 
@@ -882,18 +911,12 @@ export function SwapIntentPreview({
               <span
                 key={index}
                 style={{
-                  animation: isExecuting
-                    ? `nexusSwapRouteDot 1100ms ${index * 150}ms infinite`
-                    : undefined,
-                  background: !isExecuting && index === 2 ? "#006BF4" : "#9FC4FF",
+                  animation: `nexusSwapRouteDot 2400ms ${index * 220}ms infinite`,
+                  background: "#9FC4FF",
                   borderRadius: "2px",
                   display: "block",
                   height: "6px",
-                  opacity: isExecuting
-                    ? 0.45
-                    : index === 0 || index === 4
-                      ? 0.45
-                      : 1,
+                  opacity: 0.45,
                   width: "6px",
                 }}
               />
@@ -1279,10 +1302,10 @@ export function SwapIntentPreview({
             }}
           >
             <span style={{ color: muted, fontFamily, fontSize: "12px" }}>
-              Slippage Amount
+              Swap Buffer
             </span>
             <span style={{ color: primary, fontFamily, fontSize: "12px" }}>
-              {slippageAmountDisplay}
+              {swapBufferDisplay}
             </span>
           </div>
           {shouldShowMinReceived && (

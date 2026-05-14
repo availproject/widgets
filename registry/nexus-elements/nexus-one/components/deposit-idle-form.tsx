@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
+import { PayWithSources as SharedPayWithSources } from "./pay-with-sources";
 import { type SwapTokenOption } from "./swap-asset-selector";
 
 interface DepositIdleFormProps {
@@ -653,19 +654,13 @@ export function DepositIdleForm({
         </div>
       </div>
 
-      <PayWithSources
+      <SharedPayWithSources
         fromTokens={fromTokens}
         onOpenSourcePicker={onOpenSourcePicker}
         routeMessage={routeMessage}
         routeStatus={routeStatus}
       />
 
-      {isQuoteRefreshing && fromTokens.length > 0 && (
-        <div style={{ alignItems: "center", color: brand, display: "flex", fontFamily: uiFont, fontSize: "13px", gap: "6px", marginTop: "-4px" }}>
-          <Loader2 className="animate-spin" style={{ height: 13, width: 13 }} />
-          Fetching quote...
-        </div>
-      )}
     </div>
   );
 }

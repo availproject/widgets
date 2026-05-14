@@ -26,7 +26,10 @@ import {
   SwapIntentPreview,
   type SwapIntentData,
 } from "./components/swap-intent-preview";
-import { NexusOneProgressScreen } from "./components/nexus-one-progress-screen";
+import {
+  NexusOneProgressScreen,
+  type NexusOneProgressEvent,
+} from "./components/nexus-one-progress-screen";
 import { ReceiveAssetSelector, preloadReceiveTokens } from "./components/receive-asset-selector";
 import { OpportunityList } from "./components/opportunity-list";
 import { AlertCircle, ArrowLeft, ChevronDown, Loader2 } from "lucide-react";
@@ -37,6 +40,7 @@ import {
   CHAIN_METADATA,
   ERROR_CODES,
   NEXUS_EVENTS,
+  type BridgeStepType,
   type SwapStepType,
   TOKEN_METADATA,
 } from "@avail-project/nexus-core";
@@ -1441,6 +1445,13 @@ export function NexusOne({
     onStepComplete,
     reset: resetSteps,
   } = useTransactionSteps<SwapStepType>();
+  const [progressEvents, setProgressEvents] = useState<NexusOneProgressEvent[]>(
+    [],
+  );
+  const progressEventsRef = useRef<NexusOneProgressEvent[]>([]);
+  const [failedProgressStep, setFailedProgressStep] = useState<
+    SwapStepType | BridgeStepType | null
+  >(null);
   const [explorerUrls, setExplorerUrls] = useState<{
     sourceExplorerUrl: string | null;
     destinationExplorerUrl: string | null;
@@ -1679,6 +1690,7 @@ export function NexusOne({
     setReceiveMaxCalculating(false);
     setPreviewQuoteRefreshing(false);
     setSwapQuoteIssue(null);
+    resetProgressEvents();
     if (clearQuote) {
       setIntentToAmount(undefined);
       setIntentFeeUsd(undefined);
@@ -1708,6 +1720,24 @@ export function NexusOne({
       return undefined;
     }
   };
+
+  const getSwapBalanceTotalUsd = () =>
+    (swapBalance ?? []).reduce((sum, asset) => {
+      const breakdown = asset.breakdown ?? [];
+      if (breakdown.length > 0) {
+        return sum.plus(
+          breakdown.reduce(
+            (breakdownSum, item) =>
+              breakdownSum.plus(
+                parseFiatNumber(item.balanceInFiat) ?? new Decimal(0),
+              ),
+            new Decimal(0),
+          ),
+        );
+      }
+
+      return sum.plus(parseFiatNumber(asset.balanceInFiat) ?? new Decimal(0));
+    }, new Decimal(0));
 
   const getTokenUsdRate = (token: SwapTokenOption) => {
     const tokenBalance = parseFiatNumber(token.balance) ?? new Decimal(0);
@@ -1893,13 +1923,7 @@ export function NexusOne({
       return selectedSourceTotal;
     }
 
-    return (
-      swapBalance?.reduce(
-        (sum, asset) =>
-          sum.plus(parseFiatNumber(asset.balanceInFiat) ?? new Decimal(0)),
-        new Decimal(0),
-      ) ?? new Decimal(0)
-    );
+    return getSwapBalanceTotalUsd();
   };
 
   const buildInsufficientSourcesIssue = (error: unknown): SwapQuoteIssue => {
@@ -2010,6 +2034,38 @@ export function NexusOne({
     patchCurrentSwapHistoryEntry({
       sourceExplorerUrl: next.sourceExplorerUrl,
       finalExplorerUrl: next.destinationExplorerUrl,
+    });
+  };
+
+  const resetProgressEvents = () => {
+    progressEventsRef.current = [];
+    setProgressEvents([]);
+    setFailedProgressStep(null);
+  };
+
+  const appendProgressEvent = (
+    name: string,
+    step: SwapStepType | BridgeStepType | undefined,
+    defaultCompleted: boolean,
+  ) => {
+    if (!step) return;
+    const completed =
+      typeof (step as any).completed === "boolean"
+        ? Boolean((step as any).completed)
+        : defaultCompleted;
+
+    setProgressEvents((prev) => {
+      const next = [
+        ...prev,
+        {
+          id: `${Date.now()}-${prev.length}-${(step as any).typeID ?? (step as any).type ?? name}`,
+          name,
+          completed,
+          step,
+        },
+      ];
+      progressEventsRef.current = next;
+      return next;
     });
   };
 
@@ -2594,7 +2650,7 @@ export function NexusOne({
         | "swapWithExactOut"
         | "swapAndExecute"
         | "swapAndTransfer",
-      event: { name: string; args: SwapStepType },
+      event: { name: string; args: any },
     ) => {
       console.log(`[NexusOne:${operation}:event]`, {
         name: event?.name,
@@ -2603,7 +2659,7 @@ export function NexusOne({
       });
     };
 
-    const handleSwapEvent = (event: { name: string; args: SwapStepType }) => {
+    const handleSwapEvent = (event: { name: string; args: any }) => {
       if (event.name === NEXUS_EVENTS.STEPS_LIST) {
         const args = (event as any).args;
         const stepList = Array.isArray(args)
@@ -2617,23 +2673,25 @@ export function NexusOne({
         return;
       }
       if (event.name === NEXUS_EVENTS.STEP_COMPLETE) {
-        const step = event.args as any;
+        const step = event.args as BridgeStepType;
+        appendProgressEvent(event.name, step, true);
         if (
-          step?.type === "TRANSACTION_SENT" ||
-          step?.type === "TRANSACTION_CONFIRMED"
+          (step as any)?.type === "TRANSACTION_SENT" ||
+          (step as any)?.type === "TRANSACTION_CONFIRMED"
         ) {
           markSwapExecutionStarted();
         }
-        if (step?.data?.explorerURL) {
+        if ((step as any)?.data?.explorerURL) {
           mergeExplorerUrls({
-            destinationExplorerUrl: step.data.explorerURL,
+            destinationExplorerUrl: (step as any).data.explorerURL,
           });
         }
-        onStepComplete(step);
+        onStepComplete(step as any);
         return;
       }
       if (event.name === NEXUS_EVENTS.SWAP_STEP_COMPLETE) {
         const step = event.args;
+        appendProgressEvent(event.name, step, true);
         if (
           [
             "SOURCE_SWAP_BATCH_TX",
@@ -2944,12 +3002,33 @@ export function NexusOne({
       setReceiveMaxCalculating(false);
       const hasActiveExecution =
         swapStepRef.current === "progress" && Boolean(currentSwapIdRef.current);
+      const showFailedProgressThenReceipt = (
+        error: string,
+        patch: Partial<SwapHistoryEntry> = {},
+      ) => {
+        const fallbackFailedStep =
+          activeMode === "deposit" || activeMode === "send"
+            ? ({ type: "APPROVAL", typeID: "AP" } as BridgeStepType)
+            : ({
+                type: "DETERMINING_SWAP",
+                typeID: "DETERMINING_SWAP",
+              } as unknown as SwapStepType);
+        setFailedProgressStep(
+          progressEventsRef.current.at(-1)?.step ?? fallbackFailedStep,
+        );
+        finishCurrentSwapHistoryEntry("failed", { error, ...patch });
+        window.setTimeout(() => {
+          if (
+            swapRunIdRef.current === runId &&
+            swapStepRef.current === "progress"
+          ) {
+            setSwapStep("failed");
+          }
+        }, 700);
+      };
       if (err?.code === "USER_DENIED_INTENT") {
         if (hasActiveExecution) {
-          finishCurrentSwapHistoryEntry("failed", {
-            error: "Transaction cancelled by user",
-          });
-          setSwapStep("failed");
+          showFailedProgressThenReceipt("Transaction cancelled by user");
         } else if (!background && swapStepRef.current === "preview-intent") {
           setSwapStep("idle");
         }
@@ -2975,8 +3054,7 @@ export function NexusOne({
           ? err
           : "Transaction failed. Please try again or check console.");
       if (hasActiveExecution) {
-        finishCurrentSwapHistoryEntry("failed", { error: errorMessage });
-        setSwapStep("failed");
+        showFailedProgressThenReceipt(errorMessage);
       } else if (!background || swapStepRef.current === "preview-intent") {
         setSwapStep("idle");
       }
@@ -3222,6 +3300,7 @@ export function NexusOne({
       startSwapHistoryEntry();
       setSwapStep("progress");
       setQuoteRefreshing(false);
+      resetProgressEvents();
       seed(SWAP_EXPECTED_STEPS);
       swapIntentRef.current.allow();
       // The swap promise in handleEnterPreview will resolve/reject
@@ -3634,12 +3713,7 @@ export function NexusOne({
     previewDestinationUsdNumber && previewDestinationUsdNumber.gt(0)
       ? previewDestinationUsdNumber.toDecimalPlaces(6).toFixed()
       : undefined;
-  const totalSwapBalanceUsd = new Decimal(
-    swapBalance?.reduce(
-      (a, b) => a.add(b.balanceInFiat || 0),
-      new Decimal(0),
-    ) || 0,
-  )
+  const totalSwapBalanceUsd = getSwapBalanceTotalUsd()
     .toDecimalPlaces(2)
     .toFixed();
   const sendAmountUsd =
@@ -3997,6 +4071,8 @@ export function NexusOne({
                   mode={activeMode}
                   opportunity={selectedOpportunity}
                   steps={steps}
+                  progressEvents={progressEvents}
+                  failedStep={failedProgressStep}
                 />
               )}
 
@@ -4060,14 +4136,7 @@ export function NexusOne({
                       : undefined
                 }
                 sourceRouteMessage={exactOutInsufficientSourceIssue?.message}
-                totalBalance={new Decimal(
-                  swapBalance?.reduce(
-                    (a, b) => a.add(b.balanceInFiat || 0),
-                    new Decimal(0),
-                  ) || 0,
-                )
-                  .toDecimalPlaces(2)
-                  .toFixed()}
+                totalBalance={totalSwapBalanceUsd}
                 usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
                 swapType={swapType}
                 onOpenSourcePicker={(index) => {
@@ -4238,17 +4307,7 @@ export function NexusOne({
                     onAmountChange={handleDepositAmountChange}
                     onAmountModeToggle={handleDepositAmountModeToggle}
                     toToken={toTokenWithFetchedBalance}
-                    totalBalance={
-                      new Decimal(
-                        swapBalance?.reduce(
-                          (sum, asset) =>
-                            sum.add(parseFiatNumber(asset.balanceInFiat) ?? 0),
-                          new Decimal(0),
-                        ) ?? 0,
-                      )
-                        .toDecimalPlaces(2)
-                        .toFixed()
-                    }
+                    totalBalance={totalSwapBalanceUsd}
                     usdValue={depositUsdDisplay}
                     tokenValue={depositTokenDisplay}
                     fromTokens={fromTokens}
@@ -4770,7 +4829,7 @@ export function NexusOne({
               <SwapAssetSelector
                 title={
                   activeMode === "deposit" || activeMode === "send"
-                    ? "Choose assets to pay with"
+                    ? "Choose Assets to Pay with"
                     : "Choose assets to Swap"
                 }
                 swapBalance={swapBalance}
@@ -4780,8 +4839,24 @@ export function NexusOne({
                   activeMode === "send" ||
                   activeMode === "swap"
                 }
+                preserveSelectedBelowMinimum={
+                  activeMode === "deposit" ||
+                  activeMode === "send" ||
+                  (activeMode === "swap" && swapType === "exactOut")
+                }
+                allowSelectedTokenRemoval={
+                  activeMode === "swap" && swapType === "exactOut"
+                }
                 selectedTokens={fromTokens}
                 editingAssetIndex={editingAssetIndex}
+                onClearSelection={
+                  activeMode === "deposit" || activeMode === "send"
+                    ? () => {
+                        clearPendingSwapIntent();
+                        setFromTokens([]);
+                      }
+                    : undefined
+                }
                 onToggle={(token) => {
                   clearPendingSwapIntent();
                   setFromTokens((prev) => {

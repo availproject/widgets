@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search, X, Loader2, ChevronDown, ChevronUp, Info, Check, Minus } from "lucide-react";
 import {
@@ -37,8 +37,11 @@ interface SwapAssetSelectorProps {
   selectedTokens?: SwapTokenOption[];
   editingAssetIndex?: number | null;
   onToggle?: (token: SwapTokenOption) => void;
+  onClearSelection?: () => void;
   onDone?: () => void;
   allowUnified?: boolean;
+  preserveSelectedBelowMinimum?: boolean;
+  allowSelectedTokenRemoval?: boolean;
 }
 
 function deriveTokenOptions(swapBalance: UserAsset[]): SwapTokenOption[] {
@@ -289,9 +292,34 @@ function sameTokenOption(a?: SwapTokenOption, b?: SwapTokenOption) {
     return Boolean(a.isUnified && b.isUnified && a.unifiedSymbol === b.unifiedSymbol);
   }
   return (
-    a.contractAddress.toLowerCase() === b.contractAddress.toLowerCase() &&
+    sameContractAddress(a.contractAddress, b.contractAddress) &&
     a.chainId === b.chainId
   );
+}
+
+function isNativeLikeAddress(address?: string) {
+  const normalized = (address ?? "").toLowerCase();
+  return (
+    normalized === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" ||
+    normalized === "0x0000000000000000000000000000000000000000"
+  );
+}
+
+function addressTail(address?: string) {
+  const normalized = (address ?? "").toLowerCase();
+  if (!normalized.startsWith("0x")) return normalized;
+  return normalized.slice(-40);
+}
+
+function sameContractAddress(a?: string, b?: string) {
+  const normalizedA = (a ?? "").toLowerCase();
+  const normalizedB = (b ?? "").toLowerCase();
+  if (!normalizedA || !normalizedB) return normalizedA === normalizedB;
+  if (normalizedA === normalizedB) return true;
+  if (isNativeLikeAddress(normalizedA) && isNativeLikeAddress(normalizedB)) {
+    return true;
+  }
+  return addressTail(normalizedA) === addressTail(normalizedB);
 }
 
 export function SwapAssetSelector({
@@ -304,8 +332,11 @@ export function SwapAssetSelector({
   selectedTokens = [],
   editingAssetIndex = null,
   onToggle,
+  onClearSelection,
   onDone,
   allowUnified = false,
+  preserveSelectedBelowMinimum = false,
+  allowSelectedTokenRemoval = false,
 }: SwapAssetSelectorProps) {
   const selectorRef = useRef<HTMLDivElement | null>(null);
   const chainCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -323,10 +354,39 @@ export function SwapAssetSelector({
   const [isChainSearchFocused, setIsChainSearchFocused] = useState(false);
 
   const allTokens = useMemo<SwapTokenOption[]>(() => {
-    if (staticOptions) return staticOptions;
-    if (!swapBalance) return [];
-    return deriveTokenOptions(swapBalance);
-  }, [swapBalance, staticOptions]);
+    const baseTokens = staticOptions
+      ? [...staticOptions]
+      : swapBalance
+        ? deriveTokenOptions(swapBalance)
+        : [];
+
+    if (!preserveSelectedBelowMinimum || selectedTokens.length === 0) {
+      return baseTokens;
+    }
+
+    const merged = [...baseTokens];
+    const selectedSourceTokens = selectedTokens.flatMap((token) =>
+      token.isUnified && token.sourceTokens?.length
+        ? token.sourceTokens
+        : [token],
+    );
+
+    for (const selectedToken of selectedSourceTokens) {
+      const alreadyPresent = merged.some((token) =>
+        sameTokenOption(token, selectedToken),
+      );
+      if (!alreadyPresent) {
+        merged.push(selectedToken);
+      }
+    }
+
+    return merged;
+  }, [
+    preserveSelectedBelowMinimum,
+    selectedTokens,
+    swapBalance,
+    staticOptions,
+  ]);
 
   /* Search + tab + chain filter */
   const filtered = useMemo(() => {
@@ -351,17 +411,44 @@ export function SwapAssetSelector({
     return result;
   }, [allTokens, query, activeTab, selectedChainFilter]);
 
+  const isTokenSelectedForVisibility = useCallback(
+    (token: SwapTokenOption) => {
+      if (!preserveSelectedBelowMinimum) return false;
+
+      return selectedTokens.some(
+        (selected) =>
+          sameTokenOption(selected, token) ||
+          Boolean(
+            selected.isUnified &&
+              selected.sourceTokens?.some((source) =>
+                sameTokenOption(source, token),
+              ),
+          ),
+      );
+    },
+    [preserveSelectedBelowMinimum, selectedTokens],
+  );
+
+  const isUnifiedSelectedForVisibility = useCallback(
+    (symbol: string) =>
+      preserveSelectedBelowMinimum &&
+      selectedTokens.some(
+        (selected) => selected.isUnified && selected.unifiedSymbol === symbol,
+      ),
+    [preserveSelectedBelowMinimum, selectedTokens],
+  );
+
   /* Split into above/below minimum */
   const { aboveMin, belowMin } = useMemo(() => {
     const above: SwapTokenOption[] = [];
     const below: SwapTokenOption[] = [];
     for (const t of filtered) {
       const fiat = getTokenFiatValue(t);
-      if (fiat >= MIN_FIAT_THRESHOLD) above.push(t);
+      if (fiat >= MIN_FIAT_THRESHOLD || isTokenSelectedForVisibility(t)) above.push(t);
       else below.push(t);
     }
     return { aboveMin: above, belowMin: below };
-  }, [filtered]);
+  }, [filtered, isTokenSelectedForVisibility]);
 
   /* Group by symbol */
   const groupedFiltered = useMemo(() => {
@@ -392,13 +479,23 @@ export function SwapAssetSelector({
         };
       })
       .filter((group) => {
+        const hasSelectedToken = group.tokens.some(isTokenSelectedForVisibility);
+        const hasSelectedUnified = isUnifiedSelectedForVisibility(group.symbol);
         if (group.isUnifiedCandidate) {
-          return group.totalFiat >= MIN_FIAT_THRESHOLD;
+          return (
+            group.totalFiat >= MIN_FIAT_THRESHOLD ||
+            hasSelectedToken ||
+            hasSelectedUnified
+          );
         }
-        return group.tokens.some((token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD);
+        return group.tokens.some(
+          (token) =>
+            getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
+            isTokenSelectedForVisibility(token),
+        );
       })
       .sort((a, b) => b.totalFiat - a.totalFiat);
-  }, [filtered, allowUnified]);
+  }, [filtered, allowUnified, isTokenSelectedForVisibility, isUnifiedSelectedForVisibility]);
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -413,10 +510,21 @@ export function SwapAssetSelector({
   };
 
   const isTokenSelectedInOtherSlot = (token: SwapTokenOption) =>
+    !allowSelectedTokenRemoval &&
     selectedTokens.some((st, idx) => idx !== editingAssetIndex && sameTokenOption(st, token));
 
   const isTokenSelectedInCurrentSlot = (token: SwapTokenOption) => {
     if (isMulti) {
+      return selectedTokens.some(
+        (st) =>
+          sameTokenOption(st, token) ||
+          Boolean(
+            st.isUnified &&
+              st.sourceTokens?.some((source) => sameTokenOption(source, token)),
+          ),
+      );
+    }
+    if (allowSelectedTokenRemoval) {
       return selectedTokens.some(
         (st) =>
           sameTokenOption(st, token) ||
@@ -432,6 +540,7 @@ export function SwapAssetSelector({
   };
 
   const isGroupUnifiedSelectedInOtherSlot = (group: typeof groupedFiltered[0]) => {
+    if (allowSelectedTokenRemoval) return false;
     const relevantTokens = isMulti
       ? selectedTokens
       : selectedTokens.filter((_, idx) => idx !== editingAssetIndex);
@@ -448,6 +557,7 @@ export function SwapAssetSelector({
   };
   
   const isAnyTokenInGroupSelectedInOtherSlot = (group: typeof groupedFiltered[0]) => {
+    if (allowSelectedTokenRemoval) return false;
     const relevantTokens = isMulti
       ? selectedTokens
       : selectedTokens.filter((_, idx) => idx !== editingAssetIndex);
@@ -470,7 +580,9 @@ export function SwapAssetSelector({
         disabled={disabled}
         onClick={() => {
           if (disabled) return;
-          if (isMulti && onToggle) onToggle(token);
+          if ((isMulti || (allowSelectedTokenRemoval && selectedInCurrent)) && onToggle) {
+            onToggle(token);
+          }
           else onSelect(token);
         }}
         style={{
@@ -536,7 +648,11 @@ export function SwapAssetSelector({
   const renderGroupRow = (group: typeof groupedFiltered[0]) => {
     if (!group.isUnifiedCandidate) {
       return group.tokens
-        .filter((token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD)
+        .filter(
+          (token) =>
+            getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
+            isTokenSelectedForVisibility(token),
+        )
         .map((token) => renderTokenRow(token));
     }
 
@@ -544,10 +660,14 @@ export function SwapAssetSelector({
     if (unifiedSelectedInOther) return null;
 
     const individualTokens = group.tokens.filter(
-      (token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD,
+      (token) =>
+        getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
+        isTokenSelectedForVisibility(token),
     );
     const hasVisibleUnifiedRow =
-      group.totalFiat >= MIN_FIAT_THRESHOLD && !unifiedSelectedInOther;
+      (group.totalFiat >= MIN_FIAT_THRESHOLD ||
+        isUnifiedSelectedForVisibility(group.symbol)) &&
+      !unifiedSelectedInOther;
     const visibleTokensCount = individualTokens.filter(
       (t) => !isTokenSelectedInOtherSlot(t),
     ).length;
@@ -564,7 +684,10 @@ export function SwapAssetSelector({
       selectedChildCount > 0 && selectedChildCount < group.tokens.length;
     const shouldHideUnifiedRow =
       !isMulti &&
-      (anyIndividualSelectedInOther || anyIndividualSelectedInCurrent || group.totalFiat < 1);
+      (anyIndividualSelectedInOther ||
+        anyIndividualSelectedInCurrent ||
+        (group.totalFiat < MIN_FIAT_THRESHOLD &&
+          !isUnifiedSelectedForVisibility(group.symbol)));
     const shouldHideIndividualRows =
       !isMulti && (unifiedSelectedInOther || unifiedSelectedInCurrent);
     const unifiedToken: SwapTokenOption = {
@@ -678,6 +801,10 @@ export function SwapAssetSelector({
   };
 
   const isLoading = !staticOptions && swapBalance === null;
+  const selectedAssetCount = selectedTokens.length;
+  const subtitle = isMulti
+    ? `${selectedAssetCount} asset${selectedAssetCount === 1 ? "" : "s"} selected`
+    : "Select token and chain";
 
   useEffect(() => {
     setPortalRoot(
@@ -749,14 +876,33 @@ export function SwapAssetSelector({
         }}>
           <ChevronDown style={{ width: 16, height: 16, transform: "rotate(90deg)" }} />
         </button>
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: 0, flex: "1 1 auto" }}>
           <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 18, fontWeight: 600, color: "#161615" }}>
             {title}
           </span>
           <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
-            Select token and chain
+            {subtitle}
           </span>
         </div>
+        {isMulti && selectedAssetCount > 0 && onClearSelection && (
+          <button
+            onClick={onClearSelection}
+            style={{
+              backgroundColor: "transparent",
+              border: "none",
+              color: "#006BF4",
+              cursor: "pointer",
+              flexShrink: 0,
+              fontFamily: '"Geist", system-ui, sans-serif',
+              fontSize: 13,
+              fontWeight: 500,
+              lineHeight: "18px",
+              padding: "2px 0",
+            }}
+          >
+            Deselect all
+          </button>
+        )}
       </div>
 
       {/* Search */}
