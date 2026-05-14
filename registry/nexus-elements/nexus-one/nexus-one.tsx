@@ -104,11 +104,16 @@ type SwapQuoteIssue = {
 const QUOTE_REFRESH_INTERVAL_MS = 30000;
 const REFUND_FALLBACK_DELAY_MS = 30 * 60 * 1000;
 const DRAWER_CLOSE_MS = 220;
+const MODAL_HEIGHT_TRANSITION_MS = 260;
 const SWAP_HISTORY_STORAGE_KEY_PREFIX = "nexus-one-transaction-history-v1";
 const tooltipSurface = "#FFFFFE";
 const tooltipText = "var(--foreground-primary, #161615)";
 const tooltipBorder = "var(--border-default, #E8E8E7)";
 const uiFont = '"Geist", var(--font-geist-sans), system-ui, sans-serif';
+const modalHeightTransitionStyle = {
+  interpolateSize: "allow-keywords",
+} as React.CSSProperties;
+const modalHeightTransition = `height ${MODAL_HEIGHT_TRANSITION_MS}ms ease, max-height ${MODAL_HEIGHT_TRANSITION_MS}ms ease`;
 
 const getSwapHistoryStorageKey = (ownerAddress?: string) =>
   `${SWAP_HISTORY_STORAGE_KEY_PREFIX}:${ownerAddress?.toLowerCase() || "anonymous"}`;
@@ -2373,6 +2378,9 @@ export function NexusOne({
     setRecipientAddress("");
     setTxError(null);
     setSwapStep("idle");
+    setCurrentSwapId(null);
+    currentSwapIdRef.current = null;
+    currentSwapStartedAtRef.current = 0;
     setFromTokens([]);
     setToToken(undefined);
     setSelectedOpportunity(undefined);
@@ -2580,6 +2588,21 @@ export function NexusOne({
     // Claim ownership of global singleton hook before executing SDK swap
     registerIntentHook(runId);
 
+    const logSwapEvent = (
+      operation:
+        | "swapWithExactIn"
+        | "swapWithExactOut"
+        | "swapAndExecute"
+        | "swapAndTransfer",
+      event: { name: string; args: SwapStepType },
+    ) => {
+      console.log(`[NexusOne:${operation}:event]`, {
+        name: event?.name,
+        args: event?.args,
+        event,
+      });
+    };
+
     const handleSwapEvent = (event: { name: string; args: SwapStepType }) => {
       if (event.name === NEXUS_EVENTS.STEPS_LIST) {
         const args = (event as any).args;
@@ -2660,27 +2683,29 @@ export function NexusOne({
             rawAmountStr = amount; // fallback for single-token case
           }
 
-          let cleanAmount = Number(rawAmountStr || "0");
-          if (cleanAmount <= 0) continue;
+          let cleanAmount = parseFiatNumber(rawAmountStr) ?? new Decimal(0);
+          if (cleanAmount.lte(0)) continue;
 
           if (token.userAmountMode === "usd") {
             const tokenBalance =
-              Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+              parseFiatNumber(token.balance) ?? new Decimal(0);
             const fiatBalance =
-              Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
-            const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
-            if (price > 0) {
-              cleanAmount = cleanAmount / price;
+              parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
+            const price = tokenBalance.gt(0)
+              ? fiatBalance.div(tokenBalance)
+              : new Decimal(0);
+            if (price.gt(0)) {
+              cleanAmount = cleanAmount.div(price);
             } else {
-              cleanAmount = 0;
+              cleanAmount = new Decimal(0);
             }
           }
 
-          if (cleanAmount <= 0) continue;
+          if (cleanAmount.lte(0)) continue;
 
-          const safeTokenAmountStr = cleanAmount.toFixed(
-            Math.min(token.decimals || 18, 18),
-          );
+          const safeTokenAmountStr = cleanAmount
+            .toDecimalPlaces(Math.max(0, token.decimals || 18), Decimal.ROUND_DOWN)
+            .toFixed();
 
           fromPayload.push({
             chainId: token.chainId!,
@@ -2707,6 +2732,7 @@ export function NexusOne({
           },
           {
             onEvent: (event: any) => {
+              logSwapEvent("swapWithExactIn", event);
               if (swapRunIdRef.current !== runId) return;
               handleSwapEvent(event);
             },
@@ -2765,12 +2791,7 @@ export function NexusOne({
 
         resetExplorerUrls();
 
-        const selectedSourceTokens = getExpandedSourceTokens(fromTokens);
-        const expandedSourceTokens = getExactOutSourceTokens();
-        if (selectedSourceTokens.length > 0 && expandedSourceTokens.length === 0) {
-          throw new Error("Selected sources need native gas on their chains.");
-        }
-        const fromSourcesPayload = buildFromSourcesPayload(expandedSourceTokens);
+        const fromSourcesPayload = {};
 
         const isNative =
           !toToken.contractAddress ||
@@ -2821,7 +2842,11 @@ export function NexusOne({
         }
 
         if (executeConfig) {
-          const onEvent = (event: any) => {
+          const onEvent = (
+            operation: "swapAndExecute" | "swapAndTransfer",
+            event: any,
+          ) => {
+            logSwapEvent(operation, event);
             if (swapRunIdRef.current !== runId) return;
             handleSwapEvent(event);
           };
@@ -2837,7 +2862,7 @@ export function NexusOne({
                     recipient: resolvedRecipientAddress as `0x${string}`,
                     ...fromSourcesPayload,
                   },
-                  { onEvent },
+                  { onEvent: (event: any) => onEvent("swapAndTransfer", event) },
                 )
               : await nexusSDK.swapAndExecute(
                   {
@@ -2847,7 +2872,7 @@ export function NexusOne({
                     execute: executeConfig,
                     ...fromSourcesPayload,
                   },
-                  { onEvent },
+                  { onEvent: (event: any) => onEvent("swapAndExecute", event) },
                 );
 
           const swapResult = result?.swapResult ?? result?.result ?? null;
@@ -2885,6 +2910,7 @@ export function NexusOne({
             },
             {
               onEvent: (event: any) => {
+                logSwapEvent("swapWithExactOut", event);
                 if (swapRunIdRef.current !== runId) return;
                 handleSwapEvent(event);
               },
@@ -2916,8 +2942,10 @@ export function NexusOne({
       setQuoteRefreshing(false);
       setIntentLoading(false);
       setReceiveMaxCalculating(false);
+      const hasActiveExecution =
+        swapStepRef.current === "progress" && Boolean(currentSwapIdRef.current);
       if (err?.code === "USER_DENIED_INTENT") {
-        if (currentSwapIdRef.current) {
+        if (hasActiveExecution) {
           finishCurrentSwapHistoryEntry("failed", {
             error: "Transaction cancelled by user",
           });
@@ -2930,8 +2958,7 @@ export function NexusOne({
       if (
         isExactOutFlow &&
         isInsufficientSourcesError(err) &&
-        !currentSwapIdRef.current &&
-        swapStepRef.current !== "progress"
+        !hasActiveExecution
       ) {
         const issue = buildInsufficientSourcesIssue(err);
         if (!background || swapStepRef.current === "preview-intent") {
@@ -2947,7 +2974,7 @@ export function NexusOne({
         (typeof err === "string"
           ? err
           : "Transaction failed. Please try again or check console.");
-      if (currentSwapIdRef.current || swapStepRef.current === "progress") {
+      if (hasActiveExecution) {
         finishCurrentSwapHistoryEntry("failed", { error: errorMessage });
         setSwapStep("failed");
       } else if (!background || swapStepRef.current === "preview-intent") {
@@ -3282,6 +3309,7 @@ export function NexusOne({
     val: string,
     panel: "send" | "receive",
   ) => {
+    syncingIntentSourcesRef.current = false;
     clearPendingSwapIntent();
     setAmount(val);
     if (panel === "receive") {
@@ -3298,12 +3326,14 @@ export function NexusOne({
   };
 
   const handleDepositAmountChange = (val: string) => {
+    syncingIntentSourcesRef.current = false;
     clearPendingSwapIntent();
     setSwapQuoteIssue(null);
     setAmount(val);
   };
 
   const handleSendAmountChange = (val: string) => {
+    syncingIntentSourcesRef.current = false;
     clearPendingSwapIntent();
     setSwapQuoteIssue(null);
     setSwapType("exactOut");
@@ -3311,6 +3341,7 @@ export function NexusOne({
   };
 
   const handleDepositAmountModeToggle = () => {
+    syncingIntentSourcesRef.current = false;
     const rate = getDepositTokenUsdRate();
     const parsedAmount = parseFiatNumber(amount) ?? new Decimal(0);
     if (parsedAmount.gt(0) && rate.gt(0)) {
@@ -3330,21 +3361,10 @@ export function NexusOne({
     const calculateMaxForSwap = nexusSDK.calculateMaxForSwap;
     if (typeof calculateMaxForSwap !== "function") return;
 
+    syncingIntentSourcesRef.current = false;
     const toTokenAddress = (
       toToken.contractAddress || zeroAddress
     ) as `0x${string}`;
-    const selectedSourceTokens = getExpandedSourceTokens(fromTokens);
-    const sourceTokensForMax = getExactOutSourceTokens();
-    const selectedSources = sourceTokensForMax.map((token) => ({
-        chainId: token.chainId!,
-        tokenAddress: token.contractAddress as `0x${string}`,
-      }));
-
-    if (selectedSourceTokens.length > 0 && selectedSources.length === 0) {
-      setTxError("Selected sources need native gas on their chains.");
-      return;
-    }
-
     setTxError(null);
     setSwapQuoteIssue(null);
     setQuoteRefreshing(false);
@@ -3355,9 +3375,6 @@ export function NexusOne({
       const max = await calculateMaxForSwap({
         toChainId: toToken.chainId,
         toTokenAddress,
-        ...(selectedSources.length > 0
-          ? { fromSources: selectedSources }
-          : {}),
       });
       const decimals = Number.isFinite(Number(max.decimals))
         ? Number(max.decimals)
@@ -3418,18 +3435,7 @@ export function NexusOne({
     const calculateMaxForSwap = nexusSDK.calculateMaxForSwap;
     if (typeof calculateMaxForSwap !== "function") return;
 
-    const selectedSourceTokens = getExpandedSourceTokens(fromTokens);
-    const sourceTokensForMax = getExactOutSourceTokens();
-    const selectedSources = sourceTokensForMax.map((token) => ({
-      chainId: token.chainId!,
-      tokenAddress: token.contractAddress as `0x${string}`,
-    }));
-
-    if (selectedSourceTokens.length > 0 && selectedSources.length === 0) {
-      setTxError("Selected sources need native gas on their chains.");
-      return;
-    }
-
+    syncingIntentSourcesRef.current = false;
     setTxError(null);
     setSwapQuoteIssue(null);
     setQuoteRefreshing(false);
@@ -3439,9 +3445,6 @@ export function NexusOne({
       const max = await calculateMaxForSwap({
         toChainId: toToken.chainId,
         toTokenAddress: (toToken.contractAddress || zeroAddress) as `0x${string}`,
-        ...(selectedSources.length > 0
-          ? { fromSources: selectedSources }
-          : {}),
       });
       const decimals = Number.isFinite(Number(max.decimals))
         ? Number(max.decimals)
@@ -3492,18 +3495,7 @@ export function NexusOne({
     const calculateMaxForSwap = nexusSDK.calculateMaxForSwap;
     if (typeof calculateMaxForSwap !== "function") return;
 
-    const selectedSourceTokens = getExpandedSourceTokens(fromTokens);
-    const sourceTokensForMax = getExactOutSourceTokens();
-    const selectedSources = sourceTokensForMax.map((token) => ({
-      chainId: token.chainId!,
-      tokenAddress: token.contractAddress as `0x${string}`,
-    }));
-
-    if (selectedSourceTokens.length > 0 && selectedSources.length === 0) {
-      setTxError("Selected sources need native gas on their chains.");
-      return;
-    }
-
+    syncingIntentSourcesRef.current = false;
     setTxError(null);
     setSwapQuoteIssue(null);
     setQuoteRefreshing(false);
@@ -3513,9 +3505,6 @@ export function NexusOne({
       const max = await calculateMaxForSwap({
         toChainId: toToken.chainId,
         toTokenAddress: (toToken.contractAddress || zeroAddress) as `0x${string}`,
-        ...(selectedSources.length > 0
-          ? { fromSources: selectedSources }
-          : {}),
       });
       const decimals = Number.isFinite(Number(max.decimals))
         ? Number(max.decimals)
@@ -3709,7 +3698,8 @@ export function NexusOne({
         maxHeight: "80dvh",
         lineHeight: "16px",
         margin: "auto",
-        overflow: "clip",
+        overflowX: "hidden",
+        overflowY: "auto",
         position: "relative",
         transition: hasMeasuredRootContent ? "height 260ms ease" : undefined,
         willChange: "height",
@@ -4507,7 +4497,9 @@ export function NexusOne({
               }}
             />
             <div
+              data-nexus-one-sheet
               style={{
+                ...modalHeightTransitionStyle,
                 bottom: 0,
                 height: "auto",
                 left: 0,
@@ -4528,7 +4520,8 @@ export function NexusOne({
                 transform: isRecipientDrawerClosing
                   ? "translateY(100%)"
                   : "translateY(0)",
-                transition: `transform ${DRAWER_CLOSE_MS}ms ease, opacity ${DRAWER_CLOSE_MS}ms ease`,
+                transition: `${modalHeightTransition}, transform ${DRAWER_CLOSE_MS}ms ease, opacity ${DRAWER_CLOSE_MS}ms ease`,
+                willChange: "height, max-height, transform, opacity",
               }}
               className={
                 isRecipientDrawerClosing
@@ -4743,7 +4736,9 @@ export function NexusOne({
               onClick={closeDrawerToIdle}
             />
             <div
+              data-nexus-one-sheet
               style={{
+                ...modalHeightTransitionStyle,
                 bottom: 0,
                 height: "auto",
                 left: 0,
@@ -4763,7 +4758,8 @@ export function NexusOne({
                 transform: isSwapAssetDrawerClosing
                   ? "translateY(100%)"
                   : "translateY(0)",
-                transition: `transform ${DRAWER_CLOSE_MS}ms ease, opacity ${DRAWER_CLOSE_MS}ms ease`,
+                transition: `${modalHeightTransition}, transform ${DRAWER_CLOSE_MS}ms ease, opacity ${DRAWER_CLOSE_MS}ms ease`,
+                willChange: "height, max-height, transform, opacity",
               }}
               className={
                 isSwapAssetDrawerClosing
@@ -5015,7 +5011,9 @@ export function NexusOne({
               onClick={closeDrawerToIdle}
             />
             <div
+              data-nexus-one-sheet
               style={{
+                ...modalHeightTransitionStyle,
                 bottom: 0,
                 height: "auto",
                 left: 0,
@@ -5035,7 +5033,8 @@ export function NexusOne({
                 transform: isReceiveAssetDrawerClosing
                   ? "translateY(100%)"
                   : "translateY(0)",
-                transition: `transform ${DRAWER_CLOSE_MS}ms ease, opacity ${DRAWER_CLOSE_MS}ms ease`,
+                transition: `${modalHeightTransition}, transform ${DRAWER_CLOSE_MS}ms ease, opacity ${DRAWER_CLOSE_MS}ms ease`,
+                willChange: "height, max-height, transform, opacity",
               }}
               className={
                 isReceiveAssetDrawerClosing

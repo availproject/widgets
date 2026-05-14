@@ -225,7 +225,23 @@ const NexusOneShowcase = () => {
 
   return (
     <div className="flex flex-col gap-y-4 w-full">
-      <div className="flex flex-col gap-3 p-4 rounded-xl border border-gray-200 bg-white shadow-sm mb-4">
+      <ShowcaseWrapper
+        type="nexus-one"
+        connectLabel="Connect wallet to use Nexus One"
+      >
+        <div
+          className="flex w-full justify-center"
+          style={{ minHeight: "90dvh" }}
+        >
+          <NexusOne
+            key={selectedMode}
+            config={config}
+            connectedAddress={address}
+          />
+        </div>
+      </ShowcaseWrapper>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm font-medium text-gray-700">Mode:</span>
           {ALL_MODES.map((mode) => (
@@ -251,22 +267,6 @@ const NexusOneShowcase = () => {
           </pre>
         </div>
       </div>
-
-      <ShowcaseWrapper
-        type="nexus-one"
-        connectLabel="Connect wallet to use Nexus One"
-      >
-        <div
-          className="flex w-full justify-center"
-          style={{ minHeight: "90dvh" }}
-        >
-          <NexusOne
-            key={selectedMode}
-            config={config}
-            connectedAddress={address}
-          />
-        </div>
-      </ShowcaseWrapper>
     </div>
   );
 };

@@ -166,17 +166,19 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
             borderRadius: 10,
             boxShadow: "0 8px 24px rgba(22,22,21,0.12)",
             left: 0,
+            maxHeight: 180,
             minWidth: 220,
+            overflowY: "auto",
             padding: "10px 12px",
             position: "absolute",
-            top: "calc(100% + 8px)",
+            bottom: "calc(100% + 8px)",
             zIndex: 20,
           }}
         >
           <div style={{ color: "#848483", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", marginBottom: 8 }}>
             UNIFIED · {uniqueChains.length} CHAINS
           </div>
-          {uniqueChains.slice(0, 6).map((chain) => (
+          {uniqueChains.map((chain) => (
             <div key={chain.id} style={{ alignItems: "center", display: "flex", justifyContent: "space-between", gap: 12, padding: "3px 0" }}>
               <div style={{ alignItems: "center", display: "flex", gap: 7, minWidth: 0 }}>
                 {chain.logo ? (
@@ -244,6 +246,11 @@ function isNativeToken(t: SwapTokenOption) {
 
 const MIN_FIAT_THRESHOLD = 1;
 const CHAIN_SELECTOR_CLOSE_MS = 220;
+const MODAL_HEIGHT_TRANSITION_MS = 260;
+const modalHeightTransitionStyle = {
+  interpolateSize: "allow-keywords",
+} as React.CSSProperties;
+const modalHeightTransition = `height ${MODAL_HEIGHT_TRANSITION_MS}ms ease, max-height ${MODAL_HEIGHT_TRANSITION_MS}ms ease`;
 const UNIFIED_MAINNET_CHAIN_IDS = new Set([
   1, 10, 56, 137, 143, 999, 4114, 8217, 8453, 42161, 43114, 534352, 4326,
 ]);
@@ -710,7 +717,24 @@ export function SwapAssetSelector({
   };
 
   return (
-    <div ref={selectorRef} style={{ display: "flex", flexDirection: "column", flex: "0 1 auto", height: "auto", maxHeight: "100%", minHeight: 0, overflow: "hidden", width: "100%", padding: "12px", boxSizing: "border-box" }}>
+    <div
+      ref={selectorRef}
+      style={{
+        ...modalHeightTransitionStyle,
+        boxSizing: "border-box",
+        display: "flex",
+        flex: "0 1 auto",
+        flexDirection: "column",
+        height: "auto",
+        maxHeight: "100%",
+        minHeight: 0,
+        overflow: "hidden",
+        padding: "12px",
+        transition: modalHeightTransition,
+        width: "100%",
+        willChange: "height, max-height",
+      }}
+    >
       {/* Drawer Handle */}
       <div style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: 10 }}>
         <div style={{ width: 32, height: 4, borderRadius: 2, backgroundColor: "#E8E8E7" }} />
@@ -829,7 +853,7 @@ export function SwapAssetSelector({
         ) : (
           <div
             style={{
-              border: "1px solid #E8E8E7", borderRadius: 14, overflow: "hidden",
+              border: "1px solid #E8E8E7", borderRadius: 14, overflowX: "hidden", overflowY: "visible",
               backgroundColor: "#FFFFFE",
             }}
           >
@@ -1024,7 +1048,9 @@ export function SwapAssetSelector({
           />
           <div
             className={isChainSelectorClosing ? undefined : "animate-in slide-in-from-bottom-full duration-300"}
+            data-nexus-one-sheet
             style={{
+              ...modalHeightTransitionStyle,
               backgroundColor: "#FFFFFE",
               borderRadius: "24px 24px 0 0",
               boxShadow: "0 -4px 16px rgba(0,0,0,0.08)",
@@ -1038,8 +1064,9 @@ export function SwapAssetSelector({
               pointerEvents: "auto",
               position: "relative",
               transform: isChainSelectorClosing ? "translateY(100%)" : "translateY(0)",
-              transition: `transform ${CHAIN_SELECTOR_CLOSE_MS}ms ease, opacity ${CHAIN_SELECTOR_CLOSE_MS}ms ease`,
+              transition: `${modalHeightTransition}, transform ${CHAIN_SELECTOR_CLOSE_MS}ms ease, opacity ${CHAIN_SELECTOR_CLOSE_MS}ms ease`,
               opacity: isChainSelectorClosing ? 0 : 1,
+              willChange: "height, max-height, transform, opacity",
               width: "100%",
             }}
           >

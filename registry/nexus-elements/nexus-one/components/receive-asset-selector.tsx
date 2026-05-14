@@ -15,6 +15,11 @@ interface ReceiveAssetSelectorProps {
 
 const SUPPORTED_RECEIVE_CHAIN_IDS = new Set([1, 10, 56, 137, 143, 999, 8217, 8453, 42161, 43114, 534352, 4114]);
 const CHAIN_SELECTOR_CLOSE_MS = 220;
+const MODAL_HEIGHT_TRANSITION_MS = 260;
+const modalHeightTransitionStyle = {
+  interpolateSize: "allow-keywords",
+} as React.CSSProperties;
+const modalHeightTransition = `height ${MODAL_HEIGHT_TRANSITION_MS}ms ease, max-height ${MODAL_HEIGHT_TRANSITION_MS}ms ease`;
 
 const AVATAR_COLORS = [
   "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#D4A5A5", 
@@ -363,7 +368,25 @@ export function ReceiveAssetSelector({
   }, [filtered]);
 
   return (
-    <div ref={selectorRef} style={{ boxSizing: "border-box", display: "flex", flexDirection: "column", flex: "0 1 auto", height: "auto", maxHeight: "100%", minHeight: 0, overflow: "hidden", padding: "12px", width: "100%", position: "relative" }}>
+    <div
+      ref={selectorRef}
+      style={{
+        ...modalHeightTransitionStyle,
+        boxSizing: "border-box",
+        display: "flex",
+        flex: "0 1 auto",
+        flexDirection: "column",
+        height: "auto",
+        maxHeight: "100%",
+        minHeight: 0,
+        overflow: "hidden",
+        padding: "12px",
+        position: "relative",
+        transition: modalHeightTransition,
+        width: "100%",
+        willChange: "height, max-height",
+      }}
+    >
       <div style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: 10 }}>
         <div style={{ width: 32, height: 4, borderRadius: 2, backgroundColor: "#E8E8E7" }} />
       </div>
@@ -617,7 +640,9 @@ export function ReceiveAssetSelector({
           />
           <div
             className={isChainSelectorClosing ? undefined : "animate-in slide-in-from-bottom-full duration-300"}
+            data-nexus-one-sheet
             style={{
+              ...modalHeightTransitionStyle,
               backgroundColor: "#FFFFFE",
               borderRadius: "24px 24px 0 0",
               boxShadow: "0 -4px 16px rgba(0,0,0,0.08)",
@@ -631,8 +656,9 @@ export function ReceiveAssetSelector({
               pointerEvents: "auto",
               position: "relative",
               transform: isChainSelectorClosing ? "translateY(100%)" : "translateY(0)",
-              transition: `transform ${CHAIN_SELECTOR_CLOSE_MS}ms ease, opacity ${CHAIN_SELECTOR_CLOSE_MS}ms ease`,
+              transition: `${modalHeightTransition}, transform ${CHAIN_SELECTOR_CLOSE_MS}ms ease, opacity ${CHAIN_SELECTOR_CLOSE_MS}ms ease`,
               opacity: isChainSelectorClosing ? 0 : 1,
+              willChange: "height, max-height, transform, opacity",
               width: "100%",
             }}
           >

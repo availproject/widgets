@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import Decimal from "decimal.js";
 import { type SwapTokenOption } from "./swap-asset-selector";
 
@@ -134,6 +134,18 @@ function PercentHoverButton({
 }) {
   const [hover, setHover] = useState(false);
   const [active, setActive] = useState(false);
+  const handledPointerDownRef = useRef(false);
+  const pointerResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  useEffect(() => {
+    return () => {
+      if (pointerResetTimerRef.current) {
+        clearTimeout(pointerResetTimerRef.current);
+      }
+    };
+  }, []);
 
   const isHighlighted = hover || active;
 
@@ -144,12 +156,41 @@ function PercentHoverButton({
         setHover(false);
         setActive(false);
       }}
+      onPointerDown={(event) => {
+        if (event.pointerType === "mouse") return;
+        event.preventDefault();
+        if (pointerResetTimerRef.current) {
+          clearTimeout(pointerResetTimerRef.current);
+        }
+        handledPointerDownRef.current = true;
+        setActive(true);
+        onClick();
+      }}
+      onPointerUp={() => {
+        setActive(false);
+        if (handledPointerDownRef.current) {
+          pointerResetTimerRef.current = setTimeout(() => {
+            handledPointerDownRef.current = false;
+            pointerResetTimerRef.current = null;
+          }, 350);
+        }
+      }}
       onMouseDown={(event) => {
         event.preventDefault();
         setActive(true);
       }}
       onMouseUp={() => setActive(false)}
-      onClick={onClick}
+      onClick={() => {
+        if (handledPointerDownRef.current) {
+          if (pointerResetTimerRef.current) {
+            clearTimeout(pointerResetTimerRef.current);
+            pointerResetTimerRef.current = null;
+          }
+          handledPointerDownRef.current = false;
+          return;
+        }
+        onClick();
+      }}
       tabIndex={tabIndex}
       style={{
         alignItems: "center",
@@ -404,6 +445,23 @@ const parseDecimal = (value: unknown) => {
 const formatUsdValue = (value: Decimal) =>
   value.gt(0) && value.lt(0.01) ? "<0.01" : value.toDecimalPlaces(2).toFixed(2);
 
+const MAX_AMOUNT_DISPLAY_DECIMALS = 6;
+const getTokenInputDecimals = (token?: Pick<SwapTokenOption, "decimals">) => {
+  const decimals = Number(token?.decimals);
+  return Number.isFinite(decimals) && decimals >= 0 ? Math.floor(decimals) : 18;
+};
+
+const formatAmountInputDisplay = (value: string) => {
+  if (!value) return "";
+  try {
+    return new Decimal(value)
+      .toDecimalPlaces(MAX_AMOUNT_DISPLAY_DECIMALS, Decimal.ROUND_DOWN)
+      .toFixed();
+  } catch {
+    return value;
+  }
+};
+
 /** Add asset button with smooth transition */
 function AddAssetButton({
   visible,
@@ -513,10 +571,14 @@ export function SwapIdleForm({
     }
   }, [fromTokens.length]);
 
-  const sanitizeInput = (raw: string): string => {
+  const sanitizeInput = (raw: string, maxDecimals = 18): string => {
     let next = raw.replaceAll(/[^0-9.]/g, "");
     const parts = next.split(".");
     if (parts.length > 2) next = parts[0] + "." + parts.slice(1).join("");
+    const [integerPart, decimalPart] = next.split(".");
+    if (decimalPart !== undefined) {
+      next = `${integerPart}.${decimalPart.slice(0, Math.max(0, maxDecimals))}`;
+    }
     if (next === ".") next = "0.";
     // Strip leading zeros
     if (next.length > 1 && next.startsWith("0") && next[1] !== ".") {
@@ -542,11 +604,18 @@ export function SwapIdleForm({
   };
 
   const handleSendInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onAmountChange(sanitizeInput(e.target.value), "send");
+    const token = fromTokens.length === 1 ? fromTokens[0] : undefined;
+    onAmountChange(
+      sanitizeInput(e.target.value, getTokenInputDecimals(token)),
+      "send",
+    );
   };
 
   const handleReceiveInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onAmountChange(sanitizeInput(e.target.value), "receive");
+    onAmountChange(
+      sanitizeInput(e.target.value, getTokenInputDecimals(toToken)),
+      "receive",
+    );
   };
 
   const handleTokenAmountChange = (index: number, val: string) => {
@@ -554,7 +623,10 @@ export function SwapIdleForm({
     const token = fromTokens[index];
     if (!token) return;
 
-    let sanitized = sanitizeInput(val);
+    let sanitized = sanitizeInput(
+      val,
+      token.userAmountMode === "usd" ? MAX_AMOUNT_DISPLAY_DECIMALS : getTokenInputDecimals(token),
+    );
 
     // Enforce max amount validation
     const tokenBalance =
@@ -682,6 +754,10 @@ export function SwapIdleForm({
     return undefined;
   };
   const receiveInputValue = isExactIn ? receiveQuoteAmount ?? "" : amount;
+  const receiveDisplayValue =
+    focusedPanel === "receive"
+      ? receiveInputValue
+      : formatAmountInputDisplay(receiveInputValue);
   const receiveUsdRate = getReceiveUsdRate();
   const receiveTokenAmount = parseDecimal(receiveInputValue);
   const receiveUsdAmount =
@@ -716,23 +792,34 @@ export function SwapIdleForm({
 
     if (isUsdMode) {
       const fiatBalStr = String(token.balanceInFiat || "0");
+      const fiatBalance = parseDecimal(fiatBalStr);
+      if (!fiatBalance) return;
       if (pct === 100) {
-        finalVal = fiatBalStr.replace(/[^0-9.]/g, "");
+        finalVal = fiatBalance
+          .toDecimalPlaces(MAX_AMOUNT_DISPLAY_DECIMALS, Decimal.ROUND_DOWN)
+          .toFixed();
       } else {
-        const bal = parseFloat(fiatBalStr.replace(/[^0-9.]/g, ""));
-        if (isNaN(bal)) return;
-        const val = bal * (pct / 100);
-        finalVal = val.toFixed(2);
+        finalVal = fiatBalance
+          .mul(pct)
+          .div(100)
+          .toDecimalPlaces(MAX_AMOUNT_DISPLAY_DECIMALS, Decimal.ROUND_DOWN)
+          .toFixed();
       }
     } else {
       const balanceStr = String(token.balance || "0");
+      const tokenBalance = parseDecimal(balanceStr);
+      if (!tokenBalance) return;
+      const tokenDecimals = getTokenInputDecimals(token);
       if (pct === 100) {
-        finalVal = balanceStr.replace(/[^0-9.]/g, "");
+        finalVal = tokenBalance
+          .toDecimalPlaces(tokenDecimals, Decimal.ROUND_DOWN)
+          .toFixed();
       } else {
-        const bal = parseFloat(balanceStr.replace(/[^0-9.]/g, ""));
-        if (isNaN(bal)) return;
-        const val = bal * (pct / 100);
-        finalVal = val.toFixed(18).replace(/\.?0+$/, "");
+        finalVal = tokenBalance
+          .mul(pct)
+          .div(100)
+          .toDecimalPlaces(tokenDecimals, Decimal.ROUND_DOWN)
+          .toFixed();
       }
     }
 
@@ -999,9 +1086,13 @@ export function SwapIdleForm({
                             tabIndex={isSourceRowClipped ? -1 : undefined}
                             value={
                               token
-                                ? token.userAmount || ""
+                                ? focusedRow === index
+                                  ? token.userAmount || ""
+                                  : formatAmountInputDisplay(token.userAmount || "")
                                 : isExactIn
-                                  ? amount
+                                  ? focusedRow === index
+                                    ? amount
+                                    : formatAmountInputDisplay(amount)
                                   : ""
                             }
                             onChange={(e) => {
@@ -1556,7 +1647,7 @@ export function SwapIdleForm({
               <input
                 type="text"
                 placeholder="0"
-                value={receiveInputValue}
+                value={receiveDisplayValue}
                 onChange={handleReceiveInput}
                 onFocus={() => setFocusedPanel("receive")}
                 onBlur={() => setFocusedPanel(null)}
