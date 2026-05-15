@@ -24,6 +24,7 @@ import {
 import { useAccountEffect } from "wagmi";
 import {
   DEFAULT_USD_PEGGED_TOKEN_SYMBOLS,
+  TOKEN_PRICE_PEGS,
   TokenPricingError,
   USD_PEGGED_FALLBACK_RATE,
   buildUsdPeggedSymbolSet,
@@ -135,40 +136,68 @@ const NexusProvider = ({
     const normalizedSymbol = normalizeTokenSymbol(tokenSymbol);
     if (!normalizedSymbol) return 0;
 
+    const _debug = normalizedSymbol === "WCBTC" || normalizedSymbol === "CBTC";
+    if (_debug) {
+      console.debug(`[PRICING DEBUG] resolving "${normalizedSymbol}"`, {
+        candidates: getCoinbaseSymbolCandidates(normalizedSymbol),
+        exchangeRateKeys: Object.keys(exchangeRate.current ?? {}),
+        hasBTC: exchangeRate.current?.["BTC"],
+        pegBase: resolveBaseSymbol(normalizedSymbol),
+      });
+    }
+
+    // 1. Direct SDK / cache lookup for the original symbol candidates
     for (const candidate of getCoinbaseSymbolCandidates(normalizedSymbol)) {
       const sdkRate = toFinitePositiveNumber(exchangeRate.current?.[candidate]);
-      if (sdkRate) return sdkRate;
+      if (sdkRate) {
+        if (_debug) console.debug(`[PRICING DEBUG] "${normalizedSymbol}" → SDK candidate "${candidate}" = ${sdkRate}`);
+        return sdkRate;
+      }
 
       const cachedRate = toFinitePositiveNumber(
         coinbaseUsdRateCache.current[candidate],
       );
-      if (cachedRate) return cachedRate;
+      if (cachedRate) {
+        if (_debug) console.debug(`[PRICING DEBUG] "${normalizedSymbol}" → cached candidate "${candidate}" = ${cachedRate}`);
+        return cachedRate;
+      }
     }
 
-    if (usdPeggedSymbols.current.has(normalizedSymbol)) {
-      return USD_PEGGED_FALLBACK_RATE;
-    }
-
-    // Pegging fallback: resolve via base symbol (e.g. WETH→ETH, cBTC→BTC)
+    // 2. Explicit pegging fallback (e.g. WCBTC→BTC, WETH→ETH) — checked
+    //    BEFORE usdPeggedSymbols so the SDK's dynamic set can't override it.
     const baseSymbol = resolveBaseSymbol(normalizedSymbol);
     if (baseSymbol) {
-      // USD-pegged base (e.g. ctUSD→USD)
       if (usdPeggedSymbols.current.has(baseSymbol) || baseSymbol === "USD") {
+        if (_debug) console.debug(`[PRICING DEBUG] "${normalizedSymbol}" → base "${baseSymbol}" is USD-pegged, returning 1`);
         return USD_PEGGED_FALLBACK_RATE;
       }
       for (const candidate of getCoinbaseSymbolCandidates(baseSymbol)) {
         const sdkRate = toFinitePositiveNumber(
           exchangeRate.current?.[candidate],
         );
-        if (sdkRate) return sdkRate;
+        if (sdkRate) {
+          if (_debug) console.debug(`[PRICING DEBUG] "${normalizedSymbol}" → base "${baseSymbol}" → SDK candidate "${candidate}" = ${sdkRate}`);
+          return sdkRate;
+        }
 
         const cachedRate = toFinitePositiveNumber(
           coinbaseUsdRateCache.current[candidate],
         );
-        if (cachedRate) return cachedRate;
+        if (cachedRate) {
+          if (_debug) console.debug(`[PRICING DEBUG] "${normalizedSymbol}" → base "${baseSymbol}" → cached candidate "${candidate}" = ${cachedRate}`);
+          return cachedRate;
+        }
       }
+      if (_debug) console.debug(`[PRICING DEBUG] "${normalizedSymbol}" → base "${baseSymbol}" NOT found in any source`);
     }
 
+    // 3. Dynamic USD-pegged set (only if no explicit peg was defined)
+    if (!baseSymbol && usdPeggedSymbols.current.has(normalizedSymbol)) {
+      if (_debug) console.debug(`[PRICING DEBUG] "${normalizedSymbol}" → in usdPeggedSymbols, returning 1`);
+      return USD_PEGGED_FALLBACK_RATE;
+    }
+
+    if (_debug) console.debug(`[PRICING DEBUG] "${normalizedSymbol}" → NO RATE FOUND, returning 0`);
     return 0;
   }, []);
 
@@ -294,13 +323,8 @@ const NexusProvider = ({
           return coinbaseRate;
         }
 
-        // 3. USD-pegged shortcut
-        if (usdPeggedSymbols.current.has(normalizedSymbol)) {
-          cacheUsdRate(normalizedSymbol, USD_PEGGED_FALLBACK_RATE);
-          return USD_PEGGED_FALLBACK_RATE;
-        }
-
-        // 4. Pegging fallback: resolve via base symbol (e.g. WETH→ETH, cBTC→BTC)
+        // 3. Explicit pegging fallback (e.g. WCBTC→BTC, WETH→ETH) — checked
+        //    BEFORE usdPeggedSymbols so the SDK's dynamic set can't override it.
         const baseSymbol = resolveBaseSymbol(normalizedSymbol);
         if (baseSymbol) {
           // If the base is USD or a known USD-pegged token, return $1
@@ -338,6 +362,12 @@ const NexusProvider = ({
           }
         }
 
+        // 4. Dynamic USD-pegged set (only if no explicit peg was defined)
+        if (!baseSymbol && usdPeggedSymbols.current.has(normalizedSymbol)) {
+          cacheUsdRate(normalizedSymbol, USD_PEGGED_FALLBACK_RATE);
+          return USD_PEGGED_FALLBACK_RATE;
+        }
+
         // 5. All paths exhausted — throw a pricing error
         throw new TokenPricingError(normalizedSymbol);
       })();
@@ -371,9 +401,15 @@ const NexusProvider = ({
       const usdPerUnit: Record<string, number> = {};
 
       for (const [symbol, value] of Object.entries(rates.value)) {
+        const normalized = normalizeTokenSymbol(symbol);
+        // Skip tokens with an explicit peg (e.g. WCBTC→BTC) — the SDK
+        // may return a bogus 1:1 USD rate for these. Our pegging map
+        // will resolve them correctly via their base symbol.
+        if (TOKEN_PRICE_PEGS[normalized]) continue;
+
         const unitsPerUsd = Number.parseFloat(String(value));
         if (Number.isFinite(unitsPerUsd) && unitsPerUsd > 0) {
-          usdPerUnit[normalizeTokenSymbol(symbol)] = 1 / unitsPerUsd;
+          usdPerUnit[normalized] = 1 / unitsPerUsd;
         }
       }
       exchangeRate.current = usdPerUnit;
@@ -504,6 +540,10 @@ const NexusProvider = ({
   const getFiatValue = useCallback(
     (amount: number, token: string) => {
       const rate = getUsdRateFromLocalSources(token);
+      const normalized = normalizeTokenSymbol(token);
+      if (normalized === "WCBTC" || normalized === "CBTC") {
+        console.debug(`[PRICING] getFiatValue("${token}") → rate=${rate}, amount=${amount}, result=${rate * amount}`);
+      }
       return rate * amount;
     },
     [getUsdRateFromLocalSources],

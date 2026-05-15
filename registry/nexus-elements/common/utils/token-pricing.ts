@@ -162,6 +162,11 @@ export function buildUsdPeggedSymbolSet(
       const equivalent = normalizeTokenSymbol(token.equivalentCurrency ?? "");
       if (!symbol) continue;
 
+      // Never add tokens that have an explicit peg in TOKEN_PRICE_PEGS
+      // (e.g. wcBTC → BTC). The SDK's equivalentCurrency metadata can
+      // incorrectly mark non-stablecoin tokens as USD-pegged.
+      if (TOKEN_PRICE_PEGS[symbol]) continue;
+
       if (equivalent && symbolSet.has(equivalent)) {
         symbolSet.add(symbol);
       }
