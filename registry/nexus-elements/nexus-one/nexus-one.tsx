@@ -1767,6 +1767,111 @@ export function NexusOne({
     return rate.gt(0) ? amountNumber.mul(rate) : new Decimal(0);
   };
 
+  const getTokenBalanceAmount = (token: SwapTokenOption) =>
+    parseFiatNumber(token.balance) ?? new Decimal(0);
+
+  const getTokenBalanceUsd = (token: SwapTokenOption) =>
+    parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
+
+  const getTokenAmountForUsd = (token: SwapTokenOption, usdAmount: Decimal) => {
+    const rate = getTokenUsdRate(token);
+    if (rate.lte(0) || usdAmount.lte(0)) return new Decimal(0);
+    return usdAmount.div(rate);
+  };
+
+  const getUsdForTokenAmount = (token: SwapTokenOption, tokenAmount: Decimal) => {
+    const rate = getTokenUsdRate(token);
+    if (rate.lte(0) || tokenAmount.lte(0)) return new Decimal(0);
+    return tokenAmount.mul(rate);
+  };
+
+  const sortUnifiedSourceTokens = (tokens: SwapTokenOption[]) =>
+    [...tokens].sort((a, b) => {
+      const fiatDiff = getTokenBalanceUsd(b).cmp(getTokenBalanceUsd(a));
+      if (fiatDiff !== 0) return fiatDiff;
+      return getTokenBalanceAmount(b).cmp(getTokenBalanceAmount(a));
+    });
+
+  const allocateUnifiedExactInToken = (
+    token: SwapTokenOption,
+    fallbackAmount?: string,
+  ) => {
+    if (!token.isUnified || !token.sourceTokens?.length) return [token];
+
+    const rawAmount =
+      parseFiatNumber(token.userAmount || fallbackAmount) ?? new Decimal(0);
+    if (rawAmount.lte(0)) return [];
+
+    const sortedSources = sortUnifiedSourceTokens(token.sourceTokens).filter(
+      (source) =>
+        source.chainId &&
+        source.contractAddress &&
+        getTokenBalanceAmount(source).gt(0),
+    );
+    const allocated: SwapTokenOption[] = [];
+
+    if (token.userAmountMode === "usd") {
+      let remainingUsd = rawAmount;
+
+      for (const source of sortedSources) {
+        if (remainingUsd.lte(0)) break;
+
+        const availableUsd = getTokenBalanceUsd(source);
+        if (availableUsd.lte(0)) continue;
+
+        const targetUsd = Decimal.min(remainingUsd, availableUsd);
+        const tokenAmount = getTokenAmountForUsd(source, targetUsd)
+          .toDecimalPlaces(Math.max(0, source.decimals || 18), Decimal.ROUND_DOWN);
+        if (tokenAmount.lte(0)) continue;
+
+        const actualUsd = getUsdForTokenAmount(source, tokenAmount);
+        allocated.push({
+          ...source,
+          userAmount: tokenAmount.toFixed(),
+          userAmountMode: "token",
+          userAmountUsd: actualUsd.toDecimalPlaces(6, Decimal.ROUND_DOWN).toFixed(),
+        });
+        remainingUsd = remainingUsd.minus(targetUsd);
+      }
+
+      return allocated;
+    }
+
+    let remainingTokenAmount = rawAmount;
+
+    for (const source of sortedSources) {
+      if (remainingTokenAmount.lte(0)) break;
+
+      const availableTokenAmount = getTokenBalanceAmount(source);
+      if (availableTokenAmount.lte(0)) continue;
+
+      const tokenAmount = Decimal.min(remainingTokenAmount, availableTokenAmount)
+        .toDecimalPlaces(Math.max(0, source.decimals || 18), Decimal.ROUND_DOWN);
+      if (tokenAmount.lte(0)) continue;
+
+      const actualUsd = getUsdForTokenAmount(source, tokenAmount);
+      allocated.push({
+        ...source,
+        userAmount: tokenAmount.toFixed(),
+        userAmountMode: "token",
+        userAmountUsd: actualUsd.toDecimalPlaces(6, Decimal.ROUND_DOWN).toFixed(),
+      });
+      remainingTokenAmount = remainingTokenAmount.minus(tokenAmount);
+    }
+
+    return allocated;
+  };
+
+  const getExactInSourceTokens = (
+    tokens: SwapTokenOption[],
+    fallbackAmount?: string,
+  ) =>
+    tokens.flatMap((token) =>
+      token.isUnified
+        ? allocateUnifiedExactInToken(token, fallbackAmount)
+        : [token],
+    );
+
   const getExpandedSourceTokens = (tokens: SwapTokenOption[]) => {
     const expanded = tokens.flatMap((token) =>
       token.isUnified && token.sourceTokens?.length ? token.sourceTokens : [token],
@@ -2734,10 +2839,12 @@ export function NexusOne({
           amount: bigint;
         }[] = [];
 
-        for (const token of fromTokens) {
+        const exactInSourceTokens = getExactInSourceTokens(fromTokens, amount);
+
+        for (const token of exactInSourceTokens) {
           // Determine the amount to use for this specific token
           let rawAmountStr = token.userAmount;
-          if (!rawAmountStr && fromTokens.length === 1) {
+          if (!rawAmountStr && exactInSourceTokens.length === 1) {
             rawAmountStr = amount; // fallback for single-token case
           }
 
@@ -2773,6 +2880,10 @@ export function NexusOne({
               token.decimals || 18,
             ),
           });
+        }
+
+        if (fromPayload.length === 0) {
+          throw new Error("No source amount available for swap.");
         }
 
         console.log("SWAPPING WITH EXACTIN", {
