@@ -183,17 +183,22 @@ const NexusProvider = ({
           const balance = Number.parseFloat(String(entry.balance ?? "0"));
           const safeBalance =
             Number.isFinite(balance) && balance > 0 ? balance : 0;
+          const entrySymbol = normalizeTokenSymbol(
+            entry.symbol ?? asset.symbol,
+          );
           const existingUsd = Number.parseFloat(
             String(entry.balanceInFiat ?? "0"),
           );
           const safeExistingUsd =
             Number.isFinite(existingUsd) && existingUsd >= 0 ? existingUsd : 0;
 
+          // For pegged tokens (e.g. wcBTC→BTC) the SDK may return a
+          // bogus 1:1 USD value — always recalculate with our rate.
+          const hasPeg = Boolean(resolveBaseSymbol(entrySymbol));
+
           let normalizedUsd = safeExistingUsd;
-          if (safeBalance > 0 && normalizedUsd <= 0) {
-            const rate = getUsdRateFromLocalSources(
-              entry.symbol ?? asset.symbol,
-            );
+          if (safeBalance > 0 && (normalizedUsd <= 0 || hasPeg)) {
+            const rate = getUsdRateFromLocalSources(entrySymbol);
             if (rate > 0) {
               normalizedUsd = safeBalance * rate;
             }
@@ -214,9 +219,10 @@ const NexusProvider = ({
         );
         const safeAssetUsd =
           Number.isFinite(rawAssetUsd) && rawAssetUsd >= 0 ? rawAssetUsd : 0;
+        const assetHasPeg = Boolean(resolveBaseSymbol(normalizeTokenSymbol(asset.symbol)));
 
         let normalizedAssetUsd = safeAssetUsd;
-        if (normalizedAssetUsd <= 0) {
+        if (normalizedAssetUsd <= 0 || assetHasPeg) {
           if (computedAssetUsd > 0) {
             normalizedAssetUsd = computedAssetUsd;
           } else if (safeAssetBalance > 0) {
