@@ -629,6 +629,17 @@ export function SwapIntentPreview({
   const solverFeeNumber = parseDecimal(bridgeFeeData?.solver);
   const gasSuppliedNumber = parseDecimal(bridgeFeeData?.gasSupplied);
   const swapBufferNumber = parseDecimal(intentData?.feesAndBuffer?.buffer);
+  const bridgeComponentsTotalNumber = bridgeFeeData
+    ? [
+        executionGasFeeNumber,
+        protocolFeeNumber,
+        solverFeeNumber,
+        gasSuppliedNumber,
+      ].reduce<Decimal>(
+        (sum, value) => sum.plus(value ?? new Decimal(0)),
+        new Decimal(0),
+      )
+    : undefined;
   const depositGasValueNumber = parseDecimal(normalizedIntentDest?.gas?.value);
   const depositGasAmount = normalizedIntentDest?.gas?.amount;
   const depositGasTokenSymbol = normalizedIntentDest?.gas?.token?.symbol || "";
@@ -636,6 +647,9 @@ export function SwapIntentPreview({
     (isDepositMode || isSendMode) && Boolean(normalizedIntentDest?.gas);
   const explicitFeeNumber =
     bridgeTotalNumber ??
+    (bridgeComponentsTotalNumber && bridgeComponentsTotalNumber.gt(0)
+      ? bridgeComponentsTotalNumber
+      : undefined) ??
     parseDecimal(totalFeeUsd) ??
     parseDecimal((intentData as any)?.fees?.total);
   const feeNumber =
@@ -655,18 +669,19 @@ export function SwapIntentPreview({
         )
       : undefined;
   const priceImpactUsd =
-    parseDecimal((intentData as any)?.priceImpactUsd) ??
-    quoteImpactUsd;
-  const swapImpactPercent =
-    parseDecimal((intentData as any)?.swapImpactPercent) ??
-    parseDecimal((intentData as any)?.priceImpactPercent) ??
-    (hasFiatQuote && priceImpactUsd !== undefined
+    quoteImpactUsd ?? parseDecimal((intentData as any)?.priceImpactUsd);
+  const computedSwapImpactPercent =
+    hasFiatQuote && priceImpactUsd !== undefined
       ? priceImpactUsd.eq(0)
         ? new Decimal(0)
         : priceImpactBaseUsd !== undefined && priceImpactBaseUsd.gt(0)
           ? priceImpactUsd.neg().div(priceImpactBaseUsd).mul(100)
           : undefined
-      : undefined);
+      : undefined;
+  const swapImpactPercent =
+    computedSwapImpactPercent ??
+    parseDecimal((intentData as any)?.swapImpactPercent) ??
+    parseDecimal((intentData as any)?.priceImpactPercent);
 
   const destinationTokenAmount =
     normalizedIntentDest?.amount || toAmountTokens || toAmount || "0";

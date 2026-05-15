@@ -2265,10 +2265,35 @@ export function NexusOne({
 
       try {
         const bridgeFees = intent.feesAndBuffer?.bridge;
+        const bridgeFeeData =
+          bridgeFees && typeof bridgeFees === "object" ? bridgeFees : undefined;
+        const collectionFee = parseFiatNumber(bridgeFeeData?.collection);
+        const fulfilmentFee = parseFiatNumber(bridgeFeeData?.fulfilment);
+        const executionGasFee =
+          parseFiatNumber(bridgeFeeData?.caGas) ??
+          (collectionFee !== undefined || fulfilmentFee !== undefined
+            ? (collectionFee ?? new Decimal(0)).plus(
+                fulfilmentFee ?? new Decimal(0),
+              )
+            : undefined);
+        const bridgeComponentsTotal = bridgeFeeData
+          ? [
+              executionGasFee,
+              parseFiatNumber(bridgeFeeData.protocol),
+              parseFiatNumber(bridgeFeeData.solver),
+              parseFiatNumber(bridgeFeeData.gasSupplied),
+            ].reduce<Decimal>(
+              (sum, value) => sum.plus(value ?? new Decimal(0)),
+              new Decimal(0),
+            )
+          : undefined;
         const bridgeTotal =
           typeof bridgeFees === "string"
             ? parseFiatNumber(bridgeFees)
-            : parseFiatNumber(bridgeFees?.total);
+            : parseFiatNumber(bridgeFeeData?.total) ??
+              (bridgeComponentsTotal && bridgeComponentsTotal.gt(0)
+                ? bridgeComponentsTotal
+                : undefined);
 
         if (bridgeTotal !== undefined) {
           setIntentFeeUsd(

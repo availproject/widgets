@@ -231,7 +231,11 @@ const NexusOneShowcase = () => {
       >
         <div
           className="flex w-full justify-center"
-          style={{ minHeight: "90dvh" }}
+          style={{
+            alignItems: "flex-start",
+            maxHeight: "90dvh",
+            overflowY: "auto",
+          }}
         >
           <NexusOne
             key={selectedMode}
