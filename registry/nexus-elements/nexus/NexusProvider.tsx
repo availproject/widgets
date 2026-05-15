@@ -24,11 +24,13 @@ import {
 import { useAccountEffect } from "wagmi";
 import {
   DEFAULT_USD_PEGGED_TOKEN_SYMBOLS,
+  TokenPricingError,
   USD_PEGGED_FALLBACK_RATE,
   buildUsdPeggedSymbolSet,
   fetchCoinbaseUsdRate,
   getCoinbaseSymbolCandidates,
   normalizeTokenSymbol,
+  resolveBaseSymbol,
   toFinitePositiveNumber,
 } from "../common/utils/token-pricing";
 
@@ -147,6 +149,26 @@ const NexusProvider = ({
       return USD_PEGGED_FALLBACK_RATE;
     }
 
+    // Pegging fallback: resolve via base symbol (e.g. WETH→ETH, cBTC→BTC)
+    const baseSymbol = resolveBaseSymbol(normalizedSymbol);
+    if (baseSymbol) {
+      // USD-pegged base (e.g. ctUSD→USD)
+      if (usdPeggedSymbols.current.has(baseSymbol) || baseSymbol === "USD") {
+        return USD_PEGGED_FALLBACK_RATE;
+      }
+      for (const candidate of getCoinbaseSymbolCandidates(baseSymbol)) {
+        const sdkRate = toFinitePositiveNumber(
+          exchangeRate.current?.[candidate],
+        );
+        if (sdkRate) return sdkRate;
+
+        const cachedRate = toFinitePositiveNumber(
+          coinbaseUsdRateCache.current[candidate],
+        );
+        if (cachedRate) return cachedRate;
+      }
+    }
+
     return 0;
   }, []);
 
@@ -240,6 +262,7 @@ const NexusProvider = ({
       }
 
       const requestPromise = (async (): Promise<number | null> => {
+        // 1. Check SDK / cache candidates for the original symbol
         for (const candidate of getCoinbaseSymbolCandidates(normalizedSymbol)) {
           const sdkCandidateRate = toFinitePositiveNumber(
             exchangeRate.current?.[candidate],
@@ -258,18 +281,59 @@ const NexusProvider = ({
           }
         }
 
+        // 2. Try Coinbase API for the original symbol
         const coinbaseRate = await fetchCoinbaseUsdRate(normalizedSymbol);
         if (coinbaseRate) {
           cacheUsdRate(normalizedSymbol, coinbaseRate);
           return coinbaseRate;
         }
 
+        // 3. USD-pegged shortcut
         if (usdPeggedSymbols.current.has(normalizedSymbol)) {
           cacheUsdRate(normalizedSymbol, USD_PEGGED_FALLBACK_RATE);
           return USD_PEGGED_FALLBACK_RATE;
         }
 
-        return null;
+        // 4. Pegging fallback: resolve via base symbol (e.g. WETH→ETH, cBTC→BTC)
+        const baseSymbol = resolveBaseSymbol(normalizedSymbol);
+        if (baseSymbol) {
+          // If the base is USD or a known USD-pegged token, return $1
+          if (
+            baseSymbol === "USD" ||
+            usdPeggedSymbols.current.has(baseSymbol)
+          ) {
+            cacheUsdRate(normalizedSymbol, USD_PEGGED_FALLBACK_RATE);
+            return USD_PEGGED_FALLBACK_RATE;
+          }
+
+          // Check SDK / cache for the base symbol
+          for (const candidate of getCoinbaseSymbolCandidates(baseSymbol)) {
+            const sdkBaseRate = toFinitePositiveNumber(
+              exchangeRate.current?.[candidate],
+            );
+            if (sdkBaseRate) {
+              cacheUsdRate(normalizedSymbol, sdkBaseRate);
+              return sdkBaseRate;
+            }
+            const cachedBaseRate = toFinitePositiveNumber(
+              coinbaseUsdRateCache.current[candidate],
+            );
+            if (cachedBaseRate) {
+              cacheUsdRate(normalizedSymbol, cachedBaseRate);
+              return cachedBaseRate;
+            }
+          }
+
+          // Try Coinbase API for the base symbol
+          const baseCoinbaseRate = await fetchCoinbaseUsdRate(baseSymbol);
+          if (baseCoinbaseRate) {
+            cacheUsdRate(normalizedSymbol, baseCoinbaseRate);
+            return baseCoinbaseRate;
+          }
+        }
+
+        // 5. All paths exhausted — throw a pricing error
+        throw new TokenPricingError(normalizedSymbol);
       })();
 
       coinbaseUsdRateRequests.current[normalizedSymbol] = requestPromise;

@@ -32,6 +32,7 @@ import {
   MIN_SELECTABLE_SOURCE_BALANCE_USD,
   SIMULATION_POLL_INTERVAL_MS,
 } from "../constants/widget";
+import { TokenPricingError } from "../../common/utils/token-pricing";
 
 // Import extracted hooks
 import {
@@ -438,9 +439,21 @@ export function useDepositWidget(
         dispatch({ type: "setStatus", payload: "error" });
         return false;
       }
-      const destinationRate = await resolveTokenUsdRate(
-        destination.tokenSymbol,
-      ) || 0;
+      let destinationRate: number;
+      try {
+        destinationRate = (await resolveTokenUsdRate(
+          destination.tokenSymbol,
+        )) || 0;
+      } catch (error) {
+        const message =
+          error instanceof TokenPricingError
+            ? error.message
+            : "Price failure: Cannot value this token at the moment";
+        dispatch({ type: "setError", payload: message });
+        dispatch({ type: "setStatus", payload: "error" });
+        onError?.(message);
+        return false;
+      }
 
       // Reset state and refs for a fresh simulation
       dispatch({ type: "setError", payload: null });
@@ -497,6 +510,7 @@ export function useDepositWidget(
       start,
       denyActiveSwapIntent,
       dispatch,
+      onError,
     ],
   );
 
