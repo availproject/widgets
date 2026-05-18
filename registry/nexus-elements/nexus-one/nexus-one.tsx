@@ -2790,6 +2790,15 @@ export function NexusOne({
     // Claim ownership of global singleton hook before executing SDK swap
     registerIntentHook(runId);
 
+    const getSwapStepListFromEvent = (event: { args: any }) => {
+      const args = (event as any).args;
+      return Array.isArray(args)
+        ? args
+        : Array.isArray(args?.steps)
+          ? args.steps
+          : [];
+    };
+
     const logSwapEvent = (
       operation:
         | "swapWithExactIn"
@@ -2803,16 +2812,30 @@ export function NexusOne({
         args: event?.args,
         event,
       });
+
+      if (event?.name === NEXUS_EVENTS.SWAP_STEPS_LIST) {
+        const stepList = getSwapStepListFromEvent(event);
+        console.groupCollapsed(
+          `[NexusOne:${operation}:swap-intent-steps] ${stepList.length} step(s)`,
+        );
+        console.log("raw event", event);
+        console.table(
+          stepList.map((step: any, index: number) => ({
+            index,
+            type: step?.type ?? step?.typeID ?? step?.name ?? "-",
+            completed: step?.completed,
+            data: step?.data,
+            explorerURL: step?.explorerURL ?? step?.data?.explorerURL,
+            raw: step,
+          })),
+        );
+        console.groupEnd();
+      }
     };
 
     const handleSwapEvent = (event: { name: string; args: any }) => {
       if (event.name === NEXUS_EVENTS.SWAP_STEPS_LIST) {
-        const args = (event as any).args;
-        const stepList = Array.isArray(args)
-          ? args
-          : Array.isArray(args?.steps)
-            ? args.steps
-            : [];
+        const stepList = getSwapStepListFromEvent(event);
         if (stepList.length > 0) {
           swapStepsListRef.current = stepList as SwapStepType[];
           onStepsList(stepList);
@@ -4114,7 +4137,19 @@ export function NexusOne({
             <>
               {/* Panel: preview. */}
               {swapStep === "preview-intent" && (
-                <div className="w-full h-full">
+                <div
+                  className="w-full"
+                  style={{
+                    maxHeight: "calc(90dvh - 72px)",
+                    minHeight: 0,
+                    overflowX: "hidden",
+                    overflowY: "auto",
+                    overscrollBehavior: "contain",
+                    paddingRight: "2px",
+                    scrollbarColor: "#C8C8C7 transparent",
+                    scrollbarWidth: "thin",
+                  }}
+                >
                   <SwapIntentPreview
                     fromTokens={fromTokens}
                     fromToken={fromTokens[0]}
