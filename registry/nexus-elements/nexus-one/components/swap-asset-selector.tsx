@@ -1,6 +1,14 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
+import Decimal from "decimal.js";
 import { Search, X, Loader2, ChevronDown, ChevronUp, Info, Check, Minus } from "lucide-react";
 import {
   type UserAsset,
@@ -132,7 +140,10 @@ const SelectionControl = ({
 
 /* ── Chain logo cluster ── */
 const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
+  const clusterRef = useRef<HTMLDivElement | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipRect, setTooltipRect] = useState<DOMRect | null>(null);
   const uniqueChains = useMemo(() => {
     const seen = new Set<number>();
     const out: { id: number; logo?: string; name?: string; balance?: string; balanceInFiat?: string }[] = [];
@@ -153,53 +164,95 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
 
   const maxShow = 3;
   const shown = uniqueChains.slice(0, maxShow);
-  const extra = uniqueChains.length - maxShow;
+  const openTooltip = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setTooltipRect(clusterRef.current?.getBoundingClientRect() ?? null);
+    setShowTooltip(true);
+  };
+  const closeTooltip = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      setShowTooltip(false);
+      closeTimerRef.current = null;
+    }, 120);
+  };
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+  const showTooltipAbove = tooltipRect ? tooltipRect.top > 240 : true;
+  const tooltip =
+    showTooltip && uniqueChains.length > 1 && tooltipRect
+      ? createPortal(
+          <div
+            style={{
+              backgroundColor: "#FFFFFE",
+              border: "1px solid #E8E8E7",
+              borderRadius: 10,
+              boxShadow: "0 8px 24px rgba(22,22,21,0.12)",
+              left: Math.min(
+                Math.max(tooltipRect.left - 24, 8),
+                Math.max(8, window.innerWidth - 248),
+              ),
+              maxHeight: 220,
+              minWidth: 240,
+              overflowY: "auto",
+              padding: "10px 12px",
+              pointerEvents: "auto",
+              position: "fixed",
+              top: showTooltipAbove
+                ? tooltipRect.top - 12
+                : tooltipRect.bottom + 8,
+              transform: showTooltipAbove ? "translateY(-100%)" : "none",
+              zIndex: 2147483647,
+            }}
+            onMouseEnter={openTooltip}
+            onMouseLeave={closeTooltip}
+          >
+            <div style={{ alignItems: "center", color: "#848483", display: "flex", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 11, fontWeight: 700, justifyContent: "space-between", letterSpacing: "0.06em", marginBottom: 8, gap: 12 }}>
+              <span>UNIFIED · {uniqueChains.length} CHAINS</span>
+              <span style={{ color: "#161615", fontSize: 12, letterSpacing: 0 }}>
+                {tokens.reduce((sum, token) => sum + getTokenFiatValue(token), 0).toLocaleString(undefined, {
+                  currency: "USD",
+                  maximumFractionDigits: 2,
+                  style: "currency",
+                })}
+              </span>
+            </div>
+            {uniqueChains.map((chain) => (
+              <div key={chain.id} style={{ alignItems: "center", display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 0" }}>
+                <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 0 }}>
+                  {chain.logo ? (
+                    <img src={chain.logo} alt="" style={{ borderRadius: "999px", height: 16, objectFit: "cover", width: 16 }} />
+                  ) : (
+                    <div style={{ backgroundColor: "#E8E8E7", borderRadius: "999px", height: 16, width: 16 }} />
+                  )}
+                  <span style={{ color: "#363635", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {chain.name || "Unknown chain"}
+                  </span>
+                </div>
+                <span style={{ color: "#161615", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+                  {String(chain.balance || "").replace(/\s+[^\s]+$/, "") || chain.balanceInFiat || "0"}
+                </span>
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <div
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
+      ref={clusterRef}
+      onMouseEnter={openTooltip}
+      onMouseLeave={closeTooltip}
       style={{ display: "flex", alignItems: "center", gap: 2, position: "relative" }}
     >
-      {showTooltip && uniqueChains.length > 1 && (
-        <div
-          style={{
-            backgroundColor: "#FFFFFE",
-            border: "1px solid #E8E8E7",
-            borderRadius: 10,
-            boxShadow: "0 8px 24px rgba(22,22,21,0.12)",
-            left: 0,
-            maxHeight: 180,
-            minWidth: 220,
-            overflowY: "auto",
-            padding: "10px 12px",
-            position: "absolute",
-            bottom: "calc(100% + 8px)",
-            zIndex: 20,
-          }}
-        >
-          <div style={{ color: "#848483", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", marginBottom: 8 }}>
-            UNIFIED · {uniqueChains.length} CHAINS
-          </div>
-          {uniqueChains.map((chain) => (
-            <div key={chain.id} style={{ alignItems: "center", display: "flex", justifyContent: "space-between", gap: 12, padding: "3px 0" }}>
-              <div style={{ alignItems: "center", display: "flex", gap: 7, minWidth: 0 }}>
-                {chain.logo ? (
-                  <img src={chain.logo} alt="" style={{ borderRadius: "999px", height: 14, objectFit: "cover", width: 14 }} />
-                ) : (
-                  <div style={{ backgroundColor: "#E8E8E7", borderRadius: "999px", height: 14, width: 14 }} />
-                )}
-                <span style={{ color: "#363635", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {chain.name || "Unknown chain"}
-                </span>
-              </div>
-              <span style={{ color: "#161615", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
-                {String(chain.balance || "").replace(/\s+[^\s]+$/, "") || chain.balanceInFiat || "0"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      {tooltip}
       {shown.map((c, i) =>
         c.logo ? (
           <img
@@ -274,6 +327,238 @@ const formatBalanceWithSymbol = (token: Pick<SwapTokenOption, "balance" | "symbo
   return `${balance || "0"} ${symbol}`;
 };
 
+const parseTokenAmount = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return undefined;
+  if (Decimal.isDecimal(value)) return value;
+  const cleaned = String(value).replace(/[^0-9.-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
+    return undefined;
+  }
+  try {
+    const parsed = new Decimal(cleaned);
+    return parsed.isFinite() ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export const formatTokenAmountDisplay = (value: unknown) => {
+  const amount = parseTokenAmount(value) ?? new Decimal(0);
+  const abs = amount.abs();
+
+  if (amount.isZero()) return "0";
+
+  const compactUnits = [
+    { suffix: "T", value: new Decimal(1_000_000_000_000) },
+    { suffix: "B", value: new Decimal(1_000_000_000) },
+    { suffix: "M", value: new Decimal(1_000_000) },
+  ];
+
+  for (const unit of compactUnits) {
+    if (abs.gte(unit.value)) {
+      return `${amount
+        .div(unit.value)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN)
+        .toFixed()}${unit.suffix}`;
+    }
+  }
+
+  const minDisplay = new Decimal("0.00001");
+  if (amount.gt(0) && amount.lt(minDisplay)) {
+    return `>${minDisplay.toFixed()}`;
+  }
+
+  return amount.toDecimalPlaces(5, Decimal.ROUND_DOWN).toFixed();
+};
+
+const addThousandsSeparators = (value: string) => {
+  const [integerPart, decimalPart] = value.split(".");
+  const withSeparators = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decimalPart === undefined
+    ? withSeparators
+    : `${withSeparators}.${decimalPart}`;
+};
+
+export const formatUsdBalanceLabel = (value: unknown) => {
+  const amount = parseTokenAmount(value) ?? new Decimal(0);
+  const abs = amount.abs();
+
+  if (amount.isZero()) return "$0.00";
+  if (amount.gt(0) && amount.lt(0.01)) return "<$0.01";
+
+  const compactUnits = [
+    { suffix: "T", value: new Decimal(1_000_000_000_000) },
+    { suffix: "B", value: new Decimal(1_000_000_000) },
+    { suffix: "M", value: new Decimal(1_000_000) },
+  ];
+
+  for (const unit of compactUnits) {
+    if (abs.gte(unit.value)) {
+      return `$${amount
+        .div(unit.value)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN)
+        .toFixed()}${unit.suffix}`;
+    }
+  }
+
+  return `$${addThousandsSeparators(amount.toDecimalPlaces(2).toFixed(2))}`;
+};
+
+export const formatSelectedTokenBalanceLabel = (
+  token?: Pick<SwapTokenOption, "balance" | "symbol">,
+) => {
+  if (!token) return "";
+  const symbol = token.symbol || "";
+  const formatted = formatTokenAmountDisplay(token.balance);
+  return symbol ? `${formatted} ${symbol}` : formatted;
+};
+
+const getSearchTerms = (query: string) =>
+  query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+
+const includesTerm = (value: string | undefined, term: string) =>
+  (value ?? "").toLowerCase().includes(term);
+
+const startsWithTerm = (value: string | undefined, term: string) =>
+  (value ?? "").toLowerCase().startsWith(term);
+
+const equalsTerm = (value: string | undefined, term: string) =>
+  (value ?? "").toLowerCase() === term;
+
+export const getTokenSearchRank = (
+  token: Pick<
+    SwapTokenOption,
+    "symbol" | "name" | "chainName" | "contractAddress"
+  >,
+  query: string,
+) => {
+  const terms = getSearchTerms(query);
+  if (terms.length === 0) return null;
+
+  let matchedTerms = 0;
+  let symbolExactTerms = 0;
+  let symbolPrefixTerms = 0;
+  let symbolIncludeTerms = 0;
+  let namePrefixTerms = 0;
+  let tokenExactTerms = 0;
+  let tokenPrefixTerms = 0;
+  let tokenIncludeTerms = 0;
+  let chainExactTerms = 0;
+  let chainPrefixTerms = 0;
+  let chainIncludeTerms = 0;
+  let addressTerms = 0;
+
+  for (const term of terms) {
+    const symbolExact = equalsTerm(token.symbol, term);
+    const symbolPrefix = symbolExact || startsWithTerm(token.symbol, term);
+    const symbolInclude = symbolPrefix || includesTerm(token.symbol, term);
+    const nameExact = equalsTerm(token.name, term);
+    const namePrefix = nameExact || startsWithTerm(token.name, term);
+    const nameInclude = namePrefix || includesTerm(token.name, term);
+    const tokenExact =
+      symbolExact || nameExact;
+    const tokenPrefix =
+      tokenExact || symbolPrefix || namePrefix;
+    const tokenInclude =
+      tokenPrefix || symbolInclude || nameInclude;
+    const chainExact = equalsTerm(token.chainName, term);
+    const chainPrefix = chainExact || startsWithTerm(token.chainName, term);
+    const chainInclude = chainPrefix || includesTerm(token.chainName, term);
+    const addressMatch = includesTerm(token.contractAddress, term);
+
+    if (tokenInclude || chainInclude || addressMatch) matchedTerms += 1;
+    if (symbolExact) symbolExactTerms += 1;
+    if (symbolPrefix) symbolPrefixTerms += 1;
+    if (symbolInclude) symbolIncludeTerms += 1;
+    if (namePrefix) namePrefixTerms += 1;
+    if (tokenExact) tokenExactTerms += 1;
+    if (tokenPrefix) tokenPrefixTerms += 1;
+    if (tokenInclude) tokenIncludeTerms += 1;
+    if (chainExact) chainExactTerms += 1;
+    if (chainPrefix) chainPrefixTerms += 1;
+    if (chainInclude) chainIncludeTerms += 1;
+    if (addressMatch) addressTerms += 1;
+  }
+
+  const allTermsMatched = matchedTerms === terms.length;
+  if (!allTermsMatched) return null;
+
+  if (
+    terms.length > 1 &&
+    chainIncludeTerms > 0 &&
+    symbolIncludeTerms === 0 &&
+    addressTerms === 0 &&
+    namePrefixTerms === 0
+  ) {
+    return null;
+  }
+
+  const hasTokenMatch = tokenIncludeTerms > 0;
+  const hasChainMatch = chainIncludeTerms > 0;
+  const isTokenChainMatch = allTermsMatched && hasTokenMatch && hasChainMatch;
+
+  let score = 20;
+  if (isTokenChainMatch) {
+    if (symbolExactTerms > 0 && chainExactTerms > 0) score = 0;
+    else if (symbolExactTerms > 0 && chainPrefixTerms > 0) score = 1;
+    else if (symbolExactTerms > 0 && chainIncludeTerms > 0) score = 2;
+    else if (symbolPrefixTerms > 0 && chainIncludeTerms > 0) score = 3;
+    else if (symbolIncludeTerms > 0 && chainIncludeTerms > 0) score = 4;
+    else if (namePrefixTerms > 0 && chainIncludeTerms > 0) score = 5;
+    else score = 6;
+  } else if (symbolExactTerms > 0) score = 7;
+  else if (symbolPrefixTerms > 0) score = 8;
+  else if (symbolIncludeTerms > 0) score = 9;
+  else if (tokenExactTerms > 0) score = 10;
+  else if (tokenPrefixTerms > 0) score = 11;
+  else if (tokenIncludeTerms > 0) score = 12;
+  else if (chainExactTerms > 0) score = 13;
+  else if (chainPrefixTerms > 0) score = 14;
+  else if (chainIncludeTerms > 0) score = 15;
+  else if (addressTerms > 0) score = 16;
+
+  return {
+    allTermsMatched,
+    isTokenChainMatch,
+    matchedTerms,
+    score,
+    tokenExactTerms,
+    tokenIncludeTerms,
+  };
+};
+
+const isPrioritySearchMatch = (token: SwapTokenOption, query: string) => {
+  const rank = getTokenSearchRank(token, query);
+  return Boolean(
+    rank &&
+      (rank.isTokenChainMatch ||
+        rank.tokenExactTerms > 0 ||
+        rank.allTermsMatched),
+  );
+};
+
+const compareTokensBySearch = (
+  a: SwapTokenOption,
+  b: SwapTokenOption,
+  query: string,
+) => {
+  const aRank = getTokenSearchRank(a, query);
+  const bRank = getTokenSearchRank(b, query);
+  const aScore = aRank?.score ?? Number.MAX_SAFE_INTEGER;
+  const bScore = bRank?.score ?? Number.MAX_SAFE_INTEGER;
+  if (aScore !== bScore) return aScore - bScore;
+
+  const aMatched = aRank?.matchedTerms ?? 0;
+  const bMatched = bRank?.matchedTerms ?? 0;
+  if (aMatched !== bMatched) return bMatched - aMatched;
+
+  const aFiat = getTokenFiatValue(a);
+  const bFiat = getTokenFiatValue(b);
+  if (aFiat !== bFiat) return bFiat - aFiat;
+
+  return `${a.symbol} ${a.chainName}`.localeCompare(`${b.symbol} ${b.chainName}`);
+};
+
 function getUnifiedSymbol(token: Pick<SwapTokenOption, "symbol" | "chainId">) {
   if (token.chainId && !UNIFIED_MAINNET_CHAIN_IDS.has(token.chainId)) {
     return null;
@@ -339,12 +624,14 @@ export function SwapAssetSelector({
   allowSelectedTokenRemoval = false,
 }: SwapAssetSelectorProps) {
   const selectorRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const stableListHeightRef = useRef(0);
   const chainCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+  const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [showBelowMin, setShowBelowMin] = useState(false);
-  const [showAllBelowMin, setShowAllBelowMin] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showChainSelector, setShowChainSelector] = useState(false);
   const [isChainSelectorClosing, setIsChainSelectorClosing] = useState(false);
@@ -352,6 +639,37 @@ export function SwapAssetSelector({
   const [selectedChainFilter, setSelectedChainFilter] = useState<number | null>(null);
   const [draftChainFilter, setDraftChainFilter] = useState<number | null>(null);
   const [isChainSearchFocused, setIsChainSearchFocused] = useState(false);
+
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = 0;
+    }
+  }, [query, activeTab, selectedChainFilter]);
+
+  const preserveListHeight = useCallback(() => {
+    const listEl = listRef.current;
+    if (!listEl) return;
+
+    const nextHeight = Math.ceil(listEl.getBoundingClientRect().height);
+    if (nextHeight <= stableListHeightRef.current) return;
+
+    stableListHeightRef.current = nextHeight;
+    setStableListHeight(nextHeight);
+  }, []);
+
+  useLayoutEffect(() => {
+    preserveListHeight();
+
+    const listEl = listRef.current;
+    if (!listEl || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      preserveListHeight();
+    });
+    observer.observe(listEl);
+
+    return () => observer.disconnect();
+  }, [preserveListHeight]);
 
   const allTokens = useMemo<SwapTokenOption[]>(() => {
     const baseTokens = staticOptions
@@ -395,15 +713,9 @@ export function SwapAssetSelector({
       result = result.filter(t => t.chainId === selectedChainFilter);
     }
     if (query.trim()) {
-      const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-      result = result.filter((t) => {
-        return terms.every((term) =>
-          t.symbol.toLowerCase().includes(term) ||
-          t.name.toLowerCase().includes(term) ||
-          (t.chainName ?? "").toLowerCase().includes(term) ||
-          t.contractAddress.toLowerCase().includes(term)
-        );
-      });
+      result = result
+        .filter((t) => getTokenSearchRank(t, query) !== null)
+        .sort((a, b) => compareTokensBySearch(a, b, query));
     }
     if (activeTab === "native") result = result.filter(isNativeToken);
     else if (activeTab === "stables") result = result.filter((t) => STABLE_SYMBOLS.has(t.symbol));
@@ -444,11 +756,15 @@ export function SwapAssetSelector({
     const below: SwapTokenOption[] = [];
     for (const t of filtered) {
       const fiat = getTokenFiatValue(t);
-      if (fiat >= MIN_FIAT_THRESHOLD || isTokenSelectedForVisibility(t)) above.push(t);
+      if (
+        fiat >= MIN_FIAT_THRESHOLD ||
+        isTokenSelectedForVisibility(t) ||
+        isPrioritySearchMatch(t, query)
+      ) above.push(t);
       else below.push(t);
     }
     return { aboveMin: above, belowMin: below };
-  }, [filtered, isTokenSelectedForVisibility]);
+  }, [filtered, isTokenSelectedForVisibility, query]);
 
   /* Group by symbol */
   const groupedFiltered = useMemo(() => {
@@ -481,21 +797,45 @@ export function SwapAssetSelector({
       .filter((group) => {
         const hasSelectedToken = group.tokens.some(isTokenSelectedForVisibility);
         const hasSelectedUnified = isUnifiedSelectedForVisibility(group.symbol);
+        const hasPrioritySearchMatch = group.tokens.some((token) =>
+          isPrioritySearchMatch(token, query),
+        );
         if (group.isUnifiedCandidate) {
           return (
             group.totalFiat >= MIN_FIAT_THRESHOLD ||
             hasSelectedToken ||
-            hasSelectedUnified
+            hasSelectedUnified ||
+            hasPrioritySearchMatch
           );
         }
         return group.tokens.some(
           (token) =>
             getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
-            isTokenSelectedForVisibility(token),
+            isTokenSelectedForVisibility(token) ||
+            isPrioritySearchMatch(token, query),
         );
       })
-      .sort((a, b) => b.totalFiat - a.totalFiat);
-  }, [filtered, allowUnified, isTokenSelectedForVisibility, isUnifiedSelectedForVisibility]);
+      .sort((a, b) => {
+        if (query.trim()) {
+          const aScore = Math.min(
+            ...a.tokens.map(
+              (token) =>
+                getTokenSearchRank(token, query)?.score ??
+                Number.MAX_SAFE_INTEGER,
+            ),
+          );
+          const bScore = Math.min(
+            ...b.tokens.map(
+              (token) =>
+                getTokenSearchRank(token, query)?.score ??
+                Number.MAX_SAFE_INTEGER,
+            ),
+          );
+          if (aScore !== bScore) return aScore - bScore;
+        }
+        return b.totalFiat - a.totalFiat;
+      });
+  }, [filtered, allowUnified, isTokenSelectedForVisibility, isUnifiedSelectedForVisibility, query]);
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -651,7 +991,8 @@ export function SwapAssetSelector({
         .filter(
           (token) =>
             getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
-            isTokenSelectedForVisibility(token),
+            isTokenSelectedForVisibility(token) ||
+            isPrioritySearchMatch(token, query),
         )
         .map((token) => renderTokenRow(token));
     }
@@ -662,7 +1003,8 @@ export function SwapAssetSelector({
     const individualTokens = group.tokens.filter(
       (token) =>
         getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
-        isTokenSelectedForVisibility(token),
+        isTokenSelectedForVisibility(token) ||
+        isPrioritySearchMatch(token, query),
     );
     const hasVisibleUnifiedRow =
       (group.totalFiat >= MIN_FIAT_THRESHOLD ||
@@ -804,7 +1146,7 @@ export function SwapAssetSelector({
   const selectedAssetCount = selectedTokens.length;
   const subtitle = isMulti
     ? `${selectedAssetCount} asset${selectedAssetCount === 1 ? "" : "s"} selected`
-    : "Select token and chain";
+    : "";
 
   useEffect(() => {
     setPortalRoot(
@@ -880,9 +1222,11 @@ export function SwapAssetSelector({
           <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 18, fontWeight: 600, color: "#161615" }}>
             {title}
           </span>
-          <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
-            {subtitle}
-          </span>
+          {subtitle && (
+            <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
+              {subtitle}
+            </span>
+          )}
         </div>
         {isMulti && selectedAssetCount > 0 && onClearSelection && (
           <button
@@ -980,9 +1324,10 @@ export function SwapAssetSelector({
 
       {/* Token list */}
       <div
+        ref={listRef}
         style={{
           flex: "1 1 auto",
-          minHeight: 0,
+          minHeight: stableListHeight ? `${stableListHeight}px` : 0,
           overflowY: "auto",
           paddingBottom: 6,
         }}
@@ -997,36 +1342,62 @@ export function SwapAssetSelector({
             No tokens found
           </p>
         ) : (
-          <div
-            style={{
-              border: "1px solid #E8E8E7", borderRadius: 14, overflowX: "hidden", overflowY: "visible",
-              backgroundColor: "#FFFFFE",
-            }}
-          >
-            {groupedFiltered.map((group) =>
-              group.tokens.length === 1
-                ? renderTokenRow(group.tokens[0])
-                : renderGroupRow(group)
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {groupedFiltered.length > 0 && (
+              <div
+                style={{
+                  border: "1px solid #E8E8E7",
+                  borderRadius: 14,
+                  overflowX: "hidden",
+                  overflowY: "visible",
+                  backgroundColor: "#FFFFFE",
+                }}
+              >
+                {groupedFiltered.map((group) =>
+                  group.tokens.length === 1
+                    ? renderTokenRow(group.tokens[0])
+                    : renderGroupRow(group)
+                )}
+              </div>
             )}
 
-            {/* Tokens below minimum */}
             {belowMin.length > 0 && (
-              <div style={{ borderTop: "1px solid #E8E8E7" }}>
+              <div
+                style={{
+                  backgroundColor: "#FFFFFE",
+                  border: "1px solid #E8E8E7",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                }}
+              >
                 <button
                   onClick={() => setShowBelowMin((v) => !v)}
                   style={{
                     width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "12px 14px", backgroundColor: "transparent", border: "none", cursor: "pointer",
+                    padding: "14px", backgroundColor: "transparent", border: "none", cursor: "pointer",
                     boxSizing: "border-box",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Info style={{ width: 18, height: 18, color: "#848483", flexShrink: 0 }} />
+                    <span
+                      style={{
+                        alignItems: "center",
+                        backgroundColor: "#F0F0EF",
+                        borderRadius: "999px",
+                        display: "flex",
+                        flexShrink: 0,
+                        height: 28,
+                        justifyContent: "center",
+                        width: 28,
+                      }}
+                    >
+                      <Info style={{ width: 16, height: 16, color: "#848483" }} />
+                    </span>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                       <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, fontSize: 14, color: "#161615" }}>
                         Tokens below minimum
                       </span>
-                      <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483" }}>
+                      <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
                         Hidden to prevent failed swaps
                       </span>
                     </div>
@@ -1078,61 +1449,96 @@ export function SwapAssetSelector({
                   }}
                 >
                   <div style={{ minHeight: 0, overflow: "hidden" }}>
-                    <div style={{
-                      display: "flex", alignItems: "flex-start", gap: 8, padding: showBelowMin ? "10px 14px" : "0 14px",
-                      backgroundColor: "#FFF8F0", transition: "padding 240ms ease",
-                    }}>
-                      <span style={{ color: "#E5953E", fontSize: 14, lineHeight: "18px", flexShrink: 0 }}>⚠</span>
-                      <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#6B6B6A", lineHeight: "18px" }}>
-                        Tokens under $1 are unavailable for swaps — gas + protocol fees would exceed the value.
-                      </span>
-                    </div>
-                    <div style={{ paddingBottom: showBelowMin ? "12px" : 0, transition: "padding-bottom 240ms ease" }}>
-                      {belowMin.slice(0, showAllBelowMin ? belowMin.length : 3).map((token) => (
-                        <div key={`${token.contractAddress}-${token.chainId}`} style={{
-                          display: "flex", alignItems: "center", justifyContent: "space-between",
-                          padding: "9px 14px",
-                        }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ width: 28, height: 28 }}>
-                              {token.logo ? (
-                                <img src={token.logo} alt={token.symbol} style={{ width: 28, height: 28, borderRadius: "999px", objectFit: "cover" }} />
-                              ) : (
-                                <div style={{ width: 28, height: 28, borderRadius: "999px", backgroundColor: "#006BF4", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700 }}>
-                                  {token.symbol.slice(0, 2)}
-                                </div>
-                              )}
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-                              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 14, color: "#161615" }}>
-                                {token.symbol}
-                              </span>
-                              {token.chainLogo && (
-                                <img src={token.chainLogo} alt="" style={{ width: 13, height: 13, borderRadius: "999px", objectFit: "cover" }} />
-                              )}
-                              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 14, color: "#161615" }}>
-                                {token.chainName}
-                              </span>
-                            </div>
-                          </div>
-                          <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 14, color: "#161615", fontWeight: 500 }}>
-                            {token.balanceInFiat}
-                          </span>
-                        </div>
-                      ))}
-                      {belowMin.length > 3 && !showAllBelowMin && (
-                        <button
-                          onClick={() => setShowAllBelowMin(true)}
+                    <div
+                      style={{
+                        backgroundColor: "#F6F6F5",
+                        borderRadius: 14,
+                        margin: showBelowMin ? "0 14px 14px" : "0 14px",
+                        overflow: "hidden",
+                        transition: "margin 240ms ease",
+                      }}
+                    >
+                      <div
+                        style={{
+                          alignItems: "center",
+                          display: "flex",
+                          gap: 10,
+                          padding: "12px 14px",
+                        }}
+                      >
+                        <span
                           style={{
-                            backgroundColor: "transparent", border: "none", cursor: "pointer",
-                            padding: "8px 14px", display: "flex", alignItems: "center", gap: 6,
-                            color: "#006BF4", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, fontWeight: 500,
+                            alignItems: "center",
+                            backgroundColor: "#FFF0D6",
+                            borderRadius: "999px",
+                            color: "#D98A1C",
+                            display: "flex",
+                            flexShrink: 0,
+                            fontFamily: '"Geist", system-ui, sans-serif',
+                            fontSize: 13,
+                            fontWeight: 700,
+                            height: 24,
+                            justifyContent: "center",
+                            width: 24,
                           }}
                         >
-                          Show {belowMin.length - 3} more
-                          <ChevronDown style={{ width: 14, height: 14, color: "#006BF4" }} />
-                        </button>
-                      )}
+                          !
+                        </span>
+                        <span style={{ color: "#363635", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, fontWeight: 500 }}>
+                          Tokens under $1 are unavailable for swaps
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          maxHeight: 228,
+                          overflowY: "auto",
+                          overscrollBehavior: "contain",
+                        }}
+                      >
+                        {belowMin.map((token) => (
+                          <div key={`${token.contractAddress}-${token.chainId}`} style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            borderBottom: "1px solid #E8E8E7",
+                            opacity: 0.62,
+                            padding: "9px 14px",
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                              <div style={{ position: "relative", width: 30, height: 30, flexShrink: 0 }}>
+                                {token.logo ? (
+                                  <img src={token.logo} alt={token.symbol} style={{ filter: "grayscale(0.2)", width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }} />
+                                ) : (
+                                  <div style={{ width: 30, height: 30, borderRadius: "999px", backgroundColor: "#C8C8C7", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700 }}>
+                                    {token.symbol.slice(0, 2)}
+                                  </div>
+                                )}
+                                {token.chainLogo && (
+                                  <img
+                                    src={token.chainLogo}
+                                    alt=""
+                                    style={{
+                                      border: "1.5px solid #F6F6F5",
+                                      borderRadius: "999px",
+                                      bottom: -2,
+                                      filter: "grayscale(0.2)",
+                                      height: 13,
+                                      objectFit: "cover",
+                                      position: "absolute",
+                                      right: -2,
+                                      width: 13,
+                                    }}
+                                  />
+                                )}
+                              </div>
+                              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 14, color: "#848483", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {token.symbol} on {token.chainName || "Unknown chain"}
+                              </span>
+                            </div>
+                            <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 14, color: "#848483", fontWeight: 500, flexShrink: 0, marginLeft: 12 }}>
+                              {token.balanceInFiat}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>

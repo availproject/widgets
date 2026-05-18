@@ -2,7 +2,10 @@ import React, { useRef, useState } from "react";
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import { PayWithSources as SharedPayWithSources } from "./pay-with-sources";
-import { type SwapTokenOption } from "./swap-asset-selector";
+import {
+  formatSelectedTokenBalanceLabel,
+  type SwapTokenOption,
+} from "./swap-asset-selector";
 
 interface SendIdleFormProps {
   amount: string;
@@ -55,7 +58,7 @@ const formatUsd = (value: unknown) => {
   return `$${amount.toDecimalPlaces(2).toFixed()}`;
 };
 
-const MAX_AMOUNT_DISPLAY_DECIMALS = 6;
+const MAX_AMOUNT_DISPLAY_DECIMALS = 8;
 const getTokenInputDecimals = (token?: Pick<SwapTokenOption, "decimals">) => {
   const decimals = Number(token?.decimals);
   return Number.isFinite(decimals) && decimals >= 0 ? Math.floor(decimals) : 18;
@@ -507,9 +510,7 @@ export function SendIdleForm({
     : formatAmountInputDisplay(amount);
 
   const destinationBalanceLabel =
-    toToken?.balance && toToken?.symbol && toToken.balance.includes(toToken.symbol)
-      ? toToken.balance
-      : `${toToken?.balance || "0"} ${toToken?.symbol || ""}`.trim();
+    formatSelectedTokenBalanceLabel(toToken) || `0 ${toToken?.symbol || ""}`.trim();
 
   return (
     <div

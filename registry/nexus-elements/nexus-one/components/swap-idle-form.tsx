@@ -1,6 +1,10 @@
 import React, { useRef, useState, useEffect } from "react";
 import Decimal from "decimal.js";
-import { type SwapTokenOption } from "./swap-asset-selector";
+import {
+  formatSelectedTokenBalanceLabel,
+  formatUsdBalanceLabel,
+  type SwapTokenOption,
+} from "./swap-asset-selector";
 
 interface SwapIdleFormProps {
   amount: string;
@@ -11,7 +15,6 @@ interface SwapIdleFormProps {
   sourceRouteStatus?: "loading" | "insufficient";
   sourceRouteMessage?: string;
   onAmountChange: (val: string, panel: "send" | "receive") => void;
-  onReceivePercentSelect?: (pct: number) => void;
   fromTokens: SwapTokenOption[];
   toToken?: SwapTokenOption;
   totalBalance: string;
@@ -321,69 +324,6 @@ function LogoCircle({
   );
 }
 
-function SourceLogoHint({
-  rows,
-  extraCount,
-}: {
-  rows: Array<{ token: SwapTokenOption; index: number }>;
-  extraCount: number;
-}) {
-  return (
-    <div
-      style={{
-        alignItems: "center",
-        display: "flex",
-        flexShrink: 0,
-        minWidth: 0,
-      }}
-    >
-      {rows.slice(0, 3).map(({ token, index }, hintIndex) => (
-        <div
-          key={`${token.contractAddress}-${token.chainId}-${index}`}
-          style={{
-            height: "20px",
-            marginLeft: hintIndex === 0 ? 0 : "-6px",
-            position: "relative",
-            width: "20px",
-          }}
-        >
-          <LogoCircle
-            src={token.logo}
-            alt={token.symbol}
-            label={token.symbol}
-            size={20}
-            fontSize={10}
-            outline="1px solid #FFFFFE"
-          />
-        </div>
-      ))}
-      {extraCount > 0 && (
-        <div
-          style={{
-            alignItems: "center",
-            backgroundColor: "#E8E8E7",
-            border: "1px solid #FFFFFE",
-            borderRadius: "999px",
-            color: "#5F5F5E",
-            display: "flex",
-            fontFamily: '"Geist", system-ui, sans-serif',
-            fontSize: "10px",
-            fontWeight: 600,
-            height: "20px",
-            justifyContent: "center",
-            lineHeight: "14px",
-            marginLeft: rows.length > 0 ? "-6px" : 0,
-            minWidth: "20px",
-            paddingInline: "4px",
-          }}
-        >
-          +{extraCount}
-        </div>
-      )}
-    </div>
-  );
-}
-
 const sameAddress = (a?: string, b?: string) =>
   Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 
@@ -394,38 +334,11 @@ const formatShortAddress = (address?: string) => {
     : address;
 };
 
-const formatTokenBalanceLabel = (token?: SwapTokenOption) => {
-  if (!token) return "";
-  const rawBalance = String(token.balance || "0").trim() || "0";
-  const symbol = token.symbol || "";
-  const numeric = rawBalance.replace(/[^0-9.-]/g, "");
-
-  if (!numeric || numeric === "-" || numeric === "." || numeric === "-.") {
-    return symbol && !rawBalance.toLowerCase().includes(symbol.toLowerCase())
-      ? `${rawBalance} ${symbol}`
-      : rawBalance;
-  }
-
-  try {
-    const balance = new Decimal(numeric);
-    const displayDecimals = 8;
-    const minDisplay = new Decimal(1).div(new Decimal(10).pow(displayDecimals));
-    const formatted =
-      balance.gt(0) && balance.lt(minDisplay)
-        ? `>${minDisplay.toFixed(displayDecimals)}`
-        : balance
-            .toDecimalPlaces(displayDecimals, Decimal.ROUND_DOWN)
-            .toFixed()
-            .replace(/(\.\d*?)0+$/, "$1")
-            .replace(/\.$/, "");
-
-    return symbol ? `${formatted} ${symbol}` : formatted;
-  } catch {
-    return symbol && !rawBalance.toLowerCase().includes(symbol.toLowerCase())
-      ? `${rawBalance} ${symbol}`
-      : rawBalance;
-  }
-};
+const formatTokenBalanceLabel = formatSelectedTokenBalanceLabel;
+const formatModeAwareTokenBalanceLabel = (token?: SwapTokenOption) =>
+  token?.userAmountMode === "usd"
+    ? formatUsdBalanceLabel(token.balanceInFiat)
+    : formatTokenBalanceLabel(token);
 
 const parseDecimal = (value: unknown) => {
   if (value === null || value === undefined || value === "") return undefined;
@@ -445,7 +358,7 @@ const parseDecimal = (value: unknown) => {
 const formatUsdValue = (value: Decimal) =>
   value.gt(0) && value.lt(0.01) ? "<0.01" : value.toDecimalPlaces(2).toFixed(2);
 
-const MAX_AMOUNT_DISPLAY_DECIMALS = 6;
+const MAX_AMOUNT_DISPLAY_DECIMALS = 8;
 const getTokenInputDecimals = (token?: Pick<SwapTokenOption, "decimals">) => {
   const decimals = Number(token?.decimals);
   return Number.isFinite(decimals) && decimals >= 0 ? Math.floor(decimals) : 18;
@@ -545,7 +458,6 @@ export function SwapIdleForm({
   sourceRouteStatus,
   sourceRouteMessage,
   onAmountChange,
-  onReceivePercentSelect,
   fromTokens,
   toToken,
   totalBalance,
@@ -563,13 +475,6 @@ export function SwapIdleForm({
   );
   const [focusedRow, setFocusedRow] = useState<number | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
-  const [showAllSourceAssets, setShowAllSourceAssets] = useState(false);
-
-  useEffect(() => {
-    if (fromTokens.length <= 2) {
-      setShowAllSourceAssets(false);
-    }
-  }, [fromTokens.length]);
 
   const sanitizeInput = (raw: string, maxDecimals = 18): string => {
     let next = raw.replaceAll(/[^0-9.]/g, "");
@@ -714,19 +619,13 @@ export function SwapIdleForm({
     [fromTokens, getSourceUsdValue],
   );
   const hasSourceOverflow = sortedSourceRows.length > 2;
-  const visibleSourceRows =
-    hasSourceOverflow && !showAllSourceAssets
-      ? sortedSourceRows.slice(0, 2)
-      : sortedSourceRows;
-  const overflowHintRows = sortedSourceRows.slice(2, 5);
-  const overflowHintExtraCount = Math.max(sortedSourceRows.length - 5, 0);
   const sourceRowsToRender: Array<{
     token: SwapTokenOption | null;
     index: number;
     position: number;
   }> =
     fromTokens.length > 0
-      ? (hasSourceOverflow ? sortedSourceRows : visibleSourceRows).map(
+      ? sortedSourceRows.map(
           ({ token, index }, position) => ({ token, index, position }),
         )
       : [{ token: null, index: 0, position: 0 }];
@@ -985,29 +884,17 @@ export function SwapIdleForm({
             display: "flex",
             flexDirection: "column",
             gap: "12px",
-            maxHeight: hasSourceOverflow
-              ? showAllSourceAssets
-                ? "204px"
-                : "160px"
-              : undefined,
+            maxHeight: hasSourceOverflow ? "220px" : undefined,
             overflowX: hasSourceOverflow ? "hidden" : undefined,
-            overflowY: hasSourceOverflow
-              ? showAllSourceAssets
-                ? "auto"
-                : "hidden"
-              : undefined,
-            paddingRight:
-              hasSourceOverflow && showAllSourceAssets ? "4px" : undefined,
-            overscrollBehavior:
-              hasSourceOverflow && showAllSourceAssets ? "contain" : undefined,
+            overflowY: hasSourceOverflow ? "auto" : undefined,
+            paddingRight: hasSourceOverflow ? "4px" : undefined,
+            overscrollBehavior: hasSourceOverflow ? "contain" : undefined,
             transition:
               "max-height 0.28s ease, padding-right 0.2s ease, opacity 0.2s ease",
             width: "100%",
           }}
           >
             {sourceRowsToRender.map(({ token, index, position }) => {
-            const isSourceRowClipped =
-              hasSourceOverflow && !showAllSourceAssets && position >= 2;
             const showTooltipBelow = position === 0;
             return (
               <div
@@ -1016,25 +903,19 @@ export function SwapIdleForm({
                     ? `${token.contractAddress}-${token.chainId}-${index}`
                     : "empty"
                 }
-                aria-hidden={isSourceRowClipped ? true : undefined}
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  opacity: isSourceRowClipped ? 0 : 1,
-                  pointerEvents: isSourceRowClipped ? "none" : undefined,
+                  opacity: 1,
                   position: "relative",
-                  transform: isSourceRowClipped
-                    ? "translateY(-4px)"
-                    : "translateY(0)",
+                  transform: "translateY(0)",
                   transition:
                     "opacity 0.18s ease, transform 0.18s ease",
                   zIndex:
                     tooltip === `asset-send-${index}`
                       ? 1000
-                      : isSourceRowClipped
-                        ? 0
-                        : 1,
+                      : 1,
                 }}
               >
                 <div
@@ -1083,7 +964,6 @@ export function SwapIdleForm({
                           <input
                             type="text"
                             placeholder="0"
-                            tabIndex={isSourceRowClipped ? -1 : undefined}
                             value={
                               token
                                 ? focusedRow === index
@@ -1157,7 +1037,6 @@ export function SwapIdleForm({
                       ) : (
                         <button
                           onClick={() => onOpenSourcePicker(index)}
-                          tabIndex={isSourceRowClipped ? -1 : undefined}
                           style={{
                             alignItems: "center",
                             backgroundColor: "#FFFFFE",
@@ -1252,7 +1131,6 @@ export function SwapIdleForm({
                             "send",
                           );
                         }}
-                        tabIndex={isSourceRowClipped ? -1 : undefined}
                         style={{
                           width: "22px",
                           height: "22px",
@@ -1400,7 +1278,7 @@ export function SwapIdleForm({
                           lineHeight: "18px",
                         }}
                       >
-                        {formatTokenBalanceLabel(token)}
+                        {formatModeAwareTokenBalanceLabel(token)}
                       </div>
                       
                       {/* Tooltip */}
@@ -1465,69 +1343,6 @@ export function SwapIdleForm({
               {sourceRouteHelper}
             </div>
           )}
-
-          {hasSourceOverflow && (
-          <button
-            type="button"
-            onClick={() => setShowAllSourceAssets((current) => !current)}
-            style={{
-              alignItems: "center",
-              alignSelf: "stretch",
-              backgroundColor: "#F4F4F3",
-              border: "none",
-              borderRadius: "8px",
-              boxSizing: "border-box",
-              cursor: "pointer",
-              display: "flex",
-              gap: "6px",
-              justifyContent: "space-between",
-              minHeight: "30px",
-              paddingBlock: "5px",
-              paddingInline: "10px",
-              width: "100%",
-            }}
-          >
-            <span
-              style={{
-                alignItems: "center",
-                color: "#363635",
-                display: "flex",
-                fontFamily: '"Geist", system-ui, sans-serif',
-                fontSize: "10px",
-                fontWeight: 600,
-                gap: "20px",
-                letterSpacing: "0.06em",
-                lineHeight: "16px",
-                textTransform: "uppercase",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <span>
-                {showAllSourceAssets ? "View less assets" : "View more assets"}
-              </span>
-              {!showAllSourceAssets && (
-                <SourceLogoHint
-                  rows={overflowHintRows.map(({ token, index }) => ({
-                    token,
-                    index,
-                  }))}
-                  extraCount={overflowHintExtraCount}
-                />
-              )}
-            </span>
-            <span
-              style={{
-                display: "flex",
-                transform: showAllSourceAssets
-                  ? "rotate(180deg)"
-                  : "rotate(0deg)",
-                transition: "transform 0.18s ease-out",
-              }}
-            >
-              <ChevronDownIcon />
-            </span>
-          </button>
-        )}
 
         {/* Add asset button — only after first source selected */}
         <AddAssetButton
@@ -1850,14 +1665,6 @@ export function SwapIdleForm({
               </div>
             )}
           </div>
-
-          {/* 25% 50% 75% MAX — backed by calculateMaxForSwap when available */}
-          {onReceivePercentSelect && (
-            <PercentButtons
-              visible={focusedPanel === "receive"}
-              onSelect={onReceivePercentSelect}
-            />
-          )}
         </div>
 
         {/* Recipient section — only shown when handler exists */}

@@ -66,9 +66,6 @@ export function ComponentPreview({
       align={isNexusOnePreview ? "start" : align}
       hideCode={hideCode}
       component={<Showcase />}
-      previewClassName={
-        isNexusOnePreview ? "max-h-[90dvh] overflow-y-auto" : undefined
-      }
       source={
         <ComponentSource
           name={name}

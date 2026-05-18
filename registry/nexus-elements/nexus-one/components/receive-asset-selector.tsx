@@ -1,11 +1,21 @@
 "use client";
 import { nexusOneTheme } from "../theme";
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { Search, X, ChevronDown, Check, Info, Copy } from "lucide-react";
-import { type SwapTokenOption } from "./swap-asset-selector";
+import {
+  getTokenSearchRank,
+  RadioDot,
+  type SwapTokenOption,
+} from "./swap-asset-selector";
 import { useNexus } from "../../nexus/NexusProvider";
-import { RadioDot } from "./swap-asset-selector";
 import { CHAIN_METADATA, formatTokenBalance } from "@avail-project/nexus-core";
 
 interface ReceiveAssetSelectorProps {
@@ -164,8 +174,11 @@ export function ReceiveAssetSelector({
   onBack,
 }: ReceiveAssetSelectorProps) {
   const selectorRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const stableListHeightRef = useRef(0);
   const chainCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+  const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const { supportedChainsAndTokens, swapBalance } = useNexus();
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -181,8 +194,12 @@ export function ReceiveAssetSelector({
   const [hoveredHash, setHoveredHash] = useState<string | null>(null);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(30);
-  const [tooltipState, setTooltipState] = useState<{ x: number, y: number, t: SwapTokenOption } | null>(null);
-  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [tooltipState, setTooltipState] = useState<{
+    hash: string;
+    x: number;
+    y: number;
+    t: SwapTokenOption;
+  } | null>(null);
 
   const [apiTokens, setApiTokens] = useState<SwapTokenOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -268,18 +285,44 @@ export function ReceiveAssetSelector({
     const handleGlobalClick = () => setTooltipState(null);
     if (tooltipState) {
       window.addEventListener("click", handleGlobalClick);
-      window.addEventListener("touchstart", handleGlobalClick);
     }
     return () => {
       window.removeEventListener("click", handleGlobalClick);
-      window.removeEventListener("touchstart", handleGlobalClick);
     };
   }, [tooltipState]);
 
   // Reset visible count when filters change
   useEffect(() => {
     setVisibleCount(30);
+    if (listRef.current) {
+      listRef.current.scrollTop = 0;
+    }
   }, [query, activeTab, selectedChainFilter]);
+
+  const preserveListHeight = useCallback(() => {
+    const listEl = listRef.current;
+    if (!listEl) return;
+
+    const nextHeight = Math.ceil(listEl.getBoundingClientRect().height);
+    if (nextHeight <= stableListHeightRef.current) return;
+
+    stableListHeightRef.current = nextHeight;
+    setStableListHeight(nextHeight);
+  }, []);
+
+  useLayoutEffect(() => {
+    preserveListHeight();
+
+    const listEl = listRef.current;
+    if (!listEl || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      preserveListHeight();
+    });
+    observer.observe(listEl);
+
+    return () => observer.disconnect();
+  }, [preserveListHeight]);
 
   // Cross-reference map for chain names & logos, and balances
   const chainMetaMap = useMemo(() => {
@@ -346,11 +389,7 @@ export function ReceiveAssetSelector({
     let result = tokensWithBalances;
     if (selectedChainFilter) result = result.filter(t => t.chainId === selectedChainFilter);
     if (query.trim()) {
-      const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-      result = result.filter(t => {
-        const targetStr = `${t.symbol} ${t.name} ${t.chainName} ${t.contractAddress}`.toLowerCase();
-        return terms.every(term => targetStr.includes(term));
-      });
+      result = result.filter((t) => getTokenSearchRank(t, query) !== null);
     }
     if (activeTab === "native") result = result.filter(isNativeToken);
     else if (activeTab === "stables") result = result.filter(t => dynamicStableSymbols.has(t.symbol));
@@ -360,12 +399,23 @@ export function ReceiveAssetSelector({
 
   const sortedFiltered = useMemo(() => {
     return [...filtered].sort((a, b) => {
+      if (query.trim()) {
+        const aRank = getTokenSearchRank(a, query);
+        const bRank = getTokenSearchRank(b, query);
+        const aScore = aRank?.score ?? Number.MAX_SAFE_INTEGER;
+        const bScore = bRank?.score ?? Number.MAX_SAFE_INTEGER;
+        if (aScore !== bScore) return aScore - bScore;
+
+        const aMatched = aRank?.matchedTerms ?? 0;
+        const bMatched = bRank?.matchedTerms ?? 0;
+        if (aMatched !== bMatched) return bMatched - aMatched;
+      }
       const aFiat = parseFiatValue(a.balanceInFiat);
       const bFiat = parseFiatValue(b.balanceInFiat);
       if (aFiat !== bFiat) return bFiat - aFiat;
       return `${a.symbol} ${a.chainName}`.localeCompare(`${b.symbol} ${b.chainName}`);
     });
-  }, [filtered]);
+  }, [filtered, query]);
 
   return (
     <div
@@ -411,10 +461,7 @@ export function ReceiveAssetSelector({
         </button>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 18, fontWeight: 600, color: "#161615" }}>
-            Choose asset to Receive
-          </span>
-          <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
-            Select token and chain
+            Select token to receive
           </span>
         </div>
       </div>
@@ -477,12 +524,13 @@ export function ReceiveAssetSelector({
 
       {/* Token list */}
       <div 
+        ref={listRef}
         style={{
           flex: "1 1 auto",
-          minHeight: 0,
+          minHeight: stableListHeight ? `${stableListHeight}px` : 0,
           overflowY: "auto",
           position: "relative",
-          zIndex: hoveredHash ? 20 : 1,
+          zIndex: hoveredHash || tooltipState ? 20 : 1,
         }}
         onScroll={(e) => {
           const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -501,6 +549,8 @@ export function ReceiveAssetSelector({
               const hash = `${t.chainId}-${t.contractAddress}`;
               const isSelected = selectedTokenHash === hash;
               const isHovered = hoveredHash === hash;
+              const isInfoOpen = tooltipState?.hash === hash;
+              const isDetailActive = isHovered || isInfoOpen;
               const numericBalance = Number.parseFloat(
                 String(t.balance ?? "0").replace(/[^0-9.]/g, ""),
               );
@@ -516,8 +566,8 @@ export function ReceiveAssetSelector({
                     width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "10px 14px", backgroundColor: isSelected ? "#F4F7FE" : "transparent", border: "none",
                     cursor: "pointer", borderBottom: "1px solid #F0F0EF", boxSizing: "border-box",
-                    position: isHovered ? "relative" : "static",
-                    zIndex: isHovered ? 50 : 1
+                    position: isDetailActive ? "relative" : "static",
+                    zIndex: isDetailActive ? 50 : 1
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -530,11 +580,11 @@ export function ReceiveAssetSelector({
                       <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 15, color: "#161615" }}>{t.symbol}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
-                          {isHovered
+                          {isDetailActive
                             ? `${t.contractAddress.slice(0, 6)}...${t.contractAddress.slice(-4)}`
                             : `on ${t.chainName || "Unknown chain"}`}
                         </span>
-                        {isHovered && (
+                        {isDetailActive && (
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                           {copiedHash === hash ? (
                             <Check style={{ width: 12, height: 12, color: "#006BF4" }} />
@@ -553,21 +603,17 @@ export function ReceiveAssetSelector({
                             className="relative"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (tooltipState?.t.contractAddress === t.contractAddress) {
+                              if (tooltipState?.hash === hash) {
                                 setTooltipState(null);
                               } else {
-                                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                setTooltipState({ x: rect.left + rect.width / 2, y: rect.top, t });
+                                setTooltipState({
+                                  hash,
+                                  x: rect.left + rect.width / 2,
+                                  y: rect.top,
+                                  t,
+                                });
                               }
-                            }}
-                            onMouseEnter={(e) => {
-                              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setTooltipState({ x: rect.left + rect.width / 2, y: rect.top, t });
-                            }}
-                            onMouseLeave={() => {
-                              hoverTimeoutRef.current = setTimeout(() => setTooltipState(null), 150);
                             }}
                           >
                             <Info style={{ width: 12, height: 12, color: "#848483", cursor: "pointer" }} />
@@ -803,12 +849,6 @@ export function ReceiveAssetSelector({
             }}
             className="w-[280px] bg-white border border-[#E8E8E7] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.12)] p-4 text-left"
             onClick={(e) => e.stopPropagation()}
-            onMouseEnter={() => {
-              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-            }}
-            onMouseLeave={() => {
-              hoverTimeoutRef.current = setTimeout(() => setTooltipState(null), 150);
-            }}
           >
             {/* Triangle pointer */}
             <div style={{

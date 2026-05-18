@@ -59,8 +59,6 @@ const NexusOneDepositShowcase = () => {
         className="flex w-full justify-center"
         style={{
           alignItems: "flex-start",
-          maxHeight: "90dvh",
-          overflowY: "auto",
         }}
       >
         <NexusOne

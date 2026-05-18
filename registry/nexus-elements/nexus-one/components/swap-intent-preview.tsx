@@ -765,8 +765,6 @@ export function SwapIntentPreview({
 
   const pendingLabel = isLoading ? "Fetching quote" : "Quote unavailable";
   const pendingValue = isLoading ? "..." : "--";
-  const sourceHeaderAmount =
-    sourceUsdNumber !== undefined ? formatAmount(sourceUsdNumber) : pendingValue;
   const sourceUsd =
     sourceUsdNumber !== undefined
       ? `${formatAmount(sourceUsdNumber)} USD`
@@ -860,17 +858,38 @@ export function SwapIntentPreview({
             index,
           };
         });
-  const sourceHeaderSubtitle = (() => {
+  const singleSourceHeader = (() => {
     if (normalizedIntentSources.length === 1) {
       const source = normalizedIntentSources[0];
-      return `${source.token.symbol} on ${source.chain.name}`;
+      return {
+        amount: formatTokenAmount(source.amount),
+        chainName: source.chain.name,
+        symbol: source.token.symbol,
+      };
     }
 
     if (normalizedIntentSources.length === 0 && fallbackSources.length === 1) {
       const source = fallbackSources[0];
-      return source.chainName
-        ? `${source.symbol} on ${source.chainName}`
-        : source.symbol;
+      const sourceAmount = source.userAmount || fromAmount;
+      if (!sourceAmount) return null;
+      return {
+        amount: formatTokenAmount(sourceAmount),
+        chainName: source.chainName || "",
+        symbol: source.symbol,
+      };
+    }
+
+    return null;
+  })();
+  const sourceHeaderAmount =
+    singleSourceHeader?.amount ||
+    (sourceUsdNumber !== undefined ? formatAmount(sourceUsdNumber) : pendingValue);
+  const sourceHeaderUnit = singleSourceHeader?.symbol || "USD";
+  const sourceHeaderSubtitle = (() => {
+    if (singleSourceHeader) {
+      return singleSourceHeader.chainName
+        ? `on ${singleSourceHeader.chainName}`
+        : "";
     }
 
     const count = sourceAssetCount || 1;
@@ -963,7 +982,7 @@ export function SwapIntentPreview({
             >
               {sourceHeaderAmount}
               <span style={{ color: muted, fontSize: "12px", fontWeight: 500 }}>
-                USD
+                {sourceHeaderUnit}
               </span>
             </div>
             <div

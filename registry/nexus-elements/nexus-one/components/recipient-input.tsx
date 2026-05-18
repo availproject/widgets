@@ -51,10 +51,13 @@ export function RecipientInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 bg-transparent border-none outline-none focus:ring-0 font-geist"
+        className="flex-1 bg-transparent border-none outline-none focus:ring-0 font-geist placeholder:text-[var(--foreground-muted, #848483)]"
         style={{
+          color: "#161615",
+          caretColor: "#006BF4",
           fontSize: "14px",
           fontWeight: 500,
+          WebkitTextFillColor: "#161615",
           lineHeight: "18px",
         }}
       />

@@ -1,9 +1,10 @@
 import React, { useMemo } from "react";
-import {
-  formatTokenBalance,
-  type UserAssetDatum,
-} from "@avail-project/nexus-core";
+import { type UserAssetDatum } from "@avail-project/nexus-core";
 import Decimal from "decimal.js";
+import {
+  formatTokenAmountDisplay,
+  formatUsdBalanceLabel,
+} from "./swap-asset-selector";
 
 interface AmountInputUnifiedProps {
   amount: string;
@@ -32,18 +33,43 @@ export function AmountInputUnified({
   header,
 }: AmountInputUnifiedProps) {
   const handleMax = () => {
-    if (!totalBalance) return;
-    onChange(totalBalance);
-    onCommit?.(totalBalance);
+    if (!totalBalanceValue) return;
+    onChange(totalBalanceValue);
+    onCommit?.(totalBalanceValue);
   };
 
-  const totalBalance = useMemo(() => {
-    if (!unifiedBalances || !unifiedBalances.length) return "0";
+  const isUsdMode = !tokenSymbol;
+  const totalBalanceValue = useMemo(() => {
+    if (!unifiedBalances || !unifiedBalances.length) return "";
+    if (isUsdMode) {
+      return unifiedBalances
+        .reduce(
+          (acc, curr) => acc.add(curr.balanceInFiat ?? 0),
+          new Decimal(0),
+        )
+        .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+        .toFixed();
+    }
     return unifiedBalances
-      .reduce((acc, curr) => acc.add(curr.balanceInFiat), new Decimal(0))
-      .toDecimalPlaces(2)
+      .reduce((acc, curr) => acc.add(curr.balance ?? 0), new Decimal(0))
+      .toDecimalPlaces(8, Decimal.ROUND_DOWN)
       .toFixed();
-  }, [unifiedBalances]);
+  }, [isUsdMode, unifiedBalances]);
+  const totalBalanceLabel = useMemo(() => {
+    if (!unifiedBalances || !unifiedBalances.length) return "0";
+    if (isUsdMode) {
+      const fiatAmount = unifiedBalances.reduce(
+        (acc, curr) => acc.add(curr.balanceInFiat ?? 0),
+        new Decimal(0),
+      );
+      return formatUsdBalanceLabel(fiatAmount);
+    }
+    const amount = unifiedBalances.reduce(
+      (acc, curr) => acc.add(curr.balance ?? 0),
+      new Decimal(0),
+    );
+    return formatTokenAmountDisplay(amount);
+  }, [isUsdMode, unifiedBalances]);
 
   return (
     <div
@@ -135,7 +161,7 @@ export function AmountInputUnified({
       </div>
 
       {/* Balance display — below amount + MAX row */}
-      {(totalBalance || maxAvailableAmount) && (
+      {(totalBalanceValue || maxAvailableAmount) && (
         <div className="absolute bottom-4 left-0 w-full flex justify-center">
           <p
             style={{
@@ -148,7 +174,7 @@ export function AmountInputUnified({
               textAlign: "center",
             }}
           >
-            Balance: {totalBalance ? `$${totalBalance}` : `$0`}
+            Balance: {totalBalanceLabel || "0"}{tokenSymbol ? ` ${tokenSymbol}` : ""}
           </p>
         </div>
       )}

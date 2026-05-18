@@ -82,11 +82,12 @@ type ProgressStatusId =
   | "destination"
   | "action";
 
-type ProgressStatusState = "loading" | "completed" | "error";
+type ProgressStatusState = "pending" | "loading" | "completed" | "error";
 
 type ProgressStatusRow = {
   id: ProgressStatusId;
   label: string;
+  detail?: string;
   state: ProgressStatusState;
 };
 
@@ -98,27 +99,73 @@ const STATUS_ORDER: ProgressStatusId[] = [
   "action",
 ];
 
-const getActionStatusLabel = (mode: NexusOneMode) =>
-  mode === "deposit" ? "Depositing" : "Sending";
-
-const getStatusLabel = (id: ProgressStatusId, mode: NexusOneMode) => {
-  if (id === "verifying") return "Verifying Intent";
-  if (id === "source") return "Swapping at sources";
-  if (id === "bridge") return "Bridging";
-  if (id === "destination") return "Swapping at destination";
-  return getActionStatusLabel(mode);
+const getStatusLabel = (
+  id: ProgressStatusId,
+  mode: NexusOneMode,
+  state: ProgressStatusState,
+) => {
+  const isDeposit = mode === "deposit";
+  const labels: Record<
+    ProgressStatusId,
+    Record<ProgressStatusState, string>
+  > = {
+    verifying: {
+      pending: "Verify Intent",
+      loading: "Verifying Intent",
+      completed: "Intent Verified",
+      error: "Intent Verification failed",
+    },
+    source: {
+      pending: "Collect at sources",
+      loading: "Collecting at sources",
+      completed: "Collected at Sources",
+      error: "Failed to collect at sources",
+    },
+    bridge: {
+      pending: "Bridge funds",
+      loading: "Bridging funds",
+      completed: "Funds bridged",
+      error: "Failed to bridge funds",
+    },
+    destination: {
+      pending: "Fulfill at destination",
+      loading: "Fulfilling at destination",
+      completed: "Fulfilled at destination",
+      error: "Failed to fulfill at destination",
+    },
+    action: isDeposit
+      ? {
+          pending: "Deposit",
+          loading: "Depositing",
+          completed: "Deposited",
+          error: "Failed to deposit",
+        }
+      : {
+          pending: "Send",
+          loading: "Sending",
+          completed: "Sent",
+          error: "Failed to send",
+        },
+  };
+  return labels[id][state];
 };
 
 const getStatusForStep = (
   step: ProgressSdkStep | undefined,
   mode: NexusOneMode,
-): ProgressStatusId => {
+): ProgressStatusId | null => {
   const type = getStepType(step);
 
   if (
+    type === "APPROVAL" ||
+    type === "TRANSACTION_SENT" ||
+    type === "TRANSACTION_CONFIRMED"
+  ) {
+    return mode === "swap" ? null : "action";
+  }
+
+  if (
     [
-      "SWAP_START",
-      "DETERMINING_SWAP",
       "CREATE_PERMIT_EOA_TO_EPHEMERAL",
       "INTENT_ACCEPTED",
       "INTENT_HASH_SIGNED",
@@ -128,6 +175,10 @@ const getStatusForStep = (
       "ALLOWANCE_ALL_DONE",
     ].some((token) => type.includes(token))
   ) {
+    return "verifying";
+  }
+
+  if (type.includes("SWAP_START") || type.includes("DETERMINING_SWAP")) {
     return "verifying";
   }
 
@@ -155,73 +206,155 @@ const getStatusForStep = (
     return "destination";
   }
 
-  if (
-    type.includes("APPROVAL") ||
-    type.includes("TRANSACTION_SENT") ||
-    type.includes("TRANSACTION_CONFIRMED")
-  ) {
-    return mode === "swap" ? "destination" : "action";
-  }
+  return null;
+};
 
-  if (type.includes("SWAP_COMPLETE")) {
-    return mode === "swap" ? "destination" : "action";
-  }
-
-  return "verifying";
+const stepMatches = (
+  step: ProgressSdkStep | undefined,
+  tokens: string[],
+) => {
+  const type = getStepType(step);
+  return tokens.some((token) => type.includes(token));
 };
 
 const hasCompletedType = (
   events: NexusOneProgressEvent[],
+  steps: ProgressStep[],
   tokens: string[],
-) =>
-  events.some((event) => {
-    if (!event.completed) return false;
-    const type = getStepType(event.step);
-    return tokens.some((token) => type.includes(token));
-  });
+) => {
+  const completedEvent = events.some(
+    (event) => event.completed && stepMatches(event.step, tokens),
+  );
+  if (completedEvent) return true;
+
+  return steps.some(
+    (item) => item.completed && stepMatches(item.step, tokens),
+  );
+};
+
+const hasStartedStatus = (
+  events: NexusOneProgressEvent[],
+  id: ProgressStatusId,
+  mode: NexusOneMode,
+) => events.some((event) => getStatusForStep(event.step, mode) === id);
 
 const hasStartedLaterStatus = (
   events: NexusOneProgressEvent[],
+  steps: ProgressStep[],
   id: ProgressStatusId,
   mode: NexusOneMode,
 ) => {
   const index = STATUS_ORDER.indexOf(id);
-  return events.some((event) => {
-    const eventIndex = STATUS_ORDER.indexOf(getStatusForStep(event.step, mode));
+  const eventStartedLater = events.some((event) => {
+    const status = getStatusForStep(event.step, mode);
+    if (!status) return false;
+    const eventIndex = STATUS_ORDER.indexOf(status);
     return eventIndex > index;
+  });
+  if (eventStartedLater) return true;
+
+  return steps.some((item) => {
+    if (!item.completed) return false;
+    const status = getStatusForStep(item.step, mode);
+    if (!status) return false;
+    const stepIndex = STATUS_ORDER.indexOf(status);
+    return stepIndex > index;
   });
 };
 
 const isStatusCompleted = (
   id: ProgressStatusId,
   events: NexusOneProgressEvent[],
+  steps: ProgressStep[],
   mode: NexusOneMode,
 ) => {
-  if (hasStartedLaterStatus(events, id, mode)) return true;
+  if (hasStartedLaterStatus(events, steps, id, mode)) return true;
 
   if (id === "verifying") {
-    return hasCompletedType(events, ["INTENT_SUBMITTED", "DETERMINING_SWAP"]);
+    return hasCompletedType(events, steps, [
+      "INTENT_SUBMITTED",
+      "DETERMINING_SWAP",
+    ]);
   }
   if (id === "source") {
-    return hasCompletedType(events, ["SOURCE_SWAP_HASH"]);
+    return hasCompletedType(events, steps, ["SOURCE_SWAP_HASH"]);
   }
   if (id === "bridge") {
-    return hasCompletedType(events, ["INTENT_FULFILLED"]);
+    return hasCompletedType(events, steps, [
+      "INTENT_FULFILLED",
+      "DESTINATION_SWAP",
+      "TRANSACTION_SENT",
+      "TRANSACTION_CONFIRMED",
+    ]);
   }
   if (id === "destination") {
-    return hasCompletedType(events, ["DESTINATION_SWAP_HASH", "SWAP_COMPLETE"]);
+    return hasCompletedType(events, steps, [
+      "DESTINATION_SWAP_HASH",
+      "SWAP_COMPLETE",
+      "TRANSACTION_SENT",
+      "TRANSACTION_CONFIRMED",
+    ]);
   }
-  return hasCompletedType(events, ["TRANSACTION_CONFIRMED"]);
+  return hasCompletedType(events, steps, ["TRANSACTION_CONFIRMED"]);
+};
+
+const getStatusState = (
+  id: ProgressStatusId,
+  events: NexusOneProgressEvent[],
+  steps: ProgressStep[],
+  mode: NexusOneMode,
+  failedStatus: ProgressStatusId | null,
+): ProgressStatusState => {
+  if (failedStatus === id) return "error";
+  if (isStatusCompleted(id, events, steps, mode)) return "completed";
+  if (hasStartedStatus(events, id, mode)) return "loading";
+  return "pending";
+};
+
+const getCompletedCountDetail = (
+  completed: number,
+  total: number,
+): string | undefined => {
+  if (total <= 0) return undefined;
+  return `${Math.min(completed, total)} of ${total} Done`;
+};
+
+const getGroupedCountDetail = (
+  steps: ProgressStep[],
+  primaryTokens: string[],
+  fallbackTokens: string[],
+) => {
+  const primarySteps = steps.filter((item) =>
+    stepMatches(item.step, primaryTokens),
+  );
+  if (primarySteps.length > 0) {
+    return getCompletedCountDetail(
+      primarySteps.filter((item) => item.completed).length,
+      primarySteps.length,
+    );
+  }
+
+  const hasFallback = steps.some((item) =>
+    stepMatches(item.step, fallbackTokens),
+  );
+  if (!hasFallback) return undefined;
+
+  const completedFallback = steps.some(
+    (item) => item.completed && stepMatches(item.step, fallbackTokens),
+  );
+  return getCompletedCountDetail(completedFallback ? 1 : 0, 1);
 };
 
 const buildStatusRows = ({
   events,
   failedStep,
   mode,
+  steps,
 }: {
   events: NexusOneProgressEvent[];
   failedStep?: ProgressSdkStep | null;
   mode: NexusOneMode;
+  steps: ProgressStep[];
 }): ProgressStatusRow[] => {
   const failedStatus = failedStep ? getStatusForStep(failedStep, mode) : null;
   const involvedStatuses: ProgressStatusId[] = [];
@@ -233,28 +366,55 @@ const buildStatusRows = ({
     }
   };
 
+  for (const item of steps) {
+    addStatus(getStatusForStep(item.step, mode));
+  }
   for (const event of events) {
     addStatus(getStatusForStep(event.step, mode));
   }
   addStatus(failedStatus);
 
+  if (mode === "deposit" || mode === "send") {
+    addStatus("action");
+  }
+
   if (involvedStatuses.length === 0) {
     addStatus("verifying");
   }
 
-  return involvedStatuses
-    .sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))
+  const sourceDetail = getGroupedCountDetail(
+    steps,
+    ["SOURCE_SWAP_HASH"],
+    ["CREATE_PERMIT_FOR_SOURCE_SWAP", "SOURCE_SWAP_BATCH_TX"],
+  );
+  const destinationDetail = getGroupedCountDetail(
+    steps,
+    ["DESTINATION_SWAP_HASH"],
+    ["DESTINATION_SWAP_BATCH_TX"],
+  );
+
+  const orderedStatuses = involvedStatuses.sort(
+    (a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b),
+  );
+  const visibleStatuses = failedStatus
+    ? orderedStatuses.filter(
+        (id) => STATUS_ORDER.indexOf(id) <= STATUS_ORDER.indexOf(failedStatus),
+      )
+    : orderedStatuses;
+
+  return visibleStatuses
     .map((id) => {
-      const state: ProgressStatusState =
-        failedStatus === id
-          ? "error"
-          : isStatusCompleted(id, events, mode)
-            ? "completed"
-            : "loading";
+      const state = getStatusState(id, events, steps, mode, failedStatus);
 
       return {
         id,
-        label: getStatusLabel(id, mode),
+        detail:
+          id === "source"
+            ? sourceDetail
+            : id === "destination"
+              ? destinationDetail
+              : undefined,
+        label: getStatusLabel(id, mode, state),
         state,
       };
     });
@@ -392,6 +552,7 @@ export function NexusOneProgressScreen({
     events: progressEvents,
     failedStep,
     mode,
+    steps: steps ?? [],
   });
 
   return (
@@ -502,6 +663,7 @@ export function NexusOneProgressScreen({
         {statusRows.map((row) => {
           const isCompleted = row.state === "completed";
           const isError = row.state === "error";
+          const isPending = row.state === "pending";
 
           return (
             <div
@@ -546,6 +708,18 @@ export function NexusOneProgressScreen({
                     <Check style={{ height: 13, width: 13 }} />
                   )}
                 </span>
+              ) : isPending ? (
+                <span
+                  style={{
+                    background: "#FFFFFE",
+                    border: `2px solid ${border}`,
+                    borderRadius: "999px",
+                    boxSizing: "border-box",
+                    display: "inline-flex",
+                    height: "18px",
+                    width: "18px",
+                  }}
+                />
               ) : (
                 <Loader2
                   className="animate-spin"
@@ -553,6 +727,20 @@ export function NexusOneProgressScreen({
                 />
               )}
               <span>{row.label}</span>
+              {row.detail && (
+                <span
+                  style={{
+                    color: muted,
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    lineHeight: "16px",
+                    marginLeft: "auto",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {row.detail}
+                </span>
+              )}
             </div>
           );
         })}
