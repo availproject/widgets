@@ -1488,13 +1488,7 @@ export function SwapAssetSelector({
                           Tokens under $1 are unavailable for swaps
                         </span>
                       </div>
-                      <div
-                        style={{
-                          maxHeight: 228,
-                          overflowY: "auto",
-                          overscrollBehavior: "contain",
-                        }}
-                      >
+                      <div>
                         {belowMin.map((token) => (
                           <div key={`${token.contractAddress}-${token.chainId}`} style={{
                             display: "flex", alignItems: "center", justifyContent: "space-between",
