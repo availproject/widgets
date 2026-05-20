@@ -22,6 +22,7 @@ import { StatusAlert } from "./components/status-alerts";
 import {
   SwapAssetSelector,
   type SwapTokenOption,
+  deriveTokenOptions,
 } from "./components/swap-asset-selector";
 import {
   SwapIntentPreview,
@@ -1426,9 +1427,14 @@ export function NexusOne({
   );
   const [hasMeasuredRootContent, setHasMeasuredRootContent] = useState(false);
   const [fromTokens, setFromTokens] = useState<SwapTokenOption[]>([]);
+  const [sourceSelectionTouched, setSourceSelectionTouched] = useState(false);
   const [toToken, setToToken] = useState<SwapTokenOption | undefined>(
     undefined,
   );
+
+  useEffect(() => {
+    setSourceSelectionTouched(false);
+  }, [activeMode]);
 
   useEffect(() => {
     const previousDefault = previousDefaultRecipientRef.current;
@@ -2607,6 +2613,13 @@ export function NexusOne({
       : activeMode === "send"
         ? parseFiatNumber(amount)
         : undefined;
+  const defaultDepositSourceTokens = useMemo<SwapTokenOption[]>(() => {
+    if (activeMode !== "deposit" || !swapBalance) return [];
+    return deriveTokenOptions(swapBalance).map((token) => ({
+      ...token,
+      userAmount: "",
+    }));
+  }, [activeMode, swapBalance]);
   const lockedDestinationSourceTokens = useMemo<SwapTokenOption[]>(() => {
     if (
       (activeMode !== "deposit" && activeMode !== "send") ||
@@ -2678,6 +2691,7 @@ export function NexusOne({
   useEffect(() => {
     if (activeMode !== "deposit" && activeMode !== "send") return;
     if (lockedDestinationSourceTokens.length === 0) return;
+    if (activeMode === "deposit" && !sourceSelectionTouched) return;
 
     setFromTokens((current) => {
       const missing = lockedDestinationSourceTokens.filter(
@@ -2689,7 +2703,59 @@ export function NexusOne({
       if (missing.length === 0) return current;
       return [...current, ...missing.map((token) => ({ ...token, userAmount: "" }))];
     });
-  }, [activeMode, lockedDestinationSourceTokens]);
+  }, [activeMode, lockedDestinationSourceTokens, sourceSelectionTouched]);
+
+  useEffect(() => {
+    if (activeMode !== "deposit") return;
+    if (sourceSelectionTouched) return;
+    if (
+      !toToken ||
+      !depositTokenAmountForQuote ||
+      depositTokenAmountForQuote.lte(0)
+    ) {
+      return;
+    }
+    if (
+      defaultDepositSourceTokens.length === 0 &&
+      lockedDestinationSourceTokens.length === 0
+    ) {
+      return;
+    }
+
+    setFromTokens((current) => {
+      const lockedKeys = new Set(
+        lockedDestinationSourceTokens.map(getTokenSelectionKey),
+      );
+      const canInitialize =
+        current.length === 0 ||
+        current.every((token) => lockedKeys.has(getTokenSelectionKey(token)));
+      if (!canInitialize) return current;
+
+      const next: SwapTokenOption[] = [];
+      const seen = new Set<string>();
+      for (const token of [
+        ...defaultDepositSourceTokens,
+        ...lockedDestinationSourceTokens,
+      ]) {
+        const key = getTokenSelectionKey(token);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        next.push({ ...token, userAmount: "" });
+      }
+
+      const currentKeys = current.map(getTokenSelectionKey).sort().join("|");
+      const nextKeys = next.map(getTokenSelectionKey).sort().join("|");
+      if (currentKeys === nextKeys) return current;
+      return next;
+    });
+  }, [
+    activeMode,
+    defaultDepositSourceTokens,
+    depositTokenAmountForQuote?.toFixed(),
+    lockedDestinationSourceTokens,
+    sourceSelectionTouched,
+    toToken,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -2705,6 +2771,7 @@ export function NexusOne({
     currentSwapIdRef.current = null;
     currentSwapStartedAtRef.current = 0;
     setFromTokens([]);
+    setSourceSelectionTouched(false);
     setToToken(undefined);
     setSelectedOpportunity(undefined);
     setPendingOpportunity(undefined);
@@ -2721,6 +2788,7 @@ export function NexusOne({
     setDepositAmountMode("token");
     setAmount("");
     setFromTokens([]);
+    setSourceSelectionTouched(false);
     setToToken(toTokenFromOpportunity(opp));
   };
 
@@ -5117,6 +5185,7 @@ export function NexusOne({
                   activeMode === "deposit" || activeMode === "send"
                     ? (tokens) => {
                         clearPendingSwapIntent();
+                        setSourceSelectionTouched(true);
                         setFromTokens(
                           tokens.map((token) => ({
                             ...token,
@@ -5130,12 +5199,16 @@ export function NexusOne({
                   activeMode === "deposit" || activeMode === "send"
                     ? () => {
                         clearPendingSwapIntent();
+                        setSourceSelectionTouched(true);
                         setFromTokens([]);
                       }
                     : undefined
                 }
                 onToggle={(token) => {
                   clearPendingSwapIntent();
+                  if (activeMode === "deposit" || activeMode === "send") {
+                    setSourceSelectionTouched(true);
+                  }
                   setFromTokens((prev) => {
                     const isSameSelection = (a: SwapTokenOption, b: SwapTokenOption) => {
                       if (a.isUnified || b.isUnified) {
@@ -5302,6 +5375,7 @@ export function NexusOne({
                     activeMode === "send"
                   ) {
                     clearPendingSwapIntent();
+                    setSourceSelectionTouched(true);
                     setFromTokens([{ ...token, userAmount: amount }]);
                     closeDrawerToIdle();
                   } else {

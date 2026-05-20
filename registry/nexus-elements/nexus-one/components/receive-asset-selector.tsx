@@ -383,7 +383,7 @@ export function ReceiveAssetSelector({
 
   const isNativeToken = (t: SwapTokenOption) =>
     t.contractAddress.toLowerCase() === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" ||
-    t.contractAddress === "0x0000000000000000000000000000000000000000";
+    t.contractAddress.toLowerCase() === "0x0000000000000000000000000000000000000000";
 
   const filtered = useMemo(() => {
     let result = tokensWithBalances;

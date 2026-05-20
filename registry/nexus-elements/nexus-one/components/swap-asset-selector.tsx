@@ -62,7 +62,7 @@ interface SwapAssetSelectorProps {
   requiredUsd?: string;
 }
 
-function deriveTokenOptions(swapBalance: UserAsset[]): SwapTokenOption[] {
+export function deriveTokenOptions(swapBalance: UserAsset[]): SwapTokenOption[] {
   const tokens: SwapTokenOption[] = [];
   for (const asset of swapBalance) {
     for (const bd of asset.breakdown ?? []) {
@@ -294,6 +294,8 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
 const STABLE_SYMBOLS = new Set(["GHO", "USDC", "ctUSD", "USDT", "EURC", "PYUSD", "USDe", "DAI", "xDAI", "TUSD", "RLUSD", "AUSD", "USD0", "sUSD", "BUSD", "USDM", "USDS"]);
 
 function isNativeToken(t: SwapTokenOption) {
+  if (isNativeLikeAddress(t.contractAddress)) return true;
+
   const sym = t.symbol.toUpperCase();
   const chain = (t.chainName || "").toLowerCase();
   
@@ -689,11 +691,24 @@ export function SwapAssetSelector({
       lockedSelectedTokens.some((locked) => sameTokenOption(locked, token)),
     [lockedSelectedTokens],
   );
+  const [draftSelectedTokens, setDraftSelectedTokens] = useState<SwapTokenOption[]>(
+    () => mergeTokenOptions(selectedTokens, lockedSelectedTokens),
+  );
+  useEffect(() => {
+    if (!isMulti) return;
+    setDraftSelectedTokens(mergeTokenOptions(selectedTokens, lockedSelectedTokens));
+  }, [isMulti, lockedSelectedTokens, selectedTokens]);
+  const activeSelectedTokens = isMulti ? draftSelectedTokens : selectedTokens;
   const emitSelectionChange = useCallback(
     (tokens: SwapTokenOption[]) => {
-      onSelectionChange?.(mergeTokenOptions(tokens, lockedSelectedTokens));
+      const next = mergeTokenOptions(tokens, lockedSelectedTokens);
+      if (isMulti) {
+        setDraftSelectedTokens(next);
+        return;
+      }
+      onSelectionChange?.(next);
     },
-    [lockedSelectedTokens, onSelectionChange],
+    [isMulti, lockedSelectedTokens, onSelectionChange],
   );
   const visibleFilterTabs = useMemo(
     () =>
@@ -756,7 +771,7 @@ export function SwapAssetSelector({
 
     const merged = [...baseTokens];
     const selectedSourceTokens = [
-      ...selectedTokens,
+      ...activeSelectedTokens,
       ...lockedSelectedTokens,
     ].flatMap((token) =>
       token.isUnified && token.sourceTokens?.length
@@ -777,7 +792,7 @@ export function SwapAssetSelector({
   }, [
     lockedSelectedTokens,
     preserveSelectedBelowMinimum,
-    selectedTokens,
+    activeSelectedTokens,
     swapBalance,
     staticOptions,
   ]);
@@ -802,7 +817,7 @@ export function SwapAssetSelector({
     (tab: FilterTab) => {
       if (tab === "custom") return true;
       const expected = getFilterTabTokens(tab);
-      const selected = mergeTokenOptions(selectedTokens, lockedSelectedTokens);
+      const selected = mergeTokenOptions(activeSelectedTokens, lockedSelectedTokens);
       return (
         selected.length === expected.length &&
         selected.every((token) =>
@@ -812,21 +827,21 @@ export function SwapAssetSelector({
         )
       );
     },
-    [getFilterTabTokens, lockedSelectedTokens, selectedTokens],
+    [activeSelectedTokens, getFilterTabTokens, lockedSelectedTokens],
   );
 
   useEffect(() => {
     if (!autoSelectFilterTabs || !isMulti || activeTab === "custom") return;
-    if (selectedTokens.length === 0 && lockedSelectedTokens.length === 0) return;
+    if (activeSelectedTokens.length === 0 && lockedSelectedTokens.length === 0) return;
     if (!selectionMatchesFilterTab(activeTab)) {
       setActiveTab("custom");
     }
   }, [
     activeTab,
+    activeSelectedTokens.length,
     autoSelectFilterTabs,
     isMulti,
     lockedSelectedTokens.length,
-    selectedTokens,
     selectionMatchesFilterTab,
   ]);
 
@@ -851,7 +866,7 @@ export function SwapAssetSelector({
     (token: SwapTokenOption) => {
       if (!preserveSelectedBelowMinimum) return false;
 
-      return selectedTokens.some(
+      return activeSelectedTokens.some(
         (selected) =>
           sameTokenOption(selected, token) ||
           Boolean(
@@ -862,16 +877,16 @@ export function SwapAssetSelector({
           ),
       );
     },
-    [preserveSelectedBelowMinimum, selectedTokens],
+    [activeSelectedTokens, preserveSelectedBelowMinimum],
   );
 
   const isUnifiedSelectedForVisibility = useCallback(
     (symbol: string) =>
       preserveSelectedBelowMinimum &&
-      selectedTokens.some(
+      activeSelectedTokens.some(
         (selected) => selected.isUnified && selected.unifiedSymbol === symbol,
       ),
-    [preserveSelectedBelowMinimum, selectedTokens],
+    [activeSelectedTokens, preserveSelectedBelowMinimum],
   );
 
   /* Split into above/below minimum */
@@ -975,11 +990,11 @@ export function SwapAssetSelector({
 
   const isTokenSelectedInOtherSlot = (token: SwapTokenOption) =>
     !allowSelectedTokenRemoval &&
-    selectedTokens.some((st, idx) => idx !== editingAssetIndex && sameTokenOption(st, token));
+    activeSelectedTokens.some((st, idx) => idx !== editingAssetIndex && sameTokenOption(st, token));
 
   const isTokenSelectedInCurrentSlot = (token: SwapTokenOption) => {
     if (isMulti) {
-      return selectedTokens.some(
+      return activeSelectedTokens.some(
         (st) =>
           sameTokenOption(st, token) ||
           Boolean(
@@ -989,7 +1004,7 @@ export function SwapAssetSelector({
       );
     }
     if (allowSelectedTokenRemoval) {
-      return selectedTokens.some(
+      return activeSelectedTokens.some(
         (st) =>
           sameTokenOption(st, token) ||
           Boolean(
@@ -999,32 +1014,32 @@ export function SwapAssetSelector({
       );
     }
     if (editingAssetIndex === null) return false;
-    const st = selectedTokens[editingAssetIndex];
+    const st = activeSelectedTokens[editingAssetIndex];
     return sameTokenOption(st, token);
   };
 
   const isGroupUnifiedSelectedInOtherSlot = (group: typeof groupedFiltered[0]) => {
     if (allowSelectedTokenRemoval) return false;
     const relevantTokens = isMulti
-      ? selectedTokens
-      : selectedTokens.filter((_, idx) => idx !== editingAssetIndex);
+      ? activeSelectedTokens
+      : activeSelectedTokens.filter((_, idx) => idx !== editingAssetIndex);
     return relevantTokens.some((st) => st.isUnified && st.unifiedSymbol === group.symbol);
   };
 
   const isGroupUnifiedSelectedInCurrentSlot = (group: typeof groupedFiltered[0]) => {
     if (isMulti) {
-      return selectedTokens.some((st) => st.isUnified && st.unifiedSymbol === group.symbol);
+      return activeSelectedTokens.some((st) => st.isUnified && st.unifiedSymbol === group.symbol);
     }
     if (editingAssetIndex === null) return false;
-    const st = selectedTokens[editingAssetIndex];
+    const st = activeSelectedTokens[editingAssetIndex];
     return Boolean(st?.isUnified && st.unifiedSymbol === group.symbol);
   };
   
   const isAnyTokenInGroupSelectedInOtherSlot = (group: typeof groupedFiltered[0]) => {
     if (allowSelectedTokenRemoval) return false;
     const relevantTokens = isMulti
-      ? selectedTokens
-      : selectedTokens.filter((_, idx) => idx !== editingAssetIndex);
+      ? activeSelectedTokens
+      : activeSelectedTokens.filter((_, idx) => idx !== editingAssetIndex);
     return relevantTokens.some((st) =>
       group.tokens.some((gt) => sameTokenOption(gt, st)) ||
       (st.isUnified && st.unifiedSymbol === group.symbol)
@@ -1044,7 +1059,7 @@ export function SwapAssetSelector({
   };
 
   const handleClearSelection = () => {
-    if (autoSelectFilterTabs && isMulti && onSelectionChange) {
+    if (isMulti && onSelectionChange) {
       setActiveTab("custom");
       emitSelectionChange([]);
       return;
@@ -1059,7 +1074,7 @@ export function SwapAssetSelector({
     }
 
     setActiveTab("custom");
-    const current = mergeTokenOptions(selectedTokens, lockedSelectedTokens);
+    const current = mergeTokenOptions(activeSelectedTokens, lockedSelectedTokens);
     const targets =
       token.isUnified && token.sourceTokens?.length
         ? token.sourceTokens
@@ -1316,9 +1331,9 @@ export function SwapAssetSelector({
   };
 
   const isLoading = !staticOptions && swapBalance === null;
-  const selectedAssetCount = selectedTokens.length;
+  const selectedAssetCount = activeSelectedTokens.length;
   const requiredUsdAmount = parseTokenAmount(requiredUsd);
-  const selectedUsdAmount = selectedTokens.reduce((sum, token) => {
+  const selectedUsdAmount = activeSelectedTokens.reduce((sum, token) => {
     if (token.isUnified && token.sourceTokens?.length) {
       return sum.plus(
         token.sourceTokens.reduce(
@@ -1343,7 +1358,7 @@ export function SwapAssetSelector({
     );
   const selectionProgressPercent =
     shouldShowSelectionProgress && requiredUsdAmount
-      ? Decimal.min(100, selectionDeficitUsdAmount.div(requiredUsdAmount).mul(100)).toNumber()
+      ? Decimal.min(100, selectedUsdAmount.div(requiredUsdAmount).mul(100)).toNumber()
       : 0;
   const subtitle = isMulti
     ? `${selectedAssetCount} asset${selectedAssetCount === 1 ? "" : "s"} selected`
@@ -1394,6 +1409,13 @@ export function SwapAssetSelector({
     selectedChainFilter === null
       ? "All chains"
       : selectedChainToken?.chainName || "Chain";
+
+  const handleDone = () => {
+    if (isMulti && onSelectionChange) {
+      onSelectionChange(mergeTokenOptions(draftSelectedTokens, lockedSelectedTokens));
+    }
+    onDone?.();
+  };
 
   return (
     <div
@@ -1791,19 +1813,21 @@ export function SwapAssetSelector({
               </div>
             </div>
           )}
-          <button
-            onClick={onDone}
-            style={{
-              width: "100%", height: 48, display: "flex", alignItems: "center", justifyContent: "center",
-              backgroundColor: "#006BF4",
-              color: "#FFFFFE",
-              border: "none", borderRadius: 14, cursor: "pointer",
-              fontFamily: '"Geist", system-ui, sans-serif', fontSize: 16, fontWeight: 600,
-              boxShadow: "0px 1px 4px 0px #5555550D",
-            }}
-          >
-            Done
-          </button>
+          {!shouldShowSelectionProgress && (
+            <button
+              onClick={handleDone}
+              style={{
+                width: "100%", height: 48, display: "flex", alignItems: "center", justifyContent: "center",
+                backgroundColor: "#006BF4",
+                color: "#FFFFFE",
+                border: "none", borderRadius: 14, cursor: "pointer",
+                fontFamily: '"Geist", system-ui, sans-serif', fontSize: 16, fontWeight: 600,
+                boxShadow: "0px 1px 4px 0px #5555550D",
+              }}
+            >
+              Done
+            </button>
+          )}
         </div>
       )}
 
