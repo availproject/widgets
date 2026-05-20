@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useCallback,
   useLayoutEffect,
+  useMemo,
 } from "react";
 import {
   type NexusOneProps,
@@ -299,7 +300,6 @@ function QuoteRefreshCountdown({
           style={{
             background: tooltipSurface,
             border: `1px solid ${tooltipBorder}`,
-            borderRadius: "8px",
             boxShadow: "0 6px 18px rgba(22,22,21,0.10)",
             color: tooltipText,
             fontFamily: uiFont,
@@ -545,7 +545,6 @@ function TruncatedAddress({
           style={{
             background: "#FFFFFE",
             border: "1px solid #E8E8E7",
-            borderRadius: "8px",
             boxShadow: "0 6px 18px rgba(22,22,21,0.10)",
             color: "#161615",
             fontFamily: uiFont,
@@ -1062,7 +1061,6 @@ function SwapReceiptPanel({
           alignItems: "center",
           background: "#006BF4",
           border: "none",
-          borderRadius: "8px",
           color: "#FFFFFE",
           cursor: "pointer",
           display: "flex",
@@ -1942,6 +1940,7 @@ export function NexusOne({
 
         const chainMeta = CHAIN_METADATA[chainId];
         const symbol = breakdown.symbol ?? asset.symbol;
+        const fiatBalance = parseFiatNumber(breakdown.balanceInFiat);
         tokens.push({
           chainId,
           chainLogo: chainMeta?.logo ?? breakdown.chain?.logo,
@@ -1953,8 +1952,8 @@ export function NexusOne({
           symbol,
           balance: `${breakdown.balance} ${symbol}`,
           balanceInFiat:
-            breakdown.balanceInFiat != null
-              ? `$${Number(breakdown.balanceInFiat).toFixed(2)}`
+            fiatBalance !== undefined
+              ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
               : "$0.00",
         });
       }
@@ -1964,6 +1963,13 @@ export function NexusOne({
   };
 
   const getExactOutSourceTokens = () => {
+    if (
+      (activeMode === "deposit" || activeMode === "send") &&
+      fromTokens.length > 0
+    ) {
+      return getExpandedSourceTokens(fromTokens).filter(hasGasForSource);
+    }
+
     return getGasCapableBalanceSourceTokens();
   };
 
@@ -2042,6 +2048,34 @@ export function NexusOne({
     return getSwapBalanceTotalUsd();
   };
 
+  const getExactInSourceDeficitUsd = () => {
+    if (swapType !== "exactIn" || fromTokens.length === 0) return undefined;
+
+    return fromTokens.reduce((sum, token) => {
+      const requestedAmount = parseFiatNumber(token.userAmount);
+      if (!requestedAmount || requestedAmount.lte(0)) return sum;
+
+      if (token.userAmountMode === "usd") {
+        const availableUsd = parseFiatNumber(token.balanceInFiat);
+        if (!availableUsd || requestedAmount.lte(availableUsd)) return sum;
+        return sum.plus(requestedAmount.minus(availableUsd));
+      }
+
+      const availableTokenAmount = parseFiatNumber(token.balance);
+      if (!availableTokenAmount || requestedAmount.lte(availableTokenAmount)) {
+        return sum;
+      }
+
+      const missingTokenAmount = requestedAmount.minus(availableTokenAmount);
+      const fiatBalance = parseFiatNumber(token.balanceInFiat);
+      if (fiatBalance && availableTokenAmount.gt(0)) {
+        return sum.plus(missingTokenAmount.mul(fiatBalance.div(availableTokenAmount)));
+      }
+
+      return sum;
+    }, new Decimal(0));
+  };
+
   const buildInsufficientSourcesIssue = (error: unknown): SwapQuoteIssue => {
     const errorText = getErrorText(error);
     const details = (error as any)?.data?.details ?? (error as any)?.details ?? {};
@@ -2063,9 +2097,12 @@ export function NexusOne({
       ) ?? parseLabeledErrorDecimal(errorText, "available");
     const requestedUsd = getExactOutRequestedUsd();
     const availableUsd = getExactOutAvailableSourceUsd();
+    const exactInSourceDeficitUsd = getExactInSourceDeficitUsd();
 
     let missingUsd =
-      requiredFromError && availableFromError
+      exactInSourceDeficitUsd && exactInSourceDeficitUsd.gt(0)
+        ? exactInSourceDeficitUsd
+        : requiredFromError && availableFromError
         ? requiredFromError.minus(availableFromError)
         : undefined;
 
@@ -2564,6 +2601,95 @@ export function NexusOne({
   const depositTokenDisplay =
     depositTokenAmountForQuote?.toDecimalPlaces(toToken?.decimals ?? 18).toFixed() ??
     "0";
+  const requiredDestinationTokenAmount =
+    activeMode === "deposit"
+      ? depositTokenAmountForQuote
+      : activeMode === "send"
+        ? parseFiatNumber(amount)
+        : undefined;
+  const lockedDestinationSourceTokens = useMemo<SwapTokenOption[]>(() => {
+    if (
+      (activeMode !== "deposit" && activeMode !== "send") ||
+      !toToken?.chainId ||
+      !requiredDestinationTokenAmount ||
+      requiredDestinationTokenAmount.lte(0)
+    ) {
+      return [];
+    }
+
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        const chainId = breakdown.chain?.id;
+        if (chainId !== toToken.chainId) continue;
+
+        const breakdownAddress = breakdown.contractAddress;
+        const addressMatches =
+          breakdownAddress &&
+          toToken.contractAddress &&
+          (breakdownAddress.toLowerCase() === toToken.contractAddress.toLowerCase() ||
+            (isNativeTokenAddress(breakdownAddress) &&
+              isNativeTokenAddress(toToken.contractAddress)));
+        const symbolMatches =
+          (breakdown.symbol ?? asset.symbol ?? "").toUpperCase() ===
+          toToken.symbol.toUpperCase();
+
+        if (!addressMatches && !symbolMatches) continue;
+
+        const balanceAmount = parseFiatNumber(breakdown.balance);
+        if (!balanceAmount || balanceAmount.lte(0)) continue;
+
+        const chainMeta = CHAIN_METADATA[chainId];
+        const symbol = breakdown.symbol ?? asset.symbol ?? toToken.symbol;
+        const fiatBalance = parseFiatNumber(breakdown.balanceInFiat);
+        return [
+          {
+            chainId,
+            chainLogo: chainMeta?.logo ?? breakdown.chain?.logo ?? toToken.chainLogo,
+            chainName: chainMeta?.name ?? breakdown.chain?.name ?? toToken.chainName,
+            contractAddress: breakdown.contractAddress ?? toToken.contractAddress,
+            decimals: breakdown.decimals ?? asset.decimals ?? toToken.decimals ?? 18,
+            logo: asset.icon ?? toToken.logo,
+            name: symbol,
+            symbol,
+            balance: `${breakdown.balance} ${symbol}`,
+            balanceInFiat:
+              fiatBalance !== undefined
+                ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
+                : "$0.00",
+          },
+        ];
+      }
+    }
+
+    return [];
+  }, [
+    activeMode,
+    requiredDestinationTokenAmount?.toFixed(),
+    swapBalance,
+    toToken?.chainId,
+    toToken?.chainLogo,
+    toToken?.chainName,
+    toToken?.contractAddress,
+    toToken?.decimals,
+    toToken?.logo,
+    toToken?.symbol,
+  ]);
+
+  useEffect(() => {
+    if (activeMode !== "deposit" && activeMode !== "send") return;
+    if (lockedDestinationSourceTokens.length === 0) return;
+
+    setFromTokens((current) => {
+      const missing = lockedDestinationSourceTokens.filter(
+        (locked) =>
+          !current.some(
+            (token) => getTokenSelectionKey(token) === getTokenSelectionKey(locked),
+          ),
+      );
+      if (missing.length === 0) return current;
+      return [...current, ...missing.map((token) => ({ ...token, userAmount: "" }))];
+    });
+  }, [activeMode, lockedDestinationSourceTokens]);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -3228,11 +3354,7 @@ export function NexusOne({
         }
         return;
       }
-      if (
-        isExactOutFlow &&
-        isInsufficientSourcesError(err) &&
-        !hasActiveExecution
-      ) {
+      if (isInsufficientSourcesError(err) && !hasActiveExecution) {
         const issue = buildInsufficientSourcesIssue(err);
         if (!background || swapStepRef.current === "preview-intent") {
           setSwapStep("idle");
@@ -3754,7 +3876,6 @@ export function NexusOne({
   // ---------------------------------------------------------------------------
   const exactOutInsufficientSourceIssue =
     (activeMode === "swap" || activeMode === "deposit" || activeMode === "send") &&
-    swapType === "exactOut" &&
     swapQuoteIssue?.type === "insufficientSources"
       ? swapQuoteIssue
       : null;
@@ -3878,8 +3999,10 @@ export function NexusOne({
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
+        fontFeatureSettings: '"tnum"',
         fontSize: "12px",
         fontSynthesis: "none",
+        fontVariantNumeric: "tabular-nums",
         gap: "12px",
         height:
           hasMeasuredRootContent && rootContentHeight
@@ -4291,9 +4414,12 @@ export function NexusOne({
                       backgroundColor: exactOutInsufficientSourceIssue
                         ? "#FCEEED"
                         : isSwapCtaDisabled
-                          ? "#F0F0EF"
-                          : "#006BF4",
-                      borderRadius: "8px",
+	                          ? "#F0F0EF"
+	                          : "#006BF4",
+	                      border: exactOutInsufficientSourceIssue
+	                        ? "1px solid #F7C4C1"
+	                        : "none",
+	                      borderRadius: exactOutInsufficientSourceIssue ? "4px" : "8px",
                       boxSizing: "border-box",
                       display: "flex",
                       flexShrink: 0,
@@ -4301,17 +4427,16 @@ export function NexusOne({
                       height: "48px",
                       justifyContent: "center",
                       paddingInline: "16px",
-                      border: "none",
-                      cursor: isSwapCtaDisabled ? "default" : "pointer",
+	                      cursor: isSwapCtaDisabled ? "default" : "pointer",
                       width: "100%",
                     }}
                   >
                     {exactOutInsufficientSourceIssue ? (
                       <AlertCircle
                         style={{
-                          color: "#D32F2F",
-                          height: "16px",
-                          width: "16px",
+	                        color: "#D32F2F",
+	                        height: "17px",
+	                        width: "17px",
                         }}
                       />
                     ) : (quoteRefreshing || receiveMaxCalculating) ? (
@@ -4333,7 +4458,7 @@ export function NexusOne({
                             ? "#9E9E9C"
                             : "#FFFFFE",
                         fontFamily: '"Geist", system-ui, sans-serif',
-                        fontSize: "16px",
+	                        fontSize: exactOutInsufficientSourceIssue ? "15px" : "16px",
                         fontWeight: 500,
                         lineHeight: "24px",
                       }}
@@ -4465,9 +4590,12 @@ export function NexusOne({
                         backgroundColor: exactOutInsufficientSourceIssue
                           ? "#FCEEED"
                           : isDepositCtaDisabled
-                            ? "#F0F0EF"
-                            : "#006BF4",
-                        borderRadius: "8px",
+	                            ? "#F0F0EF"
+	                            : "#006BF4",
+	                        border: exactOutInsufficientSourceIssue
+	                          ? "1px solid #F7C4C1"
+	                          : "none",
+	                        borderRadius: exactOutInsufficientSourceIssue ? "4px" : "8px",
                         boxSizing: "border-box",
                         display: "flex",
                         flexShrink: 0,
@@ -4475,8 +4603,7 @@ export function NexusOne({
                         height: "48px",
                         justifyContent: "center",
                         paddingInline: "16px",
-                        border: "none",
-                        cursor: isDepositCtaDisabled ? "default" : "pointer",
+	                        cursor: isDepositCtaDisabled ? "default" : "pointer",
                         width: "100%",
                       }}
                     >
@@ -4484,8 +4611,8 @@ export function NexusOne({
                         <AlertCircle
                           style={{
                             color: "#D32F2F",
-                            height: "16px",
-                            width: "16px",
+	                            height: "17px",
+	                            width: "17px",
                           }}
                         />
                       ) : quoteRefreshing || receiveMaxCalculating ? (
@@ -4507,7 +4634,7 @@ export function NexusOne({
                               ? "#9E9E9C"
                               : "#FFFFFE",
                           fontFamily: '"Geist", system-ui, sans-serif',
-                          fontSize: "16px",
+	                          fontSize: exactOutInsufficientSourceIssue ? "15px" : "16px",
                           fontWeight: 500,
                           lineHeight: "24px",
                         }}
@@ -4561,7 +4688,9 @@ export function NexusOne({
                 isQuoteRefreshing={quoteRefreshing}
               />
 
-              {txError && <StatusAlert type="error" message={txError} />}
+              {txError && !exactOutInsufficientSourceIssue && (
+                <StatusAlert type="error" message={txError} />
+              )}
 
               <div
                 style={{
@@ -4578,9 +4707,12 @@ export function NexusOne({
                     backgroundColor: exactOutInsufficientSourceIssue
                       ? "#FCEEED"
                       : isSendCtaDisabled
-                        ? "#F0F0EF"
-                        : "#006BF4",
-                    borderRadius: "8px",
+	                        ? "#F0F0EF"
+	                        : "#006BF4",
+	                    border: exactOutInsufficientSourceIssue
+	                      ? "1px solid #F7C4C1"
+	                      : "none",
+	                    borderRadius: exactOutInsufficientSourceIssue ? "4px" : "8px",
                     boxSizing: "border-box",
                     display: "flex",
                     flexShrink: 0,
@@ -4588,8 +4720,7 @@ export function NexusOne({
                     height: "48px",
                     justifyContent: "center",
                     paddingInline: "16px",
-                    border: "none",
-                    cursor: isSendCtaDisabled ? "default" : "pointer",
+	                    cursor: isSendCtaDisabled ? "default" : "pointer",
                     width: "100%",
                   }}
                 >
@@ -4597,8 +4728,8 @@ export function NexusOne({
                     <AlertCircle
                       style={{
                         color: "#D32F2F",
-                        height: "16px",
-                        width: "16px",
+	                        height: "17px",
+	                        width: "17px",
                       }}
                     />
                   ) : quoteRefreshing || receiveMaxCalculating ? (
@@ -4620,7 +4751,7 @@ export function NexusOne({
                           ? "#9E9E9C"
                           : "#FFFFFE",
                       fontFamily: '"Geist", system-ui, sans-serif',
-                      fontSize: "16px",
+	                      fontSize: exactOutInsufficientSourceIssue ? "15px" : "16px",
                       fontWeight: 500,
                       lineHeight: "24px",
                     }}
@@ -4968,8 +5099,33 @@ export function NexusOne({
                 allowSelectedTokenRemoval={
                   activeMode === "swap" && swapType === "exactOut"
                 }
+                hideCustomTab={activeMode === "swap"}
+                autoSelectFilterTabs={
+                  activeMode === "deposit" || activeMode === "send"
+                }
+                lockedTokens={lockedDestinationSourceTokens}
+                requiredUsd={
+                  activeMode === "deposit"
+                    ? depositUsdDisplay
+                    : activeMode === "send" && sendAmountUsd > 0
+                      ? sendAmountUsd.toFixed(2)
+                      : undefined
+                }
                 selectedTokens={fromTokens}
                 editingAssetIndex={editingAssetIndex}
+                onSelectionChange={
+                  activeMode === "deposit" || activeMode === "send"
+                    ? (tokens) => {
+                        clearPendingSwapIntent();
+                        setFromTokens(
+                          tokens.map((token) => ({
+                            ...token,
+                            userAmount: "",
+                          })),
+                        );
+                      }
+                    : undefined
+                }
                 onClearSelection={
                   activeMode === "deposit" || activeMode === "send"
                     ? () => {

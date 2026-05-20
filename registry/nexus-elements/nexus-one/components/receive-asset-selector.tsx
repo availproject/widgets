@@ -9,7 +9,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Search, X, ChevronDown, Check, Info, Copy } from "lucide-react";
+import { Search, X, ChevronDown, Check, Info, Copy, Globe } from "lucide-react";
 import {
   getTokenSearchRank,
   RadioDot,
@@ -23,7 +23,7 @@ interface ReceiveAssetSelectorProps {
   onBack: () => void;
 }
 
-const SUPPORTED_RECEIVE_CHAIN_IDS = new Set([1, 10, 56, 137, 143, 999, 8217, 8453, 42161, 43114, 534352, 4114]);
+const SUPPORTED_RECEIVE_CHAIN_IDS = new Set([1, 10, 56, 137, 143, 999, 8217, 8453, 42161, 534352, 4114]);
 const CHAIN_SELECTOR_CLOSE_MS = 220;
 const MODAL_HEIGHT_TRANSITION_MS = 260;
 const modalHeightTransitionStyle = {
@@ -417,6 +417,11 @@ export function ReceiveAssetSelector({
     });
   }, [filtered, query]);
 
+  const selectedChainMeta =
+    selectedChainFilter === null ? undefined : chainMetaMap.get(selectedChainFilter);
+  const selectedChainLabel =
+    selectedChainFilter === null ? "All chains" : selectedChainMeta?.name || "Chain";
+
   return (
     <div
       ref={selectorRef}
@@ -496,10 +501,25 @@ export function ReceiveAssetSelector({
             style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px 4px 5px", borderRadius: 999, backgroundColor: "#FFFFFE", border: "1px solid #E8E8E7", cursor: "pointer", height: 38, flexShrink: 0, boxShadow: "0px 1px 2px rgba(0,0,0,0.05)" }}
           >
             {selectedChainFilter === null ? (
-               <img src="/nexus-one/all-chains.png" alt="All Chains" style={{ width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }} />
+               <Globe style={{ width: 16, height: 16, color: "#161615", flexShrink: 0 }} />
             ) : (
-               <img src={chainMetaMap.get(selectedChainFilter)?.logo} style={{ width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }} />
+               <img src={selectedChainMeta?.logo} alt={selectedChainLabel} style={{ width: 18, height: 18, borderRadius: "999px", objectFit: "cover", flexShrink: 0 }} />
             )}
+            <span
+              style={{
+                color: "#161615",
+                fontFamily: '"Geist", system-ui, sans-serif',
+                fontSize: "12px",
+                fontWeight: 500,
+                lineHeight: "16px",
+                maxWidth: "86px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {selectedChainLabel}
+            </span>
             <ChevronDown style={{ width: 14, height: 14, color: "#848483" }} />
           </button>
         </div>
@@ -780,7 +800,7 @@ export function ReceiveAssetSelector({
             >
               <RadioDot selected={draftChainFilter === null} />
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: 10 }}>
-                <img src="/nexus-one/all-chains.png" alt="All Chains" style={{ width: 28, height: 28, borderRadius: "999px", objectFit: "cover" }} />
+                <Globe style={{ width: 28, height: 28, color: "#161615", flexShrink: 0 }} />
                 <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 14, color: "#161615" }}>All Chains</span>
               </div>
             </button>

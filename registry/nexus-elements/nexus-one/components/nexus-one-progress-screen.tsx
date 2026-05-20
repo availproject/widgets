@@ -664,13 +664,14 @@ export function NexusOneProgressScreen({
           const isCompleted = row.state === "completed";
           const isError = row.state === "error";
           const isPending = row.state === "pending";
+          const isLoading = row.state === "loading";
 
           return (
             <div
               key={row.id}
               className="animate-in fade-in slide-in-from-top-2 duration-300"
               style={{
-                alignItems: "center",
+                alignItems: isLoading ? "flex-start" : "center",
                 background: "#FFFFFE",
                 border: `1px solid ${border}`,
                 borderRadius: "10px",
@@ -682,7 +683,7 @@ export function NexusOneProgressScreen({
                 fontSize: "13px",
                 fontWeight: 600,
                 gap: "10px",
-                minHeight: "48px",
+                minHeight: isLoading ? "58px" : "48px",
                 padding: "12px 16px",
                 transition:
                   "opacity 220ms ease, transform 220ms ease, min-height 220ms ease",
@@ -726,8 +727,30 @@ export function NexusOneProgressScreen({
                   style={{ color: brand, height: 18, width: 18 }}
                 />
               )}
-              <span>{row.label}</span>
-              {row.detail && (
+              <span
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "3px",
+                  lineHeight: "18px",
+                  minWidth: 0,
+                }}
+              >
+                <span>{row.label}</span>
+                {isLoading && (
+                  <span
+                    style={{
+                      color: brand,
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      lineHeight: "16px",
+                    }}
+                  >
+                    Approve on wallet
+                  </span>
+                )}
+              </span>
+              {row.detail && !isLoading && (
                 <span
                   style={{
                     color: muted,

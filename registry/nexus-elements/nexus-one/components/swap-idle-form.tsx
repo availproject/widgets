@@ -1,10 +1,16 @@
 import React, { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Decimal from "decimal.js";
 import {
   formatSelectedTokenBalanceLabel,
   formatUsdBalanceLabel,
   type SwapTokenOption,
 } from "./swap-asset-selector";
+
+const tabularNums: React.CSSProperties = {
+  fontFeatureSettings: '"tnum"',
+  fontVariantNumeric: "tabular-nums",
+};
 
 interface SwapIdleFormProps {
   amount: string;
@@ -48,23 +54,6 @@ const ChevronDownIcon = () => (
   </svg>
 );
 
-const PlusIcon = () => (
-  <svg
-    width="12"
-    height="12"
-    viewBox="0 0 12 12"
-    xmlns="http://www.w3.org/2000/svg"
-    style={{ flexShrink: 0 }}
-  >
-    <path
-      d="M6 2V10M2 6H10"
-      stroke="#006BF4"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    />
-  </svg>
-);
-
 const ArrowUpDownIcon = () => (
   <svg
     width="12"
@@ -94,9 +83,10 @@ function PercentButtons({
   onSelect: (pct: number) => void;
   maxLabel?: string;
 }) {
+  if (!visible) return null;
+
   return (
     <div
-      aria-hidden={!visible}
       style={{
         alignItems: "center",
         boxSizing: "border-box",
@@ -104,9 +94,9 @@ function PercentButtons({
         gap: "5px",
         height: "24px",
         minHeight: "24px",
-        opacity: visible ? 1 : 0,
+        opacity: 1,
         overflow: "hidden",
-        pointerEvents: visible ? "auto" : "none",
+        pointerEvents: "auto",
         transition: "opacity 0.18s ease-out",
         width: "100%",
       }}
@@ -118,10 +108,217 @@ function PercentButtons({
             key={pct}
             label={label}
             onClick={() => onSelect(pct)}
-            tabIndex={visible ? 0 : -1}
+            tabIndex={0}
           />
         );
       })}
+    </div>
+  );
+}
+
+function UnifiedTokenLogoBadge({
+  token,
+  size = 24,
+}: {
+  token: SwapTokenOption;
+  size?: number;
+}) {
+  const [popover, setPopover] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+  const sources = token.sourceTokens ?? [];
+  const chainCount = new Set(
+    sources.map((source) => source.chainId ?? source.chainName).filter(Boolean),
+  ).size || sources.length;
+
+  const showPopover = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect || typeof window === "undefined") return;
+    const width = 250;
+    const maxHeight = 260;
+    const viewportPadding = 8;
+    const left = Math.min(
+      Math.max(viewportPadding, rect.right - width),
+      window.innerWidth - width - viewportPadding,
+    );
+    const belowTop = rect.bottom + 8;
+    const top =
+      belowTop + maxHeight > window.innerHeight
+        ? Math.max(viewportPadding, rect.top - maxHeight - 8)
+        : belowTop;
+    setPopover({ left, top, width, maxHeight });
+  };
+
+  return (
+    <div
+      ref={triggerRef}
+      onMouseEnter={showPopover}
+      onMouseLeave={() => setPopover(null)}
+      style={{
+        boxSizing: "border-box",
+        flexShrink: 0,
+        height: `${size}px`,
+        position: "relative",
+        width: `${size}px`,
+      }}
+    >
+      <LogoCircle
+        src={token.logo}
+        alt={token.symbol}
+        label={token.symbol}
+        size={size}
+        fontSize={Math.max(9, Math.floor(size / 2))}
+      />
+      {chainCount > 0 && (
+        <div
+          style={{
+            alignItems: "center",
+            backgroundColor: "#006BF4",
+            border: "1px solid #FFFFFE",
+            borderRadius: "999px",
+            bottom: -3,
+            boxSizing: "border-box",
+            color: "#FFFFFE",
+            display: "flex",
+            fontFamily: '"Geist", system-ui, sans-serif',
+            fontSize: "8px",
+            fontWeight: 700,
+            height: "12px",
+            justifyContent: "center",
+            lineHeight: "12px",
+            minWidth: "12px",
+            paddingInline: chainCount > 9 ? "3px" : 0,
+            position: "absolute",
+            right: -3,
+          }}
+        >
+          {chainCount}
+        </div>
+      )}
+      {popover &&
+        sources.length > 0 &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            style={{
+              backgroundColor: "#FFFFFE",
+              border: "1px solid #E8E8E7",
+              borderRadius: "10px",
+              boxShadow: "0 10px 28px rgba(22, 22, 21, 0.14)",
+              boxSizing: "border-box",
+              ...tabularNums,
+              left: popover.left,
+              maxHeight: popover.maxHeight,
+              overflowY: "auto",
+              padding: "12px",
+              pointerEvents: "none",
+              position: "fixed",
+              top: popover.top,
+              width: popover.width,
+              zIndex: 2147483647,
+            }}
+          >
+            <div
+              style={{
+                alignItems: "center",
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "8px",
+              }}
+            >
+              <span
+                style={{
+                  color: "#848483",
+                  fontFamily: '"Geist", system-ui, sans-serif',
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  lineHeight: "16px",
+                  textTransform: "uppercase",
+                }}
+              >
+                Unified · {chainCount} {chainCount === 1 ? "Chain" : "Chains"}
+              </span>
+              <span
+                style={{
+                  color: "#161615",
+                  fontFamily: '"Geist", system-ui, sans-serif',
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  lineHeight: "16px",
+                }}
+              >
+                ≈ {formatUsdBalanceLabel(token.balanceInFiat)}
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              {sources.map((source) => (
+                <div
+                  key={`${source.chainId}-${source.contractAddress}`}
+                  style={{
+                    alignItems: "center",
+                    display: "flex",
+                    gap: "8px",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div
+                    style={{
+                      alignItems: "center",
+                      display: "flex",
+                      gap: "8px",
+                      minWidth: 0,
+                    }}
+                  >
+                    <LogoCircle
+                      src={source.chainLogo}
+                      alt={source.chainName}
+                      label={source.chainName}
+                      size={15}
+                      fontSize={7}
+                    />
+                    <span
+                      style={{
+                        color: "#161615",
+                        fontFamily: '"Geist", system-ui, sans-serif',
+                        fontSize: "13px",
+                        fontWeight: 500,
+                        lineHeight: "18px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {source.chainName || "Unknown chain"}
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      color: "#161615",
+                      fontFamily: '"Geist", system-ui, sans-serif',
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      lineHeight: "18px",
+                    }}
+                  >
+                    {formatAmountInputDisplay(source.balance || "0")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -335,10 +532,6 @@ const formatShortAddress = (address?: string) => {
 };
 
 const formatTokenBalanceLabel = formatSelectedTokenBalanceLabel;
-const formatModeAwareTokenBalanceLabel = (token?: SwapTokenOption) =>
-  token?.userAmountMode === "usd"
-    ? formatUsdBalanceLabel(token.balanceInFiat)
-    : formatTokenBalanceLabel(token);
 
 const parseDecimal = (value: unknown) => {
   if (value === null || value === undefined || value === "") return undefined;
@@ -375,80 +568,6 @@ const formatAmountInputDisplay = (value: string) => {
   }
 };
 
-/** Add asset button with smooth transition */
-function AddAssetButton({
-  visible,
-  label,
-  onClick,
-}: {
-  visible: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  const [mounted, setMounted] = useState(false);
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    if (visible) {
-      setMounted(true);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setShow(true));
-      });
-    } else {
-      setShow(false);
-      const timer = setTimeout(() => setMounted(false), 200);
-      return () => clearTimeout(timer);
-    }
-  }, [visible]);
-
-  if (!mounted) return null;
-
-  return (
-    <div
-      style={{
-        overflow: "hidden",
-        maxHeight: show ? "44px" : "0px",
-        opacity: show ? 1 : 0,
-        transition: "max-height 0.2s ease-out, opacity 0.2s ease-out",
-        width: "100%",
-      }}
-    >
-      <button
-        onClick={onClick}
-        style={{
-          alignItems: "center",
-          alignSelf: "stretch",
-          backgroundColor: "#F4F7FE",
-          borderRadius: "8px",
-          boxSizing: "border-box",
-          display: "flex",
-          gap: "6px",
-          justifyContent: "center",
-          paddingBlock: "8px",
-          paddingInline: "8px",
-          border: "none",
-          cursor: "pointer",
-          width: "100%",
-        }}
-      >
-        <PlusIcon />
-        <div
-          style={{
-            boxSizing: "border-box",
-            color: "#006BF4",
-            fontFamily: '"Geist", system-ui, sans-serif',
-            fontSize: "11px",
-            fontWeight: 500,
-            lineHeight: "20px",
-          }}
-        >
-          {label}
-        </div>
-      </button>
-    </div>
-  );
-}
-
 export function SwapIdleForm({
   amount,
   receiveQuoteAmount,
@@ -475,6 +594,22 @@ export function SwapIdleForm({
   );
   const [focusedRow, setFocusedRow] = useState<number | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
+  const sourceListRef = useRef<HTMLDivElement | null>(null);
+  const sourceRowRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const previousSourceCountRef = useRef(fromTokens.length);
+
+  useEffect(() => {
+    if (fromTokens.length > previousSourceCountRef.current) {
+      const newIndex = fromTokens.length - 1;
+      requestAnimationFrame(() => {
+        sourceRowRefs.current[newIndex]?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      });
+    }
+    previousSourceCountRef.current = fromTokens.length;
+  }, [fromTokens.length]);
 
   const sanitizeInput = (raw: string, maxDecimals = 18): string => {
     let next = raw.replaceAll(/[^0-9.]/g, "");
@@ -607,33 +742,37 @@ export function SwapIdleForm({
     return fromTokens.reduce((sum, token) => sum + getSourceUsdValue(token), 0);
   }, [fromTokens, getSourceUsdValue]);
 
-  const sortedSourceRows = React.useMemo(
-    () =>
-      fromTokens
-        .map((token, index) => ({
-          token,
-          index,
-          usdValue: getSourceUsdValue(token),
-        }))
-        .sort((a, b) => b.usdValue - a.usdValue || a.index - b.index),
-    [fromTokens, getSourceUsdValue],
-  );
-  const hasSourceOverflow = sortedSourceRows.length > 2;
+  const hasSourceOverflow = fromTokens.length > 3;
+  const [isSourceListAtBottom, setIsSourceListAtBottom] = useState(false);
+  const updateSourceListScrollState = React.useCallback(() => {
+    const element = sourceListRef.current;
+    if (!element || !hasSourceOverflow) {
+      setIsSourceListAtBottom(false);
+      return;
+    }
+
+    const distanceFromBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight;
+    setIsSourceListAtBottom(distanceFromBottom <= 2);
+  }, [hasSourceOverflow]);
+
+  useEffect(() => {
+    requestAnimationFrame(updateSourceListScrollState);
+  }, [fromTokens.length, updateSourceListScrollState]);
+
   const sourceRowsToRender: Array<{
     token: SwapTokenOption | null;
     index: number;
     position: number;
   }> =
     fromTokens.length > 0
-      ? sortedSourceRows.map(
-          ({ token, index }, position) => ({ token, index, position }),
-        )
+      ? fromTokens.map((token, index) => ({ token, index, position: index }))
       : [{ token: null, index: 0, position: 0 }];
 
   const isExactIn = swapType === "exactIn";
   const showSourceRouteSkeleton = !isExactIn && sourceRouteStatus === "loading";
   const sourceRouteHelper =
-    !isExactIn && sourceRouteStatus === "insufficient"
+    sourceRouteStatus === "insufficient"
         ? sourceRouteMessage
         : undefined;
   const receiveBalanceLabel = formatTokenBalanceLabel(toToken);
@@ -787,7 +926,7 @@ export function SwapIdleForm({
           width: "100%",
         }}
       >
-        {/* Header row: SEND + Total Balance */}
+        {/* Header row: SEND + add asset */}
         <div
           style={{
             alignItems: "center",
@@ -812,72 +951,45 @@ export function SwapIdleForm({
           >
             Send
           </div>
-          <div
-            onMouseEnter={() => setTooltip("total")}
-            onMouseLeave={() => setTooltip(null)}
+          <button
+            type="button"
+            disabled={fromTokens.length === 0}
+            onClick={() => onOpenSourcePicker()}
             style={{
               alignItems: "center",
-              boxSizing: "border-box",
+              background: "transparent",
+              border: "none",
+              borderRadius: "6px",
               display: "flex",
-              gap: "4px",
-              position: "relative",
-              cursor: "default",
+              gap: "5px",
+              padding: "2px 0",
+              color: fromTokens.length > 0 ? "#006BF4" : "#A8A8A6",
+              cursor: fromTokens.length > 0 ? "pointer" : "not-allowed",
+              fontFamily: '"Geist", system-ui, sans-serif',
+              fontSize: "12px",
+              fontWeight: 500,
+              lineHeight: "18px",
+              opacity: fromTokens.length > 0 ? 1 : 0.75,
             }}
           >
-            <div
+            <span
+              aria-hidden="true"
               style={{
-                boxSizing: "border-box",
-                color: "#848483",
-                fontFamily: '"Geist", system-ui, sans-serif',
-                fontSize: "13px",
-                lineHeight: "18px",
+                color: "currentColor",
+                fontSize: "16px",
+                lineHeight: "16px",
               }}
             >
-              Total Balance:
-            </div>
-            <div
-              style={{
-                boxSizing: "border-box",
-                color: "#848483",
-                fontFamily: '"Geist", system-ui, sans-serif',
-                fontSize: "13px",
-                lineHeight: "18px",
-              }}
-            >
-              ${totalBalance}
-            </div>
-            
-            {/* Tooltip */}
-            {tooltip === "total" && (
-              <div style={{
-                position: "absolute",
-                right: 0,
-                top: "calc(100% + 12px)",
-                width: "220px",
-                backgroundColor: "#fff",
-                border: "1px solid #E8E8E7",
-                borderRadius: "12px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                padding: "14px",
-                display: "flex",
-                flexDirection: "column",
-                zIndex: 10000,
-                pointerEvents: "none",
-                textAlign: "left"
-              }}>
-                <div style={{ fontSize: "11px", fontWeight: 600, color: "#848483", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "4px", fontFamily: '"Geist", system-ui, sans-serif' }}>
-                  Total Spendable Balance
-                </div>
-                <div style={{ fontSize: "13px", color: "#161615", lineHeight: "18px", fontFamily: '"Geist", system-ui, sans-serif' }}>
-                  This is the total spendable balance from all chains.
-                </div>
-              </div>
-            )}
-          </div>
+              +
+            </span>
+            Add asset
+          </button>
         </div>
 
         {/* Render each selected source asset, or an empty one if none */}
         <div
+          ref={sourceListRef}
+          onScroll={updateSourceListScrollState}
           style={{
             alignSelf: "stretch",
             boxSizing: "border-box",
@@ -903,6 +1015,9 @@ export function SwapIdleForm({
                     ? `${token.contractAddress}-${token.chainId}-${index}`
                     : "empty"
                 }
+                ref={(element) => {
+                  sourceRowRefs.current[index] = element;
+                }}
                 style={{
                   display: "flex",
                   flexDirection: "column",
@@ -1057,38 +1172,42 @@ export function SwapIdleForm({
                           }}
                         >
                           {token ? (
-                            <div
-                              style={{
-                                boxSizing: "border-box",
-                                flexShrink: 0,
-                                height: "24px",
-                                position: "relative" as const,
-                                width: "24px",
-                              }}
-                            >
-                              <LogoCircle
-                                src={token.logo}
-                                alt={token.symbol}
-                                label={token.symbol}
-                                size={24}
-                                fontSize={12}
-                              />
-                              {token.chainLogo && !token.isUnified && (
+                            token.isUnified ? (
+                              <UnifiedTokenLogoBadge token={token} size={24} />
+                            ) : (
+                              <div
+                                style={{
+                                  boxSizing: "border-box",
+                                  flexShrink: 0,
+                                  height: "24px",
+                                  position: "relative" as const,
+                                  width: "24px",
+                                }}
+                              >
                                 <LogoCircle
-                                  src={token.chainLogo}
-                                  alt={token.chainName}
-                                  label={token.chainName}
-                                  size={12}
-                                  fontSize={6}
-                                  outline="1px solid #FFFFFE"
-                                  style={{
-                                    bottom: -2,
-                                    position: "absolute",
-                                    right: -2,
-                                  }}
+                                  src={token.logo}
+                                  alt={token.symbol}
+                                  label={token.symbol}
+                                  size={24}
+                                  fontSize={12}
                                 />
-                              )}
-                            </div>
+                                {token.chainLogo && (
+                                  <LogoCircle
+                                    src={token.chainLogo}
+                                    alt={token.chainName}
+                                    label={token.chainName}
+                                    size={12}
+                                    fontSize={6}
+                                    outline="1px solid #FFFFFE"
+                                    style={{
+                                      bottom: -2,
+                                      position: "absolute",
+                                      right: -2,
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            )
                           ) : (
                             <div
                               style={{
@@ -1243,7 +1362,7 @@ export function SwapIdleForm({
                   )}
                   {showSourceRouteSkeleton ? (
                     <SkeletonBar width="124px" height="18px" />
-                  ) : token && (
+                  ) : token && focusedRow === index ? (
                     <div
                       onMouseEnter={() => setTooltip(`asset-send-${index}`)}
                       onMouseLeave={() => setTooltip(null)}
@@ -1266,7 +1385,7 @@ export function SwapIdleForm({
                           lineHeight: "18px",
                         }}
                       >
-                        Balance:
+                        Asset Balance ·
                       </div>
                       <div
                         style={{
@@ -1278,7 +1397,7 @@ export function SwapIdleForm({
                           lineHeight: "18px",
                         }}
                       >
-                        {formatModeAwareTokenBalanceLabel(token)}
+                        {formatTokenBalanceLabel(token)}
                       </div>
                       
                       {/* Tooltip */}
@@ -1310,10 +1429,10 @@ export function SwapIdleForm({
                         </div>
                       )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
-                {/* 25% 50% 75% MAX — space is reserved, buttons fade in on amount focus */}
+                {/* 25% 50% 75% MAX — shown only while the row amount is focused */}
                 <PercentButtons
                   visible={Boolean(token) && focusedRow === index}
                   onSelect={(pct) =>
@@ -1326,6 +1445,42 @@ export function SwapIdleForm({
               );
             })}
           </div>
+
+          {hasSourceOverflow && (
+            <button
+              aria-label={
+                isSourceListAtBottom ? "Scroll source assets to top" : "Scroll source assets"
+              }
+              type="button"
+              onClick={() => {
+                const element = sourceListRef.current;
+                if (!element) return;
+                element.scrollTo({
+                  behavior: "smooth",
+                  top: isSourceListAtBottom ? 0 : element.scrollTop + 80,
+                });
+              }}
+              style={{
+                alignItems: "center",
+                alignSelf: "center",
+                background: "transparent",
+                border: "none",
+                color: "#686866",
+                cursor: "pointer",
+                display: "flex",
+                fontFamily: '"Geist", system-ui, sans-serif',
+                fontSize: "12px",
+                fontWeight: 500,
+                gap: "5px",
+                lineHeight: "18px",
+                marginTop: "-2px",
+                padding: 0,
+              }}
+            >
+              Scroll to view more assets
+              <span aria-hidden="true">{isSourceListAtBottom ? "↑" : "↓"}</span>
+            </button>
+          )}
 
           {sourceRouteHelper && (
             <div
@@ -1343,13 +1498,6 @@ export function SwapIdleForm({
               {sourceRouteHelper}
             </div>
           )}
-
-        {/* Add asset button — only after first source selected */}
-        <AddAssetButton
-          visible={fromTokens.length > 0}
-          label="Add asset"
-          onClick={() => onOpenSourcePicker()}
-        />
 
         {/* Total USD */}
         {totalUsd > 0 && (
@@ -1598,7 +1746,7 @@ export function SwapIdleForm({
                 {receiveAltValue}
               </div>
             )}
-            {toToken && (
+            {toToken && focusedPanel === "receive" && (
               <div
                 onMouseEnter={() => setTooltip("asset-receive")}
                 onMouseLeave={() => setTooltip(null)}
@@ -1621,7 +1769,7 @@ export function SwapIdleForm({
                     lineHeight: "18px",
                   }}
                 >
-                  Balance:
+                  Asset Balance ·
                 </div>
                 <div
                   style={{

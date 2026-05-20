@@ -9,12 +9,17 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import Decimal from "decimal.js";
-import { Search, X, Loader2, ChevronDown, ChevronUp, Info, Check, Minus } from "lucide-react";
+import { Search, X, Loader2, ChevronDown, ChevronUp, Info, Check, Minus, Globe } from "lucide-react";
 import {
   type UserAsset,
   CHAIN_METADATA,
   formatTokenBalance,
 } from "@avail-project/nexus-core";
+
+const tabularNums: React.CSSProperties = {
+  fontFeatureSettings: '"tnum"',
+  fontVariantNumeric: "tabular-nums",
+};
 
 export interface SwapTokenOption {
   contractAddress: string;
@@ -50,6 +55,11 @@ interface SwapAssetSelectorProps {
   allowUnified?: boolean;
   preserveSelectedBelowMinimum?: boolean;
   allowSelectedTokenRemoval?: boolean;
+  hideCustomTab?: boolean;
+  autoSelectFilterTabs?: boolean;
+  lockedTokens?: SwapTokenOption[];
+  onSelectionChange?: (tokens: SwapTokenOption[]) => void;
+  requiredUsd?: string;
 }
 
 function deriveTokenOptions(swapBalance: UserAsset[]): SwapTokenOption[] {
@@ -194,6 +204,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
               border: "1px solid #E8E8E7",
               borderRadius: 10,
               boxShadow: "0 8px 24px rgba(22,22,21,0.12)",
+              ...tabularNums,
               left: Math.min(
                 Math.max(tooltipRect.left - 24, 8),
                 Math.max(8, window.innerWidth - 248),
@@ -582,6 +593,31 @@ function sameTokenOption(a?: SwapTokenOption, b?: SwapTokenOption) {
   );
 }
 
+function dedupeTokenOptions(tokens: SwapTokenOption[]) {
+  return tokens.reduce<SwapTokenOption[]>((acc, token) => {
+    if (!acc.some((item) => sameTokenOption(item, token))) {
+      acc.push(token);
+    }
+    return acc;
+  }, []);
+}
+
+function mergeTokenOptions(
+  base: SwapTokenOption[],
+  additions: SwapTokenOption[],
+) {
+  return dedupeTokenOptions([...base, ...additions]);
+}
+
+function removeTokenOptions(
+  base: SwapTokenOption[],
+  removals: SwapTokenOption[],
+) {
+  return base.filter(
+    (token) => !removals.some((removal) => sameTokenOption(token, removal)),
+  );
+}
+
 function isNativeLikeAddress(address?: string) {
   const normalized = (address ?? "").toLowerCase();
   return (
@@ -622,6 +658,11 @@ export function SwapAssetSelector({
   allowUnified = false,
   preserveSelectedBelowMinimum = false,
   allowSelectedTokenRemoval = false,
+  hideCustomTab = false,
+  autoSelectFilterTabs = false,
+  lockedTokens = [],
+  onSelectionChange,
+  requiredUsd,
 }: SwapAssetSelectorProps) {
   const selectorRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -639,6 +680,34 @@ export function SwapAssetSelector({
   const [selectedChainFilter, setSelectedChainFilter] = useState<number | null>(null);
   const [draftChainFilter, setDraftChainFilter] = useState<number | null>(null);
   const [isChainSearchFocused, setIsChainSearchFocused] = useState(false);
+  const lockedSelectedTokens = useMemo(
+    () => dedupeTokenOptions(lockedTokens),
+    [lockedTokens],
+  );
+  const isLockedToken = useCallback(
+    (token: SwapTokenOption) =>
+      lockedSelectedTokens.some((locked) => sameTokenOption(locked, token)),
+    [lockedSelectedTokens],
+  );
+  const emitSelectionChange = useCallback(
+    (tokens: SwapTokenOption[]) => {
+      onSelectionChange?.(mergeTokenOptions(tokens, lockedSelectedTokens));
+    },
+    [lockedSelectedTokens, onSelectionChange],
+  );
+  const visibleFilterTabs = useMemo(
+    () =>
+      hideCustomTab
+        ? FILTER_TABS.filter((tab) => tab.key !== "custom")
+        : FILTER_TABS,
+    [hideCustomTab],
+  );
+
+  useEffect(() => {
+    if (hideCustomTab && activeTab === "custom") {
+      setActiveTab("all");
+    }
+  }, [activeTab, hideCustomTab]);
 
   useEffect(() => {
     if (listRef.current) {
@@ -678,12 +747,18 @@ export function SwapAssetSelector({
         ? deriveTokenOptions(swapBalance)
         : [];
 
-    if (!preserveSelectedBelowMinimum || selectedTokens.length === 0) {
+    if (
+      !preserveSelectedBelowMinimum &&
+      lockedSelectedTokens.length === 0
+    ) {
       return baseTokens;
     }
 
     const merged = [...baseTokens];
-    const selectedSourceTokens = selectedTokens.flatMap((token) =>
+    const selectedSourceTokens = [
+      ...selectedTokens,
+      ...lockedSelectedTokens,
+    ].flatMap((token) =>
       token.isUnified && token.sourceTokens?.length
         ? token.sourceTokens
         : [token],
@@ -700,10 +775,59 @@ export function SwapAssetSelector({
 
     return merged;
   }, [
+    lockedSelectedTokens,
     preserveSelectedBelowMinimum,
     selectedTokens,
     swapBalance,
     staticOptions,
+  ]);
+
+  const getFilterTabTokens = useCallback(
+    (tab: FilterTab) => {
+      let result = allTokens;
+      if (selectedChainFilter !== null) {
+        result = result.filter((token) => token.chainId === selectedChainFilter);
+      }
+      if (tab === "native") result = result.filter(isNativeToken);
+      else if (tab === "stables") {
+        result = result.filter((token) => STABLE_SYMBOLS.has(token.symbol));
+      }
+
+      return mergeTokenOptions(result, lockedSelectedTokens);
+    },
+    [allTokens, lockedSelectedTokens, selectedChainFilter],
+  );
+
+  const selectionMatchesFilterTab = useCallback(
+    (tab: FilterTab) => {
+      if (tab === "custom") return true;
+      const expected = getFilterTabTokens(tab);
+      const selected = mergeTokenOptions(selectedTokens, lockedSelectedTokens);
+      return (
+        selected.length === expected.length &&
+        selected.every((token) =>
+          expected.some((expectedToken) =>
+            sameTokenOption(expectedToken, token),
+          ),
+        )
+      );
+    },
+    [getFilterTabTokens, lockedSelectedTokens, selectedTokens],
+  );
+
+  useEffect(() => {
+    if (!autoSelectFilterTabs || !isMulti || activeTab === "custom") return;
+    if (selectedTokens.length === 0 && lockedSelectedTokens.length === 0) return;
+    if (!selectionMatchesFilterTab(activeTab)) {
+      setActiveTab("custom");
+    }
+  }, [
+    activeTab,
+    autoSelectFilterTabs,
+    isMulti,
+    lockedSelectedTokens.length,
+    selectedTokens,
+    selectionMatchesFilterTab,
   ]);
 
   /* Search + tab + chain filter */
@@ -719,9 +843,9 @@ export function SwapAssetSelector({
     }
     if (activeTab === "native") result = result.filter(isNativeToken);
     else if (activeTab === "stables") result = result.filter((t) => STABLE_SYMBOLS.has(t.symbol));
-    else if (activeTab === "custom") result = result.filter((t) => !isNativeToken(t) && !STABLE_SYMBOLS.has(t.symbol));
+    else if (activeTab === "custom" && !autoSelectFilterTabs) result = result.filter((t) => !isNativeToken(t) && !STABLE_SYMBOLS.has(t.symbol));
     return result;
-  }, [allTokens, query, activeTab, selectedChainFilter]);
+  }, [activeTab, allTokens, autoSelectFilterTabs, query, selectedChainFilter]);
 
   const isTokenSelectedForVisibility = useCallback(
     (token: SwapTokenOption) => {
@@ -907,20 +1031,69 @@ export function SwapAssetSelector({
     );
   };
 
+  const handleFilterTabClick = (tab: FilterTab) => {
+    setActiveTab(tab);
+    if (
+      autoSelectFilterTabs &&
+      isMulti &&
+      tab !== "custom" &&
+      onSelectionChange
+    ) {
+      emitSelectionChange(getFilterTabTokens(tab));
+    }
+  };
+
+  const handleClearSelection = () => {
+    if (autoSelectFilterTabs && isMulti && onSelectionChange) {
+      setActiveTab("custom");
+      emitSelectionChange([]);
+      return;
+    }
+    onClearSelection?.();
+  };
+
+  const handleMultiTokenToggle = (token: SwapTokenOption) => {
+    if (!autoSelectFilterTabs || !isMulti || !onSelectionChange) {
+      onToggle?.(token);
+      return;
+    }
+
+    setActiveTab("custom");
+    const current = mergeTokenOptions(selectedTokens, lockedSelectedTokens);
+    const targets =
+      token.isUnified && token.sourceTokens?.length
+        ? token.sourceTokens
+        : [token];
+    const unlockedTargets = targets.filter((target) => !isLockedToken(target));
+    if (unlockedTargets.length === 0) return;
+
+    const allTargetsSelected = unlockedTargets.every((target) =>
+      current.some((item) => sameTokenOption(item, target)),
+    );
+    const next = allTargetsSelected
+      ? removeTokenOptions(current, unlockedTargets)
+      : mergeTokenOptions(current, unlockedTargets);
+    emitSelectionChange(next);
+  };
+
   /* ── Render a single-chain token row ── */
   const renderTokenRow = (token: SwapTokenOption, indent = false, isDisabledByUnified = false) => {
     const selectedInOther = !isMulti && isTokenSelectedInOtherSlot(token);
     if (selectedInOther) return null;
 
     const selectedInCurrent = isTokenSelectedInCurrentSlot(token);
-    const disabled = isDisabledByUnified;
+    const locked = isLockedToken(token);
+    const disabled = isDisabledByUnified || locked;
     return (
       <button
         key={`${token.contractAddress}-${token.chainId}`}
         disabled={disabled}
         onClick={() => {
           if (disabled) return;
-          if ((isMulti || (allowSelectedTokenRemoval && selectedInCurrent)) && onToggle) {
+          if (isMulti) {
+            handleMultiTokenToggle(token);
+          }
+          else if (allowSelectedTokenRemoval && selectedInCurrent && onToggle) {
             onToggle(token);
           }
           else onSelect(token);
@@ -930,7 +1103,7 @@ export function SwapAssetSelector({
           padding: "10px 14px", paddingLeft: indent ? "36px" : "14px",
           backgroundColor: "transparent", border: "none", cursor: disabled ? "not-allowed" : "pointer",
           borderBottom: "1px solid #F0F0EF", boxSizing: "border-box",
-          opacity: disabled ? 0.5 : 1,
+          opacity: isDisabledByUnified ? 0.5 : 1,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1067,7 +1240,7 @@ export function SwapAssetSelector({
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div onClick={(e) => {
                    e.stopPropagation();
-                   if (isMulti && onToggle) onToggle(unifiedToken);
+                   if (isMulti) handleMultiTokenToggle(unifiedToken);
                    else onSelect(unifiedToken);
                 }} style={{ cursor: "pointer" }}>
                   <SelectionControl
@@ -1144,6 +1317,34 @@ export function SwapAssetSelector({
 
   const isLoading = !staticOptions && swapBalance === null;
   const selectedAssetCount = selectedTokens.length;
+  const requiredUsdAmount = parseTokenAmount(requiredUsd);
+  const selectedUsdAmount = selectedTokens.reduce((sum, token) => {
+    if (token.isUnified && token.sourceTokens?.length) {
+      return sum.plus(
+        token.sourceTokens.reduce(
+          (sourceSum, source) =>
+            sourceSum.plus(parseTokenAmount(source.balanceInFiat) ?? new Decimal(0)),
+          new Decimal(0),
+        ),
+      );
+    }
+    return sum.plus(parseTokenAmount(token.balanceInFiat) ?? new Decimal(0));
+  }, new Decimal(0));
+  const selectionDeficitUsdAmount =
+    requiredUsdAmount && selectedUsdAmount.lt(requiredUsdAmount)
+      ? requiredUsdAmount.minus(selectedUsdAmount)
+      : new Decimal(0);
+  const shouldShowSelectionProgress =
+    Boolean(
+      isMulti &&
+        requiredUsdAmount &&
+        requiredUsdAmount.gt(0) &&
+        selectionDeficitUsdAmount.gt(0),
+    );
+  const selectionProgressPercent =
+    shouldShowSelectionProgress && requiredUsdAmount
+      ? Decimal.min(100, selectionDeficitUsdAmount.div(requiredUsdAmount).mul(100)).toNumber()
+      : 0;
   const subtitle = isMulti
     ? `${selectedAssetCount} asset${selectedAssetCount === 1 ? "" : "s"} selected`
     : "";
@@ -1184,6 +1385,15 @@ export function SwapAssetSelector({
       chainCloseTimerRef.current = null;
     }, CHAIN_SELECTOR_CLOSE_MS);
   };
+
+  const selectedChainToken =
+    selectedChainFilter === null
+      ? undefined
+      : allTokens.find((token) => token.chainId === selectedChainFilter);
+  const selectedChainLabel =
+    selectedChainFilter === null
+      ? "All chains"
+      : selectedChainToken?.chainName || "Chain";
 
   return (
     <div
@@ -1228,9 +1438,11 @@ export function SwapAssetSelector({
             </span>
           )}
         </div>
-        {isMulti && selectedAssetCount > 0 && onClearSelection && (
+        {isMulti &&
+          selectedAssetCount > 0 &&
+          (onClearSelection || onSelectionChange) && (
           <button
-            onClick={onClearSelection}
+            onClick={handleClearSelection}
             style={{
               backgroundColor: "transparent",
               border: "none",
@@ -1288,17 +1500,29 @@ export function SwapAssetSelector({
             }}
           >
             {selectedChainFilter === null ? (
-               <img
-                 src="/nexus-one/all-chains.png"
-                 alt="All Chains"
-                 style={{ width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }}
-               />
+              <Globe style={{ width: 16, height: 16, color: "#161615", flexShrink: 0 }} />
             ) : (
                <img
-                 src={allTokens.find(t => t.chainId === selectedChainFilter)?.chainLogo}
-                 style={{ width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }}
+                 src={selectedChainToken?.chainLogo}
+                 alt={selectedChainLabel}
+                 style={{ width: 18, height: 18, borderRadius: "999px", objectFit: "cover", flexShrink: 0 }}
                />
             )}
+            <span
+              style={{
+                color: "#161615",
+                fontFamily: '"Geist", system-ui, sans-serif',
+                fontSize: "12px",
+                fontWeight: 500,
+                lineHeight: "16px",
+                maxWidth: "86px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {selectedChainLabel}
+            </span>
             <ChevronDown style={{ width: 14, height: 14, color: "#848483" }} />
           </button>
         </div>
@@ -1306,10 +1530,10 @@ export function SwapAssetSelector({
 
       {/* Filter tabs */}
       <div style={{ display: "flex", gap: 0, backgroundColor: "#F0F0EF", borderRadius: 8, padding: 4, marginBottom: 6 }}>
-        {FILTER_TABS.map((tab) => (
+        {visibleFilterTabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => handleFilterTabClick(tab.key)}
             style={{
               flex: 1, padding: "6px 0", backgroundColor: activeTab === tab.key ? "#FFFFFE" : "transparent", border: "none",
               borderRadius: 6, cursor: "pointer", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, fontWeight: 500,
@@ -1317,7 +1541,7 @@ export function SwapAssetSelector({
               transition: "all 0.15s",
             }}
           >
-            {tab.label}
+            {autoSelectFilterTabs && tab.key === "all" ? "Any" : tab.label}
           </button>
         ))}
       </div>
@@ -1366,7 +1590,7 @@ export function SwapAssetSelector({
                 style={{
                   backgroundColor: "#FFFFFE",
                   border: "1px solid #E8E8E7",
-                  borderRadius: 14,
+                  borderRadius: 12,
                   overflow: "hidden",
                 }}
               >
@@ -1374,31 +1598,33 @@ export function SwapAssetSelector({
                   onClick={() => setShowBelowMin((v) => !v)}
                   style={{
                     width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "14px", backgroundColor: "transparent", border: "none", cursor: "pointer",
+                    padding: "11px 12px", backgroundColor: "transparent", border: "none", cursor: "pointer",
                     boxSizing: "border-box",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                     <span
                       style={{
                         alignItems: "center",
-                        backgroundColor: "#F0F0EF",
+                        backgroundColor: "#FFF0D6",
                         borderRadius: "999px",
                         display: "flex",
                         flexShrink: 0,
-                        height: 28,
+                        height: 22,
                         justifyContent: "center",
-                        width: 28,
+                        width: 22,
                       }}
                     >
-                      <Info style={{ width: 16, height: 16, color: "#848483" }} />
+                      <Info style={{ width: 12, height: 12, color: "#D98A1C" }} />
                     </span>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                      <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, fontSize: 14, color: "#161615" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0 }}>
+                      <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, fontSize: 13, color: "#161615", lineHeight: "18px" }}>
                         Tokens below minimum
                       </span>
-                      <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, color: "#848483" }}>
-                        Hidden to prevent failed swaps
+                      <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483", lineHeight: "16px", textAlign: "left" }}>
+                        {showBelowMin
+                          ? "Tokens under $1 are unavailable for swaps"
+                          : "Hidden to prevent failed swaps"}
                       </span>
                     </div>
                   </div>
@@ -1449,91 +1675,49 @@ export function SwapAssetSelector({
                   }}
                 >
                   <div style={{ minHeight: 0, overflow: "hidden" }}>
-                    <div
-                      style={{
-                        backgroundColor: "#F6F6F5",
-                        borderRadius: 14,
-                        margin: showBelowMin ? "0 14px 14px" : "0 14px",
-                        overflow: "hidden",
-                        transition: "margin 240ms ease",
-                      }}
-                    >
-                      <div
-                        style={{
-                          alignItems: "center",
-                          display: "flex",
-                          gap: 10,
-                          padding: "12px 14px",
-                        }}
-                      >
-                        <span
-                          style={{
-                            alignItems: "center",
-                            backgroundColor: "#FFF0D6",
-                            borderRadius: "999px",
-                            color: "#D98A1C",
-                            display: "flex",
-                            flexShrink: 0,
-                            fontFamily: '"Geist", system-ui, sans-serif',
-                            fontSize: 13,
-                            fontWeight: 700,
-                            height: 24,
-                            justifyContent: "center",
-                            width: 24,
-                          }}
-                        >
-                          !
-                        </span>
-                        <span style={{ color: "#363635", fontFamily: '"Geist", system-ui, sans-serif', fontSize: 13, fontWeight: 500 }}>
-                          Tokens under $1 are unavailable for swaps
-                        </span>
-                      </div>
-                      <div>
-                        {belowMin.map((token) => (
-                          <div key={`${token.contractAddress}-${token.chainId}`} style={{
-                            display: "flex", alignItems: "center", justifyContent: "space-between",
-                            borderBottom: "1px solid #E8E8E7",
-                            opacity: 0.62,
-                            padding: "9px 14px",
-                          }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                              <div style={{ position: "relative", width: 30, height: 30, flexShrink: 0 }}>
-                                {token.logo ? (
-                                  <img src={token.logo} alt={token.symbol} style={{ filter: "grayscale(0.2)", width: 30, height: 30, borderRadius: "999px", objectFit: "cover" }} />
-                                ) : (
-                                  <div style={{ width: 30, height: 30, borderRadius: "999px", backgroundColor: "#C8C8C7", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700 }}>
-                                    {token.symbol.slice(0, 2)}
-                                  </div>
-                                )}
-                                {token.chainLogo && (
-                                  <img
-                                    src={token.chainLogo}
-                                    alt=""
-                                    style={{
-                                      border: "1.5px solid #F6F6F5",
-                                      borderRadius: "999px",
-                                      bottom: -2,
-                                      filter: "grayscale(0.2)",
-                                      height: 13,
-                                      objectFit: "cover",
-                                      position: "absolute",
-                                      right: -2,
-                                      width: 13,
-                                    }}
-                                  />
-                                )}
+                    {belowMin.map((token, index) => (
+                      <div key={`${token.contractAddress}-${token.chainId}`} style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        borderTop: index === 0 ? "none" : "1px solid #F0F0EF",
+                        opacity: 0.58,
+                        padding: "8px 12px",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                          <div style={{ position: "relative", width: 22, height: 22, flexShrink: 0 }}>
+                            {token.logo ? (
+                              <img src={token.logo} alt={token.symbol} style={{ filter: "grayscale(0.2)", width: 22, height: 22, borderRadius: "999px", objectFit: "cover" }} />
+                            ) : (
+                              <div style={{ width: 22, height: 22, borderRadius: "999px", backgroundColor: "#C8C8C7", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9, fontWeight: 700 }}>
+                                {token.symbol.slice(0, 2)}
                               </div>
-                              <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 14, color: "#848483", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {token.symbol} on {token.chainName || "Unknown chain"}
-                              </span>
-                            </div>
-                            <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 14, color: "#848483", fontWeight: 500, flexShrink: 0, marginLeft: 12 }}>
-                              {token.balanceInFiat}
-                            </span>
+                            )}
+                            {token.chainLogo && (
+                              <img
+                                src={token.chainLogo}
+                                alt=""
+                                style={{
+                                  border: "1.5px solid #FFFFFE",
+                                  borderRadius: "999px",
+                                  bottom: -2,
+                                  filter: "grayscale(0.2)",
+                                  height: 10,
+                                  objectFit: "cover",
+                                  position: "absolute",
+                                  right: -2,
+                                  width: 10,
+                                }}
+                              />
+                            )}
                           </div>
-                        ))}
+                          <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 12, color: "#848483", lineHeight: "16px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {token.symbol} on {token.chainName || "Unknown chain"}
+                          </span>
+                        </div>
+                        <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 12, color: "#848483", fontWeight: 500, lineHeight: "16px", flexShrink: 0, marginLeft: 12 }}>
+                          {token.balanceInFiat}
+                        </span>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1545,6 +1729,68 @@ export function SwapAssetSelector({
       {/* Done button */}
       {isMulti && (
         <div style={{ paddingBottom: 6, marginTop: "auto" }}>
+          {shouldShowSelectionProgress && requiredUsdAmount && (
+            <div
+              style={{
+                borderTop: "1px solid #E8E8E7",
+                boxSizing: "border-box",
+                marginBottom: 12,
+                paddingTop: 12,
+              }}
+            >
+              <div
+                style={{
+                  alignItems: "baseline",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+              >
+                <span
+                  style={{
+                    color: "#848483",
+                    fontFamily: '"Geist", system-ui, sans-serif',
+                    fontSize: 13,
+                    lineHeight: "18px",
+                  }}
+                >
+                  Required
+                </span>
+                <span
+                  style={{
+                    color: "#848483",
+                    fontFamily: '"Geist", system-ui, sans-serif',
+                    fontSize: 13,
+                    lineHeight: "18px",
+                  }}
+                >
+                  <strong style={{ color: "#161615", fontWeight: 600 }}>
+                    {formatUsdBalanceLabel(selectionDeficitUsdAmount)}
+                  </strong>{" "}
+                  more
+                </span>
+              </div>
+              <div
+                style={{
+                  backgroundColor: "#F0F0EF",
+                  borderRadius: "999px",
+                  height: 6,
+                  overflow: "hidden",
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "#006BF4",
+                    borderRadius: "999px",
+                    height: "100%",
+                    transition: "width 240ms ease",
+                    width: `${selectionProgressPercent}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
           <button
             onClick={onDone}
             style={{
@@ -1681,7 +1927,7 @@ export function SwapAssetSelector({
                 }}
               >
                 <RadioDot selected={draftChainFilter === null} />
-                <img src="/nexus-one/all-chains.png" alt="All Chains" style={{ marginLeft: 10, width: 28, height: 28, borderRadius: "999px", objectFit: "cover" }} />
+                <Globe style={{ marginLeft: 10, width: 28, height: 28, color: "#161615", flexShrink: 0 }} />
                 <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontSize: 14, fontWeight: 500, marginLeft: 10, color: "#161615" }}>
                   All Chains
                 </span>
