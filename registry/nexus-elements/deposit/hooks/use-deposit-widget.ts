@@ -294,7 +294,7 @@ export function useDepositWidget(
             const firstSourceSwap = sourceSwapsFromResult[0];
             const chainMeta =
               CHAIN_METADATA[
-                firstSourceSwap.chainId as keyof typeof CHAIN_METADATA
+              firstSourceSwap.chainId as keyof typeof CHAIN_METADATA
               ];
             const baseUrl = chainMeta?.blockExplorerUrls?.[0] ?? "";
             const sourceExplorerUrl = baseUrl
@@ -360,6 +360,7 @@ export function useDepositWidget(
           });
         })
         .catch((error) => {
+          console.log("ERROR IN SWAP AND EXECUTE", error)
           const { code, message } = handleNexusError(error);
           const isUserRejectedError =
             code === ERROR_CODES.USER_DENIED_INTENT ||
@@ -693,9 +694,9 @@ export function useDepositWidget(
   // Polling for simulation refresh
   usePolling(
     pollingEnabled &&
-      state.status === "previewing" &&
-      Boolean(swapIntent.current) &&
-      !state.simulationLoading,
+    state.status === "previewing" &&
+    Boolean(swapIntent.current) &&
+    !state.simulationLoading,
     async () => {
       await refreshSimulation();
     },

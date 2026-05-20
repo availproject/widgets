@@ -26,7 +26,7 @@ const DepositShowcase = () => {
     user: Address,
   ) => {
     const contractAddress =
-      "0x72f8C254548839Fa1Db4156aE01d8C6ae5885EE4" as const;
+      "0xfb7908150b738e7dB9862007c66C9eb7850706F5" as const;
     const abi: Abi = [
       {
         inputs: [
