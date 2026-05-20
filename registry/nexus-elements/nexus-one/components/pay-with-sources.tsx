@@ -156,11 +156,13 @@ export function PayWithSources({
   onOpenSourcePicker,
   routeStatus,
   routeMessage,
+  showAutoBadge = true,
 }: {
   fromTokens: SwapTokenOption[];
   onOpenSourcePicker: () => void;
   routeStatus?: "loading" | "insufficient";
   routeMessage?: string;
+  showAutoBadge?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shouldScroll = fromTokens.length > 3;
@@ -220,7 +222,7 @@ export function PayWithSources({
           <span>
             Pay With{fromTokens.length > 0 ? ` · ${fromTokens.length} assets` : ""}
           </span>
-          {autoBadge}
+          {showAutoBadge ? autoBadge : null}
         </div>
         {fromTokens.length > 0 && (
           <button

@@ -651,13 +651,6 @@ export function SwapIdleForm({
     );
   };
 
-  const handleReceiveInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onAmountChange(
-      sanitizeInput(e.target.value, getTokenInputDecimals(toToken)),
-      "receive",
-    );
-  };
-
   const handleTokenAmountChange = (index: number, val: string) => {
     if (!onUpdateTokens) return;
     const token = fromTokens[index];
@@ -796,6 +789,10 @@ export function SwapIdleForm({
     focusedPanel === "receive"
       ? receiveInputValue
       : formatAmountInputDisplay(receiveInputValue);
+  const receiveAmountTextColor =
+    (!isExactIn && amount) || (isExactIn && receiveQuoteAmount)
+      ? "#161615"
+      : "#9E9E9C";
   const receiveUsdRate = getReceiveUsdRate();
   const receiveTokenAmount = parseDecimal(receiveInputValue);
   const receiveUsdAmount =
@@ -1611,15 +1608,11 @@ export function SwapIdleForm({
                 type="text"
                 placeholder="0"
                 value={receiveDisplayValue}
-                onChange={handleReceiveInput}
-                onFocus={() => setFocusedPanel("receive")}
-                onBlur={() => setFocusedPanel(null)}
+                disabled
+                aria-disabled="true"
                 style={{
                   boxSizing: "border-box",
-                  color:
-                    (!isExactIn && amount) || (isExactIn && receiveQuoteAmount)
-                      ? "#161615"
-                      : "#9E9E9C",
+                  color: receiveAmountTextColor,
                   fontFamily:
                     '"Delight-Medium", "Delight", system-ui, sans-serif',
                   fontSize: "32px",
@@ -1627,8 +1620,11 @@ export function SwapIdleForm({
                   lineHeight: "38px",
                   background: "transparent",
                   border: "none",
+                  cursor: "default",
                   outline: "none",
+                  opacity: 1,
                   padding: 0,
+                  WebkitTextFillColor: receiveAmountTextColor,
                   width: "100%",
                   minWidth: 0,
                 }}

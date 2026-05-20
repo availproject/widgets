@@ -24,6 +24,7 @@ interface DepositIdleFormProps {
   routeMessage?: string;
   isCalculatingMax?: boolean;
   isQuoteRefreshing?: boolean;
+  showAutoBadge?: boolean;
 }
 
 const uiFont = '"Geist", system-ui, sans-serif';
@@ -422,6 +423,7 @@ export function DepositIdleForm({
   routeMessage,
   isCalculatingMax,
   isQuoteRefreshing,
+  showAutoBadge = true,
 }: DepositIdleFormProps) {
   const [pendingPercent, setPendingPercent] = useState<number | null>(null);
   const [isAmountFocused, setIsAmountFocused] = useState(false);
@@ -585,15 +587,11 @@ export function DepositIdleForm({
           </div>
 
           <div
-            aria-hidden={!isAmountFocused}
             style={{
               alignItems: "center",
               display: "flex",
               gap: "5px",
               minHeight: "24px",
-              opacity: isAmountFocused ? 1 : 0,
-              pointerEvents: isAmountFocused ? "auto" : "none",
-              transition: "opacity 0.18s ease-out",
               width: "100%",
             }}
           >
@@ -616,7 +614,6 @@ export function DepositIdleForm({
                   justifyContent: "center",
                   padding: "4px 7px",
                 }}
-                tabIndex={isAmountFocused ? 0 : -1}
                 type="button"
               >
                 {isPending && <Loader2 className="animate-spin" style={{ color: brand, height: 12, width: 12 }} />}
@@ -644,7 +641,6 @@ export function DepositIdleForm({
                 justifyContent: "center",
                 padding: "4px 7px",
               }}
-              tabIndex={isAmountFocused ? 0 : -1}
               type="button"
             >
               {isPending && <Loader2 className="animate-spin" style={{ color: brand, height: 12, width: 12 }} />}
@@ -663,6 +659,7 @@ export function DepositIdleForm({
         onOpenSourcePicker={onOpenSourcePicker}
         routeMessage={routeMessage}
         routeStatus={routeStatus}
+        showAutoBadge={showAutoBadge}
       />
 
     </div>

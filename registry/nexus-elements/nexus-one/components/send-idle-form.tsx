@@ -23,6 +23,7 @@ interface SendIdleFormProps {
   routeMessage?: string;
   isCalculatingMax?: boolean;
   isQuoteRefreshing?: boolean;
+  showAutoBadge?: boolean;
 }
 
 const uiFont = '"Geist", system-ui, sans-serif';
@@ -487,6 +488,7 @@ export function SendIdleForm({
   routeMessage,
   isCalculatingMax,
   isQuoteRefreshing,
+  showAutoBadge = true,
 }: SendIdleFormProps) {
   const [pendingPercent, setPendingPercent] = useState<number | null>(null);
   const [isAmountFocused, setIsAmountFocused] = useState(false);
@@ -835,15 +837,11 @@ export function SendIdleForm({
           </div>
 
           <div
-            aria-hidden={!isAmountFocused}
             style={{
               alignItems: "center",
               display: "flex",
               gap: "5px",
               minHeight: "24px",
-              opacity: isAmountFocused ? 1 : 0,
-              pointerEvents: isAmountFocused ? "auto" : "none",
-              transition: "opacity 0.18s ease-out",
               width: "100%",
             }}
           >
@@ -870,7 +868,6 @@ export function SendIdleForm({
                         opacity: isDisabled ? 0.55 : 1,
                         padding: "4px 7px",
                       }}
-                      tabIndex={isAmountFocused && toToken ? 0 : -1}
                       type="button"
                     >
                       {isPending && (
@@ -915,7 +912,6 @@ export function SendIdleForm({
                   opacity: isDisabled ? 0.55 : 1,
                   padding: "4px 7px",
                 }}
-                tabIndex={isAmountFocused && toToken ? 0 : -1}
                 type="button"
               >
                 {isPending && (
@@ -948,6 +944,7 @@ export function SendIdleForm({
         onOpenSourcePicker={onOpenSourcePicker}
         routeMessage={routeMessage}
         routeStatus={routeStatus}
+        showAutoBadge={showAutoBadge}
       />
 
     </div>

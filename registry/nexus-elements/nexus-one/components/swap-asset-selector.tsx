@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import Decimal from "decimal.js";
 import { Search, X, Loader2, ChevronDown, ChevronUp, Info, Check, Minus, Globe } from "lucide-react";
 import {
+  type SupportedChainsResult,
   type UserAsset,
   CHAIN_METADATA,
   formatTokenBalance,
@@ -43,6 +44,7 @@ export interface SwapTokenOption {
 interface SwapAssetSelectorProps {
   title: string;
   swapBalance: UserAsset[] | null;
+  swapSupportedChains?: SupportedChainsResult | null;
   staticOptions?: SwapTokenOption[];
   onSelect: (token: SwapTokenOption) => void;
   onBack: () => void;
@@ -320,6 +322,45 @@ const modalHeightTransitionStyle = {
   interpolateSize: "allow-keywords",
 } as React.CSSProperties;
 const modalHeightTransition = `height ${MODAL_HEIGHT_TRANSITION_MS}ms ease, max-height ${MODAL_HEIGHT_TRANSITION_MS}ms ease`;
+export const SWAP_CHAIN_DISPLAY_ORDER = [
+  1, // Ethereum
+  42161, // Arbitrum
+  8453, // Base
+  137, // Polygon
+  10, // OP
+  999, // HyperEVM
+  56, // BSC
+  43114, // Avalanche
+  143, // Monad
+  4326, // MegaETH
+  4114, // Citrea
+  8217, // Kaia
+] as const;
+const SWAP_CHAIN_DISPLAY_ORDER_RANK = new Map<number, number>(
+  SWAP_CHAIN_DISPLAY_ORDER.map((chainId, index) => [chainId, index]),
+);
+export const SWAP_CHAIN_DISPLAY_ORDER_SET = new Set<number>(SWAP_CHAIN_DISPLAY_ORDER);
+export const sortChainIdsBySwapDisplayOrder = (chainIds: number[]) =>
+  [...chainIds].sort((a, b) => {
+    const aRank = SWAP_CHAIN_DISPLAY_ORDER_RANK.get(a) ?? Number.MAX_SAFE_INTEGER;
+    const bRank = SWAP_CHAIN_DISPLAY_ORDER_RANK.get(b) ?? Number.MAX_SAFE_INTEGER;
+    if (aRank !== bRank) return aRank - bRank;
+
+    const aName = CHAIN_METADATA[a]?.name ?? String(a);
+    const bName = CHAIN_METADATA[b]?.name ?? String(b);
+    return aName.localeCompare(bName);
+  });
+export const compareChainsBySwapDisplayOrder = <
+  T extends { chainId?: number; chainName?: string },
+>(
+  a: T,
+  b: T,
+) => {
+  const aRank = SWAP_CHAIN_DISPLAY_ORDER_RANK.get(a.chainId ?? -1) ?? Number.MAX_SAFE_INTEGER;
+  const bRank = SWAP_CHAIN_DISPLAY_ORDER_RANK.get(b.chainId ?? -1) ?? Number.MAX_SAFE_INTEGER;
+  if (aRank !== bRank) return aRank - bRank;
+  return (a.chainName ?? "").localeCompare(b.chainName ?? "");
+};
 const UNIFIED_MAINNET_CHAIN_IDS = new Set([
   1, 10, 56, 137, 143, 999, 4114, 8217, 8453, 42161, 43114, 534352, 4326,
 ]);
@@ -648,6 +689,7 @@ function sameContractAddress(a?: string, b?: string) {
 export function SwapAssetSelector({
   title,
   swapBalance,
+  swapSupportedChains,
   staticOptions,
   onSelect,
   onBack,
@@ -1401,10 +1443,40 @@ export function SwapAssetSelector({
     }, CHAIN_SELECTOR_CLOSE_MS);
   };
 
+  const chainOptions = useMemo(() => {
+    const options = new Map<number, SwapTokenOption>();
+
+    for (const chain of swapSupportedChains ?? []) {
+      if (!SWAP_CHAIN_DISPLAY_ORDER_SET.has(chain.id)) continue;
+      options.set(chain.id, {
+        contractAddress: "",
+        symbol: "",
+        name: chain.name,
+        decimals: 18,
+        balance: "0",
+        balanceInFiat: "$0.00",
+        chainId: chain.id,
+        chainName: chain.name,
+        chainLogo: chain.logo,
+      });
+    }
+
+    for (const token of allTokens) {
+      if (!token.chainId || !SWAP_CHAIN_DISPLAY_ORDER_SET.has(token.chainId)) {
+        continue;
+      }
+      if (!options.has(token.chainId)) {
+        options.set(token.chainId, token);
+      }
+    }
+
+    return Array.from(options.values()).sort(compareChainsBySwapDisplayOrder);
+  }, [allTokens, swapSupportedChains]);
+
   const selectedChainToken =
     selectedChainFilter === null
       ? undefined
-      : allTokens.find((token) => token.chainId === selectedChainFilter);
+      : chainOptions.find((token) => token.chainId === selectedChainFilter);
   const selectedChainLabel =
     selectedChainFilter === null
       ? "All chains"
@@ -1958,7 +2030,7 @@ export function SwapAssetSelector({
               </button>
               
               {/* Unique chains */}
-              {Array.from(new Map(allTokens.filter(t => t.chainId).map(t => [t.chainId, t])).values())
+              {chainOptions
                 .filter(t => (t.chainName || "").toLowerCase().includes(chainQuery.toLowerCase()))
                 .map(t => (
                   <button

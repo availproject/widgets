@@ -87,7 +87,6 @@ type ProgressStatusState = "pending" | "loading" | "completed" | "error";
 type ProgressStatusRow = {
   id: ProgressStatusId;
   label: string;
-  detail?: string;
   state: ProgressStatusState;
 };
 
@@ -311,40 +310,6 @@ const getStatusState = (
   return "pending";
 };
 
-const getCompletedCountDetail = (
-  completed: number,
-  total: number,
-): string | undefined => {
-  if (total <= 0) return undefined;
-  return `${Math.min(completed, total)} of ${total} Done`;
-};
-
-const getGroupedCountDetail = (
-  steps: ProgressStep[],
-  primaryTokens: string[],
-  fallbackTokens: string[],
-) => {
-  const primarySteps = steps.filter((item) =>
-    stepMatches(item.step, primaryTokens),
-  );
-  if (primarySteps.length > 0) {
-    return getCompletedCountDetail(
-      primarySteps.filter((item) => item.completed).length,
-      primarySteps.length,
-    );
-  }
-
-  const hasFallback = steps.some((item) =>
-    stepMatches(item.step, fallbackTokens),
-  );
-  if (!hasFallback) return undefined;
-
-  const completedFallback = steps.some(
-    (item) => item.completed && stepMatches(item.step, fallbackTokens),
-  );
-  return getCompletedCountDetail(completedFallback ? 1 : 0, 1);
-};
-
 const buildStatusRows = ({
   events,
   failedStep,
@@ -382,17 +347,6 @@ const buildStatusRows = ({
     addStatus("verifying");
   }
 
-  const sourceDetail = getGroupedCountDetail(
-    steps,
-    ["SOURCE_SWAP_HASH"],
-    ["CREATE_PERMIT_FOR_SOURCE_SWAP", "SOURCE_SWAP_BATCH_TX"],
-  );
-  const destinationDetail = getGroupedCountDetail(
-    steps,
-    ["DESTINATION_SWAP_HASH"],
-    ["DESTINATION_SWAP_BATCH_TX"],
-  );
-
   const orderedStatuses = involvedStatuses.sort(
     (a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b),
   );
@@ -408,12 +362,6 @@ const buildStatusRows = ({
 
       return {
         id,
-        detail:
-          id === "source"
-            ? sourceDetail
-            : id === "destination"
-              ? destinationDetail
-              : undefined,
         label: getStatusLabel(id, mode, state),
         state,
       };
@@ -750,20 +698,6 @@ export function NexusOneProgressScreen({
                   </span>
                 )}
               </span>
-              {row.detail && !isLoading && (
-                <span
-                  style={{
-                    color: muted,
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    lineHeight: "16px",
-                    marginLeft: "auto",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {row.detail}
-                </span>
-              )}
             </div>
           );
         })}

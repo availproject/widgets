@@ -576,7 +576,6 @@ export function SwapIntentPreview({
   isLoading,
   isRefreshing,
   isExecuting,
-  swapType,
   intentData,
   mode,
   opportunity,
@@ -588,7 +587,6 @@ export function SwapIntentPreview({
 }: SwapIntentPreviewProps) {
   const [showSourceDetails, setShowSourceDetails] = useState(false);
   const [showFeeDetails, setShowFeeDetails] = useState(false);
-  const [showGasDetails, setShowGasDetails] = useState(false);
   const [showImpactDetails, setShowImpactDetails] = useState(false);
   const sourceDetailsScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -691,11 +689,6 @@ export function SwapIntentPreview({
         new Decimal(0),
       )
     : undefined;
-  const depositGasValueNumber = parseDecimal(normalizedIntentDest?.gas?.value);
-  const depositGasAmount = normalizedIntentDest?.gas?.amount;
-  const depositGasTokenSymbol = normalizedIntentDest?.gas?.token?.symbol || "";
-  const hasGasDetails =
-    (isDepositMode || isSendMode) && Boolean(normalizedIntentDest?.gas);
   const explicitFeeNumber =
     bridgeTotalNumber ??
     (bridgeComponentsTotalNumber && bridgeComponentsTotalNumber.gt(0)
@@ -736,11 +729,6 @@ export function SwapIntentPreview({
 
   const destinationTokenAmount =
     normalizedIntentDest?.amount || toAmountTokens || toAmount || "0";
-  const minReceived =
-    (intentData as any)?.minimumReceived ||
-    (normalizedIntentDest as any)?.minimumReceived ||
-    destinationTokenAmount;
-  const shouldShowMinReceived = swapType === "exactIn";
   const feeDetailRows = bridgeFeeData
     ? [
         {
@@ -796,17 +784,6 @@ export function SwapIntentPreview({
   const swapBufferDisplay =
     swapBufferNumber !== undefined
       ? formatUsdValue(swapBufferNumber)
-      : pendingValue;
-  const minReceivedDisplay = hasResolvedQuote
-    ? `${formatTokenAmount(minReceived)} ${destTokenSymbol}`
-    : pendingValue;
-  const depositGasUsdDisplay =
-    depositGasValueNumber !== undefined
-      ? formatUsdValue(depositGasValueNumber)
-      : pendingValue;
-  const depositGasNativeDisplay =
-    hasResolvedQuote && depositGasAmount !== undefined
-      ? `${formatTokenAmount(depositGasAmount)} ${depositGasTokenSymbol}`.trim()
       : pendingValue;
   const sourceDetailRows =
     normalizedIntentSources.length > 0
@@ -1305,38 +1282,6 @@ export function SwapIntentPreview({
           )}
         </AnimatedDetails>
 
-        {hasGasDetails && (
-          <>
-            <Row
-              title={isSendMode ? "Gas Fee" : "Deposit Gas Fees"}
-              subtitle={isSendMode ? "Destination transfer" : "Destination execution"}
-              value={depositGasUsdDisplay}
-            >
-              <DetailToggle
-                expanded={showGasDetails}
-                onClick={() => setShowGasDetails((value) => !value)}
-              />
-            </Row>
-
-            <AnimatedDetails open={showGasDetails}>
-              <div
-                style={{
-                  alignItems: "center",
-                  display: "flex",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span style={{ color: muted, fontFamily, fontSize: "12px" }}>
-                  Native gas
-                </span>
-                <span style={{ color: primary, fontFamily, fontSize: "12px" }}>
-                  {depositGasNativeDisplay}
-                </span>
-              </div>
-            </AnimatedDetails>
-          </>
-        )}
-
         <Row
           title="Price Impact"
           subtitle={`${destTokenSymbol} · estimated`}
@@ -1393,22 +1338,6 @@ export function SwapIntentPreview({
               Auto
             </span>
           </div>
-          {shouldShowMinReceived && (
-            <div
-              style={{
-                alignItems: "center",
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
-              <span style={{ color: muted, fontFamily, fontSize: "12px" }}>
-                Min. Received
-              </span>
-              <span style={{ color: primary, fontFamily, fontSize: "12px" }}>
-                {minReceivedDisplay}
-              </span>
-            </div>
-          )}
         </AnimatedDetails>
 
         <Row

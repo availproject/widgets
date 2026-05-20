@@ -47,11 +47,20 @@ export function RecipientInput({
         </div>
       )}
 
+      <style>
+        {`
+          .nexus-one-recipient-input::placeholder {
+            color: #9E9E9C;
+            -webkit-text-fill-color: #9E9E9C;
+            opacity: 1;
+          }
+        `}
+      </style>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 bg-transparent border-none outline-none focus:ring-0 font-geist placeholder:text-[var(--foreground-muted, #848483)]"
+        className="nexus-one-recipient-input flex-1 bg-transparent border-none outline-none focus:ring-0 font-geist placeholder:text-[var(--foreground-muted, #848483)]"
         style={{
           color: "#161615",
           caretColor: "#006BF4",

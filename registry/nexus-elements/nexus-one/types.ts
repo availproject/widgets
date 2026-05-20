@@ -64,6 +64,14 @@ export interface NexusOnePrefill {
   chain?: number;
   amount?: string;
   recipient?: Address;
+  source?: {
+    token: Address;
+    chain: number;
+  };
+  destination?: {
+    token: Address;
+    chain: number;
+  };
 }
 
 export interface NexusOneConfig {

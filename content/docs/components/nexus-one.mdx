@@ -111,6 +111,14 @@ interface NexusOneConfig {
     chain?: number;
     amount?: string;
     recipient?: `0x${string}`;
+    source?: {
+      token: `0x${string}`;
+      chain: number;
+    };
+    destination?: {
+      token: `0x${string}`;
+      chain: number;
+    };
   };
   allowedSourcePairs?: {
     token: `0x${string}`;
@@ -149,6 +157,8 @@ interface NexusOneConfig {
 | `prefill.recipient` | `` `0x${string}` `` | Prefills the recipient. Most useful in `send` mode. |
 | `prefill.token` | `` `0x${string}` `` | Prefills the token address where supported by the current selector state. |
 | `prefill.chain` | `number` | Prefills the chain id where supported by the current selector state. |
+| `prefill.source` | `{ token; chain }` | Prefills the swap send/source token and chain. |
+| `prefill.destination` | `{ token; chain }` | Prefills the swap receive/destination token and chain. |
 | `allowedSourcePairs` | `{ token; chain }[]` | Restricts selectable source token/chain pairs where supported by your installed element version. |
 | `allowedDestinationPairs` | `{ token; chain }[]` | Restricts selectable destination token/chain pairs where supported by your installed element version. |
 
@@ -210,6 +220,16 @@ export function SwapExample({ address }: { address?: `0x${string}` }) {
     <NexusOne
       config={{
         mode: "swap",
+        prefill: {
+          source: {
+            token: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+            chain: 42161, // USDC on Arbitrum
+          },
+          destination: {
+            token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            chain: 8453, // USDC on Base
+          },
+        },
       }}
       connectedAddress={address}
     />

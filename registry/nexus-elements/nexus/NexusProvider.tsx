@@ -26,6 +26,7 @@ import {
   DEFAULT_USD_PEGGED_TOKEN_SYMBOLS,
   USD_PEGGED_FALLBACK_RATE,
   buildUsdPeggedSymbolSet,
+  fetchCoinGeckoUsdRate,
   fetchCoinbaseUsdRate,
   getCoinbaseSymbolCandidates,
   normalizeTokenSymbol,
@@ -278,6 +279,12 @@ const NexusProvider = ({
         if (coinbaseRate) {
           cacheUsdRate(normalizedSymbol, coinbaseRate);
           return coinbaseRate;
+        }
+
+        const coinGeckoRate = await fetchCoinGeckoUsdRate(normalizedSymbol);
+        if (coinGeckoRate) {
+          cacheUsdRate(normalizedSymbol, coinGeckoRate);
+          return coinGeckoRate;
         }
 
         if (usdPeggedSymbols.current.has(normalizedSymbol)) {

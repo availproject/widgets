@@ -13,6 +13,8 @@ import { Search, X, ChevronDown, Check, Info, Copy, Globe } from "lucide-react";
 import {
   getTokenSearchRank,
   RadioDot,
+  SWAP_CHAIN_DISPLAY_ORDER,
+  sortChainIdsBySwapDisplayOrder,
   type SwapTokenOption,
 } from "./swap-asset-selector";
 import { useNexus } from "../../nexus/NexusProvider";
@@ -23,7 +25,7 @@ interface ReceiveAssetSelectorProps {
   onBack: () => void;
 }
 
-const SUPPORTED_RECEIVE_CHAIN_IDS = new Set([1, 10, 56, 137, 143, 999, 8217, 8453, 42161, 534352, 4114]);
+const SUPPORTED_RECEIVE_CHAIN_IDS = new Set<number>(SWAP_CHAIN_DISPLAY_ORDER);
 const CHAIN_SELECTOR_CLOSE_MS = 220;
 const MODAL_HEIGHT_TRANSITION_MS = 260;
 const modalHeightTransitionStyle = {
@@ -179,7 +181,7 @@ export function ReceiveAssetSelector({
   const chainCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const [stableListHeight, setStableListHeight] = useState<number | null>(null);
-  const { supportedChainsAndTokens, swapBalance } = useNexus();
+  const { supportedChainsAndTokens, swapBalance, swapSupportedChainsAndTokens } = useNexus();
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [selectedChainFilter, setSelectedChainFilter] = useState<number | null>(null);
@@ -332,8 +334,23 @@ export function ReceiveAssetSelector({
         map.set(c.id, { name: c.name, logo: c.logo });
       }
     }
+    if (swapSupportedChainsAndTokens) {
+      for (const c of swapSupportedChainsAndTokens) {
+        map.set(c.id, { name: c.name, logo: c.logo });
+      }
+    }
     return map;
-  }, [supportedChainsAndTokens]);
+  }, [supportedChainsAndTokens, swapSupportedChainsAndTokens]);
+
+  const chainFilterIds = useMemo(() => {
+    const supportedIds = swapSupportedChainsAndTokens
+      ?.map((chain) => chain.id)
+      .filter((id) => SUPPORTED_RECEIVE_CHAIN_IDS.has(id));
+
+    return sortChainIdsBySwapDisplayOrder(
+      supportedIds?.length ? supportedIds : Array.from(SUPPORTED_RECEIVE_CHAIN_IDS),
+    );
+  }, [swapSupportedChainsAndTokens]);
 
   useEffect(() => {
     let active = true;
@@ -804,7 +821,7 @@ export function ReceiveAssetSelector({
                 <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 500, fontSize: 14, color: "#161615" }}>All Chains</span>
               </div>
             </button>
-            {Array.from(SUPPORTED_RECEIVE_CHAIN_IDS).filter(id => {
+            {chainFilterIds.filter(id => {
               const meta = chainMetaMap.get(id);
               return (meta?.name || "").toLowerCase().includes(chainQuery.toLowerCase());
             }).map(id => {

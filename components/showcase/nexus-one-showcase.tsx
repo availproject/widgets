@@ -11,6 +11,8 @@ import { encodeFunctionData } from "viem";
 import { useAccount } from "wagmi";
 
 const ALL_MODES: NexusOneMode[] = ["swap", "deposit", "send"];
+const USDC_ARBITRUM = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831";
+const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 const AAVE_ABI = [
   {
@@ -172,6 +174,16 @@ const DEPOSIT_OPPORTUNITIES: DepositOpportunity[] = [
 const CONFIG_SNIPPETS: Record<NexusOneMode, string> = {
   swap: `const config = {
   mode: "swap",
+  prefill: {
+    source: {
+      token: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      chain: 42161, // Arbitrum
+    },
+    destination: {
+      token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      chain: 8453, // Base
+    },
+  },
 } satisfies NexusOneConfig;`,
   send: `const config = {
   mode: "send",
@@ -220,7 +232,19 @@ const NexusOneShowcase = () => {
       };
     }
 
-    return { mode: "swap" };
+    return {
+      mode: "swap",
+      prefill: {
+        source: {
+          token: USDC_ARBITRUM,
+          chain: 42161,
+        },
+        destination: {
+          token: USDC_BASE,
+          chain: 8453,
+        },
+      },
+    };
   }, [selectedMode]);
 
   return (
@@ -243,28 +267,28 @@ const NexusOneShowcase = () => {
         </div>
       </ShowcaseWrapper>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="bg-card text-card-foreground flex flex-col gap-3 rounded-xl border p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium text-gray-700">Mode:</span>
+          <span className="text-muted-foreground text-sm font-medium">Mode:</span>
           {ALL_MODES.map((mode) => (
             <button
               key={mode}
               onClick={() => setSelectedMode(mode)}
               className={`px-4 py-2 text-sm font-medium rounded-lg capitalize transition-colors ${
                 selectedMode === mode
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               }`}
             >
               {mode}
             </button>
           ))}
         </div>
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-zinc-950">
-          <div className="border-b border-white/10 px-3 py-2 text-xs font-medium text-zinc-300">
+        <div className="bg-muted/40 overflow-hidden rounded-lg border">
+          <div className="text-muted-foreground border-b px-3 py-2 text-xs font-medium">
             Current config
           </div>
-          <pre className="max-h-72 overflow-auto p-3 text-xs leading-5 text-zinc-100">
+          <pre className="text-foreground max-h-72 overflow-auto p-3 text-xs leading-5">
             <code>{CONFIG_SNIPPETS[selectedMode]}</code>
           </pre>
         </div>

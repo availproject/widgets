@@ -1,3 +1,14 @@
-onlyBuiltDependencies:
-  - "@avail-project/ca-common"
-  - "@avail-project/nexus-core"
+allowBuilds:
+  "@avail-project/ca-common": true
+  "@avail-project/nexus-core": true
+  bufferutil: true
+  core-js: true
+  esbuild: true
+  keccak: true
+  msgpackr-extract: true
+  msw: true
+  protobufjs: true
+  secp256k1: true
+  sharp: true
+  unrs-resolver: true
+  utf-8-validate: true
