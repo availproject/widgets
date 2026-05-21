@@ -67,7 +67,7 @@ type NexusProviderProps = {
 
 const defaultConfig: Required<NexusProviderProps["config"]> = {
   network: "mainnet",
-  debug: false,
+  debug: true,
 };
 
 const NexusProvider = ({
@@ -466,9 +466,7 @@ const NexusProvider = ({
   const fetchSwapBalance = useCallback(async () => {
     try {
       if (!sdk) return;
-      console.log("====fetchSwapBalance====");
       const updatedBalance = await sdk.getBalancesForSwap(false);
-      console.log("====updatedBalance====", updatedBalance);
       setSwapBalance(normalizeUserAssetFiatValues(updatedBalance));
     } catch (error) {
       console.error("Error fetching swap balance:", error);

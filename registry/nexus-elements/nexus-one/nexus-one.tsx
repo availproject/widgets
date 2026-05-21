@@ -2658,23 +2658,12 @@ export function NexusOne({
       swapIntentRef.current = { intent, allow, deny, refresh, runId };
       // Populate intent data for preview
       applySwapIntent(intent);
-      console.log("on hook intent swap intent", intent, "swap intent");
-
-      console.log("[DEBUG] Successfully parsed intent data! Removing loader.");
       setIntentLoading(false);
       setQuoteRefreshing(false);
       setReceiveMaxCalculating(false);
       setPreviewQuoteRefreshing(false);
     });
   };
-
-  useEffect(() => {
-    console.log("SWAP INTENT");
-    console.log("intentData", intentData);
-    console.log("intentFeeUsd", intentFeeUsd);
-    console.log("intentLoading", intentLoading);
-    console.log("intentToAmount", intentToAmount);
-  }, [intentData, intentFeeUsd, intentLoading, intentToAmount]);
 
   // Deposit-specific
   const [selectedOpportunity, setSelectedOpportunity] = useState<
@@ -3225,21 +3214,12 @@ export function NexusOne({
     options: { background?: boolean } = {},
   ) => {
     const { background = false } = options;
-    console.log("[DEBUG] handleEnterPreview called!", {
-      swapType,
-      amount,
-      toToken,
-      fromTokens,
-      background,
-    });
     if (!toToken || !amount) {
-      console.log("[DEBUG] Aborted: missing toToken or amount");
       return;
     }
     const isExactOutFlow = activeMode === "send" || swapType === "exactOut";
 
     if (!isExactOutFlow && fromTokens.length === 0) {
-      console.log("[DEBUG] Aborted: exactIn but no fromTokens");
       return;
     }
 
@@ -3350,7 +3330,6 @@ export function NexusOne({
       }
     }
 
-    console.log("[DEBUG] Proceeding to set preview-intent state...");
     if (!background) {
       swapStepRef.current = "preview-intent";
       setSwapStep("preview-intent");
@@ -3379,14 +3358,6 @@ export function NexusOne({
       return;
     }
 
-    console.log("Entering preview...", {
-      activeMode,
-      swapType,
-      toToken,
-      amount,
-      fromTokens,
-    });
-
     swapRunIdRef.current += 1;
     const runId = swapRunIdRef.current;
 
@@ -3400,40 +3371,6 @@ export function NexusOne({
         : Array.isArray(args?.steps)
           ? args.steps
           : [];
-    };
-
-    const logSwapEvent = (
-      operation:
-        | "swapWithExactIn"
-        | "swapWithExactOut"
-        | "swapAndExecute"
-        | "swapAndTransfer",
-      event: { name: string; args: any },
-    ) => {
-      console.log(`[NexusOne:${operation}:event]`, {
-        name: event?.name,
-        args: event?.args,
-        event,
-      });
-
-      if (event?.name === NEXUS_EVENTS.SWAP_STEPS_LIST) {
-        const stepList = getSwapStepListFromEvent(event);
-        console.groupCollapsed(
-          `[NexusOne:${operation}:swap-intent-steps] ${stepList.length} step(s)`,
-        );
-        console.log("raw event", event);
-        console.table(
-          stepList.map((step: any, index: number) => ({
-            index,
-            type: step?.type ?? step?.typeID ?? step?.name ?? "-",
-            completed: step?.completed,
-            data: step?.data,
-            explorerURL: step?.explorerURL ?? step?.data?.explorerURL,
-            raw: step,
-          })),
-        );
-        console.groupEnd();
-      }
     };
 
     const handleSwapEvent = (event: { name: string; args: any }) => {
@@ -3570,11 +3507,6 @@ export function NexusOne({
           throw new Error("No source amount available for swap.");
         }
 
-        console.log("SWAPPING WITH EXACTIN", {
-          from: fromPayload,
-          toChainId: toToken.chainId!,
-          toTokenAddress: toToken.contractAddress as `0x${string}`,
-        });
         resetExplorerUrls();
         // Start exact-in swap — the intent hook will fire and populate preview
         const result = await nexusSDK.swapWithExactIn(
@@ -3585,7 +3517,6 @@ export function NexusOne({
           },
           {
             onEvent: (event: any) => {
-              logSwapEvent("swapWithExactIn", event);
               if (swapRunIdRef.current !== runId) return;
               handleSwapEvent(event);
             },
@@ -3612,7 +3543,6 @@ export function NexusOne({
           setSwapStep("success");
         }
       } else {
-        console.log("[DEBUG] Parsing units using decimals:", toToken.decimals);
         const exactOutAmountString =
           activeMode === "deposit"
             ? depositTokenAmountForQuote
@@ -3634,13 +3564,6 @@ export function NexusOne({
           exactOutAmountString,
           toToken.decimals || 18,
         );
-        console.log("[DEBUG] amountBigInt generated:", amountBigInt);
-
-        console.log(`SWAPPING WITH EXACTOUT (${activeMode})`, {
-          toChainId: toToken.chainId!,
-          toTokenAddress: toToken.contractAddress as `0x${string}`,
-          toAmount: amountBigInt,
-        });
 
         resetExplorerUrls();
 
@@ -3700,11 +3623,7 @@ export function NexusOne({
         }
 
         if (executeConfig) {
-          const onEvent = (
-            operation: "swapAndExecute" | "swapAndTransfer",
-            event: any,
-          ) => {
-            logSwapEvent(operation, event);
+          const onEvent = (event: any) => {
             if (swapRunIdRef.current !== runId) return;
             handleSwapEvent(event);
           };
@@ -3720,7 +3639,7 @@ export function NexusOne({
                     recipient: resolvedRecipientAddress as `0x${string}`,
                     ...fromSourcesPayload,
                   },
-                  { onEvent: (event: any) => onEvent("swapAndTransfer", event) },
+                  { onEvent },
                 )
               : await nexusSDK.swapAndExecute(
                   {
@@ -3730,7 +3649,7 @@ export function NexusOne({
                     execute: executeConfig,
                     ...fromSourcesPayload,
                   },
-                  { onEvent: (event: any) => onEvent("swapAndExecute", event) },
+                  { onEvent },
                 );
 
           const swapResult = result?.swapResult ?? result?.result ?? null;
@@ -3768,7 +3687,6 @@ export function NexusOne({
             },
             {
               onEvent: (event: any) => {
-                logSwapEvent("swapWithExactOut", event);
                 if (swapRunIdRef.current !== runId) return;
                 handleSwapEvent(event);
               },

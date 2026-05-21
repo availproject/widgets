@@ -76,10 +76,10 @@ const getStepType = (step?: ProgressSdkStep) =>
   String((step as any)?.type ?? (step as any)?.typeID ?? "").toUpperCase();
 
 type ProgressStatusId =
-  | "verifying"
-  | "source"
-  | "bridge"
-  | "destination"
+  | "confirmIntent"
+  | "approveTokens"
+  | "swapTokens"
+  | "receiveToken"
   | "action";
 
 type ProgressStatusState = "pending" | "loading" | "completed" | "error";
@@ -87,14 +87,15 @@ type ProgressStatusState = "pending" | "loading" | "completed" | "error";
 type ProgressStatusRow = {
   id: ProgressStatusId;
   label: string;
+  description?: string;
   state: ProgressStatusState;
 };
 
 const STATUS_ORDER: ProgressStatusId[] = [
-  "verifying",
-  "source",
-  "bridge",
-  "destination",
+  "confirmIntent",
+  "approveTokens",
+  "swapTokens",
+  "receiveToken",
   "action",
 ];
 
@@ -102,51 +103,96 @@ const getStatusLabel = (
   id: ProgressStatusId,
   mode: NexusOneMode,
   state: ProgressStatusState,
+  context: {
+    approvalCompletedCount?: number;
+    approvalTotalCount?: number;
+    destinationChain?: string;
+    destinationSymbol?: string;
+    opportunityName?: string;
+  } = {},
 ) => {
   const isDeposit = mode === "deposit";
-  const labels: Record<
-    ProgressStatusId,
-    Record<ProgressStatusState, string>
-  > = {
-    verifying: {
-      pending: "Verify Intent",
-      loading: "Verifying Intent",
-      completed: "Intent Verified",
-      error: "Intent Verification failed",
-    },
-    source: {
-      pending: "Collect at sources",
-      loading: "Collecting at sources",
-      completed: "Collected at Sources",
-      error: "Failed to collect at sources",
-    },
-    bridge: {
-      pending: "Bridge funds",
-      loading: "Bridging funds",
-      completed: "Funds bridged",
-      error: "Failed to bridge funds",
-    },
-    destination: {
-      pending: "Fulfill at destination",
-      loading: "Fulfilling at destination",
-      completed: "Fulfilled at destination",
-      error: "Failed to fulfill at destination",
-    },
-    action: isDeposit
-      ? {
-          pending: "Deposit",
-          loading: "Depositing",
-          completed: "Deposited",
-          error: "Failed to deposit",
-        }
-      : {
-          pending: "Send",
-          loading: "Sending",
-          completed: "Sent",
-          error: "Failed to send",
-        },
-  };
-  return labels[id][state];
+  const destinationSymbol = context.destinationSymbol || "token";
+  const destinationChain = context.destinationChain || "destination";
+  const opportunityName = context.opportunityName || "app";
+  const approvalTotal = Math.max(1, context.approvalTotalCount ?? 1);
+  const approvalCurrent = Math.min(
+    approvalTotal,
+    state === "completed"
+      ? approvalTotal
+      : Math.max(1, (context.approvalCompletedCount ?? 0) + 1),
+  );
+
+  if (id === "confirmIntent") {
+    if (state === "completed") return "Intent approved";
+    if (state === "error") return "Intent Cancelled";
+    return "Confirm Intent";
+  }
+
+  if (id === "approveTokens") {
+    if (state === "completed") {
+      return `Approved tokens for swap (${approvalTotal} of ${approvalTotal})`;
+    }
+    if (state === "error") return "Collection failed";
+    return `Approve tokens for swap (${approvalCurrent} of ${approvalTotal})`;
+  }
+
+  if (id === "swapTokens") {
+    if (state === "loading") return "Swaps in progress";
+    if (state === "completed") return "Swaps completed";
+    if (state === "error") return "Swap failed. Refund initiated";
+    return "Swap tokens";
+  }
+
+  if (id === "receiveToken") {
+    if (state === "loading") {
+      return `Receiving ${destinationSymbol} on ${destinationChain}`;
+    }
+    if (state === "completed") {
+      return `Received ${destinationSymbol} on ${destinationChain}`;
+    }
+    if (state === "error") {
+      return "Destination Swap Failed. USDC refund initiated.";
+    }
+    return `Receive ${destinationSymbol} on ${destinationChain}`;
+  }
+
+  if (isDeposit) {
+    if (state === "pending") {
+      return `Approve ${destinationSymbol} deposit to ${opportunityName}`;
+    }
+    if (state === "loading") {
+      return `Depositing ${destinationSymbol} to ${opportunityName}`;
+    }
+    if (state === "completed") {
+      return `${destinationSymbol} deposited to ${opportunityName}`;
+    }
+    return "Deposit failed. Funds are in your wallet.";
+  }
+
+  if (state === "pending") return `Send ${destinationSymbol}`;
+  if (state === "loading") return `Sending ${destinationSymbol}`;
+  if (state === "completed") return `${destinationSymbol} sent`;
+  return "Send failed. Funds are in your wallet.";
+};
+
+const getStatusDescription = (
+  id: ProgressStatusId,
+  state: ProgressStatusState,
+) => {
+  if (state !== "loading") {
+    return undefined;
+  }
+
+  if (
+    id === "confirmIntent" ||
+    id === "approveTokens" ||
+    id === "action"
+  ) {
+    return "Approve in wallet";
+  }
+
+  return undefined;
 };
 
 const getStatusForStep = (
@@ -166,6 +212,7 @@ const getStatusForStep = (
   if (
     [
       "CREATE_PERMIT_EOA_TO_EPHEMERAL",
+      "RFF_ID",
       "INTENT_ACCEPTED",
       "INTENT_HASH_SIGNED",
       "INTENT_SUBMITTED",
@@ -174,35 +221,33 @@ const getStatusForStep = (
       "ALLOWANCE_ALL_DONE",
     ].some((token) => type.includes(token))
   ) {
-    return "verifying";
+    return "confirmIntent";
   }
 
   if (type.includes("SWAP_START") || type.includes("DETERMINING_SWAP")) {
-    return "verifying";
+    return "swapTokens";
+  }
+
+  if (type.includes("CREATE_PERMIT_FOR_SOURCE_SWAP")) {
+    return "approveTokens";
   }
 
   if (
-    type.includes("CREATE_PERMIT_FOR_SOURCE_SWAP") ||
     type.includes("SOURCE_SWAP") ||
     type.includes("SOURCE_BATCH") ||
-    type.includes("SWAP_SOURCE")
+    type.includes("SWAP_SOURCE") ||
+    type.includes("SWAP_COMPLETE") ||
+    type.includes("SWAP_SKIPPED")
   ) {
-    return "source";
+    return "swapTokens";
   }
 
   if (
-    type.includes("BRIDGE_DEPOSIT") ||
-    type.includes("RFF") ||
-    type.includes("INTENT_DEPOSIT") ||
-    type.includes("INTENT_COLLECTION") ||
-    type.includes("INTENT_DEPOSITS_CONFIRMED") ||
-    type.includes("INTENT_FULFILLED")
+    type.includes("DESTINATION_SWAP") ||
+    type.includes("DESTINATION_BATCH") ||
+    type.includes("BRIDGE_DEPOSIT")
   ) {
-    return "bridge";
-  }
-
-  if (type.includes("DESTINATION_SWAP") || type.includes("DESTINATION_BATCH")) {
-    return "destination";
+    return "receiveToken";
   }
 
   return null;
@@ -231,35 +276,58 @@ const hasCompletedType = (
   );
 };
 
+const hasStepType = (
+  events: NexusOneProgressEvent[],
+  steps: ProgressStep[],
+  tokens: string[],
+) =>
+  events.some((event) => stepMatches(event.step, tokens)) ||
+  steps.some((item) => stepMatches(item.step, tokens));
+
+const hasEventType = (
+  events: NexusOneProgressEvent[],
+  tokens: string[],
+) => events.some((event) => stepMatches(event.step, tokens));
+
+const getStepKey = (step: ProgressSdkStep | undefined) => {
+  if (!step) return "";
+  const raw = (step as any)?.typeID ?? (step as any)?.type;
+  if (raw) return String(raw);
+  try {
+    return JSON.stringify(step);
+  } catch {
+    return String(step);
+  }
+};
+
+const countUniqueSteps = (
+  events: NexusOneProgressEvent[],
+  steps: ProgressStep[],
+  tokens: string[],
+  completedOnly = false,
+) => {
+  const keys = new Set<string>();
+
+  for (const item of steps) {
+    if (completedOnly && !item.completed) continue;
+    if (!stepMatches(item.step, tokens)) continue;
+    keys.add(getStepKey(item.step));
+  }
+
+  for (const event of events) {
+    if (completedOnly && !event.completed) continue;
+    if (!stepMatches(event.step, tokens)) continue;
+    keys.add(getStepKey(event.step));
+  }
+
+  return keys.size;
+};
+
 const hasStartedStatus = (
   events: NexusOneProgressEvent[],
   id: ProgressStatusId,
   mode: NexusOneMode,
 ) => events.some((event) => getStatusForStep(event.step, mode) === id);
-
-const hasStartedLaterStatus = (
-  events: NexusOneProgressEvent[],
-  steps: ProgressStep[],
-  id: ProgressStatusId,
-  mode: NexusOneMode,
-) => {
-  const index = STATUS_ORDER.indexOf(id);
-  const eventStartedLater = events.some((event) => {
-    const status = getStatusForStep(event.step, mode);
-    if (!status) return false;
-    const eventIndex = STATUS_ORDER.indexOf(status);
-    return eventIndex > index;
-  });
-  if (eventStartedLater) return true;
-
-  return steps.some((item) => {
-    if (!item.completed) return false;
-    const status = getStatusForStep(item.step, mode);
-    if (!status) return false;
-    const stepIndex = STATUS_ORDER.indexOf(status);
-    return stepIndex > index;
-  });
-};
 
 const isStatusCompleted = (
   id: ProgressStatusId,
@@ -267,34 +335,83 @@ const isStatusCompleted = (
   steps: ProgressStep[],
   mode: NexusOneMode,
 ) => {
-  if (hasStartedLaterStatus(events, steps, id, mode)) return true;
+  if (id === "confirmIntent") {
+    return (
+      hasCompletedType(events, steps, [
+        "CREATE_PERMIT_EOA_TO_EPHEMERAL",
+        "RFF_ID",
+        "INTENT_SUBMITTED",
+        "CREATE_PERMIT_FOR_SOURCE_SWAP",
+        "SOURCE_SWAP_HASH",
+        "DESTINATION_SWAP_HASH",
+        "SWAP_COMPLETE",
+        "SWAP_SKIPPED",
+        "TRANSACTION_SENT",
+        "TRANSACTION_CONFIRMED",
+      ]) ||
+      hasStartedStatus(events, "approveTokens", mode) ||
+      hasEventType(events, [
+        "SOURCE_SWAP",
+        "BRIDGE_DEPOSIT",
+        "DESTINATION_SWAP",
+        "SWAP_COMPLETE",
+        "SWAP_SKIPPED",
+        "TRANSACTION_SENT",
+        "TRANSACTION_CONFIRMED",
+      ])
+    );
+  }
 
-  if (id === "verifying") {
-    return hasCompletedType(events, steps, [
-      "INTENT_SUBMITTED",
-      "DETERMINING_SWAP",
+  if (id === "approveTokens") {
+    const total = countUniqueSteps(events, steps, [
+      "CREATE_PERMIT_FOR_SOURCE_SWAP",
     ]);
+    if (total === 0) return false;
+    const completed = countUniqueSteps(
+      events,
+      steps,
+      ["CREATE_PERMIT_FOR_SOURCE_SWAP"],
+      true,
+    );
+    return (
+      completed >= total ||
+      hasEventType(events, [
+        "SOURCE_SWAP",
+        "BRIDGE_DEPOSIT",
+        "DESTINATION_SWAP",
+        "SWAP_COMPLETE",
+        "SWAP_SKIPPED",
+        "TRANSACTION_SENT",
+        "TRANSACTION_CONFIRMED",
+      ])
+    );
   }
-  if (id === "source") {
-    return hasCompletedType(events, steps, ["SOURCE_SWAP_HASH"]);
-  }
-  if (id === "bridge") {
+
+  if (id === "swapTokens") {
     return hasCompletedType(events, steps, [
-      "INTENT_FULFILLED",
-      "DESTINATION_SWAP",
+      "SOURCE_SWAP_HASH",
+      "SWAP_COMPLETE",
+      "SWAP_SKIPPED",
+      "BRIDGE_DEPOSIT",
+      "DESTINATION_SWAP_HASH",
       "TRANSACTION_SENT",
       "TRANSACTION_CONFIRMED",
     ]);
   }
-  if (id === "destination") {
+
+  if (id === "receiveToken") {
     return hasCompletedType(events, steps, [
       "DESTINATION_SWAP_HASH",
       "SWAP_COMPLETE",
+      "SWAP_SKIPPED",
       "TRANSACTION_SENT",
       "TRANSACTION_CONFIRMED",
     ]);
   }
-  return hasCompletedType(events, steps, ["TRANSACTION_CONFIRMED"]);
+
+  return mode === "swap"
+    ? false
+    : hasCompletedType(events, steps, ["TRANSACTION_CONFIRMED"]);
 };
 
 const getStatusState = (
@@ -306,7 +423,39 @@ const getStatusState = (
 ): ProgressStatusState => {
   if (failedStatus === id) return "error";
   if (isStatusCompleted(id, events, steps, mode)) return "completed";
-  if (hasStartedStatus(events, id, mode)) return "loading";
+
+  if (id === "swapTokens") {
+    const approvalsTotal = countUniqueSteps(events, steps, [
+      "CREATE_PERMIT_FOR_SOURCE_SWAP",
+    ]);
+    const approvalsCompleted = countUniqueSteps(
+      events,
+      steps,
+      ["CREATE_PERMIT_FOR_SOURCE_SWAP"],
+      true,
+    );
+    const approvalsSatisfied =
+      approvalsTotal === 0 || approvalsCompleted >= approvalsTotal;
+    if (approvalsSatisfied && hasStartedStatus(events, id, mode)) {
+      return "loading";
+    }
+  } else if (id === "receiveToken") {
+    if (
+      hasStartedStatus(events, id, mode) ||
+      hasEventType(events, [
+        "BRIDGE_DEPOSIT",
+        "DESTINATION_SWAP_BATCH_TX",
+        "DESTINATION_SWAP_HASH",
+        "SWAP_COMPLETE",
+        "SWAP_SKIPPED",
+      ])
+    ) {
+      return "loading";
+    }
+  } else if (hasStartedStatus(events, id, mode)) {
+    return "loading";
+  }
+
   return "pending";
 };
 
@@ -315,14 +464,29 @@ const buildStatusRows = ({
   failedStep,
   mode,
   steps,
+  context,
 }: {
   events: NexusOneProgressEvent[];
   failedStep?: ProgressSdkStep | null;
   mode: NexusOneMode;
   steps: ProgressStep[];
+  context: {
+    destinationChain?: string;
+    destinationSymbol?: string;
+    opportunityName?: string;
+  };
 }): ProgressStatusRow[] => {
   const failedStatus = failedStep ? getStatusForStep(failedStep, mode) : null;
   const involvedStatuses: ProgressStatusId[] = [];
+  const approvalTotalCount = countUniqueSteps(events, steps, [
+    "CREATE_PERMIT_FOR_SOURCE_SWAP",
+  ]);
+  const approvalCompletedCount = countUniqueSteps(
+    events,
+    steps,
+    ["CREATE_PERMIT_FOR_SOURCE_SWAP"],
+    true,
+  );
   const addStatus = (id: ProgressStatusId | null) => {
     if (!id) return;
     if (mode === "swap" && id === "action") return;
@@ -330,6 +494,8 @@ const buildStatusRows = ({
       involvedStatuses.push(id);
     }
   };
+
+  addStatus("confirmIntent");
 
   for (const item of steps) {
     addStatus(getStatusForStep(item.step, mode));
@@ -339,12 +505,32 @@ const buildStatusRows = ({
   }
   addStatus(failedStatus);
 
+  if (approvalTotalCount > 0) {
+    addStatus("approveTokens");
+  }
+
+  if (mode === "swap") {
+    addStatus("swapTokens");
+    addStatus("receiveToken");
+  }
+
+  if (
+    hasStepType(events, steps, [
+      "BRIDGE_DEPOSIT",
+      "DESTINATION_SWAP",
+      "SWAP_COMPLETE",
+      "SWAP_SKIPPED",
+    ])
+  ) {
+    addStatus("receiveToken");
+  }
+
   if (mode === "deposit" || mode === "send") {
     addStatus("action");
   }
 
   if (involvedStatuses.length === 0) {
-    addStatus("verifying");
+    addStatus("confirmIntent");
   }
 
   const orderedStatuses = involvedStatuses.sort(
@@ -356,16 +542,43 @@ const buildStatusRows = ({
       )
     : orderedStatuses;
 
-  return visibleStatuses
+  const contextWithCounts = {
+    ...context,
+    approvalCompletedCount,
+    approvalTotalCount,
+  };
+  const rows = visibleStatuses
     .map((id) => {
       const state = getStatusState(id, events, steps, mode, failedStatus);
 
       return {
         id,
-        label: getStatusLabel(id, mode, state),
+        description: getStatusDescription(id, state),
+        label: getStatusLabel(id, mode, state, contextWithCounts),
         state,
       };
     });
+
+  if (failedStatus || rows.some((row) => row.state === "loading")) {
+    return rows;
+  }
+
+  const nextActiveIndex = rows.findIndex((row) => row.state === "pending");
+  if (nextActiveIndex === -1) return rows;
+
+  return rows.map((row, index) => {
+    if (index !== nextActiveIndex) return row;
+
+    return {
+      ...row,
+      description: getStatusDescription(row.id, "loading"),
+      label:
+        row.id === "action"
+          ? row.label
+          : getStatusLabel(row.id, mode, "loading", contextWithCounts),
+      state: "loading",
+    };
+  });
 };
 
 function MiniLogo({
@@ -492,15 +705,22 @@ export function NexusOneProgressScreen({
   const destinationAmount = intentDestination?.amount ?? toAmount ?? "0";
   const destinationSymbol =
     intentDestination?.token.symbol || toToken?.symbol || opportunity?.tokenSymbol || "";
+  const destinationChainName =
+    intentDestination?.chain.name || toToken?.chainName || "";
   const destinationChain =
     mode === "deposit"
-      ? opportunity?.title || opportunity?.protocol || intentDestination?.chain.name || ""
-      : intentDestination?.chain.name || toToken?.chainName || "";
+      ? opportunity?.title || opportunity?.protocol || destinationChainName
+      : destinationChainName;
   const statusRows = buildStatusRows({
     events: progressEvents,
     failedStep,
     mode,
     steps: steps ?? [],
+    context: {
+      destinationChain: destinationChainName || destinationChain,
+      destinationSymbol,
+      opportunityName: opportunity?.title || opportunity?.protocol,
+    },
   });
 
   return (
@@ -685,16 +905,17 @@ export function NexusOneProgressScreen({
                 }}
               >
                 <span>{row.label}</span>
-                {isLoading && (
+                {row.description && (
                   <span
                     style={{
-                      color: brand,
+                      color: isLoading ? brand : muted,
                       fontSize: "12px",
+                      fontStyle: "italic",
                       fontWeight: 500,
                       lineHeight: "16px",
                     }}
                   >
-                    Approve on wallet
+                    {row.description}
                   </span>
                 )}
               </span>
