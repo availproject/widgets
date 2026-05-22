@@ -250,6 +250,8 @@ export function ReceiveAssetSelector({
       for (const bd of asset.breakdown ?? []) {
         const key = getTokenBalanceKey(bd.chain?.id, bd.contractAddress);
         if (!key) continue;
+        const fiatBalance = parseFiatValue(bd.balanceInFiat);
+        if (fiatBalance < 1) continue;
 
         const symbol = bd.symbol ?? asset.symbol;
         const decimals = bd.decimals ?? asset.decimals ?? 18;
@@ -261,7 +263,7 @@ export function ReceiveAssetSelector({
             }) ?? `0 ${symbol}`,
           balanceInFiat:
             bd.balanceInFiat != null
-              ? `$${Number(bd.balanceInFiat).toFixed(2)}`
+              ? `$${fiatBalance.toFixed(2)}`
               : "$0.00",
         });
         const nativeAlias = getNativeAddressAlias(bd.contractAddress);

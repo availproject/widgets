@@ -576,6 +576,7 @@ export function SwapIntentPreview({
   isLoading,
   isRefreshing,
   isExecuting,
+  swapType,
   intentData,
   mode,
   opportunity,
@@ -593,6 +594,8 @@ export function SwapIntentPreview({
   const flowMode = mode ?? activeMode ?? "swap";
   const isDepositMode = flowMode === "deposit";
   const isSendMode = flowMode === "send";
+  const isExactOutDisplayFlow = (isDepositMode || isSendMode) && swapType === "exactOut";
+  const shouldShowSwapBuffer = swapType !== "exactIn";
   const intentSources = intentData?.sources ?? [];
   const intentDest = intentData?.destination;
   const normalizedIntentSources = intentSources.map((source) => ({
@@ -636,10 +639,48 @@ export function SwapIntentPreview({
       ? opportunity?.title || opportunity?.protocol || "Opportunity"
       : normalizedIntentDest?.chain.name || toToken?.chainName || "";
 
+  const requestedDestinationAmount =
+    isExactOutDisplayFlow ? parseDecimal(toAmountTokens ?? toAmount) : undefined;
+  const quotedDestinationAmount = parseDecimal(normalizedIntentDest?.amount);
+  const destinationBalanceAmount = parseDecimal(toToken?.balance);
+  const displayOnlyDestinationCoverage =
+    requestedDestinationAmount &&
+    requestedDestinationAmount.gt(0) &&
+    quotedDestinationAmount &&
+    requestedDestinationAmount.gt(quotedDestinationAmount) &&
+    destinationBalanceAmount &&
+    destinationBalanceAmount.gt(0)
+      ? Decimal.min(
+          requestedDestinationAmount.minus(quotedDestinationAmount),
+          destinationBalanceAmount,
+        )
+      : undefined;
+  const requestedDestinationUsd = parseDecimal(toAmountUsd);
+  const destinationDisplayUsdRate =
+    requestedDestinationAmount &&
+    requestedDestinationAmount.gt(0) &&
+    requestedDestinationUsd &&
+    requestedDestinationUsd.gt(0)
+      ? requestedDestinationUsd.div(requestedDestinationAmount)
+      : quotedDestinationAmount &&
+          quotedDestinationAmount.gt(0) &&
+          normalizedIntentDest?.value
+        ? (parseDecimal(normalizedIntentDest.value) ?? new Decimal(0)).div(
+            quotedDestinationAmount,
+          )
+        : undefined;
+  const displayOnlyDestinationCoverageUsd =
+    displayOnlyDestinationCoverage &&
+    displayOnlyDestinationCoverage.gt(0) &&
+    destinationDisplayUsdRate &&
+    destinationDisplayUsdRate.gt(0)
+      ? displayOnlyDestinationCoverage.mul(destinationDisplayUsdRate)
+      : undefined;
+
   const intentSourceUsdValues = normalizedIntentSources.map((source) =>
     parseDecimal(source.value),
   );
-  const sourceUsdNumber =
+  const intentSourceUsdNumber =
     normalizedIntentSources.length > 0
       ? intentSourceUsdValues.every((value) => value !== undefined)
         ? intentSourceUsdValues.reduce(
@@ -648,9 +689,17 @@ export function SwapIntentPreview({
           )
         : parseDecimal(fromAmountUsd)
       : parseDecimal(fromAmountUsd);
+  const sourceUsdNumber =
+    displayOnlyDestinationCoverageUsd !== undefined
+      ? (intentSourceUsdNumber ?? new Decimal(0)).plus(
+          displayOnlyDestinationCoverageUsd,
+        )
+      : intentSourceUsdNumber;
 
   const destinationUsdNumber = hasResolvedQuote
-    ? (parseDecimal(normalizedIntentDest?.value) ?? parseDecimal(toAmountUsd))
+    ? isExactOutDisplayFlow
+      ? (parseDecimal(toAmountUsd) ?? parseDecimal(normalizedIntentDest?.value))
+      : (parseDecimal(normalizedIntentDest?.value) ?? parseDecimal(toAmountUsd))
     : undefined;
   const hasFiatQuote =
     sourceUsdNumber !== undefined &&
@@ -728,7 +777,9 @@ export function SwapIntentPreview({
     parseDecimal((intentData as any)?.priceImpactPercent);
 
   const destinationTokenAmount =
-    normalizedIntentDest?.amount || toAmountTokens || toAmount || "0";
+    isExactOutDisplayFlow && (toAmountTokens || toAmount)
+      ? toAmountTokens || toAmount || "0"
+      : normalizedIntentDest?.amount || toAmountTokens || toAmount || "0";
   const feeDetailRows = bridgeFeeData
     ? [
         {
@@ -785,7 +836,7 @@ export function SwapIntentPreview({
     swapBufferNumber !== undefined
       ? formatUsdValue(swapBufferNumber)
       : pendingValue;
-  const sourceDetailRows =
+  const baseSourceDetailRows =
     normalizedIntentSources.length > 0
       ? normalizedIntentSources.map((source, index) => {
           const fallbackSource = fallbackSources.find(
@@ -835,8 +886,27 @@ export function SwapIntentPreview({
             index,
           };
         });
+  const displayOnlyDestinationSourceRow =
+    displayOnlyDestinationCoverage && displayOnlyDestinationCoverage.gt(0)
+      ? {
+          key: `destination-existing-${normalizedIntentDest?.chain.id ?? toToken?.chainId ?? "chain"}-${normalizedIntentDest?.token.contractAddress ?? toToken?.contractAddress ?? "token"}`,
+          tokenLogo: normalizedIntentDest?.token.logo || toToken?.logo || "",
+          chainLogo: normalizedIntentDest?.chain.logo || toToken?.chainLogo || "",
+          symbol: destTokenSymbol,
+          chainName: normalizedIntentDest?.chain.name || toToken?.chainName || "",
+          tokenAmount: `${formatTokenAmount(displayOnlyDestinationCoverage)} ${destTokenSymbol}`,
+          usdAmount:
+            displayOnlyDestinationCoverageUsd !== undefined
+              ? formatUsdValue(displayOnlyDestinationCoverageUsd)
+              : pendingValue,
+          index: baseSourceDetailRows.length,
+        }
+      : undefined;
+  const sourceDetailRows = displayOnlyDestinationSourceRow
+    ? [...baseSourceDetailRows, displayOnlyDestinationSourceRow]
+    : baseSourceDetailRows;
   const singleSourceHeader = (() => {
-    if (normalizedIntentSources.length === 1) {
+    if (!displayOnlyDestinationSourceRow && normalizedIntentSources.length === 1) {
       const source = normalizedIntentSources[0];
       return {
         amount: formatTokenAmount(source.amount),
@@ -869,7 +939,8 @@ export function SwapIntentPreview({
         : "";
     }
 
-    const count = sourceAssetCount || 1;
+    const count =
+      sourceAssetCount + (displayOnlyDestinationSourceRow ? 1 : 0) || 1;
     return `${count} asset${count === 1 ? "" : "s"}`;
   })();
   const shouldScrollSourceDetails = sourceDetailRows.length > 5;
@@ -1340,22 +1411,24 @@ export function SwapIntentPreview({
           </div>
         </AnimatedDetails>
 
-        <Row
-          title={
-            <span
-              style={{
-                alignItems: "center",
-                display: "inline-flex",
-                gap: "6px",
-              }}
-            >
-              Swap Buffer
-              <InlineInfoTooltip message="Temporary buffer collected to ensure swaps succeed. Excess funds are refunded." />
-            </span>
-          }
-          subtitle="Excess funds are refunded"
-          value={swapBufferDisplay}
-        />
+        {shouldShowSwapBuffer && (
+          <Row
+            title={
+              <span
+                style={{
+                  alignItems: "center",
+                  display: "inline-flex",
+                  gap: "6px",
+                }}
+              >
+                Swap Buffer
+                <InlineInfoTooltip message="Temporary buffer collected to ensure swaps succeed. Excess funds are refunded." />
+              </span>
+            }
+            subtitle="Excess funds are refunded"
+            value={swapBufferDisplay}
+          />
+        )}
       </div>
 
       {isExecuting && steps && steps.length > 0 && (

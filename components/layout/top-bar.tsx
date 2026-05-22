@@ -60,6 +60,11 @@ const NAV_ITEMS = [
     section: "Components",
     children: [
       {
+        id: "nexus-one",
+        label: "Nexus One",
+        href: "/docs/components/nexus-one",
+      },
+      {
         id: "deposit",
         label: "Deposit",
         href: "/docs/components/deposit",

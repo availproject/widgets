@@ -850,7 +850,12 @@ export function SwapAssetSelector({
         result = result.filter((token) => STABLE_SYMBOLS.has(token.symbol));
       }
 
-      return mergeTokenOptions(result, lockedSelectedTokens);
+      return mergeTokenOptions(
+        result.filter((token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD),
+        lockedSelectedTokens.filter(
+          (token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD,
+        ),
+      );
     },
     [allTokens, lockedSelectedTokens, selectedChainFilter],
   );
@@ -952,6 +957,9 @@ export function SwapAssetSelector({
     const groups: Record<string, SwapTokenOption[]> = {};
     for (const token of filtered) {
       const unifiedSym = allowUnified ? getUnifiedSymbol(token) : null;
+      if (unifiedSym && getTokenFiatValue(token) < MIN_FIAT_THRESHOLD) {
+        continue;
+      }
       const key = unifiedSym ?? `${token.contractAddress}-${token.chainId}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(token);
@@ -1379,13 +1387,18 @@ export function SwapAssetSelector({
     if (token.isUnified && token.sourceTokens?.length) {
       return sum.plus(
         token.sourceTokens.reduce(
-          (sourceSum, source) =>
-            sourceSum.plus(parseTokenAmount(source.balanceInFiat) ?? new Decimal(0)),
+          (sourceSum, source) => {
+            const value = parseTokenAmount(source.balanceInFiat) ?? new Decimal(0);
+            return value.gte(MIN_FIAT_THRESHOLD)
+              ? sourceSum.plus(value)
+              : sourceSum;
+          },
           new Decimal(0),
         ),
       );
     }
-    return sum.plus(parseTokenAmount(token.balanceInFiat) ?? new Decimal(0));
+    const value = parseTokenAmount(token.balanceInFiat) ?? new Decimal(0);
+    return value.gte(MIN_FIAT_THRESHOLD) ? sum.plus(value) : sum;
   }, new Decimal(0));
   const selectionDeficitUsdAmount =
     requiredUsdAmount && selectedUsdAmount.lt(requiredUsdAmount)

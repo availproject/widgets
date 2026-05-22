@@ -599,12 +599,27 @@ export function SwapIdleForm({
   const previousSourceCountRef = useRef(fromTokens.length);
 
   useEffect(() => {
-    if (fromTokens.length > previousSourceCountRef.current) {
+    const previousSourceCount = previousSourceCountRef.current;
+    if (fromTokens.length > previousSourceCount && previousSourceCount > 0) {
       const newIndex = fromTokens.length - 1;
       requestAnimationFrame(() => {
-        sourceRowRefs.current[newIndex]?.scrollIntoView({
+        const container = sourceListRef.current;
+        const row = sourceRowRefs.current[newIndex];
+        if (
+          !container ||
+          !row ||
+          container.scrollHeight <= container.clientHeight
+        ) {
+          return;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        const nextTop = rowRect.top - containerRect.top + container.scrollTop - 8;
+
+        container.scrollTo({
           behavior: "smooth",
-          block: "nearest",
+          top: Math.max(0, nextTop),
         });
       });
     }
