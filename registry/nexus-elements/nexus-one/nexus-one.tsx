@@ -2205,6 +2205,26 @@ export function NexusOne({
       )
       .filter(hasMinimumSourceUsdBalance);
 
+  const hasPositiveDecimalInput = (value: unknown) =>
+    Boolean(parseFiatNumber(value)?.gt(0));
+
+  const getReadyExactInSourceTokens = (tokens: SwapTokenOption[]) =>
+    getExactInSourceTokens(tokens).filter(
+      (token) =>
+        Boolean(token.chainId && token.contractAddress) &&
+        hasPositiveDecimalInput(token.userAmount),
+    );
+
+  const hasReadyExactInSwapInput = (
+    tokens: SwapTokenOption[],
+    destination?: SwapTokenOption,
+  ) =>
+    Boolean(
+      destination?.chainId &&
+        destination.contractAddress &&
+        getReadyExactInSourceTokens(tokens).length > 0,
+    );
+
   const getExpandedSourceTokens = (tokens: SwapTokenOption[]) => {
     const expanded = tokens.flatMap((token) =>
       token.isUnified && token.sourceTokens?.length ? token.sourceTokens : [token],
@@ -3351,12 +3371,21 @@ export function NexusOne({
     options: { background?: boolean } = {},
   ) => {
     const { background = false } = options;
-    if (!toToken || !amount) {
-      return;
-    }
     const isExactOutFlow = activeMode === "deposit" || activeMode === "send";
 
-    if (!isExactOutFlow && fromTokens.length === 0) {
+    if (!toToken) {
+      return;
+    }
+
+    if (isExactOutFlow) {
+      if (!hasPositiveDecimalInput(amount)) {
+        return;
+      }
+    } else if (!hasReadyExactInSwapInput(fromTokens, toToken)) {
+      if (!background) {
+        setTxError(null);
+        setSwapQuoteIssue(null);
+      }
       return;
     }
 
@@ -3592,7 +3621,7 @@ export function NexusOne({
           amount: bigint;
         }[] = [];
 
-        const exactInSourceTokens = getExactInSourceTokens(fromTokens, amount);
+        const exactInSourceTokens = getReadyExactInSourceTokens(fromTokens);
 
         for (const token of exactInSourceTokens) {
           // Determine the amount to use for this specific token
@@ -3912,12 +3941,12 @@ export function NexusOne({
       return;
     }
 
-    const hasEnoughForQuote =
-      Boolean(amount && Number(amount) > 0 && toToken) &&
-      fromTokens.length > 0;
+    const hasEnoughForQuote = hasReadyExactInSwapInput(fromTokens, toToken);
 
     if (!hasEnoughForQuote) {
       clearPendingSwapIntent();
+      setSwapQuoteIssue(null);
+      setTxError(null);
       return;
     }
 
@@ -4239,11 +4268,13 @@ export function NexusOne({
   ) => {
     syncingIntentSourcesRef.current = false;
     setSwapQuoteIssue(null);
+    setTxError(null);
     const nextAmount = parseFiatNumber(val);
+    const hasSelectedSourceToken = fromTokens.some(
+      (token) => token.chainId && token.contractAddress,
+    );
     const shouldLoadQuote = Boolean(
-      nextAmount?.gt(0) &&
-        toToken &&
-        (panel === "receive" || fromTokens.length > 0),
+      nextAmount?.gt(0) && toToken && hasSelectedSourceToken,
     );
     clearPendingSwapIntent(true, { keepQuoteRefreshing: shouldLoadQuote });
     if (shouldLoadQuote) {
@@ -4526,23 +4557,21 @@ export function NexusOne({
   const hasIntentSources = Boolean((intentData?.sources ?? []).length > 0);
   const isQuoteUnavailableForAutoSourceFlow =
     (activeMode === "deposit" || activeMode === "send") &&
-    Boolean(amount && Number(amount) > 0 && toToken) &&
+    Boolean(hasPositiveDecimalInput(amount) && toToken) &&
     !quoteRefreshing &&
     !receiveMaxCalculating &&
     !intentLoading &&
     !exactOutInsufficientSourceIssue &&
     (!hasCurrentRunnableIntent || !hasIntentSources);
+  const hasPositiveRootAmount = hasPositiveDecimalInput(amount);
+  const hasReadySwapQuoteInput = hasReadyExactInSwapInput(fromTokens, toToken);
   const isSwapCtaDisabled =
-    !amount ||
-    Number(amount) <= 0 ||
-    fromTokens.length === 0 ||
-    !toToken ||
+    !hasReadySwapQuoteInput ||
     receiveMaxCalculating ||
     quoteRefreshing ||
     Boolean(exactOutInsufficientSourceIssue);
   const isDepositCtaDisabled =
-    !amount ||
-    Number(amount) <= 0 ||
+    !hasPositiveRootAmount ||
     !toToken ||
     quoteRefreshing ||
     receiveMaxCalculating ||
@@ -4550,8 +4579,7 @@ export function NexusOne({
     Boolean(exactOutInsufficientSourceIssue);
   const sendNeedsRecipient = activeMode === "send" && !recipientAddress;
   const isSendCtaDisabled =
-    !amount ||
-    Number(amount) <= 0 ||
+    !hasPositiveRootAmount ||
     !toToken ||
     receiveMaxCalculating ||
     (!sendNeedsRecipient &&
@@ -4561,18 +4589,18 @@ export function NexusOne({
     exactOutInsufficientSourceIssue
       ? "Insufficient balance"
       : receiveMaxCalculating
-      ? "Calculating..."
-      : quoteRefreshing
-        ? "Fetching quotes..."
+        ? "Calculating..."
+        : quoteRefreshing
+          ? "Fetching quotes..."
         : isQuoteUnavailableForAutoSourceFlow
           ? "Quote unavailable"
-        : !amount || Number(amount) <= 0
+        : !hasPositiveRootAmount
           ? "Enter amount"
           : fallback;
   const sendCtaLabel =
     exactOutInsufficientSourceIssue
       ? "Insufficient balance"
-      : !amount || Number(amount) <= 0
+      : !hasPositiveRootAmount
         ? "Enter amount"
         : !toToken
           ? "Select token"

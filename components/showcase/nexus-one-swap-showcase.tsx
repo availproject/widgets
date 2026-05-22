@@ -13,7 +13,7 @@ const NexusOneSwapShowcase = () => {
   return (
     <ShowcaseWrapper
       type="nexus-one"
-      connectLabel="Connect wallet to use Nexus One Swap"
+      connectLabel="Connect wallet to use Swap and Bridge"
     >
       <div
         className="flex w-full justify-center"
@@ -25,6 +25,7 @@ const NexusOneSwapShowcase = () => {
           config={{
             mode: "swap",
             prefill: {
+              amount: "1",
               source: {
                 token: USDC_ARBITRUM,
                 chain: 42161,

@@ -1,11 +1,7 @@
 {
   "pages": [
-    "nexus-one",
-    "deposit",
-    "fast-bridge",
     "swaps",
-    "transfer",
-    "unified-balance",
-    "view-history"
+    "deposit",
+    "transfer"
   ]
 }

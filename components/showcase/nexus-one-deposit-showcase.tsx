@@ -47,13 +47,71 @@ const FLUID_ABI = [
   },
 ] as const;
 
+const MYSTIC_ABI = [
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "assets",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "onBehalf",
+        type: "address",
+      },
+    ],
+    name: "deposit",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+]
+
+const ZENTRA_ABI = [
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "asset",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "onBehalfOf",
+        type: "address",
+      },
+      {
+        internalType: "uint16",
+        name: "referralCode",
+        type: "uint16",
+      },
+    ],
+    name: "supply",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+]
+
 const NexusOneDepositShowcase = () => {
   const { address } = useAccount();
 
   return (
     <ShowcaseWrapper
       type="nexus-one"
-      connectLabel="Connect wallet to use Nexus One Deposit"
+      connectLabel="Connect wallet to use Deposit"
     >
       <div
         className="flex w-full justify-center"
@@ -64,9 +122,12 @@ const NexusOneDepositShowcase = () => {
         <NexusOne
           config={{
             mode: "deposit",
+            prefill: {
+              amount: "0.1",
+            },
             opportunities: [
               {
-                id: "aave-arb",
+                id: "aave-arb-usdt",
                 title: "Aave",
                 protocol: "Aave",
                 subtitle: "USDT on Aave on Arbitrum",
@@ -97,7 +158,7 @@ const NexusOneDepositShowcase = () => {
                 }),
               },
               {
-                id: "aave-eth",
+                id: "aave-eth-gho",
                 title: "Aave",
                 protocol: "Aave",
                 subtitle: "GHO on Aave on Ethereum",
@@ -128,7 +189,7 @@ const NexusOneDepositShowcase = () => {
                 }),
               },
               {
-                id: "compound-pol",
+                id: "compound-pol-usdt",
                 title: "Compound",
                 protocol: "Compound",
                 subtitle: "USDT on Compound on Polygon",
@@ -154,7 +215,7 @@ const NexusOneDepositShowcase = () => {
                 }),
               },
               {
-                id: "fluid-base",
+                id: "fluid-base-usdc",
                 title: "Fluid",
                 protocol: "Fluid",
                 subtitle: "USDC on Fluid on Base",
@@ -176,6 +237,58 @@ const NexusOneDepositShowcase = () => {
                     token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
                     amount: amount,
                     spender: "0xf42f5795D9ac7e9D757dB633D693cD548Cfd9169",
+                  },
+                }),
+              },
+              {
+                id: "mystic-citrea-ctusd",
+                title: "Mystic",
+                protocol: "Mystic",
+                subtitle: "ctUSD on Mystic on Citrea",
+                logo: "https://files.availproject.org/nexus-elements/mystic.png",
+                chainId: SUPPORTED_CHAINS.CITREA,
+                tokenSymbol: "ctUSD",
+                tokenAddress: "0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D",
+                tokenLogo:
+                  "https://files.availproject.org/nexus-elements/ctUSD.svg",
+                execute: (amount, connectedAddress) => ({
+                  to: "0x72f8C254548839Fa1Db4156aE01d8C6ae5885EE4",
+                  data: encodeFunctionData({
+                    abi: MYSTIC_ABI,
+                    functionName: "deposit",
+                    args: [amount, connectedAddress],
+                  }),
+                  gas: BigInt(300000),
+                  tokenApproval: {
+                    token: "0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D",
+                    amount: amount,
+                    spender: "0x72f8C254548839Fa1Db4156aE01d8C6ae5885EE4",
+                  },
+                }),
+              },
+              {
+                id: "zentra-citrea-wcbtc",
+                title: "Zentra",
+                protocol: "Zentra",
+                subtitle: "wcBTC on Zentra on Citrea",
+                logo: "https://zentrafinance.gitbook.io/zentra/~gitbook/image?url=https%3A%2F%2F2899070418-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Forganizations%252F1jzW9aBSq190MuRJKgIj%252Fsites%252Fsite_2l6Ro%252Ficon%252Fb8adwB6RA7Y6VJH3vGjh%252FZentra%2520%284%29.png%3Falt%3Dmedia%26token%3D8aa44578-e817-4c2f-b20e-abd25827d4fe&width=32&dpr=3&quality=100&sign=d18163fe&sv=2",
+                chainId: SUPPORTED_CHAINS.CITREA,
+                tokenSymbol: "wcBTC",
+                tokenAddress: "0x3100000000000000000000000000000000000006",
+                tokenLogo:
+                  "https://assets.coingecko.com/coins/images/102172843/standard/cBTC.png",
+                execute: (amount, connectedAddress) => ({
+                  to: "0xfb7908150b738e7dB9862007c66C9eb7850706F5",
+                  data: encodeFunctionData({
+                    abi: ZENTRA_ABI,
+                    functionName: "supply",
+                    args: ["0x3100000000000000000000000000000000000006", amount, connectedAddress, 0],
+                  }),
+                  gas: BigInt(300000),
+                  tokenApproval: {
+                    token: "0x3100000000000000000000000000000000000006",
+                    amount: amount,
+                    spender: "0xfb7908150b738e7dB9862007c66C9eb7850706F5",
                   },
                 }),
               },
