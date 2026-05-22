@@ -1,3 +1,5 @@
+blockExoticSubdeps: false
+
 allowBuilds:
   "@avail-project/ca-common": true
   "@avail-project/nexus-core": true
