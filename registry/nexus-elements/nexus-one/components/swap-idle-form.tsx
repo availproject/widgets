@@ -1249,7 +1249,7 @@ export function SwapIdleForm({
                           <ChevronDownIcon />
                         </button>
                       )}
-                    {token && (
+                    {token && fromTokens.length > 1 && (
                       <button
                         onClick={() => {
                           if (!onUpdateTokens) return;

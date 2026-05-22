@@ -211,7 +211,9 @@ function PayWithSources({
   routeMessage?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const shouldScroll = fromTokens.length > 3;
+  const isRouteLoading = routeStatus === "loading";
+  const shouldShowSourceSummary = !isRouteLoading && fromTokens.length > 0;
+  const shouldScroll = shouldShowSourceSummary && fromTokens.length > 3;
   const autoBadge = (
     <span
       style={{
@@ -260,11 +262,11 @@ function PayWithSources({
           }}
         >
           <span>
-            Pay With{fromTokens.length > 0 ? ` · ${fromTokens.length} assets` : ""}
+            Pay With{shouldShowSourceSummary ? ` · ${fromTokens.length} assets` : ""}
           </span>
           {autoBadge}
         </div>
-        {fromTokens.length > 0 && (
+        {shouldShowSourceSummary && (
           <button
             onClick={onOpenSourcePicker}
             style={{
@@ -285,7 +287,7 @@ function PayWithSources({
         )}
       </div>
 
-      {routeStatus === "loading" ? (
+      {isRouteLoading ? (
         <>
           <SkeletonRow />
           <div style={{ alignItems: "center", color: brand, display: "flex", fontFamily: uiFont, fontSize: "13px", gap: "6px" }}>
@@ -293,7 +295,7 @@ function PayWithSources({
             Calculating best route...
           </div>
         </>
-      ) : fromTokens.length > 0 ? (
+      ) : shouldShowSourceSummary ? (
         <div style={{ position: "relative" }}>
           <div
             ref={scrollRef}

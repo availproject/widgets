@@ -108,6 +108,11 @@ const SWAP_APPROVAL_TYPES = [
   "CREATE_PERMIT_FOR_SOURCE_SWAP",
 ];
 
+const DESTINATION_SWAP_TYPES = [
+  "DESTINATION_SWAP_BATCH_TX",
+  "DESTINATION_SWAP_HASH",
+];
+
 const getStatusForStep = (
   step: ProgressSdkStep | undefined,
   mode: NexusOneMode,
@@ -122,7 +127,7 @@ const getStatusForStep = (
     return mode === "swap" ? null : "action";
   }
 
-  if (type.includes("SWAP_START") || type.includes("DETERMINING_SWAP")) {
+  if (type.includes("SWAP_START")) {
     return "swapTokens";
   }
 
@@ -275,10 +280,18 @@ const buildStatusRows = ({
     "SWAP_COMPLETE",
     "SWAP_SKIPPED",
   ]);
+  const hasReceiveTokenStep =
+    countListedSteps(swapListSteps, DESTINATION_SWAP_TYPES) > 0 ||
+    countListedSteps(fallbackSteps, DESTINATION_SWAP_TYPES) > 0;
+  const destinationSwapStarted = hasEventType(events, DESTINATION_SWAP_TYPES);
   const swapComplete = hasCompletedType(events, steps, [
     "SWAP_COMPLETE",
     "SWAP_SKIPPED",
   ]);
+  const swapTokensComplete = hasReceiveTokenStep
+    ? destinationSwapStarted
+    : swapComplete;
+  const receiveTokenComplete = hasReceiveTokenStep && swapComplete;
   const transactionSent = hasCompletedType(events, steps, [
     "TRANSACTION_SENT",
   ]);
@@ -332,7 +345,7 @@ const buildStatusRows = ({
     let state: ProgressStatusState = "default";
     if (failedStatus === "swapTokens") {
       state = "error";
-    } else if (swapComplete) {
+    } else if (swapTokensComplete) {
       state = "completed";
     } else if (
       approvalsSatisfied &&
@@ -361,25 +374,33 @@ const buildStatusRows = ({
               : "Swap tokens",
     });
 
-    pushRow({
-      id: "receiveToken",
-      state:
-        failedStatus === "receiveToken"
-          ? "error"
-          : swapComplete
-            ? "completed"
-            : "default",
-      label:
-        failedStatus === "receiveToken"
-          ? "Destination Swap Failed. USDC refund initiated."
-          : swapComplete
-            ? `Received ${destinationSymbol} on ${destinationChain}`
-            : `Receive ${destinationSymbol} on ${destinationChain}`,
-    });
+    if (hasReceiveTokenStep) {
+      pushRow({
+        id: "receiveToken",
+        state:
+          failedStatus === "receiveToken"
+            ? "error"
+            : receiveTokenComplete
+              ? "completed"
+              : destinationSwapStarted
+                ? "inProgress"
+                : "default",
+        label:
+          failedStatus === "receiveToken"
+            ? "Destination Swap Failed. USDC refund initiated."
+            : receiveTokenComplete
+              ? `Received ${destinationSymbol} on ${destinationChain}`
+              : destinationSwapStarted
+                ? `Receiving ${destinationSymbol} on ${destinationChain}`
+                : `Receive ${destinationSymbol} on ${destinationChain}`,
+      });
+    }
   }
 
   if (mode === "deposit" || mode === "send") {
-    const receiveComplete = !hasSwapList || swapComplete;
+    const receiveComplete =
+      !hasSwapList ||
+      (hasReceiveTokenStep ? receiveTokenComplete : swapTokensComplete);
     const isDeposit = mode === "deposit";
     let state: ProgressStatusState = "default";
     if (failedStatus === "action") {
@@ -573,9 +594,9 @@ export function NexusOneProgressScreen({
   const sourceUsd =
     intentSources.length > 0
       ? intentSources.reduce(
-          (sum, source) => sum.plus(parseDecimal(source.value) ?? 0),
-          new Decimal(0),
-        )
+        (sum, source) => sum.plus(parseDecimal(source.value) ?? 0),
+        new Decimal(0),
+      )
       : parseDecimal(fromAmountUsd);
   const destinationAmount =
     (mode === "deposit" || mode === "send") && toAmount

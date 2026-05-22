@@ -101,6 +101,8 @@ interface SwapHistoryEntry {
   sourceExplorerUrl?: string | null;
   finalExplorerUrl?: string | null;
   error?: string;
+  failureMessage?: string;
+  failedStepType?: string;
 }
 
 type SwapQuoteIssue = {
@@ -596,10 +598,107 @@ function TruncatedAddress({
   );
 }
 
+const getDisplayDestinationSourceRow = (entry: SwapHistoryEntry) => {
+  if (entry.mode !== "deposit" && entry.mode !== "send") return null;
+  if (!entry.toToken || !entry.requestedToAmount) return null;
+
+  const requestedAmount = parseDecimalLoose(entry.requestedToAmount);
+  const intentDestinationAmount = parseDecimalLoose(entry.intentData?.destination.amount);
+  const destinationBalanceAmount = parseDecimalLoose(
+    entry.toToken.balance?.replace(entry.toToken.symbol, ""),
+  );
+  if (
+    !requestedAmount ||
+    !destinationBalanceAmount ||
+    requestedAmount.lte(0) ||
+    destinationBalanceAmount.lte(0)
+  ) {
+    return null;
+  }
+
+  const intentCoversAmount = intentDestinationAmount ?? new Decimal(0);
+  const displayAmount = Decimal.min(
+    destinationBalanceAmount,
+    Decimal.max(0, requestedAmount.minus(intentCoversAmount)),
+  );
+  if (displayAmount.lte(0)) return null;
+
+  const requestedValue = parseDecimalLoose(entry.requestedToValue);
+  const destinationValue = parseDecimalLoose(entry.intentData?.destination.value);
+  const rate =
+    requestedValue && requestedAmount.gt(0)
+      ? requestedValue.div(requestedAmount)
+      : destinationValue && intentCoversAmount.gt(0)
+        ? destinationValue.div(intentCoversAmount)
+        : undefined;
+
+  return {
+    key: `destination-balance-${entry.toToken.chainId}-${entry.toToken.contractAddress}`,
+    tokenLogo: entry.toToken.logo,
+    chainLogo: entry.toToken.chainLogo,
+    symbol: entry.toToken.symbol,
+    chainName: entry.toToken.chainName || "",
+    amount: displayAmount
+      .toDecimalPlaces(Math.max(0, entry.toToken.decimals ?? 18), Decimal.ROUND_DOWN)
+      .toFixed(),
+    value: rate ? displayAmount.mul(rate).toFixed() : entry.toToken.balanceInFiat,
+  };
+};
+
+const getProgressStepType = (
+  step?: SwapStepType | BridgeStepType | null,
+) => String((step as any)?.type ?? (step as any)?.typeID ?? "").toUpperCase();
+
+const getFailureMessageForProgressStep = (
+  step: SwapStepType | BridgeStepType | null | undefined,
+  mode: NexusOneMode,
+) => {
+  const type = getProgressStepType(step);
+  if (
+    type.includes("CREATE_PERMIT_FOR_SOURCE_SWAP") ||
+    type.includes("SOURCE_SWAP") ||
+    type.includes("COLLECTION")
+  ) {
+    return "Collection Failed";
+  }
+  if (
+    type.includes("DESTINATION_SWAP") ||
+    type.includes("FULFIL")
+  ) {
+    return "Destination Swap Failed. USDC refund initiated";
+  }
+  if (
+    type.includes("TRANSACTION") ||
+    type.includes("APPROVAL") ||
+    type.includes("DEPOSIT")
+  ) {
+    return mode === "send"
+      ? "Send failed. Funds are in your wallet"
+      : mode === "deposit"
+        ? "Deposit failed. Funds are in your wallet"
+        : "Swap Failed. Refund Initiated";
+  }
+  if (
+    type.includes("SWAP") ||
+    type.includes("BRIDGE") ||
+    type.includes("RFF") ||
+    type.includes("INTENT") ||
+    type.includes("DETERMINING")
+  ) {
+    return "Swap Failed. Refund Initiated";
+  }
+  return mode === "send"
+    ? "Send failed. Funds are in your wallet"
+    : mode === "deposit"
+      ? "Deposit failed. Funds are in your wallet"
+      : "Swap Failed. Refund Initiated";
+};
+
 const getSourceRows = (entry: SwapHistoryEntry) => {
   const sources = entry.intentData?.sources ?? [];
+  const displayDestinationSourceRow = getDisplayDestinationSourceRow(entry);
   if (sources.length > 0) {
-    return sources.map((source, index) => {
+    const sourceRows = sources.map((source, index) => {
       const fallback = entry.fromTokens.find(
         (token) =>
           token.chainId === source.chain.id &&
@@ -618,9 +717,13 @@ const getSourceRows = (entry: SwapHistoryEntry) => {
         value: source.value,
       };
     });
+
+    return displayDestinationSourceRow
+      ? [displayDestinationSourceRow, ...sourceRows]
+      : sourceRows;
   }
 
-  return entry.fromTokens.map((token, index) => ({
+  const fallbackRows = entry.fromTokens.map((token, index) => ({
     key: `${token.chainId}-${token.contractAddress}-${index}`,
     tokenLogo: token.logo,
     chainLogo: token.chainLogo,
@@ -629,6 +732,10 @@ const getSourceRows = (entry: SwapHistoryEntry) => {
     amount: token.userAmount || "0",
     value: token.balanceInFiat,
   }));
+
+  return displayDestinationSourceRow
+    ? [displayDestinationSourceRow, ...fallbackRows]
+    : fallbackRows;
 };
 
 function SourceRowsList({
@@ -779,13 +886,21 @@ function SwapReceiptPanel({
       : undefined;
   const value = requestedExactOutValue || destination?.value;
   const displayAmount = requestedExactOutAmount || amount;
-  const depositGasValue = destination?.gas?.value;
-  const depositGasAmount = destination?.gas?.amount;
-  const depositGasSymbol = destination?.gas?.token?.symbol;
-  const hasDestinationGas = (isDeposit || isSend) && Boolean(destination?.gas);
   const showIntentExplorer = hasValidIntentExplorer(entry);
   const intentLabel = `Intent #${entry.intentId}`;
-  const sourceCount = getSourceRows(entry).length;
+  const sourceRows = getSourceRows(entry);
+  const sourceCount = sourceRows.length;
+  const sourceTotalUsd = sourceRows.reduce(
+    (sum, source) => sum.plus(parseDecimalLoose(source.value) ?? 0),
+    new Decimal(0),
+  );
+  const failureHeadline =
+    entry.failureMessage ||
+    (isDeposit
+      ? "Deposit failed. Funds are in your wallet"
+      : isSend
+        ? "Send failed. Funds are in your wallet"
+        : "Swap Failed. Refund Initiated");
   const receiptLocation = isDeposit ? depositVenue : chainName;
   const receiptSummary = receiptLocation ? `on ${receiptLocation}` : "";
 
@@ -837,17 +952,13 @@ function SwapReceiptPanel({
           </div>
         </div>
         <div style={{ color: "#848483", fontFamily: uiFont, fontSize: "14px" }}>
-          {isDeposit
-            ? isFailed
-              ? "You were about to deposit"
-              : "You deposited"
-            : isSend
-              ? isFailed
-                ? "You were about to send"
-                : "You sent"
-            : isFailed
-              ? "You were about to receive"
-              : "You received"}
+          {isFailed
+            ? failureHeadline
+            : isDeposit
+              ? "You deposited"
+              : isSend
+                ? "You sent"
+                : "You received"}
         </div>
         <div
           style={{
@@ -915,12 +1026,7 @@ function SwapReceiptPanel({
             }}
           >
             <div style={{ color: "#161615", fontFamily: uiFont, fontSize: "14px", fontWeight: 700 }}>
-              {formatUsdDisplay(
-                (entry.intentData?.sources ?? []).reduce(
-                  (sum, source) => sum.plus(parseDecimalLoose(source.value) ?? 0),
-                  new Decimal(0),
-                ),
-              )}
+              {formatUsdDisplay(sourceTotalUsd)}
             </div>
             <button
               type="button"
@@ -1050,39 +1156,6 @@ function SwapReceiptPanel({
             {formatUsdDisplay(entry.feeUsd)}
           </span>
         </div>
-        {hasDestinationGas && (
-          <div
-            style={{
-              alignItems: "center",
-              borderTop: "1px solid #E8E8E7",
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "14px 20px",
-            }}
-          >
-            <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}>
-              {isSend ? "Gas Fee" : "Deposit Gas Fees"}
-            </span>
-            <div
-              style={{
-                alignItems: "flex-end",
-                display: "flex",
-                flexDirection: "column",
-                gap: "4px",
-                textAlign: "right",
-              }}
-            >
-              <span style={{ color: "#161615", fontFamily: uiFont, fontSize: "13px" }}>
-                {formatUsdDisplay(depositGasValue)}
-              </span>
-              <span style={{ color: "#848483", fontFamily: uiFont, fontSize: "12px" }}>
-                {depositGasAmount
-                  ? `${formatTokenDisplay(depositGasAmount)} ${depositGasSymbol || ""}`.trim()
-                  : "--"}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       <button
@@ -1449,6 +1522,14 @@ export function NexusOne({
     activeMode === "swap"
       ? recipientAddress || defaultRecipientAddress
       : recipientAddress;
+  const hasSameOwnerSendRecipient =
+    activeMode === "send" &&
+    Boolean(
+      ownerAddress &&
+        recipientAddress &&
+        isAddress(recipientAddress) &&
+        recipientAddress.toLowerCase() === ownerAddress.toLowerCase(),
+    );
   const previousDefaultRecipientRef = useRef(defaultRecipientAddress);
 
   // Swap-specific
@@ -1467,14 +1548,25 @@ export function NexusOne({
   const [fromTokens, setFromTokens] = useState<SwapTokenOption[]>([]);
   const [sourceSelectionTouched, setSourceSelectionTouched] = useState(false);
   const [sourceSelectionRevision, setSourceSelectionRevision] = useState(0);
+  const [, setExactOutQuoteSourceMode] = useState<"all" | "selected">("all");
+  const exactOutQuoteSourceModeRef = useRef<"all" | "selected">("all");
   const [toToken, setToToken] = useState<SwapTokenOption | undefined>(
     undefined,
   );
   const appliedTokenPrefillRef = useRef<string | null>(null);
 
+  const setExactOutQuoteSourceModeValue = useCallback(
+    (mode: "all" | "selected") => {
+      exactOutQuoteSourceModeRef.current = mode;
+      setExactOutQuoteSourceMode(mode);
+    },
+    [],
+  );
+
   useEffect(() => {
     setSourceSelectionTouched(false);
-  }, [activeMode]);
+    setExactOutQuoteSourceModeValue("all");
+  }, [activeMode, setExactOutQuoteSourceModeValue]);
 
   useEffect(() => {
     const previousDefault = previousDefaultRecipientRef.current;
@@ -1780,6 +1872,7 @@ export function NexusOne({
   const clearSelectedSources = () => {
     setFromTokens((current) => (current.length === 0 ? current : []));
     setSourceSelectionTouched(false);
+    setExactOutQuoteSourceModeValue("all");
   };
 
   const getSourceAmountInput = (tokens: SwapTokenOption[]) => {
@@ -2308,9 +2401,12 @@ export function NexusOne({
     return getExpandedSourceTokens(tokens).filter(hasGasForSource);
   };
 
-  const getExactOutSourceTokens = () => {
+  const getExactOutSourceTokens = (
+    mode: "all" | "selected" = exactOutQuoteSourceModeRef.current,
+  ) => {
     if (
       (activeMode === "deposit" || activeMode === "send") &&
+      mode === "selected" &&
       fromTokens.length > 0
     ) {
       return filterMinimumSourceUsdTokens(getExpandedSourceTokens(fromTokens)).filter(
@@ -2383,7 +2479,7 @@ export function NexusOne({
 
   const getExactOutAvailableSourceUsd = () => {
     const selectedSourceTotal =
-      fromTokens.length > 0
+      exactOutQuoteSourceModeRef.current === "selected" && fromTokens.length > 0
         ? fromTokens.reduce(
             (sum, token) => {
               const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
@@ -2397,7 +2493,15 @@ export function NexusOne({
       return selectedSourceTotal;
     }
 
-    return getSwapBalanceTotalUsd();
+    const allSourceTotal = getGasCapableBalanceSourceTokens().reduce(
+      (sum, token) => {
+        const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
+        return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
+      },
+      new Decimal(0),
+    );
+
+    return allSourceTotal.gt(0) ? allSourceTotal : getSwapBalanceTotalUsd();
   };
 
   const getExactInSourceDeficitUsd = () => {
@@ -2493,6 +2597,15 @@ export function NexusOne({
 
   const formatReadableTokenAmount = (rawAmount: bigint, decimals: number) =>
     new Decimal(rawAmount.toString()).div(new Decimal(10).pow(decimals)).toFixed();
+
+  const formatReadableTokenBalanceAmount = (
+    rawAmount: bigint,
+    decimals: number,
+  ) =>
+    new Decimal(rawAmount.toString())
+      .div(new Decimal(10).pow(decimals))
+      .toDecimalPlaces(6)
+      .toFixed();
 
   const trimDecimalString = (value: string) =>
     value.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
@@ -2807,6 +2920,38 @@ export function NexusOne({
     };
   };
 
+  const getDestinationBalanceFromSwapBalances = (
+    token?: SwapTokenOption,
+  ) => {
+    if (!token?.chainId || !token.contractAddress) return null;
+
+    const targetAddress = token.contractAddress.toLowerCase();
+    const targetSymbol = token.symbol.toUpperCase();
+
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        if (breakdown.chain?.id !== token.chainId) continue;
+
+        const breakdownAddress = breakdown.contractAddress?.toLowerCase();
+        const addressMatches =
+          (breakdownAddress && breakdownAddress === targetAddress) ||
+          (isNativeTokenAddress(breakdownAddress) &&
+            isNativeTokenAddress(targetAddress));
+        const symbolMatches =
+          (breakdown.symbol ?? asset.symbol ?? "").toUpperCase() === targetSymbol;
+
+        if (!addressMatches && !symbolMatches) continue;
+
+        const balance = parseFiatNumber(breakdown.balance);
+        if (!balance) return null;
+
+        return `${balance.toDecimalPlaces(6).toFixed()} ${token.symbol}`;
+      }
+    }
+
+    return null;
+  };
+
   const resolvePrefillToken = useCallback(
     (pair?: { token: `0x${string}`; chain: number }) => {
       if (!pair?.token || !pair.chain) return undefined;
@@ -2936,17 +3081,29 @@ export function NexusOne({
   useEffect(() => {
     setDestinationBalance(null);
 
-    if (!toToken?.chainId || !ownerAddress) return;
+    const balanceToken =
+      toToken ??
+      (activeMode === "deposit" && selectedOpportunity
+        ? toTokenFromOpportunity(selectedOpportunity)
+        : undefined);
 
-    const chainMeta = CHAIN_METADATA[toToken.chainId];
+    if (!balanceToken?.chainId || !ownerAddress) return;
+
+    const swapBalanceValue = getDestinationBalanceFromSwapBalances(balanceToken);
+    if (swapBalanceValue) {
+      setDestinationBalance(swapBalanceValue);
+      return;
+    }
+
+    const chainMeta = CHAIN_METADATA[balanceToken.chainId];
     const rpcUrl = chainMeta?.rpcUrls?.[0];
     if (!rpcUrl) return;
 
     let cancelled = false;
     const client = createPublicClient({
       chain: {
-        id: toToken.chainId,
-        name: chainMeta?.name ?? toToken.chainName ?? "Destination Chain",
+        id: balanceToken.chainId,
+        name: chainMeta?.name ?? balanceToken.chainName ?? "Destination Chain",
         nativeCurrency: chainMeta?.nativeCurrency ?? {
           decimals: 18,
           name: "Ether",
@@ -2971,15 +3128,15 @@ export function NexusOne({
     const fetchDestinationBalance = async () => {
       try {
         let rawBalance: bigint;
-        let decimals = toToken.decimals || 18;
+        let decimals = balanceToken.decimals || 18;
 
-        if (isNativeTokenAddress(toToken.contractAddress)) {
+        if (isNativeTokenAddress(balanceToken.contractAddress)) {
           rawBalance = await client.getBalance({
             address: ownerAddress as `0x${string}`,
           });
-          decimals = chainMeta?.nativeCurrency.decimals ?? decimals;
+          decimals = 18;
         } else {
-          const tokenAddress = toToken.contractAddress as `0x${string}`;
+          const tokenAddress = balanceToken.contractAddress as `0x${string}`;
           const [balanceResult, decimalsResult] = await Promise.all([
             client.readContract({
               abi: erc20Abi,
@@ -3002,7 +3159,7 @@ export function NexusOne({
 
         if (!cancelled) {
           setDestinationBalance(
-            `${formatReadableTokenAmount(rawBalance, decimals)} ${toToken.symbol}`,
+            `${formatReadableTokenBalanceAmount(rawBalance, decimals)} ${balanceToken.symbol}`,
           );
         }
       } catch (error) {
@@ -3016,7 +3173,13 @@ export function NexusOne({
       cancelled = true;
     };
   }, [
+    activeMode,
     ownerAddress,
+    selectedOpportunity?.chainId,
+    selectedOpportunity?.tokenAddress,
+    selectedOpportunity?.tokenLogo,
+    selectedOpportunity?.tokenSymbol,
+    swapBalance,
     toToken?.chainId,
     toToken?.chainName,
     toToken?.contractAddress,
@@ -3887,10 +4050,15 @@ export function NexusOne({
                 type: "DETERMINING_SWAP",
                 typeID: "DETERMINING_SWAP",
               } as unknown as SwapStepType);
-        setFailedProgressStep(
-          progressEventsRef.current.at(-1)?.step ?? fallbackFailedStep,
-        );
-        finishCurrentSwapHistoryEntry("failed", { error, ...patch });
+        const failedStep =
+          progressEventsRef.current.at(-1)?.step ?? fallbackFailedStep;
+        setFailedProgressStep(failedStep);
+        finishCurrentSwapHistoryEntry("failed", {
+          error,
+          failureMessage: getFailureMessageForProgressStep(failedStep, activeMode),
+          failedStepType: getProgressStepType(failedStep),
+          ...patch,
+        });
         window.setTimeout(() => {
           if (
             swapRunIdRef.current === runId &&
@@ -4252,7 +4420,32 @@ export function NexusOne({
       return;
     }
     if (swapStep === "preview-intent") {
-      clearPendingSwapIntent();
+      const canRequoteAfterPreviewBack =
+        activeMode === "swap"
+          ? hasReadyExactInSwapInput(fromTokens, toToken)
+          : activeMode === "deposit"
+            ? Boolean(
+                hasPositiveDecimalInput(amount) &&
+                  toToken &&
+                  selectedOpportunity &&
+                  depositTokenAmountForQuote &&
+                  depositTokenAmountForQuote.gt(0),
+              )
+            : activeMode === "send"
+              ? Boolean(hasPositiveDecimalInput(amount) && toToken)
+              : false;
+
+      if (canRequoteAfterPreviewBack && (activeMode === "deposit" || activeMode === "send")) {
+        setExactOutQuoteSourceModeValue("all");
+      }
+      clearPendingSwapIntent(true, {
+        keepQuoteRefreshing: canRequoteAfterPreviewBack,
+      });
+      if (canRequoteAfterPreviewBack) {
+        setQuoteRefreshing(true);
+        setTxError(null);
+        setSwapQuoteIssue(null);
+      }
       setSwapStep("idle");
       return;
     }
@@ -4294,6 +4487,7 @@ export function NexusOne({
 
   const handleDepositAmountChange = (val: string) => {
     syncingIntentSourcesRef.current = false;
+    setExactOutQuoteSourceModeValue("all");
     maxPercentRunRef.current += 1;
     setReceiveMaxCalculating(false);
     setMaxCalculationPercent(null);
@@ -4313,6 +4507,7 @@ export function NexusOne({
 
   const handleSendAmountChange = (val: string) => {
     syncingIntentSourcesRef.current = false;
+    setExactOutQuoteSourceModeValue("all");
     maxPercentRunRef.current += 1;
     setReceiveMaxCalculating(false);
     setMaxCalculationPercent(null);
@@ -4581,6 +4776,7 @@ export function NexusOne({
   const isSendCtaDisabled =
     !hasPositiveRootAmount ||
     !toToken ||
+    hasSameOwnerSendRecipient ||
     receiveMaxCalculating ||
     (!sendNeedsRecipient &&
       (quoteRefreshing || isQuoteUnavailableForAutoSourceFlow)) ||
@@ -4604,6 +4800,8 @@ export function NexusOne({
         ? "Enter amount"
         : !toToken
           ? "Select token"
+          : hasSameOwnerSendRecipient
+            ? "Change recipient"
           : sendNeedsRecipient
             ? "Add recipient"
             : quoteCtaLabel("Review send");
@@ -5856,6 +6054,7 @@ export function NexusOne({
                     ? (tokens) => {
                         clearPendingSwapIntent();
                         setSourceSelectionTouched(true);
+                        setExactOutQuoteSourceModeValue("selected");
                         setSourceSelectionRevision((current) => current + 1);
                         setFromTokens(
                           tokens.map((token) => ({
@@ -5871,6 +6070,7 @@ export function NexusOne({
                     ? () => {
                         clearPendingSwapIntent();
                         setSourceSelectionTouched(true);
+                        setExactOutQuoteSourceModeValue("selected");
                         setSourceSelectionRevision((current) => current + 1);
                         setFromTokens((current) =>
                           current.length === 0 ? current : [],
@@ -5882,6 +6082,7 @@ export function NexusOne({
                   clearPendingSwapIntent();
                   if (activeMode === "deposit" || activeMode === "send") {
                     setSourceSelectionTouched(true);
+                    setExactOutQuoteSourceModeValue("selected");
                   }
                   setFromTokens((prev) => {
                     const isSameSelection = (a: SwapTokenOption, b: SwapTokenOption) => {
@@ -6051,6 +6252,7 @@ export function NexusOne({
                   ) {
                     clearPendingSwapIntent();
                     setSourceSelectionTouched(true);
+                    setExactOutQuoteSourceModeValue("selected");
                     setFromTokens([{ ...token, userAmount: amount }]);
                     closeDrawerToIdle();
                   }
@@ -6131,6 +6333,7 @@ export function NexusOne({
                 onSelect={(token) => {
                   const tokenChanged = !isSameTokenSelection(toToken, token);
                   if (activeMode === "send" || activeMode === "deposit") {
+                    setExactOutQuoteSourceModeValue("all");
                     if (tokenChanged) {
                       clearPendingSwapIntent();
                       setAmount("");
