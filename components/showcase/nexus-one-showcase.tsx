@@ -13,6 +13,7 @@ import { useAccount } from "wagmi";
 const ALL_MODES: NexusOneMode[] = ["swap", "deposit", "send"];
 const USDC_ARBITRUM = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831";
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const DEFAULT_SEND_RECIPIENT = "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E";
 
 const AAVE_ABI = [
   {
@@ -187,6 +188,12 @@ const CONFIG_SNIPPETS: Record<NexusOneMode, string> = {
 } satisfies NexusOneConfig;`,
   send: `const config = {
   mode: "send",
+  prefill: {
+    token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    chain: 8453, // USDC on Base
+    amount: "0.1",
+    recipient: "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E",
+  },
 } satisfies NexusOneConfig;`,
   deposit: `const config = {
   mode: "deposit",
@@ -229,6 +236,12 @@ const NexusOneShowcase = () => {
     if (selectedMode === "send") {
       return {
         mode: "send",
+        prefill: {
+          token: USDC_BASE,
+          chain: 8453,
+          amount: "0.1",
+          recipient: DEFAULT_SEND_RECIPIENT,
+        },
       };
     }
 

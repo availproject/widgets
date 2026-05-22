@@ -293,7 +293,30 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "stables", label: "Stables" },
   { key: "custom", label: "Custom" },
 ];
-const STABLE_SYMBOLS = new Set(["GHO", "USDC", "ctUSD", "USDT", "EURC", "PYUSD", "USDe", "DAI", "xDAI", "TUSD", "RLUSD", "AUSD", "USD0", "sUSD", "BUSD", "USDM", "USDS"]);
+const STABLE_SYMBOLS = new Set([
+  "GHO",
+  "USDC",
+  "USDC.e",
+  "ctUSD",
+  "JUSD",
+  "svJUSD",
+  "GUSD",
+  "USDT",
+  "USDT.e",
+  "EURC",
+  "PYUSD",
+  "USDe",
+  "DAI",
+  "xDAI",
+  "TUSD",
+  "RLUSD",
+  "AUSD",
+  "USD0",
+  "sUSD",
+  "BUSD",
+  "USDM",
+  "USDS",
+]);
 
 function isNativeToken(t: SwapTokenOption) {
   if (isNativeLikeAddress(t.contractAddress)) return true;

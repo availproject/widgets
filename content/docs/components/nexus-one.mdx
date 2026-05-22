@@ -18,7 +18,7 @@ Switch the mode below the element in this preview to see the active `config` upd
 
 ### Send
 
-Locks the element to the send flow. Users choose the destination token and recipient, then Nexus resolves the sources to pay with.
+Locks the element to the send flow. This preview prefills USDC on Base, an amount, and a recipient; Nexus resolves the sources to pay with.
 
 <ComponentPreview
   name="nexus-one-transfer"
@@ -28,7 +28,7 @@ Locks the element to the send flow. Users choose the destination token and recip
 
 ### Swap
 
-Locks the element to the swap flow. Users can drive the route by editing either the source amount or the receive amount.
+Locks the element to the swap flow. This preview prefills USDC on Arbitrum as the source and USDC on Base as the receive asset.
 
 <ComponentPreview
   name="nexus-one-swap"
@@ -248,6 +248,9 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
       config={{
         mode: "send",
         prefill: {
+          token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          chain: 8453, // USDC on Base
+          amount: "0.1",
           recipient: "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E",
         },
       }}

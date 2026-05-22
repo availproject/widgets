@@ -12,14 +12,19 @@ export const USD_PEGGED_FALLBACK_RATE = 1;
 export const DEFAULT_USD_PEGGED_TOKEN_SYMBOLS = [
   "USDT",
   "USDC",
+  "USDC.E",
+  "USDT.E",
   "USDS",
   "DAI",
+  "CTUSD",
+  "JUSD",
   "USDM",
   "FDUSD",
   "BUSD",
   "TUSD",
   "PYUSD",
   "GUSD",
+  "SVJUSD",
   "LUSD",
   "USDE",
   "USDP",
@@ -66,6 +71,26 @@ export function normalizeTokenSymbol(tokenSymbol: string): string {
   return tokenSymbol.trim().toUpperCase();
 }
 
+const USD_RATE_PEG_SYMBOLS: Record<string, string> = {
+  CBTC: "BTC",
+  CTUSD: "USDC",
+  GUSD: "USDT",
+  JUSD: "USDC",
+  SVJUSD: "USDT",
+  SYBTC: "BTC",
+  "USDC.E": "USDC",
+  "USDT.E": "USDT",
+  "WBTC.E": "BTC",
+  WCBTC: "BTC",
+};
+
+export function getUsdRatePegSymbol(tokenSymbol: string): string | null {
+  const normalized = normalizeTokenSymbol(tokenSymbol);
+  if (!normalized) return null;
+
+  return USD_RATE_PEG_SYMBOLS[normalized] ?? null;
+}
+
 export function toFinitePositiveNumber(value: unknown): number | null {
   const parsed = Number.parseFloat(String(value));
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -78,6 +103,7 @@ export function getCoinbaseSymbolCandidates(tokenSymbol: string): string[] {
   const normalized = normalizeTokenSymbol(tokenSymbol);
   if (!normalized) return [];
 
+  const pegSymbol = getUsdRatePegSymbol(normalized);
   const baseSymbol = normalized.split(/[._-]/)[0] ?? normalized;
   const wrappedBase =
     baseSymbol.startsWith("W") && baseSymbol.length > 3
@@ -86,7 +112,7 @@ export function getCoinbaseSymbolCandidates(tokenSymbol: string): string[] {
 
   return Array.from(
     new Set(
-      [normalized, baseSymbol, wrappedBase].filter(
+      [normalized, baseSymbol, wrappedBase, pegSymbol].filter(
         (symbol): symbol is string => Boolean(symbol),
       ),
     ),
@@ -96,6 +122,7 @@ export function getCoinbaseSymbolCandidates(tokenSymbol: string): string[] {
 const COINGECKO_ID_CANDIDATES_BY_SYMBOL: Record<string, string[]> = {
   AAVE: ["aave"],
   AVAX: ["avalanche-2"],
+  BTC: ["bitcoin"],
   BNB: ["binancecoin"],
   DAI: ["dai"],
   ETH: ["ethereum"],
@@ -115,6 +142,7 @@ function getCoinGeckoIdCandidates(tokenSymbol: string): string[] {
   const normalized = normalizeTokenSymbol(tokenSymbol);
   if (!normalized) return [];
 
+  const pegSymbol = getUsdRatePegSymbol(normalized);
   const baseSymbol = normalized.split(/[._-]/)[0] ?? normalized;
   const wrappedBase =
     baseSymbol.startsWith("W") && baseSymbol.length > 3
@@ -127,6 +155,9 @@ function getCoinGeckoIdCandidates(tokenSymbol: string): string[] {
       ...(COINGECKO_ID_CANDIDATES_BY_SYMBOL[baseSymbol] ?? []),
       ...(wrappedBase
         ? COINGECKO_ID_CANDIDATES_BY_SYMBOL[wrappedBase] ?? []
+        : []),
+      ...(pegSymbol
+        ? COINGECKO_ID_CANDIDATES_BY_SYMBOL[pegSymbol] ?? []
         : []),
     ]),
   );

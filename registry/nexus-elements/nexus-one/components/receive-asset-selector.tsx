@@ -19,6 +19,12 @@ import {
 } from "./swap-asset-selector";
 import { useNexus } from "../../nexus/NexusProvider";
 import { CHAIN_METADATA, formatTokenBalance } from "@avail-project/nexus-core";
+import {
+  CITREA_CHAIN_ID,
+  CITREA_STABLE_SYMBOLS,
+  getCitreaChainMeta,
+  getCitreaReceiveTokenOptions,
+} from "../utils/citrea-tokens";
 
 interface ReceiveAssetSelectorProps {
   onSelect: (token: SwapTokenOption) => void;
@@ -73,7 +79,18 @@ const parseFiatValue = (value: unknown) => {
 };
 
 const STABLE_SYMBOLS = new Set([
-  "USDC", "USDT", "DAI", "FRAX", "LUSD", "TUSD", "USDD", "GHO", "crvUSD", "sUSD", "USDe"
+  "USDC",
+  "USDT",
+  "DAI",
+  "FRAX",
+  "LUSD",
+  "TUSD",
+  "USDD",
+  "GHO",
+  "crvUSD",
+  "sUSD",
+  "USDe",
+  ...CITREA_STABLE_SYMBOLS,
 ]);
 
 const FILTER_TABS = [
@@ -341,6 +358,9 @@ export function ReceiveAssetSelector({
         map.set(c.id, { name: c.name, logo: c.logo });
       }
     }
+    if (!map.has(CITREA_CHAIN_ID)) {
+      map.set(CITREA_CHAIN_ID, getCitreaChainMeta());
+    }
     return map;
   }, [supportedChainsAndTokens, swapSupportedChainsAndTokens]);
 
@@ -349,8 +369,13 @@ export function ReceiveAssetSelector({
       ?.map((chain) => chain.id)
       .filter((id) => SUPPORTED_RECEIVE_CHAIN_IDS.has(id));
 
-    return sortChainIdsBySwapDisplayOrder(
+    const nextIds = new Set(
       supportedIds?.length ? supportedIds : Array.from(SUPPORTED_RECEIVE_CHAIN_IDS),
+    );
+    nextIds.add(CITREA_CHAIN_ID);
+
+    return sortChainIdsBySwapDisplayOrder(
+      Array.from(nextIds).filter((id) => SUPPORTED_RECEIVE_CHAIN_IDS.has(id)),
     );
   }, [swapSupportedChainsAndTokens]);
 
@@ -365,7 +390,13 @@ export function ReceiveAssetSelector({
         if (!active) return;
 
         if (data.stableSymbols && Array.isArray(data.stableSymbols)) {
-          setDynamicStableSymbols(new Set([...Array.from(STABLE_SYMBOLS), ...data.stableSymbols]));
+          setDynamicStableSymbols(
+            new Set([
+              ...Array.from(STABLE_SYMBOLS),
+              ...data.stableSymbols,
+              ...CITREA_STABLE_SYMBOLS,
+            ]),
+          );
         }
 
         const allParsed: SwapTokenOption[] = [];
@@ -389,7 +420,16 @@ export function ReceiveAssetSelector({
             });
           }
         }
-        setApiTokens(allParsed);
+        const tokensByKey = new Map<string, SwapTokenOption>();
+        for (const token of [...allParsed, ...getCitreaReceiveTokenOptions()]) {
+          const address =
+            token.contractAddress.toLowerCase() ===
+            "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+              ? "0x0000000000000000000000000000000000000000"
+              : token.contractAddress.toLowerCase();
+          tokensByKey.set(`${token.chainId ?? 0}-${address}`, token);
+        }
+        setApiTokens(Array.from(tokensByKey.values()));
       } catch (err) {
         console.error("Failed to fetch receive tokens", err);
       } finally {

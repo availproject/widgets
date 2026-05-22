@@ -37,6 +37,7 @@ import { OpportunityList } from "./components/opportunity-list";
 import { AlertCircle, ArrowLeft, ChevronDown, Loader2 } from "lucide-react";
 import { useNexus } from "../nexus/NexusProvider";
 import { useTransactionSteps } from "../common/tx/useTransactionSteps";
+import { findCitreaReceiveToken } from "./utils/citrea-tokens";
 import {
   CHAIN_METADATA,
   ERROR_CODES,
@@ -2753,6 +2754,11 @@ export function NexusOne({
   const toTokenFromOpportunity = (
     opp: DepositOpportunity,
   ): SwapTokenOption => {
+    const citreaToken = findCitreaReceiveToken({
+      address: opp.tokenAddress,
+      chainId: opp.chainId,
+      symbol: opp.tokenSymbol,
+    });
     const chainTokens = supportedChainsAndTokens?.find(
       (chain) => chain.id === opp.chainId,
     )?.tokens;
@@ -2762,20 +2768,22 @@ export function NexusOne({
           opp.tokenAddress.toLowerCase() ||
         token.symbol === opp.tokenSymbol,
     );
+    const tokenSymbol =
+      citreaToken?.symbol ?? matchedToken?.symbol ?? opp.tokenSymbol;
     const tokenMeta =
-      TOKEN_METADATA[opp.tokenSymbol as keyof typeof TOKEN_METADATA];
+      TOKEN_METADATA[tokenSymbol as keyof typeof TOKEN_METADATA];
 
     return {
       chainId: opp.chainId,
-      contractAddress: opp.tokenAddress,
-      symbol: opp.tokenSymbol,
-      name: matchedToken?.name || opp.tokenSymbol,
+      contractAddress: citreaToken?.contractAddress ?? opp.tokenAddress,
+      symbol: tokenSymbol,
+      name: matchedToken?.name || citreaToken?.name || tokenSymbol,
       balance: "0",
       balanceInFiat: "$0.00",
-      decimals: matchedToken?.decimals ?? tokenMeta?.decimals ?? 18,
-      logo: opp.tokenLogo || matchedToken?.logo || tokenMeta?.icon,
-      chainName: CHAIN_METADATA[opp.chainId]?.name,
-      chainLogo: CHAIN_METADATA[opp.chainId]?.logo,
+      decimals: matchedToken?.decimals ?? citreaToken?.decimals ?? tokenMeta?.decimals ?? 18,
+      logo: opp.tokenLogo || matchedToken?.logo || citreaToken?.logo || tokenMeta?.icon,
+      chainName: CHAIN_METADATA[opp.chainId]?.name ?? citreaToken?.chainName,
+      chainLogo: CHAIN_METADATA[opp.chainId]?.logo ?? citreaToken?.chainLogo,
     };
   };
 
@@ -2800,22 +2808,28 @@ export function NexusOne({
       const matchedToken = chain?.tokens?.find(
         (token) => normalizeAddress(token.contractAddress) === targetAddress,
       );
-      const tokenSymbol = matchedToken?.symbol ?? "Token";
+      const citreaToken = findCitreaReceiveToken({
+        address: pair.token,
+        chainId: pair.chain,
+      });
+      const tokenSymbol = matchedToken?.symbol ?? citreaToken?.symbol ?? "Token";
       const tokenMeta = TOKEN_METADATA[tokenSymbol as keyof typeof TOKEN_METADATA];
 
-      if (!chain && !matchedToken) return undefined;
+      if (!chain && !matchedToken && !citreaToken) return undefined;
 
       return {
         chainId: pair.chain,
-        contractAddress: pair.token,
+        contractAddress: citreaToken?.contractAddress ?? pair.token,
         symbol: tokenSymbol,
-        name: matchedToken?.name || tokenSymbol,
+        name: matchedToken?.name || citreaToken?.name || tokenSymbol,
         balance: `0 ${tokenSymbol}`,
         balanceInFiat: "$0.00",
-        decimals: matchedToken?.decimals ?? tokenMeta?.decimals ?? 18,
-        logo: matchedToken?.logo || tokenMeta?.icon,
-        chainName: chain?.name ?? CHAIN_METADATA[pair.chain]?.name,
-        chainLogo: chain?.logo ?? CHAIN_METADATA[pair.chain]?.logo,
+        decimals: matchedToken?.decimals ?? citreaToken?.decimals ?? tokenMeta?.decimals ?? 18,
+        logo: matchedToken?.logo || citreaToken?.logo || tokenMeta?.icon,
+        chainName:
+          chain?.name ?? CHAIN_METADATA[pair.chain]?.name ?? citreaToken?.chainName,
+        chainLogo:
+          chain?.logo ?? CHAIN_METADATA[pair.chain]?.logo ?? citreaToken?.chainLogo,
       } satisfies SwapTokenOption;
     },
     [supportedChainsAndTokens, swapBalance],
@@ -2860,6 +2874,36 @@ export function NexusOne({
     config.prefill?.destination?.token,
     config.prefill?.source?.chain,
     config.prefill?.source?.token,
+    resolvePrefillToken,
+  ]);
+
+  useEffect(() => {
+    if (activeMode !== "send") return;
+
+    const sendPrefill =
+      config.prefill?.token && config.prefill?.chain
+        ? {
+            token: config.prefill.token,
+            chain: config.prefill.chain,
+          }
+        : config.prefill?.destination;
+    if (!sendPrefill) return;
+
+    const prefillKey = `send:${sendPrefill.chain}:${sendPrefill.token.toLowerCase()}`;
+    if (appliedTokenPrefillRef.current === prefillKey) return;
+
+    const token = resolvePrefillToken(sendPrefill);
+    if (!token) return;
+
+    setToToken(token);
+    setSwapType("exactOut");
+    appliedTokenPrefillRef.current = prefillKey;
+  }, [
+    activeMode,
+    config.prefill?.chain,
+    config.prefill?.destination?.chain,
+    config.prefill?.destination?.token,
+    config.prefill?.token,
     resolvePrefillToken,
   ]);
 
