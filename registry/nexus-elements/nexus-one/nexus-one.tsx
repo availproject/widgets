@@ -652,6 +652,9 @@ const getProgressStepType = (
 const isBridgeRefundStepType = (type: string) =>
   type.includes("RFF_ID") || type.includes("BRIDGE_DEPOSIT");
 
+const isSwapSkippedStepType = (type: string) =>
+  type.includes("SWAP_SKIPPED");
+
 const isAutoRefundAvailableProgressEvent = (
   event?: NexusOneProgressEvent,
 ) =>
@@ -2802,6 +2805,30 @@ export function NexusOne({
     patchCurrentSwapHistoryEntry({ startedAt: now });
   };
 
+  const enterSkippedSwapProgress = () => {
+    if (activeMode !== "deposit" && activeMode !== "send") return;
+
+    const shouldInitializeProgress = swapStepRef.current !== "progress";
+    if (!currentSwapIdRef.current) {
+      onStart?.();
+      startSwapHistoryEntry();
+    }
+
+    setIntentLoading(false);
+    setQuoteRefreshing(false);
+    setPreviewQuoteRefreshing(false);
+    setReceiveMaxCalculating(false);
+    setSwapQuoteIssue(null);
+
+    if (shouldInitializeProgress) {
+      resetProgressEvents();
+      swapStepsListRef.current = [];
+      resetSteps();
+      swapStepRef.current = "progress";
+      setSwapStep("progress");
+    }
+  };
+
   const handleRefundIntent = async (entry: SwapHistoryEntry) => {
     if (!nexusSDK || !entry.intentId) return;
     patchSwapHistoryEntry(entry.id, { status: "refund-initiated" });
@@ -3767,8 +3794,27 @@ export function NexusOne({
         }
         return;
       }
+      if (event.name === "SWAP_SKIPPED") {
+        const step =
+          event.args && typeof event.args === "object"
+            ? event.args
+            : ({
+                completed: true,
+                data: event.args,
+                type: "SWAP_SKIPPED",
+                typeID: "SWAP_SKIPPED",
+              } as unknown as SwapStepType);
+        enterSkippedSwapProgress();
+        appendProgressEvent(NEXUS_EVENTS.SWAP_STEP_COMPLETE, step, true);
+        onStepComplete(step as SwapStepType);
+        return;
+      }
       if (event.name === NEXUS_EVENTS.SWAP_STEP_COMPLETE) {
         const step = event.args;
+        const swapSkipped = isSwapSkippedStepType(getProgressStepType(step));
+        if (swapSkipped) {
+          enterSkippedSwapProgress();
+        }
         appendProgressEvent(event.name, step, true);
         if (
           [
@@ -3779,6 +3825,7 @@ export function NexusOne({
             "DESTINATION_SWAP_BATCH_TX",
             "DESTINATION_SWAP_HASH",
             "SWAP_COMPLETE",
+            "SWAP_SKIPPED",
           ].includes(step?.type ?? "")
         ) {
           markSwapExecutionStarted();
@@ -4001,7 +4048,8 @@ export function NexusOne({
                 );
 
           const swapResult = result?.swapResult ?? result?.result ?? null;
-          if (!swapResult && activeMode !== "send") {
+          const swapSkipped = Boolean((result as any)?.swapSkipped);
+          if (!swapResult && !swapSkipped && activeMode !== "send") {
             throw new Error("Swap failed");
           }
           const executeTxHash =

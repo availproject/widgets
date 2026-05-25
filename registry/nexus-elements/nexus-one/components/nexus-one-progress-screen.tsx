@@ -297,6 +297,9 @@ const buildStatusRows = ({
     "SWAP_COMPLETE",
     "SWAP_SKIPPED",
   ]);
+  const swapSkipped = hasCompletedType(events, steps, ["SWAP_SKIPPED"]);
+  const shouldShowSwapRows =
+    hasSwapList && !(swapSkipped && (mode === "deposit" || mode === "send"));
   const swapTokensComplete = hasReceiveTokenStep
     ? destinationSwapStarted
     : swapComplete;
@@ -348,7 +351,7 @@ const buildStatusRows = ({
     });
   }
 
-  if (hasSwapList) {
+  if (shouldShowSwapRows) {
     const approvalsSatisfied =
       immutableApprovalTotal === 0 ||
       approvalCompletedCount >= immutableApprovalTotal;
@@ -413,7 +416,8 @@ const buildStatusRows = ({
 
   if (mode === "deposit" || mode === "send") {
     const receiveComplete =
-      !hasSwapList ||
+      swapSkipped ||
+      !shouldShowSwapRows ||
       (hasReceiveTokenStep ? receiveTokenComplete : swapTokensComplete);
     const isDeposit = mode === "deposit";
     let state: ProgressStatusState = "default";

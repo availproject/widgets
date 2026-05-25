@@ -994,7 +994,7 @@ export function SwapIdleForm({
             >
               +
             </span>
-            Add asset
+            Add more assets
           </button>
         </div>
 
