@@ -103,6 +103,7 @@ interface SwapHistoryEntry {
   error?: string;
   failureMessage?: string;
   failedStepType?: string;
+  autoRefundAvailable?: boolean;
 }
 
 type SwapQuoteIssue = {
@@ -127,7 +128,6 @@ type CachedIntentUsdRate = {
 
 const QUOTE_REFRESH_INTERVAL_MS = 30000;
 const EXACT_OUT_INPUT_DEBOUNCE_MS = 1000;
-const REFUND_FALLBACK_DELAY_MS = 30 * 60 * 1000;
 const DRAWER_CLOSE_MS = 220;
 const MODAL_HEIGHT_TRANSITION_MS = 260;
 const SWAP_HISTORY_STORAGE_KEY_PREFIX = "nexus-one-transaction-history-v1";
@@ -649,10 +649,24 @@ const getProgressStepType = (
   step?: SwapStepType | BridgeStepType | null,
 ) => String((step as any)?.type ?? (step as any)?.typeID ?? "").toUpperCase();
 
+const isBridgeRefundStepType = (type: string) =>
+  type.includes("RFF_ID") || type.includes("BRIDGE_DEPOSIT");
+
+const isAutoRefundAvailableProgressEvent = (
+  event?: NexusOneProgressEvent,
+) =>
+  event?.name === NEXUS_EVENTS.SWAP_STEP_COMPLETE &&
+  isBridgeRefundStepType(getProgressStepType(event.step));
+
 const getFailureMessageForProgressStep = (
   step: SwapStepType | BridgeStepType | null | undefined,
   mode: NexusOneMode,
+  autoRefundAvailable = false,
 ) => {
+  if (autoRefundAvailable) {
+    return "Swap Failed. Refund Initiated";
+  }
+
   const type = getProgressStepType(step);
   if (
     type.includes("CREATE_PERMIT_FOR_SOURCE_SWAP") ||
@@ -665,7 +679,7 @@ const getFailureMessageForProgressStep = (
     type.includes("DESTINATION_SWAP") ||
     type.includes("FULFIL")
   ) {
-    return "Destination Swap Failed. USDC refund initiated";
+    return "Destination Swap Failed";
   }
   if (
     type.includes("TRANSACTION") ||
@@ -676,7 +690,7 @@ const getFailureMessageForProgressStep = (
       ? "Send failed. Funds are in your wallet"
       : mode === "deposit"
         ? "Deposit failed. Funds are in your wallet"
-        : "Swap Failed. Refund Initiated";
+        : "Swap Failed";
   }
   if (
     type.includes("SWAP") ||
@@ -685,13 +699,13 @@ const getFailureMessageForProgressStep = (
     type.includes("INTENT") ||
     type.includes("DETERMINING")
   ) {
-    return "Swap Failed. Refund Initiated";
+    return "Swap Failed";
   }
   return mode === "send"
     ? "Send failed. Funds are in your wallet"
     : mode === "deposit"
       ? "Deposit failed. Funds are in your wallet"
-      : "Swap Failed. Refund Initiated";
+      : "Swap Failed";
 };
 
 const getSourceRows = (entry: SwapHistoryEntry) => {
@@ -894,13 +908,20 @@ function SwapReceiptPanel({
     (sum, source) => sum.plus(parseDecimalLoose(source.value) ?? 0),
     new Decimal(0),
   );
+  const defaultSwapFailureHeadline = entry.autoRefundAvailable
+    ? "Swap Failed. Refund Initiated"
+    : "Swap Failed";
+  const storedFailureMessage =
+    !entry.autoRefundAvailable && entry.failureMessage?.includes("Refund")
+      ? undefined
+      : entry.failureMessage;
   const failureHeadline =
-    entry.failureMessage ||
+    storedFailureMessage ||
     (isDeposit
       ? "Deposit failed. Funds are in your wallet"
       : isSend
         ? "Send failed. Funds are in your wallet"
-        : "Swap Failed. Refund Initiated");
+        : defaultSwapFailureHeadline);
   const receiptLocation = isDeposit ? depositVenue : chainName;
   const receiptSummary = receiptLocation ? `on ${receiptLocation}` : "";
 
@@ -1195,7 +1216,7 @@ const getRelativeTime = (time: number, now: number) => {
 function HistoryStatusPill({
   status,
 }: {
-  status: SwapHistoryStatus | "auto-refund-failed";
+  status: SwapHistoryStatus;
 }) {
   const config =
     status === "fulfilled"
@@ -1203,10 +1224,8 @@ function HistoryStatusPill({
       : status === "pending"
         ? { label: "Pending", bg: "#FFF3DE", fg: "#B7791F" }
         : status === "refund-initiated"
-          ? { label: "Refund initiated", bg: "#FFF3DE", fg: "#B7791F" }
-          : status === "auto-refund-failed"
-            ? { label: "Auto-refund failed", bg: "#FFE6EA", fg: "#E92C2C" }
-            : { label: "Failed", bg: "#FFE6EA", fg: "#E92C2C" };
+          ? { label: "Refund Initiated", bg: "#FFF3DE", fg: "#B7791F" }
+          : { label: "Failed", bg: "#FFE6EA", fg: "#E92C2C" };
 
   return (
     <span
@@ -1313,11 +1332,10 @@ function SwapHistoryPanel({
         const viewUrl = showIntentExplorer
           ? entry.intentExplorerUrl
           : entry.finalExplorerUrl;
-        const autoRefundFailed =
+        const canShowRefund =
           entry.status === "failed" &&
-          Boolean(entry.intentId) &&
-          now - entry.startedAt >= REFUND_FALLBACK_DELAY_MS;
-        const status = autoRefundFailed ? "auto-refund-failed" : entry.status;
+          Boolean(entry.autoRefundAvailable);
+        const status = canShowRefund ? "refund-initiated" : entry.status;
         const sourceRows = getSourceRows(entry);
         const firstSource = sourceRows[0];
 
@@ -1361,7 +1379,7 @@ function SwapHistoryPanel({
               </div>
             </div>
 
-            {autoRefundFailed && (
+            {canShowRefund && (
               <div
                 style={{
                   alignItems: "center",
@@ -1374,19 +1392,21 @@ function SwapHistoryPanel({
                 }}
               >
                 <span style={{ color: "#161615", fontFamily: uiFont, fontSize: "13px" }}>
-                  Try again
+                  Refund Initiated
                 </span>
                 <button
+                  disabled={!entry.intentId}
                   onClick={() => onRefund(entry)}
                   style={{
                     background: "#006BF4",
                     border: "none",
                     borderRadius: "8px",
                     color: "#FFFFFE",
-                    cursor: "pointer",
+                    cursor: entry.intentId ? "pointer" : "not-allowed",
                     fontFamily: uiFont,
                     fontSize: "13px",
                     fontWeight: 600,
+                    opacity: entry.intentId ? 1 : 0.5,
                     padding: "8px 14px",
                   }}
                 >
@@ -1474,6 +1494,7 @@ export function NexusOne({
     resolveTokenUsdRate,
     swapSupportedChainsAndTokens,
     supportedChainsAndTokens,
+    fetchSwapBalance,
   } = useNexus();
 
   // Mode is a single value, not an array
@@ -1562,6 +1583,11 @@ export function NexusOne({
     },
     [],
   );
+
+  useEffect(() => {
+    if (!nexusSDK) return;
+    void fetchSwapBalance();
+  }, [activeMode, fetchSwapBalance, nexusSDK, swapStep]);
 
   useEffect(() => {
     setSourceSelectionTouched(false);
@@ -2739,6 +2765,7 @@ export function NexusOne({
       sourceExplorerUrl: null,
       finalExplorerUrl: null,
       intentExplorerUrl: null,
+      autoRefundAvailable: false,
     };
 
     currentSwapStartedAtRef.current = 0;
@@ -2765,6 +2792,7 @@ export function NexusOne({
       finalExplorerUrl: explorerUrlsRef.current.destinationExplorerUrl,
       ...patch,
     });
+    void fetchSwapBalance();
   };
 
   const markSwapExecutionStarted = () => {
@@ -2779,11 +2807,13 @@ export function NexusOne({
     patchSwapHistoryEntry(entry.id, { status: "refund-initiated" });
     try {
       await nexusSDK.refundIntent(entry.intentId);
+      void fetchSwapBalance();
     } catch (error: any) {
       patchSwapHistoryEntry(entry.id, {
         status: "failed",
         error: error?.message || "Refund failed. Please try again.",
       });
+      void fetchSwapBalance();
     }
   };
 
@@ -4043,6 +4073,7 @@ export function NexusOne({
         error: string,
         patch: Partial<SwapHistoryEntry> = {},
       ) => {
+        const failedProgressEvent = progressEventsRef.current.at(-1);
         const fallbackFailedStep =
           activeMode === "deposit" || activeMode === "send"
             ? ({ type: "APPROVAL", typeID: "AP" } as BridgeStepType)
@@ -4051,11 +4082,18 @@ export function NexusOne({
                 typeID: "DETERMINING_SWAP",
               } as unknown as SwapStepType);
         const failedStep =
-          progressEventsRef.current.at(-1)?.step ?? fallbackFailedStep;
+          failedProgressEvent?.step ?? fallbackFailedStep;
+        const autoRefundAvailable =
+          isAutoRefundAvailableProgressEvent(failedProgressEvent);
         setFailedProgressStep(failedStep);
         finishCurrentSwapHistoryEntry("failed", {
           error,
-          failureMessage: getFailureMessageForProgressStep(failedStep, activeMode),
+          autoRefundAvailable,
+          failureMessage: getFailureMessageForProgressStep(
+            failedStep,
+            activeMode,
+            autoRefundAvailable,
+          ),
           failedStepType: getProgressStepType(failedStep),
           ...patch,
         });
@@ -4373,7 +4411,7 @@ export function NexusOne({
       if (swapStep === "progress") return "Swapping…";
       if (swapStep === "success") return "Swap Complete";
       if (swapStep === "failed") return "Swap Failed";
-      return "Swap";
+      return "Swap and Bridge";
     }
     if (activeMode === "deposit") {
       if (swapStep === "progress") return "Depositing…";

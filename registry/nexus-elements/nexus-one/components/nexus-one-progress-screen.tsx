@@ -108,6 +108,8 @@ const SWAP_APPROVAL_TYPES = [
   "CREATE_PERMIT_FOR_SOURCE_SWAP",
 ];
 
+const REFUND_ELIGIBLE_SWAP_TYPES = ["RFF_ID", "BRIDGE_DEPOSIT"];
+
 const DESTINATION_SWAP_TYPES = [
   "DESTINATION_SWAP_BATCH_TX",
   "DESTINATION_SWAP_HASH",
@@ -228,6 +230,10 @@ const countListedSteps = (
   tokens: string[],
 ) => steps.filter((step) => stepMatches(step, tokens)).length;
 
+const getApprovalTotalFromSwapStepsList = (
+  events: NexusOneProgressEvent[],
+) => countListedSteps(getListedSteps(events, "SWAP_STEPS_LIST"), SWAP_APPROVAL_TYPES);
+
 const hasStartedStatus = (
   events: NexusOneProgressEvent[],
   id: ProgressStatusId,
@@ -239,12 +245,14 @@ const buildStatusRows = ({
   failedStep,
   mode,
   steps,
+  approvalTotalCount,
   context,
 }: {
   events: NexusOneProgressEvent[];
   failedStep?: ProgressSdkStep | null;
   mode: NexusOneMode;
   steps: ProgressStep[];
+  approvalTotalCount?: number | null;
   context: {
     destinationChain?: string;
     destinationSymbol?: string;
@@ -257,13 +265,14 @@ const buildStatusRows = ({
   const destinationSymbol = context.destinationSymbol || "token";
   const destinationChain = context.destinationChain || "destination";
   const opportunityName = context.opportunityName || "app";
-  const approvalTotalCount = Math.max(
-    countListedSteps(swapListSteps, SWAP_APPROVAL_TYPES),
-    countListedSteps(fallbackSteps, SWAP_APPROVAL_TYPES),
-    getEventStepCount(events, "SWAP_STEP_COMPLETE", SWAP_APPROVAL_TYPES),
-  );
+  const immutableApprovalTotal =
+    approvalTotalCount ?? countListedSteps(swapListSteps, SWAP_APPROVAL_TYPES);
+  const refundEligibleFailure =
+    failedStep !== null &&
+    failedStep !== undefined &&
+    stepMatches(failedStep, REFUND_ELIGIBLE_SWAP_TYPES);
   const approvalCompletedCount = Math.min(
-    approvalTotalCount || Number.MAX_SAFE_INTEGER,
+    immutableApprovalTotal || Number.MAX_SAFE_INTEGER,
     getEventStepCount(
       events,
       "SWAP_STEP_COMPLETE",
@@ -309,15 +318,15 @@ const buildStatusRows = ({
     rows.push(row);
   };
 
-  if (approvalTotalCount > 0) {
+  if (immutableApprovalTotal > 0) {
     const approvalCurrent = Math.min(
-      approvalTotalCount,
+      immutableApprovalTotal,
       Math.max(1, approvalCompletedCount + 1),
     );
     let state: ProgressStatusState = "default";
     if (failedStatus === "approveTokens") {
       state = "error";
-    } else if (approvalCompletedCount >= approvalTotalCount) {
+    } else if (approvalCompletedCount >= immutableApprovalTotal) {
       state = "completed";
     } else if (
       hasStartedStatus(events, "approveTokens", mode) ||
@@ -332,16 +341,17 @@ const buildStatusRows = ({
       description: state === "preapproval" ? "Approve in wallet" : undefined,
       label:
         state === "completed"
-          ? `Approved tokens for swap (${approvalTotalCount} of ${approvalTotalCount})`
+          ? `Approved tokens for swap (${immutableApprovalTotal} of ${immutableApprovalTotal})`
           : state === "error"
             ? "Collection failed"
-            : `Approve tokens for swap (${approvalCurrent} of ${approvalTotalCount})`,
+            : `Approve tokens for swap (${approvalCurrent} of ${immutableApprovalTotal})`,
     });
   }
 
   if (hasSwapList) {
     const approvalsSatisfied =
-      approvalTotalCount === 0 || approvalCompletedCount >= approvalTotalCount;
+      immutableApprovalTotal === 0 ||
+      approvalCompletedCount >= immutableApprovalTotal;
     let state: ProgressStatusState = "default";
     if (failedStatus === "swapTokens") {
       state = "error";
@@ -368,7 +378,9 @@ const buildStatusRows = ({
         state === "completed"
           ? "Swaps completed"
           : state === "error"
-            ? "Swap failed. Refund initiated"
+            ? refundEligibleFailure
+              ? "Swap failed. Refund initiated"
+              : "Swap failed"
             : state === "inProgress"
               ? "Swaps in progress"
               : "Swap tokens",
@@ -387,7 +399,9 @@ const buildStatusRows = ({
                 : "default",
         label:
           failedStatus === "receiveToken"
-            ? "Destination Swap Failed. USDC refund initiated."
+            ? refundEligibleFailure
+              ? "Destination swap failed. Refund initiated."
+              : "Destination swap failed."
             : receiveTokenComplete
               ? `Received ${destinationSymbol} on ${destinationChain}`
               : destinationSwapStarted
@@ -610,11 +624,29 @@ export function NexusOneProgressScreen({
     mode === "deposit"
       ? opportunity?.title || opportunity?.protocol || destinationChainName
       : destinationChainName;
+  const computedApprovalTotal =
+    getApprovalTotalFromSwapStepsList(progressEvents);
+  const [lockedApprovalTotal, setLockedApprovalTotal] = useState<number | null>(
+    null,
+  );
+  const approvalTotalCount =
+    lockedApprovalTotal ?? (computedApprovalTotal > 0 ? computedApprovalTotal : null);
+
+  useEffect(() => {
+    if (progressEvents.length === 0) {
+      setLockedApprovalTotal(null);
+      return;
+    }
+    if (lockedApprovalTotal !== null || computedApprovalTotal <= 0) return;
+    setLockedApprovalTotal(computedApprovalTotal);
+  }, [computedApprovalTotal, lockedApprovalTotal, progressEvents.length]);
+
   const statusRows = buildStatusRows({
     events: progressEvents,
     failedStep,
     mode,
     steps: steps ?? [],
+    approvalTotalCount,
     context: {
       destinationChain: destinationChainName || destinationChain,
       destinationSymbol,

@@ -282,7 +282,7 @@ function PayWithSources({
               padding: "7px 10px",
             }}
           >
-            Edit
+            Edit tokens
           </button>
         )}
       </div>

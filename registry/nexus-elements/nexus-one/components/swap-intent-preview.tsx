@@ -795,7 +795,7 @@ export function SwapIntentPreview({
           value: solverFeeNumber ?? new Decimal(0),
         },
         ...(gasSuppliedNumber && gasSuppliedNumber.gt(0)
-          ? [{ label: "Gas Supplied", value: gasSuppliedNumber }]
+          ? [{ label: "Gas Sponsorship", value: gasSuppliedNumber }]
           : []),
       ]
     : feeNumber !== undefined

@@ -243,7 +243,7 @@ export function PayWithSources({
             }}
             type="button"
           >
-            Edit
+            Edit tokens
           </button>
         )}
       </div>

@@ -294,29 +294,56 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "custom", label: "Custom" },
 ];
 const STABLE_SYMBOLS = new Set([
+  "AUSD",
+  "BDO",
+  "BRZ",
+  "BTCUSD",
+  "BUSD",
+  "bnbUSD",
+  "crvUSD",
+  "CUSD",
+  "DAI",
+  "DAI.e",
+  "dEURO",
+  "DUSD",
+  "EURA",
+  "EURC",
+  "EURCV",
+  "EURe",
+  "EURS",
+  "EURT",
+  "eUSD",
+  "frxUSD",
   "GHO",
+  "GUSD",
+  "JUST",
+  "jEUR",
+  "JUSD",
+  "LUSD",
+  "rUSD",
+  "RLUSD",
+  "sUSD",
+  "svJUSD",
+  "TUSD",
   "USDC",
   "USDC.e",
-  "ctUSD",
-  "JUSD",
-  "svJUSD",
-  "GUSD",
+  "USDS",
   "USDT",
+  "USDT0",
   "USDT.e",
-  "EURC",
+  "ctUSD",
   "PYUSD",
   "USDe",
-  "DAI",
   "xDAI",
-  "TUSD",
-  "RLUSD",
-  "AUSD",
   "USD0",
-  "sUSD",
-  "BUSD",
   "USDM",
-  "USDS",
 ]);
+const STABLE_SYMBOL_KEYS = new Set(
+  Array.from(STABLE_SYMBOLS, (symbol) => symbol.toUpperCase()),
+);
+
+const isStableToken = (token: SwapTokenOption) =>
+  STABLE_SYMBOL_KEYS.has(token.symbol.trim().toUpperCase());
 
 function isNativeToken(t: SwapTokenOption) {
   if (isNativeLikeAddress(t.contractAddress)) return true;
@@ -870,7 +897,7 @@ export function SwapAssetSelector({
       }
       if (tab === "native") result = result.filter(isNativeToken);
       else if (tab === "stables") {
-        result = result.filter((token) => STABLE_SYMBOLS.has(token.symbol));
+        result = result.filter(isStableToken);
       }
 
       return mergeTokenOptions(
@@ -927,8 +954,8 @@ export function SwapAssetSelector({
         .sort((a, b) => compareTokensBySearch(a, b, query));
     }
     if (activeTab === "native") result = result.filter(isNativeToken);
-    else if (activeTab === "stables") result = result.filter((t) => STABLE_SYMBOLS.has(t.symbol));
-    else if (activeTab === "custom" && !autoSelectFilterTabs) result = result.filter((t) => !isNativeToken(t) && !STABLE_SYMBOLS.has(t.symbol));
+    else if (activeTab === "stables") result = result.filter(isStableToken);
+    else if (activeTab === "custom" && !autoSelectFilterTabs) result = result.filter((t) => !isNativeToken(t) && !isStableToken(t));
     return result;
   }, [activeTab, allTokens, autoSelectFilterTabs, query, selectedChainFilter]);
 

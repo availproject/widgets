@@ -14,8 +14,8 @@ importers:
   .:
     dependencies:
       '@avail-project/nexus-core':
-        specifier: github:availproject/nexus-sdk#84fe31ba3b5e9d8dd70ea7166e0521e963f3c0aa
-        version: https://codeload.github.com/availproject/nexus-sdk/tar.gz/84fe31ba3b5e9d8dd70ea7166e0521e963f3c0aa(@opentelemetry/api@1.9.0)(bufferutil@4.1.0)(google-protobuf@3.21.4)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+        specifier: github:availproject/nexus-sdk#459f313e0e8eb29e05401e242a4a97196a5f2ec8
+        version: https://codeload.github.com/availproject/nexus-sdk/tar.gz/459f313e0e8eb29e05401e242a4a97196a5f2ec8(@opentelemetry/api@1.9.0)(bufferutil@4.1.0)(google-protobuf@3.21.4)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.1.2(@types/react@19.1.2))(@types/react@19.1.2)(react-dom@19.2.2(react@19.2.2))(react@19.2.2)
@@ -191,7 +191,7 @@ packages:
     hasBin: true
 
   '@avail-project/ca-common@https://codeload.github.com/availproject/ca-common/tar.gz/672c8bdddd44158f5bb4a297abc34dea079054f8':
-    resolution: {gitHosted: true, integrity: sha512-95Myt+35EYQZXAxzfyQbb0uxiq9Zpe0JleiJ6afVmMJ7E8/5roAsD2nrREnShMxMv7JqAU86as4uhaaqhRVBdA==, tarball: https://codeload.github.com/availproject/ca-common/tar.gz/672c8bdddd44158f5bb4a297abc34dea079054f8}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/availproject/ca-common/tar.gz/672c8bdddd44158f5bb4a297abc34dea079054f8}
     version: 2.2.1
     peerDependencies:
       '@cosmjs/proto-signing': ^0.34.0
@@ -202,8 +202,8 @@ packages:
       msgpackr: ^1.11.4
       viem: ^2.31.7
 
-  '@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/84fe31ba3b5e9d8dd70ea7166e0521e963f3c0aa':
-    resolution: {gitHosted: true, integrity: sha512-3QRSkAIJw9eJRWYR4ZdcGLORc/PO7Y/XQ/DBaBETfg/FUHaoyRP7Anm/kA4/QB7qegdrCfShYjEqca+ELBL63w==, tarball: https://codeload.github.com/availproject/nexus-sdk/tar.gz/84fe31ba3b5e9d8dd70ea7166e0521e963f3c0aa}
+  '@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/459f313e0e8eb29e05401e242a4a97196a5f2ec8':
+    resolution: {gitHosted: true, integrity: sha512-tkRZaZE6gkMe4RNaghA9XlUAjCmc8AR5fsuZuB+8FJdCDc+ruM/Fv85qd1eXW0WbQfRwAaOlX+16M04hRzNdjA==, tarball: https://codeload.github.com/availproject/nexus-sdk/tar.gz/459f313e0e8eb29e05401e242a4a97196a5f2ec8}
     version: 1.4.0
     engines: {node: '>=18.0.0', npm: '>=9.0.0'}
 
@@ -6962,7 +6962,7 @@ snapshots:
     transitivePeerDependencies:
       - google-protobuf
 
-  '@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/84fe31ba3b5e9d8dd70ea7166e0521e963f3c0aa(@opentelemetry/api@1.9.0)(bufferutil@4.1.0)(google-protobuf@3.21.4)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)':
+  '@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/459f313e0e8eb29e05401e242a4a97196a5f2ec8(@opentelemetry/api@1.9.0)(bufferutil@4.1.0)(google-protobuf@3.21.4)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)':
     dependencies:
       '@avail-project/ca-common': https://codeload.github.com/availproject/ca-common/tar.gz/672c8bdddd44158f5bb4a297abc34dea079054f8(@cosmjs/proto-signing@0.34.1)(@cosmjs/stargate@0.34.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(axios@1.15.0)(decimal.js@10.6.0)(google-protobuf@3.21.4)(long@5.3.2)(msgpackr@1.11.8)(viem@2.38.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@cosmjs/proto-signing': 0.34.1
