@@ -19,3 +19,6 @@ overrides:
   "@types/react": "19.1.2"
   "@types/react-dom": "19.1.2"
   "axios": ">=1.15.0"
+
+minimumReleaseAgeExclude:
+  - '@avail-project/ca-common@2.3.0'

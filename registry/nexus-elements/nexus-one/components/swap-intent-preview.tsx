@@ -119,6 +119,11 @@ const formatUsdDelta = (value: Decimal) => {
   return value.gt(0) ? `-${formatAmount(value)} USD` : "0 USD";
 };
 
+const formatUsdAmount = (value: Decimal) => {
+  if (value.gt(0) && value.lt(0.01)) return "<0.01 USD";
+  return value.gt(0) ? `${formatAmount(value)} USD` : "0 USD";
+};
+
 const formatUsdValue = (value: Decimal) => {
   const absolute = value.abs();
   if (absolute.eq(0)) return "$0";
@@ -813,7 +818,7 @@ export function SwapIntentPreview({
     : pendingValue;
   const feeUsd =
     feeNumber !== undefined
-      ? formatUsdDelta(feeNumber)
+      ? formatUsdAmount(feeNumber)
       : pendingValue;
   const impactUsd =
     priceImpactUsd !== undefined

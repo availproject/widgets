@@ -3350,6 +3350,28 @@ export function NexusOne({
       : activeMode === "send"
         ? parseFiatNumber(amount)
         : undefined;
+  const canRefreshExactOutQuote = () =>
+    activeMode === "deposit"
+      ? Boolean(
+          hasPositiveDecimalInput(amount) &&
+            toToken &&
+            selectedOpportunity &&
+            depositTokenAmountForQuote &&
+            depositTokenAmountForQuote.gt(0),
+        )
+      : activeMode === "send"
+        ? Boolean(hasPositiveDecimalInput(amount) && toToken)
+        : false;
+  const invalidateExactOutQuoteForRefresh = () => {
+    const shouldLoadQuote = canRefreshExactOutQuote();
+    clearPendingSwapIntent(true, { keepQuoteRefreshing: shouldLoadQuote });
+    if (shouldLoadQuote) {
+      setQuoteRefreshing(true);
+      setTxError(null);
+      setSwapQuoteIssue(null);
+    }
+    return shouldLoadQuote;
+  };
   const defaultDepositSourceTokens = useMemo<SwapTokenOption[]>(() => {
     if (activeMode !== "deposit" || !swapBalance) return [];
     return deriveTokenOptions(swapBalance)
@@ -4509,25 +4531,22 @@ export function NexusOne({
       const canRequoteAfterPreviewBack =
         activeMode === "swap"
           ? hasReadyExactInSwapInput(fromTokens, toToken)
-          : activeMode === "deposit"
-            ? Boolean(
-                hasPositiveDecimalInput(amount) &&
-                  toToken &&
-                  selectedOpportunity &&
-                  depositTokenAmountForQuote &&
-                  depositTokenAmountForQuote.gt(0),
-              )
-            : activeMode === "send"
-              ? Boolean(hasPositiveDecimalInput(amount) && toToken)
-              : false;
+          : canRefreshExactOutQuote();
 
-      if (canRequoteAfterPreviewBack && (activeMode === "deposit" || activeMode === "send")) {
+      if (
+        canRequoteAfterPreviewBack &&
+        (activeMode === "deposit" || activeMode === "send")
+      ) {
         setExactOutQuoteSourceModeValue("all");
       }
-      clearPendingSwapIntent(true, {
-        keepQuoteRefreshing: canRequoteAfterPreviewBack,
-      });
-      if (canRequoteAfterPreviewBack) {
+      if (activeMode === "deposit" || activeMode === "send") {
+        invalidateExactOutQuoteForRefresh();
+      } else {
+        clearPendingSwapIntent(true, {
+          keepQuoteRefreshing: canRequoteAfterPreviewBack,
+        });
+      }
+      if (canRequoteAfterPreviewBack && activeMode === "swap") {
         setQuoteRefreshing(true);
         setTxError(null);
         setSwapQuoteIssue(null);
@@ -6138,9 +6157,9 @@ export function NexusOne({
                 onSelectionChange={
                   activeMode === "deposit" || activeMode === "send"
                     ? (tokens) => {
-                        clearPendingSwapIntent();
                         setSourceSelectionTouched(true);
                         setExactOutQuoteSourceModeValue("selected");
+                        invalidateExactOutQuoteForRefresh();
                         setSourceSelectionRevision((current) => current + 1);
                         setFromTokens(
                           tokens.map((token) => ({
@@ -6154,9 +6173,9 @@ export function NexusOne({
                 onClearSelection={
                   activeMode === "deposit" || activeMode === "send"
                     ? () => {
-                        clearPendingSwapIntent();
                         setSourceSelectionTouched(true);
                         setExactOutQuoteSourceModeValue("selected");
+                        invalidateExactOutQuoteForRefresh();
                         setSourceSelectionRevision((current) => current + 1);
                         setFromTokens((current) =>
                           current.length === 0 ? current : [],
@@ -6165,10 +6184,13 @@ export function NexusOne({
                     : undefined
                 }
                 onToggle={(token) => {
-                  clearPendingSwapIntent();
                   if (activeMode === "deposit" || activeMode === "send") {
                     setSourceSelectionTouched(true);
                     setExactOutQuoteSourceModeValue("selected");
+                    invalidateExactOutQuoteForRefresh();
+                    setSourceSelectionRevision((current) => current + 1);
+                  } else {
+                    clearPendingSwapIntent();
                   }
                   setFromTokens((prev) => {
                     const isSameSelection = (a: SwapTokenOption, b: SwapTokenOption) => {
@@ -6336,9 +6358,10 @@ export function NexusOne({
                     activeMode === "deposit" ||
                     activeMode === "send"
                   ) {
-                    clearPendingSwapIntent();
                     setSourceSelectionTouched(true);
                     setExactOutQuoteSourceModeValue("selected");
+                    invalidateExactOutQuoteForRefresh();
+                    setSourceSelectionRevision((current) => current + 1);
                     setFromTokens([{ ...token, userAmount: amount }]);
                     closeDrawerToIdle();
                   }
