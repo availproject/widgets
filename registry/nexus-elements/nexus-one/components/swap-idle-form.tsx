@@ -31,6 +31,7 @@ interface SwapIdleFormProps {
   recipientAddress?: string;
   defaultRecipientAddress?: string;
   swapType: "exactIn" | "exactOut";
+  allowOverBalanceAmounts?: boolean;
   onUpdateTokens?: (tokens: SwapTokenOption[]) => void;
 }
 
@@ -587,6 +588,7 @@ export function SwapIdleForm({
   recipientAddress,
   defaultRecipientAddress,
   swapType,
+  allowOverBalanceAmounts = false,
   onUpdateTokens,
 }: SwapIdleFormProps) {
   const [focusedPanel, setFocusedPanel] = useState<"send" | "receive" | null>(
@@ -684,7 +686,7 @@ export function SwapIdleForm({
     const isUsdMode = token.userAmountMode === "usd";
 
     const maxAmt = isUsdMode ? fiatBalance : tokenBalance;
-    if (Number(sanitized) > maxAmt) {
+    if (!allowOverBalanceAmounts && Number(sanitized) > maxAmt) {
       if (isUsdMode) {
         sanitized = maxAmt.toFixed(2);
       } else {

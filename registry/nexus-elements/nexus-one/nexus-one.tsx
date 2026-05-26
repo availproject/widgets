@@ -6133,6 +6133,7 @@ export function NexusOne({
                 totalBalance={totalSwapBalanceUsd}
                 usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
                 swapType={swapType}
+                allowOverBalanceAmounts={needsWalletConnection}
                 onOpenSourcePicker={(index) => {
                   setEditingAssetIndex(index ?? null);
                   openDrawerStep("choose-swap-asset");
