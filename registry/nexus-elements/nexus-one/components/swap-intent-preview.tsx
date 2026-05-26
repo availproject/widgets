@@ -694,7 +694,7 @@ export function SwapIntentPreview({
           )
         : parseDecimal(fromAmountUsd)
       : parseDecimal(fromAmountUsd);
-  const sourceUsdNumber =
+  const effectiveSourceUsdNumber =
     displayOnlyDestinationCoverageUsd !== undefined
       ? (intentSourceUsdNumber ?? new Decimal(0)).plus(
           displayOnlyDestinationCoverageUsd,
@@ -707,9 +707,9 @@ export function SwapIntentPreview({
       : (parseDecimal(normalizedIntentDest?.value) ?? parseDecimal(toAmountUsd))
     : undefined;
   const hasFiatQuote =
-    sourceUsdNumber !== undefined &&
+    effectiveSourceUsdNumber !== undefined &&
     destinationUsdNumber !== undefined &&
-    sourceUsdNumber.gt(0) &&
+    effectiveSourceUsdNumber.gt(0) &&
     destinationUsdNumber.gt(0);
 
   const bridgeFees = intentData?.feesAndBuffer?.bridge;
@@ -754,12 +754,12 @@ export function SwapIntentPreview({
     explicitFeeNumber ?? (hasFiatQuote ? new Decimal(0) : undefined);
   const priceImpactBaseUsd =
     hasFiatQuote && feeNumber !== undefined
-      ? sourceUsdNumber.minus(feeNumber).minus(swapBufferNumber ?? new Decimal(0))
+      ? effectiveSourceUsdNumber.minus(feeNumber).minus(swapBufferNumber ?? new Decimal(0))
       : undefined;
   const quoteImpactUsd =
     hasFiatQuote && feeNumber !== undefined
       ? Decimal.max(
-          sourceUsdNumber
+          effectiveSourceUsdNumber
             .minus(destinationUsdNumber)
             .minus(feeNumber)
             .minus(swapBufferNumber ?? new Decimal(0)),
@@ -810,8 +810,8 @@ export function SwapIntentPreview({
   const pendingLabel = isLoading ? "Fetching quote" : "Quote unavailable";
   const pendingValue = isLoading ? "..." : "--";
   const sourceUsd =
-    sourceUsdNumber !== undefined
-      ? `${formatAmount(sourceUsdNumber)} USD`
+    intentSourceUsdNumber !== undefined
+      ? `${formatAmount(intentSourceUsdNumber)} USD`
       : pendingValue;
   const receiveUsd = hasFiatQuote
     ? `${formatAmount(destinationUsdNumber)} USD`
@@ -935,7 +935,9 @@ export function SwapIntentPreview({
   })();
   const sourceHeaderAmount =
     singleSourceHeader?.amount ||
-    (sourceUsdNumber !== undefined ? formatAmount(sourceUsdNumber) : pendingValue);
+    (intentSourceUsdNumber !== undefined
+      ? formatAmount(intentSourceUsdNumber)
+      : pendingValue);
   const sourceHeaderUnit = singleSourceHeader?.symbol || "USD";
   const sourceHeaderSubtitle = (() => {
     if (singleSourceHeader) {

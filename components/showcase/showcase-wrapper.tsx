@@ -125,7 +125,12 @@ const ShowcaseWrapper = ({
           )}
         </div>
       ) : (
-        <PreviewPanel connectLabel={connectLabel}>{children}</PreviewPanel>
+        <PreviewPanel
+          connectLabel={connectLabel}
+          renderWhenDisconnected={type === "nexus-one"}
+        >
+          {children}
+        </PreviewPanel>
       )}
     </div>
   );

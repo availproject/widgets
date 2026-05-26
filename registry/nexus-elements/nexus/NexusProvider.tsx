@@ -88,6 +88,12 @@ const NexusProvider = ({
   const swapSupportedChainsAndTokens = useRef<SupportedChainsResult | null>(
     null,
   );
+  const [supportedChainsAndTokensState, setSupportedChainsAndTokensState] =
+    useState<SupportedChainsAndTokensResult | null>(null);
+  const [
+    swapSupportedChainsAndTokensState,
+    setSwapSupportedChainsAndTokensState,
+  ] = useState<SupportedChainsResult | null>(null);
   const [bridgableBalance, setBridgableBalance] = useState<UserAsset[] | null>(
     null,
   );
@@ -166,6 +172,46 @@ const NexusProvider = ({
 
     return 0;
   }, []);
+
+  useEffect(() => {
+    if (!sdk) return;
+
+    let cancelled = false;
+    const list = sdk.utils.getSupportedChains(
+      stableConfig.network === "testnet" ? 0 : undefined,
+    );
+    const swapList = sdk.utils.getSwapSupportedChainsAndTokens();
+    supportedChainsAndTokens.current = list ?? null;
+    swapSupportedChainsAndTokens.current = swapList ?? null;
+    usdPeggedSymbols.current = buildUsdPeggedSymbolSet(list ?? null);
+    setSupportedChainsAndTokensState(list ?? null);
+    setSwapSupportedChainsAndTokensState(swapList ?? null);
+
+    void sdk.utils
+      .getCoinbaseRates()
+      .then((rates) => {
+        if (cancelled) return;
+        const usdPerUnit: Record<string, number> = {};
+
+        for (const [symbol, value] of Object.entries(rates)) {
+          const unitsPerUsd = Number.parseFloat(String(value));
+          if (Number.isFinite(unitsPerUsd) && unitsPerUsd > 0) {
+            usdPerUnit[normalizeTokenSymbol(symbol)] = 1 / unitsPerUsd;
+          }
+        }
+        exchangeRate.current = usdPerUnit;
+        setExchangeRateState(usdPerUnit);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.warn("Unable to preload Nexus rates", error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sdk, stableConfig.network]);
 
   const normalizeUserAssetFiatValues = useCallback(
     (assets: UserAsset[] | null): UserAsset[] | null => {
@@ -311,9 +357,11 @@ const NexusProvider = ({
       config?.network === "testnet" ? 0 : undefined,
     );
     supportedChainsAndTokens.current = list ?? null;
+    setSupportedChainsAndTokensState(list ?? null);
     usdPeggedSymbols.current = buildUsdPeggedSymbolSet(list ?? null);
     const swapList = sdk.utils.getSwapSupportedChainsAndTokens();
     swapSupportedChainsAndTokens.current = swapList ?? null;
+    setSwapSupportedChainsAndTokensState(swapList ?? null);
     const [bridgeAbleBalanceResult, swapBalanceResult, rates] =
       await Promise.allSettled([
         sdk.getBalancesForBridge(),
@@ -376,15 +424,8 @@ const NexusProvider = ({
         await activeSdk.deinit();
       }
       setNexusSDK(null);
-      supportedChainsAndTokens.current = null;
-      swapSupportedChainsAndTokens.current = null;
       setBridgableBalance(null);
       setSwapBalance(null);
-      exchangeRate.current = null;
-      setExchangeRateState(null);
-      coinbaseUsdRateCache.current = {};
-      coinbaseUsdRateRequests.current = {};
-      usdPeggedSymbols.current = new Set(DEFAULT_USD_PEGGED_TOKEN_SYMBOLS);
       intent.current = null;
       swapIntent.current = null;
       allowance.current = null;
@@ -504,8 +545,8 @@ const NexusProvider = ({
       intent,
       allowance,
       handleInit,
-      supportedChainsAndTokens: supportedChainsAndTokens.current,
-      swapSupportedChainsAndTokens: swapSupportedChainsAndTokens.current,
+      supportedChainsAndTokens: supportedChainsAndTokensState,
+      swapSupportedChainsAndTokens: swapSupportedChainsAndTokensState,
       bridgableBalance,
       swapBalance: swapBalance,
       network: config?.network,
@@ -532,6 +573,8 @@ const NexusProvider = ({
       exchangeRateState,
       getFiatValue,
       resolveTokenUsdRate,
+      supportedChainsAndTokensState,
+      swapSupportedChainsAndTokensState,
     ],
   );
   return (

@@ -9,12 +9,15 @@ import { Button } from "@/registry/nexus-elements/ui/button";
 interface PreviewPanelProps {
   children: ReactNode;
   connectLabel: string;
+  renderWhenDisconnected?: boolean;
 }
 
 export function PreviewPanel({
   children,
   connectLabel,
+  renderWhenDisconnected = false,
 }: Readonly<PreviewPanelProps>) {
+  const [mounted, setMounted] = useState(false);
   const { status, connector } = useAccount();
   const { data: walletClient } = useConnectorClient();
   const { nexusSDK, handleInit, loading } = useNexus();
@@ -61,6 +64,10 @@ export function PreviewPanel({
   }, [connector, handleInit, initializing, loading, nexusSDK, walletClient]);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (
       status === "connected" &&
       !nexusSDK &&
@@ -74,10 +81,13 @@ export function PreviewPanel({
   return (
     <div className="w-full">
       <div className="flex flex-col w-full items-center justify-center relative">
-        {(status === "connected" || status === "connecting") && nexusSDK && (
-          <>{children}</>
-        )}
-        {status === "connected" && !nexusSDK && (
+        {renderWhenDisconnected && mounted && <>{children}</>}
+        {!renderWhenDisconnected &&
+          (status === "connected" || status === "connecting") &&
+          nexusSDK && (
+            <>{children}</>
+          )}
+        {!renderWhenDisconnected && status === "connected" && !nexusSDK && (
           <Button
             disabled={loading || initializing}
             onClick={() => void initializeNexus(false)}
@@ -89,7 +99,7 @@ export function PreviewPanel({
             )}
           </Button>
         )}
-        {status !== "connected" && (
+        {!renderWhenDisconnected && status !== "connected" && (
           <p className="text-lg font-semibold">{connectLabel}</p>
         )}
       </div>
