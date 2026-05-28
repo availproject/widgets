@@ -30,10 +30,6 @@ const ERROR_MESSAGE_BY_CODE: Partial<Record<string, string>> = {
     "Selected environment is not recognized.",
   [ERROR_CODES.UNKNOWN_SIGNATURE]:
     "Unsupported signature type for this transaction.",
-  [ERROR_CODES.TRON_DEPOSIT_FAIL]:
-    "TRON deposit transaction failed. Please retry.",
-  [ERROR_CODES.TRON_APPROVAL_FAIL]:
-    "TRON approval transaction failed. Please retry.",
   [ERROR_CODES.LIQUIDITY_TIMEOUT]:
     "Timed out waiting for liquidity. Please retry.",
   [ERROR_CODES.USER_DENIED_INTENT]: USER_REJECTED_MESSAGE,
@@ -56,8 +52,7 @@ const ERROR_MESSAGE_BY_CODE: Partial<Record<string, string>> = {
     "Slippage exceeded tolerance. Refresh quote and retry.",
   [ERROR_CODES.RATES_CHANGED_BEYOND_TOLERANCE]:
     "Rates changed beyond tolerance. Review and retry.",
-  [ERROR_CODES.RFF_FEE_EXPIRED]:
-    "Quote expired. Refresh and try again.",
+  [ERROR_CODES.RFF_FEE_EXPIRED]: "Quote expired. Refresh and try again.",
   [ERROR_CODES.INVALID_INPUT]:
     "Some transaction inputs are invalid. Please review and try again.",
   [ERROR_CODES.INVALID_ADDRESS_LENGTH]:
