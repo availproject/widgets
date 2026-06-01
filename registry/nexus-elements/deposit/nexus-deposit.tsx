@@ -117,7 +117,13 @@ const NexusDeposit = ({
         resetWidget();
       }
     },
-    [isControlled, onOpenChange, onClose, shouldPreventDialogDismiss, resetWidget],
+    [
+      isControlled,
+      onOpenChange,
+      onClose,
+      shouldPreventDialogDismiss,
+      resetWidget,
+    ],
   );
 
   const handleClose = useCallback(() => {

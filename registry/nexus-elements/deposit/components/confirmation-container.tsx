@@ -10,6 +10,7 @@ import type { DepositWidgetContextValue } from "../types";
 import { Button } from "../../ui/button";
 import { CardContent } from "../../ui/card";
 import { usdFormatter } from "../../common";
+import { TOKEN_IMAGES } from "../constants/assets";
 import { formatTokenBalance } from "@avail-project/nexus-core";
 import { useNexus } from "../../nexus/NexusProvider";
 import { BadgePercent, ShieldCheck } from "lucide-react";
@@ -120,7 +121,10 @@ const ConfirmationContainer = ({
               amount={receiveAmount}
               timeLabel={timeLabel}
               loading={isLoading}
-              destinationTokenLogo={widget?.destination?.tokenLogo}
+              destinationTokenLogo={
+                widget?.destination?.tokenLogo ||
+                (widget?.destination?.tokenSymbol ? TOKEN_IMAGES[widget.destination.tokenSymbol] : undefined)
+              }
               depositTargetLogo={widget?.destination?.depositTargetLogo}
             />
             <div className="max-h-100 overflow-y-auto no-scrollbar">

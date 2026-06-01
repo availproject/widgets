@@ -30,6 +30,83 @@ export const DEFAULT_USD_PEGGED_TOKEN_SYMBOLS = [
   "USDP",
 ] as const;
 
+/**
+ * Wrapped / derivative token → base token pegging map.
+ * When Coinbase has no direct price for a token, we resolve the price
+ * of the base symbol and treat it as 1:1.
+ *
+ * Keys and values are UPPERCASE (normalised).
+ */
+export const TOKEN_PRICE_PEGS: Readonly<Record<string, string>> = {
+  // --- Citrea-specific ---
+  CBTC: "BTC",
+  WCBTC: "BTC",
+  CTUSD: "USD",
+  CUSD: "USD",
+
+  // --- Cross-chain wrapped natives ---
+  WETH: "ETH",
+  WBTC: "BTC",
+  WMON: "MON",
+  WPOL: "POL",
+
+  // --- BTC derivatives ---
+  SBTC: "BTC",
+  CBBTC: "BTC",
+  ENZOBTC: "BTC",
+  KBTC: "BTC",
+  BBTC: "BTC",
+  SYBTC: "BTC",
+  "WBTC.E": "BTC",
+
+  // --- ETH derivatives ---
+  STETH: "ETH",
+  RETH: "ETH",
+  WSTETH: "ETH",
+  WBETH: "ETH",
+  WEETH: "ETH",
+  GTETH: "ETH",
+  CBETH: "ETH",
+
+  // --- Other wrapped natives ---
+  WSOL: "SOL",
+  WTRX: "TRX",
+  WBNB: "BNB",
+  WHYPE: "HYPE",
+  WAVAX: "AVAX",
+
+  // --- Stablecoin variants ---
+  "USDC.E": "USDC",
+  "USDT.E": "USDT",
+  GUSD: "USD",
+  JUSD: "USD",
+  SVJUSD: "USD",
+  USDM: "USD",
+} as const;
+
+/**
+ * Custom error thrown when a token's USD price cannot be determined
+ * through any resolution path (SDK rates, Coinbase API, or pegging fallback).
+ */
+export class TokenPricingError extends Error {
+  public readonly tokenSymbol: string;
+
+  constructor(tokenSymbol: string) {
+    super(`Price failure: Cannot value this token at the moment`);
+    this.name = "TokenPricingError";
+    this.tokenSymbol = tokenSymbol;
+  }
+}
+
+/**
+ * Resolve the base symbol for a given token via the pegging map.
+ * Returns `null` if no peg is defined.
+ */
+export function resolveBaseSymbol(tokenSymbol: string): string | null {
+  const normalized = normalizeTokenSymbol(tokenSymbol);
+  return TOKEN_PRICE_PEGS[normalized] ?? null;
+}
+
 type CoinbaseSpotPriceResponse = {
   data?: {
     amount?: string | number;
@@ -174,6 +251,11 @@ export function buildUsdPeggedSymbolSet(
       const symbol = normalizeTokenSymbol(token.symbol ?? "");
       const equivalent = normalizeTokenSymbol(token.equivalentCurrency ?? "");
       if (!symbol) continue;
+
+      // Never add tokens that have an explicit peg in TOKEN_PRICE_PEGS
+      // (e.g. wcBTC → BTC). The SDK's equivalentCurrency metadata can
+      // incorrectly mark non-stablecoin tokens as USD-pegged.
+      if (TOKEN_PRICE_PEGS[symbol]) continue;
 
       if (equivalent && symbolSet.has(equivalent)) {
         symbolSet.add(symbol);

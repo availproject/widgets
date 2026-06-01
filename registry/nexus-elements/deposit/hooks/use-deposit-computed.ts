@@ -250,8 +250,10 @@ export function useDepositComputed(props: UseDepositComputedProps) {
       ? parseFloat(inputAmount.replace(/,/g, ""))
       : 0;
 
-    // Convert USD amount to token amount for display
-    const tokenExchangeRate = exchangeRate?.[destination.tokenSymbol] ?? 1;
+    // Use getFiatValue which goes through the full pegging-aware
+    // resolution (e.g. wcBTC → BTC → ~$103k) instead of a raw
+    // exchangeRate lookup that is case-sensitive and bypasses pegs.
+    const tokenExchangeRate = getFiatValue(1, destination.tokenSymbol);
     const safeTokenExchangeRate =
       Number.isFinite(tokenExchangeRate) && tokenExchangeRate > 0
         ? tokenExchangeRate

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ChevronDownIcon } from "./icons";
 import type { Token } from "../types";
 import { Checkbox } from "../../ui/checkbox";
@@ -34,6 +35,7 @@ export function TokenRow({
   isFirst = false,
   isLast = false,
 }: TokenRowProps) {
+  const [imageError, setImageError] = useState(false);
   const hasMultipleChains = token.chains.length > 1;
   const selectableChains = token.chains.filter(
     (chain) => !disabledChainIds.has(chain.id),
@@ -73,17 +75,26 @@ export function TokenRow({
             onClick={(e) => e.stopPropagation()}
           />
           <div className="flex items-center gap-3">
-            <img
-              src={
-                Object.keys(TOKEN_IMAGES).includes(token.symbol)
-                  ? TOKEN_IMAGES[token.symbol]
-                  : token.logo
-              }
-              alt={token.symbol}
-              width={24}
-              height={24}
-              className="rounded-full"
-            />
+            {!imageError ? (
+              <img
+                src={
+                  Object.keys(TOKEN_IMAGES).includes(token.symbol)
+                    ? TOKEN_IMAGES[token.symbol]
+                    : token.logo
+                }
+                alt={token.symbol}
+                width={24}
+                height={24}
+                className="rounded-full object-cover"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center border">
+                <span className="font-sans font-medium text-[10px] text-muted-foreground uppercase">
+                  {token.symbol.slice(0, 2)}
+                </span>
+              </div>
+            )}
             <div className="flex flex-col gap-1">
               <span className="font-display font-medium text-sm leading-4.5 text-card-foreground">
                 {token.symbol}

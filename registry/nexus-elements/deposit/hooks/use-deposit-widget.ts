@@ -32,6 +32,7 @@ import {
   MIN_SELECTABLE_SOURCE_BALANCE_USD,
   SIMULATION_POLL_INTERVAL_MS,
 } from "../constants/widget";
+import { TokenPricingError } from "../../common/utils/token-pricing";
 
 // Import extracted hooks
 import {
@@ -359,6 +360,7 @@ export function useDepositWidget(
           });
         })
         .catch((error) => {
+          console.log("ERROR IN SWAP AND EXECUTE", error)
           const { code, message } = handleNexusError(error);
           const isUserRejectedError =
             code === ERROR_CODES.USER_DENIED_INTENT ||
@@ -438,19 +440,19 @@ export function useDepositWidget(
         dispatch({ type: "setStatus", payload: "error" });
         return false;
       }
-      const destinationRate = await resolveTokenUsdRate(
-        destination.tokenSymbol,
-      );
-      if (
-        !destinationRate ||
-        !Number.isFinite(destinationRate) ||
-        destinationRate <= 0
-      ) {
-        dispatch({
-          type: "setError",
-          payload: `Unable to fetch pricing for ${destination.tokenSymbol}. Please try again.`,
-        });
+      let destinationRate: number;
+      try {
+        destinationRate = (await resolveTokenUsdRate(
+          destination.tokenSymbol,
+        )) || 0;
+      } catch (error) {
+        const message =
+          error instanceof TokenPricingError
+            ? error.message
+            : "Price failure: Cannot value this token at the moment";
+        dispatch({ type: "setError", payload: message });
         dispatch({ type: "setStatus", payload: "error" });
+        onError?.(message);
         return false;
       }
 
@@ -461,7 +463,7 @@ export function useDepositWidget(
       determiningSwapComplete.current = false;
       denyActiveSwapIntent();
 
-      const tokenAmount = totalAmountUsd / destinationRate;
+      const tokenAmount = destinationRate > 0 ? totalAmountUsd / destinationRate : totalAmountUsd;
       const tokenAmountStr = tokenAmount.toFixed(destination.tokenDecimals);
       const parsed = parseUnits(tokenAmountStr, destination.tokenDecimals);
 
@@ -509,6 +511,7 @@ export function useDepositWidget(
       start,
       denyActiveSwapIntent,
       dispatch,
+      onError,
     ],
   );
 

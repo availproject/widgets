@@ -1,5 +1,6 @@
 "use client";
 
+import { TOKEN_IMAGES } from "../constants/assets";
 import { CardContent, CardFooter } from "../../ui/card";
 import { Button } from "../../ui/button";
 import WidgetHeader from "./widget-header";
@@ -44,6 +45,11 @@ const TransactionFailedContainer = ({
               timeLabel=""
               showClockIcon={false}
               showUsdValue={false}
+              destinationTokenLogo={
+                widget.destination?.tokenLogo ||
+                (widget.destination?.tokenSymbol ? TOKEN_IMAGES[widget.destination.tokenSymbol] : undefined)
+              }
+              depositTargetLogo={widget.destination?.depositTargetLogo}
             />
             <div className="w-full bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-4 overflow-hidden">
               <p className="font-sans text-sm leading-5 text-destructive break-all">
