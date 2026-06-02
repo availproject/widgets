@@ -1,87 +1,50 @@
 ---
 name: nexus-elements-swaps
-description: Integrate the SwapWidget element for cross-chain exact-in and exact-out swaps in React/TypeScript apps. Use when installing or debugging swap simulations, source selection for exact-out mode, swap intent approvals, and event-driven progress using `sdk.swapWithExactIn`/`sdk.swapWithExactOut`.
+description: "DEPRECATED — SwapWidget has been removed. Use Nexus One (config.mode = \"swap\") for all cross-chain swap and bridge flows. Refer to the nexus-sdk-* agent skills for current integration guidance."
 ---
 
-# Nexus Elements - Swaps
+# ⚠️ Deprecated — Use Nexus One
 
-## Install
-- Install widget:
-  - `npx shadcn@latest add @nexus-elements/swaps`
-- Ensure `NexusProvider` is installed and initialized before rendering.
+**SwapWidget has been removed from Nexus Elements.**
 
-## Required setup before rendering
-- Ensure `useNexus().nexusSDK` is initialized.
-- Ensure `swapBalance` is fetched (`fetchSwapBalance` is called by hook if missing).
+All cross-chain swaps (exact-in and exact-out) and bridges are now handled by **Nexus One** with `config.mode = "swap"`.
 
-## Initialize SDK (required once per app)
-- On wallet connect, resolve an EIP-1193 provider and call `useNexus().handleInit(provider)`.
-- Wait for `useNexus().nexusSDK` before swap simulation starts.
-- Re-run init after reconnect if wallet session resets.
+## Migration
 
-## Render widget
+Replace any `SwapWidget` usage with `NexusOne`:
+
 ```tsx
-"use client";
+import { NexusOne } from "@/components/nexus-one/nexus-one";
 
-import SwapWidget from "@/components/swaps/swap-widget";
-
-export function SwapPanel() {
-  return (
-    <SwapWidget
-      onStart={() => {
-        // swap started
-      }}
-      onComplete={(amount) => {
-        console.log("Destination amount:", amount);
-      }}
-      onError={() => {
-        console.error("Swap failed");
-      }}
-    />
-  );
-}
+<NexusOne
+  config={{
+    mode: "swap",
+    prefill: {
+      source: { token: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", chain: 42161 },
+      destination: { token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", chain: 8453 },
+    },
+  }}
+  connectedAddress={address}
+/>
 ```
 
-## Live prop contract
-- `onStart?(): void`
-- `onComplete?(amount?: string): void`
-- `onError?(): void` (component signature currently ignores message argument)
+## Install Nexus One
 
-## SDK flow details (under the hood)
-- Exact-in mode:
-  - build `ExactInSwapInput`
-  - call `sdk.swapWithExactIn(input, { onEvent })`
-- Exact-out mode:
-  - build `ExactOutSwapInput`
-  - optional `fromSources` comes from selected source options
-  - call `sdk.swapWithExactOut(input, { onEvent })`
-- Intent confirmation:
-  - uses `swapIntent.current` from `setOnSwapIntentHook`
-  - final execution happens after `swapIntent.current.allow()` in `continueSwap()`
-- Event mapping:
-  - listens for `NEXUS_EVENTS.SWAP_STEP_COMPLETE`
-  - captures source/destination explorer URLs from step payloads
+```bash
+npx shadcn@latest add @nexus-elements/nexus-one
+```
 
-## Understand mode behavior
-- Widget auto-simulates when inputs are valid (debounced).
-- `exactIn`: requires source chain/token/amount and destination chain/token.
-- `exactOut`: requires destination chain/token/amount; sources are auto-selected unless overridden.
-- Exact-out source selection:
-  - users can toggle source options.
-  - if selection changes, widget re-simulates before allowing continue.
+## Current skills to use instead
 
-## E2E verification
-- Enter exact-in inputs and confirm simulation starts automatically.
-- Confirm swap intent appears and progress steps render.
-- Switch to exact-out, set destination amount, and verify source options load.
-- Change exact-out source selection and confirm re-simulation occurs.
-- Continue swap and confirm explorer links for source/destination swaps.
-- Confirm balances refresh after success.
+For integration guidance, refer to the **Nexus SDK agent skills** (`.agents/skills/`):
 
-## Common failure cases
-- No valid inputs for current mode:
-  - ensure required fields for active mode are populated.
-- Stale intent after input changes:
-  - widget calls `deny()` and resets; re-enter or wait for re-simulation.
-- Simulation loops:
-  - clear errors and verify destination/source token-chain combinations are supported.
+- `nexus-sdk-setup` — SDK initialization and wallet wiring
+- `nexus-sdk-swap-flows` — swapWithExactIn, swapWithExactOut, swapAndExecute
+- `nexus-sdk-hooks-events` — intent hooks and event streaming
+- `nexus-sdk-balances-metadata-utils` — balances, supported chains/tokens, formatters
+- `nexus-sdk-integration` — end-to-end integration guide
+
+## Documentation
+
+- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)
+- [Swap and Bridge docs](https://elements.nexus.availproject.org/docs/components/swaps)

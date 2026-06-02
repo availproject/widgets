@@ -1,99 +1,66 @@
 ---
 name: nexus-elements-bridge-deposit
-description: Integrate the Bridge Deposit element for bridge-plus-execute deposit flows in React/TypeScript apps. Use when installing or debugging source-chain constrained deposits, bridge+execute simulation, intent/allowance approvals, and `sdk.bridgeAndExecute` transaction execution.
+description: "DEPRECATED — BridgeDeposit has been removed. Use Nexus One (config.mode = \"deposit\" with opportunities) for all deposit flows. Refer to the nexus-sdk-* agent skills for current integration guidance."
 ---
 
-# Nexus Elements - Bridge Deposit
+# ⚠️ Deprecated — Use Nexus One
 
-## Install
-- Install widget:
-  - `npx shadcn@latest add @nexus-elements/bridge-deposit`
-- Ensure `NexusProvider` is installed and initialized before rendering.
+**BridgeDeposit has been removed from Nexus Elements.**
 
-## Required setup before rendering
-- Ensure `useNexus().nexusSDK` is initialized.
-- Pass connected address (`address`) and destination chain (`chain`).
-- Provide `depositExecute` callback returning execute parameters.
+All deposit flows (bridge + execute and swap + execute) are now handled by **Nexus One** with `config.mode = "deposit"` and an `opportunities` array.
 
-## Initialize SDK (required once per app)
-- On wallet connect, resolve an EIP-1193 provider and call `useNexus().handleInit(provider)`.
-- Wait for `useNexus().nexusSDK` before simulation/execution.
-- Re-run init after reconnect if wallet session resets.
+## Migration
 
-## Render widget
+Replace any `BridgeDeposit` usage with `NexusOne`:
+
 ```tsx
-"use client";
+import { NexusOne } from "@/components/nexus-one/nexus-one";
 
-import BridgeDeposit from "@/components/bridge-deposit/deposit";
-import { SUPPORTED_CHAINS, TOKEN_METADATA } from "@avail-project/nexus-core";
-import { parseUnits } from "viem";
-
-export function BridgeDepositPanel({ address }: { address: `0x${string}` }) {
-  return (
-    <BridgeDeposit
-      address={address}
-      chain={SUPPORTED_CHAINS.BASE}
-      token="USDC"
-      heading="Deposit USDC"
-      destinationLabel="Deposit to protocol"
-      depositExecute={(token, amount, chainId, userAddress) => {
-        const decimals = TOKEN_METADATA[token].decimals;
-        const amountWei = parseUnits(amount, decimals);
-        const contract = "0x0000000000000000000000000000000000000000" as const;
-
-        return {
-          to: contract,
-          data: "0x",
+<NexusOne
+  config={{
+    mode: "deposit",
+    opportunities: [
+      {
+        id: "my-deposit",
+        protocol: "MyProtocol",
+        chainId: 8453,
+        tokenSymbol: "USDC",
+        tokenAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        execute: (amount, connectedAddress) => ({
+          to: "0xContractAddress",
+          data: "0xCalldata",
+          gas: 300000n,
           tokenApproval: {
-            token,
-            amount: amountWei,
-            spender: contract,
+            token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            amount,
+            spender: "0xContractAddress",
           },
-        };
-      }}
-    />
-  );
-}
+        }),
+      },
+    ],
+  }}
+  connectedAddress={address}
+/>
 ```
 
-## Live prop contract
-- Required:
-  - `address`
-  - `chain`
-  - `depositExecute(token, amount, chainId, userAddress)`
-- Optional:
-  - `token` (default `USDC`)
-  - `chainOptions` (restrict selectable source chains)
-  - `heading`, `embed`, `destinationLabel`
+## Install Nexus One
 
-## SDK flow details (under the hood)
-- Simulation:
-  - debounced amount triggers `sdk.simulateBridgeAndExecute(...)`
-- Execution:
-  - `sdk.bridgeAndExecute({ token, amount, toChainId, sourceChains, execute, waitForReceipt: true }, { onEvent })`
-- Hook usage:
-  - `intent.current` for preview/allow
-  - `allowance.current` for allowance decisions
-- Event mapping:
-  - `NEXUS_EVENTS.STEPS_LIST` seeds bridge steps
-  - `NEXUS_EVENTS.STEP_COMPLETE` marks progress and transaction start
+```bash
+npx shadcn@latest add @nexus-elements/nexus-one
+```
 
-## Source selection behavior
-- Widget tracks `inputs.selectedSources` and passes them to simulate/execute.
-- Widget blocks simulation/execution if no source chains are selected.
-- If you pass `chainOptions`, ensure they match chains that actually hold source liquidity.
+## Current skills to use instead
 
-## E2E verification
-- Enter amount and confirm simulation response appears.
-- Toggle source chains and confirm simulation + fee updates.
-- Start transaction and verify intent/allowance flows resolve.
-- Verify intent and execute explorer URLs on success.
-- Verify balance refresh after completion.
+For integration guidance, refer to the **Nexus SDK agent skills** (`.agents/skills/`):
 
-## Common failure cases
-- No source chains selected:
-  - widget will error and block execution.
-- Invalid execute builder output:
-  - ensure `to`, `data`, and optional `tokenApproval` are correct.
-- Simulation fails repeatedly:
-  - reduce amount or update selected sources.
+- `nexus-sdk-setup` — SDK initialization and wallet wiring
+- `nexus-sdk-bridge-flows` — bridge, bridgeAndTransfer, bridgeAndExecute
+- `nexus-sdk-swap-flows` — swapWithExactIn, swapWithExactOut, swapAndExecute
+- `nexus-sdk-hooks-events` — intent hooks and event streaming
+- `nexus-sdk-balances-metadata-utils` — balances, supported chains/tokens, formatters
+- `nexus-sdk-integration` — end-to-end integration guide
+
+## Documentation
+
+- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)
+- [Deposit docs](https://elements.nexus.availproject.org/docs/components/deposit)
