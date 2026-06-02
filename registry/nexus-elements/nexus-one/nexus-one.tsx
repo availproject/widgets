@@ -1635,6 +1635,48 @@ export function NexusOne({
     destinationExplorerUrl: string | null;
   }>({ sourceExplorerUrl: null, destinationExplorerUrl: null });
   const swapRunIdRef = useRef(0);
+
+  const widgetSessionIdRef = useRef<string>(
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
+  const widgetAttemptIdRef = useRef<string | null>(null);
+  const widgetOpenedTsRef = useRef<number>(Date.now());
+  const previewViewedTsRef = useRef<number | null>(null);
+  const previewConfirmedTsRef = useRef<number | null>(null);
+  const attemptCountRef = useRef(0);
+  const fundsMovedRef = useRef(false);
+  const intentUrlRef = useRef<string | null>(null);
+  const hadSimulationSuccessRef = useRef(false);
+  const hadPreviewViewedRef = useRef(false);
+  const widgetOpenedFiredRef = useRef(false);
+  const reachedTerminalRef = useRef(false);
+  const amountEnteredLastValueRef = useRef<string>("");
+  const lastInputMethodRef = useRef<"typed" | "percent_25" | "percent_50" | "percent_75" | "percent_max">("typed");
+  const prevSourceTouchedRef = useRef(false);
+  const previousAutoSourceCountRef = useRef(0);
+  const analyticsRef = useRef<{
+    track: (event: string, properties?: Record<string, unknown>) => void;
+  } | null>(null);
+  const selectedOpportunityRef = useRef<DepositOpportunity | undefined>(undefined);
+
+  const newAttemptId = useCallback(() => {
+    return typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }, []);
+
+  const rotateAttempt = useCallback(() => {
+    widgetAttemptIdRef.current = newAttemptId();
+    previewViewedTsRef.current = null;
+    previewConfirmedTsRef.current = null;
+    fundsMovedRef.current = false;
+    intentUrlRef.current = null;
+    hadSimulationSuccessRef.current = false;
+    hadPreviewViewedRef.current = false;
+    reachedTerminalRef.current = false;
+  }, [newAttemptId]);
   const [intentToAmount, setIntentToAmount] = useState<string | undefined>(
     undefined,
   );
@@ -2941,6 +2983,74 @@ export function NexusOne({
     "token",
   );
 
+  const trackDeposit = useCallback(
+    (event: string, props?: Record<string, unknown>) => {
+      const analytics = nexusSDK?.analytics;
+      if (!analytics) return;
+      analytics.track(event, {
+        widgetSessionId: widgetSessionIdRef.current,
+        widgetAttemptId: widgetAttemptIdRef.current,
+        opportunityId: selectedOpportunity?.id ?? null,
+        opportunityProtocol: selectedOpportunity?.protocol ?? null,
+        destinationChainId: selectedOpportunity?.chainId ?? null,
+        destinationToken: selectedOpportunity?.tokenSymbol ?? null,
+        ...props,
+      });
+    },
+    [nexusSDK, selectedOpportunity],
+  );
+
+  useEffect(() => {
+    if (activeMode !== "deposit") return;
+    if (!nexusSDK?.analytics) return;
+    if (widgetOpenedFiredRef.current) return;
+    widgetOpenedFiredRef.current = true;
+    widgetOpenedTsRef.current = Date.now();
+    rotateAttempt();
+    trackDeposit("deposit_widget_opened", {
+      embed: Boolean(embed),
+      opportunityCount: config.opportunities?.length ?? 0,
+      prefillAmountPresent: Boolean(config.prefill?.amount),
+    });
+  }, [
+    activeMode,
+    nexusSDK,
+    embed,
+    config.opportunities,
+    config.prefill,
+    rotateAttempt,
+    trackDeposit,
+  ]);
+
+  useEffect(() => {
+    analyticsRef.current = nexusSDK?.analytics ?? null;
+  }, [nexusSDK]);
+
+  useEffect(() => {
+    selectedOpportunityRef.current = selectedOpportunity;
+  }, [selectedOpportunity]);
+
+  useEffect(() => {
+    return () => {
+      if (!widgetOpenedFiredRef.current) return;
+      const analytics = analyticsRef.current;
+      if (!analytics) return;
+      const opp = selectedOpportunityRef.current;
+      analytics.track("deposit_widget_closed", {
+        widgetSessionId: widgetSessionIdRef.current,
+        widgetAttemptId: widgetAttemptIdRef.current,
+        opportunityId: opp?.id ?? null,
+        opportunityProtocol: opp?.protocol ?? null,
+        lastStep: swapStepRef.current,
+        reachedTerminal: reachedTerminalRef.current,
+        hadSimulationSuccess: hadSimulationSuccessRef.current,
+        hadPreviewViewed: hadPreviewViewedRef.current,
+        timeInWidgetMs: Date.now() - widgetOpenedTsRef.current,
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const toTokenFromOpportunity = (
     opp: DepositOpportunity,
   ): SwapTokenOption => {
@@ -3344,6 +3454,85 @@ export function NexusOne({
   const depositTokenDisplay =
     depositTokenAmountForQuote?.toDecimalPlaces(toToken?.decimals ?? 18).toFixed() ??
     "0";
+
+  useEffect(() => {
+    if (activeMode !== "deposit") return;
+    if (!nexusSDK?.analytics) return;
+    const parsed = parseFiatNumber(amount);
+    if (!parsed || parsed.lte(0)) return;
+    if (amount === amountEnteredLastValueRef.current) return;
+    const timeout = setTimeout(() => {
+      amountEnteredLastValueRef.current = amount;
+      trackDeposit("deposit_amount_entered", {
+        amountToken: depositTokenDisplay,
+        amountUsd: Number(depositUsdDisplay) || 0,
+        inputMethod: lastInputMethodRef.current,
+      });
+      lastInputMethodRef.current = "typed";
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [
+    amount,
+    activeMode,
+    nexusSDK,
+    depositTokenDisplay,
+    depositUsdDisplay,
+    trackDeposit,
+  ]);
+
+  useEffect(() => {
+    if (activeMode !== "deposit") return;
+    if (intentData) hadSimulationSuccessRef.current = true;
+  }, [intentData, activeMode]);
+
+  useEffect(() => {
+    if (activeMode !== "deposit") return;
+    if (sourceSelectionTouched) return;
+    previousAutoSourceCountRef.current = (intentData?.sources ?? []).length;
+  }, [intentData, activeMode, sourceSelectionTouched]);
+
+  useEffect(() => {
+    if (activeMode !== "deposit") return;
+    const prev = prevSourceTouchedRef.current;
+    const curr = sourceSelectionTouched;
+    if (prev === curr) return;
+    prevSourceTouchedRef.current = curr;
+    if (!prev && curr) {
+      trackDeposit("deposit_source_selection_changed", {
+        sourceCount: fromTokens.length,
+        sourceChainIds: fromTokens.map((t) => t.chainId).filter(Boolean),
+        sourceTokenSymbols: fromTokens.map((t) => t.symbol).filter(Boolean),
+        previousSourceCount: previousAutoSourceCountRef.current,
+      });
+    } else if (prev && !curr) {
+      trackDeposit("deposit_source_selection_reverted_to_auto", {
+        previousSourceCount: fromTokens.length,
+      });
+    }
+  }, [sourceSelectionTouched, activeMode, fromTokens, trackDeposit]);
+
+  useEffect(() => {
+    if (activeMode !== "deposit") return;
+    if (swapStep !== "preview-intent") return;
+    if (intentLoading) return;
+    if (!intentData) return;
+    if (hadPreviewViewedRef.current) return;
+    hadPreviewViewedRef.current = true;
+    previewViewedTsRef.current = Date.now();
+    trackDeposit("deposit_preview_viewed", {
+      totalFeeUsd: Number(intentFeeUsd) || 0,
+      toAmountUsd: Number(depositUsdDisplay) || 0,
+      sourceCount: (intentData?.sources ?? []).length,
+    });
+  }, [
+    swapStep,
+    intentLoading,
+    intentData,
+    activeMode,
+    intentFeeUsd,
+    depositUsdDisplay,
+    trackDeposit,
+  ]);
   const requiredDestinationTokenAmount =
     activeMode === "deposit"
       ? depositTokenAmountForQuote
@@ -3537,6 +3726,10 @@ export function NexusOne({
     setSelectedOpportunity(undefined);
     setPendingOpportunity(undefined);
     setDepositAmountMode("token");
+    if (activeMode === "deposit") {
+      amountEnteredLastValueRef.current = "";
+      rotateAttempt();
+    }
   };
 
   const resetInputsAfterSuccessfulExecution = () => {
@@ -3564,6 +3757,16 @@ export function NexusOne({
     setAmount("");
     clearSelectedSources();
     setToToken(toTokenFromOpportunity(opp));
+    if (activeMode === "deposit") {
+      amountEnteredLastValueRef.current = "";
+      rotateAttempt();
+      trackDeposit("deposit_opportunity_selected", {
+        opportunityId: opp.id,
+        protocol: opp.protocol,
+        destinationChainId: opp.chainId,
+        destinationToken: opp.tokenSymbol,
+      });
+    }
   };
 
   const handleClose = () => {
@@ -3629,6 +3832,15 @@ export function NexusOne({
         setSwapQuoteIssue(null);
       }
       return;
+    }
+
+    if (!background && activeMode === "deposit") {
+      trackDeposit("deposit_confirm_clicked", {
+        amountToken: depositTokenDisplay,
+        amountUsd: Number(depositUsdDisplay) || 0,
+        selectionMode: sourceSelectionTouched ? "manual" : "auto",
+        sourceCount: (intentData?.sources ?? []).length,
+      });
     }
 
     setTxError(null);
@@ -3811,6 +4023,17 @@ export function NexusOne({
             destinationExplorerUrl: (step as any).data.explorerURL,
           });
         }
+        if (
+          (step as any)?.type === "BRIDGE_DEPOSIT" ||
+          (step as any)?.type === "SOURCE_SWAP_HASH" ||
+          (step as any)?.type === "SOURCE_SWAP_BATCH_TX"
+        ) {
+          fundsMovedRef.current = true;
+          const explorerUrl = (step as any)?.data?.explorerURL ?? (step as any)?.explorerURL;
+          if (explorerUrl && !intentUrlRef.current) {
+            intentUrlRef.current = explorerUrl;
+          }
+        }
         if ((step as any)?.completed !== false) {
           onStepComplete(step as any);
         }
@@ -3862,6 +4085,18 @@ export function NexusOne({
           mergeExplorerUrls({
             sourceExplorerUrl: (step as any).data.explorerURL,
           });
+        }
+        if (
+          step?.type === "BRIDGE_DEPOSIT" ||
+          step?.type === "SOURCE_SWAP_HASH" ||
+          step?.type === "SOURCE_SWAP_BATCH_TX"
+        ) {
+          fundsMovedRef.current = true;
+          const explorerUrl =
+            (step as any)?.explorerURL ?? (step as any)?.data?.explorerURL;
+          if (explorerUrl && !intentUrlRef.current) {
+            intentUrlRef.current = explorerUrl;
+          }
         }
         if (step?.type === "RFF_ID") {
           const nextIntentId = Number((step as any).data);
@@ -4126,6 +4361,19 @@ export function NexusOne({
           finishCurrentSwapHistoryEntry("fulfilled");
           resetInputsAfterSuccessfulExecution();
           onComplete?.();
+          if (activeMode === "deposit") {
+            reachedTerminalRef.current = true;
+            const now = Date.now();
+            trackDeposit("deposit_completed", {
+              postConfirmDurationMs: previewConfirmedTsRef.current
+                ? now - previewConfirmedTsRef.current
+                : 0,
+              totalDurationMs: now - widgetOpenedTsRef.current,
+              attemptCount: attemptCountRef.current,
+              amountToken: depositTokenDisplay,
+              amountUsd: Number(depositUsdDisplay) || 0,
+            });
+          }
           setSwapStep("success");
         }
       }
@@ -4133,6 +4381,42 @@ export function NexusOne({
       console.error("Error in handleEnterPreview:", err);
       if (swapRunIdRef.current !== runId) {
         return;
+      }
+      if (activeMode === "deposit" && err?.code !== "USER_DENIED_INTENT") {
+        const hasActiveExecution =
+          swapStepRef.current === "progress" &&
+          Boolean(currentSwapIdRef.current);
+        const isInsufficient = isInsufficientSourcesError(err);
+        const errMessage =
+          (typeof err?.message === "string" ? err.message : "") ||
+          (typeof err === "string" ? err : "");
+        const errName = typeof err?.name === "string" ? err.name : "";
+        const isUserRejected =
+          err?.code === 4001 ||
+          err?.code === "ACTION_REJECTED" ||
+          errName === "UserRejectedRequestError" ||
+          /user rejected|user denied/i.test(errMessage);
+        const failedAtStep: "simulation" | "nexus_operation" | "execute_leg" | "unknown" =
+          !hasActiveExecution ? "simulation" : "nexus_operation";
+        const errorCategory: string = isUserRejected
+          ? "user_rejected"
+          : isInsufficient
+            ? "no_eligible_sources"
+            : !hasActiveExecution
+              ? "quote_failed"
+              : "execution_failed";
+        reachedTerminalRef.current = true;
+        if (fundsMovedRef.current) {
+          trackDeposit("deposit_partial_movement_detected", {
+            intentUrl: intentUrlRef.current,
+          });
+        }
+        trackDeposit("deposit_failed", {
+          errorCode: err?.code ?? "UNKNOWN",
+          errorCategory,
+          errorMessage: errMessage || "Transaction failed.",
+          failedAtStep,
+        });
       }
       setQuoteRefreshing(false);
       setIntentLoading(false);
@@ -4446,6 +4730,18 @@ export function NexusOne({
   /** User accepted swap from the preview — call allow() from the intent hook */
   const handleSwapAccept = () => {
     if (swapIntentRef.current) {
+      if (activeMode === "deposit") {
+        previewConfirmedTsRef.current = Date.now();
+        attemptCountRef.current += 1;
+        const timeInPreviewMs = previewViewedTsRef.current
+          ? previewConfirmedTsRef.current - previewViewedTsRef.current
+          : 0;
+        trackDeposit("deposit_preview_confirmed", {
+          timeInPreviewMs,
+          totalFeeUsd: Number(intentFeeUsd) || 0,
+          sourceCount: (intentData?.sources ?? []).length,
+        });
+      }
       onStart?.();
       startSwapHistoryEntry();
       setSwapStep("progress");
@@ -4457,7 +4753,6 @@ export function NexusOne({
         resetSteps();
       }
       swapIntentRef.current.allow();
-      // The swap promise in handleEnterPreview will resolve/reject
     }
   };
 
@@ -4651,6 +4946,14 @@ export function NexusOne({
     setTxError(null);
     setSwapQuoteIssue(null);
     const runId = ++maxPercentRunRef.current;
+    lastInputMethodRef.current =
+      pct === 25
+        ? "percent_25"
+        : pct === 50
+          ? "percent_50"
+          : pct === 75
+            ? "percent_75"
+            : "percent_max";
 
     if (pct !== 100) {
       const usdAmount = getTotalBalancePercentUsdAmount(pct);
@@ -5586,14 +5889,25 @@ export function NexusOne({
                   <DepositIdleForm
                     amount={amount}
                     amountMode={depositAmountMode}
-                    onAmountChange={handleDepositAmountChange}
+                    onAmountChange={(val) => {
+                      lastInputMethodRef.current = "typed";
+                      handleDepositAmountChange(val);
+                    }}
                     onAmountModeToggle={handleDepositAmountModeToggle}
                     toToken={toTokenWithFetchedBalance}
                     totalBalance={totalSwapBalanceUsd}
                     usdValue={depositUsdDisplay}
                     tokenValue={depositTokenDisplay}
                     fromTokens={fromTokens}
-                    onOpenSourcePicker={() => openDrawerStep("choose-swap-asset")}
+                    onOpenSourcePicker={() => {
+                      trackDeposit("deposit_source_picker_opened", {
+                        currentSelectionMode: sourceSelectionTouched
+                          ? "manual"
+                          : "auto",
+                        currentSourceCount: (intentData?.sources ?? []).length,
+                      });
+                      openDrawerStep("choose-swap-asset");
+                    }}
                     onSetPercent={handleDepositPercentSelect}
                     routeStatus={
                       exactOutInsufficientSourceIssue
