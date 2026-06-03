@@ -14,3 +14,7 @@ allowBuilds:
 onlyBuiltDependencies:
   - "@avail-project/ca-common"
   - "@avail-project/nexus-core"
+
+overrides:
+  "@types/react": "19.1.2"
+  "@types/react-dom": "19.1.2"
