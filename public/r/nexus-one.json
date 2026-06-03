@@ -1,0 +1,8 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "nexus-one",
+  "type": "registry:component",
+  "title": "Nexus One",
+  "description": "UI primitive: Nexus One",
+  "files": []
+}
