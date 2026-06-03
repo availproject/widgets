@@ -1,269 +1,140 @@
-# Nexus One (Tentative Name) - Build Plan
+# Nexus One — Production Element
 
-Last updated: 2026-03-03
+Last updated: June 2, 2026
 
-## 1) Goal
-Build a brand-new unified Nexus element from scratch that supports `swap`, `bridge`, `transfer`, and `deposit` in one pleasant, simple UX, while still allowing deep configurability for integrators.
+## 1) Status
 
-## 2) Product Outcomes
-1. End users can complete cross-chain actions with minimal cognitive load.
-2. Integrators can enable only the flows they need using booleans on the main component.
-3. The element auto-picks the right operation by default, with optional manual override.
-4. Existing elements remain unchanged during development.
-5. Work happens on a separate branch and is not published to the registry in this phase.
+**Nexus One is now the production, primary element.** It has been published to the registry and is the only recommended component for all cross-chain flows. All legacy standalone elements have been deprecated and removed.
 
-## 3) V1 Scope
-1. Supported flows: `swap`, `bridge`, `transfer`, `deposit`.
-2. Swap supports `exactIn` and `exactOut`.
-3. Deposit presets: `Aave`, `Hyperliquid`, `Custom`.
-4. Inline balance view is included.
-5. Intent history is not included in this element.
-6. Advanced source controls are progressive disclosure.
-7. Simulation and allowance are optional states and only appear when relevant.
+## 2) What Nexus One provides
 
-## 4) Non-Goals (V1)
-1. No multi-step chained orchestration (example: force bridge then swap as one composed plan).
-2. No public registry/docs/showcase release in this phase.
-3. No feature flags required.
+A single unified component that handles:
+- **Swap and Bridge** (`config.mode = "swap"`) — cross-chain swaps with exact-in and exact-out. Bridge paths are resolved automatically when tokens match.
+- **Send / Transfer** (`config.mode = "send"`) — cross-chain transfers to a recipient address.
+- **Deposit** (`config.mode = "deposit"`) — swap-and-execute deposit into protocols like Aave, with configurable opportunities.
 
-## 5) UX Principles (Pleasant + Simple)
+## 3) Install
+
+```bash
+npx shadcn@latest add @nexus-elements/nexus-one
+```
+
+## 4) Registry and docs
+
+- Registry: `@nexus-elements/nexus-one`
+- Docs: `https://elements.nexus.availproject.org/docs/components/nexus-one`
+- Mode-specific docs:
+  - Swap: `/docs/components/swaps`
+  - Send: `/docs/components/transfer`
+  - Deposit: `/docs/components/deposit`
+
+## 5) Configuration Model
+
+```ts
+type NexusOneMode = "swap" | "send" | "deposit";
+
+interface NexusOneConfig {
+  mode: NexusOneMode;
+  prefill?: {
+    token?: `0x${string}`;
+    chain?: number;
+    amount?: string;
+    recipient?: `0x${string}`;
+    source?: { token: `0x${string}`; chain: number };
+    destination?: { token: `0x${string}`; chain: number };
+  };
+  allowedSourcePairs?: { token: `0x${string}`; chain: number }[];
+  allowedDestinationPairs?: { token: `0x${string}`; chain: number }[];
+  opportunities?: DepositOpportunity[]; // required for deposit mode
+}
+
+interface NexusOneProps {
+  config: NexusOneConfig;
+  connectedAddress?: `0x${string}`;
+  embed?: boolean; // default true
+  onComplete?: (explorerUrl?: string) => void;
+  onStart?: () => void;
+  onError?: (message: string) => void;
+  onClose?: () => void;
+}
+```
+
+## 6) UX Principles
+
 1. Outcome-first input model: user describes desired result, not protocol mechanics.
 2. One primary action per screen: avoid multiple competing CTAs.
 3. Progressive disclosure: advanced controls hidden by default.
 4. Smart defaults: auto mode, preselected best route, prefilled likely values.
 5. Fast feedback: quote and route clarity appear early.
 6. Calm language: direct, low-jargon text and actionable errors.
-7. Safe control: users can override auto mode if they want.
 
-## 6) User Experience Flow
+## 7) SDK Operations Per Mode
 
-## 6.1 Main Journey
-1. User sets outcome: from token/chain, to token/chain, amount, optional recipient.
-2. Element selects operation in `auto` mode.
-3. User reviews quote and route breakdown.
-4. User optionally opens advanced controls.
-5. User confirms.
-6. Transaction executes with contextual progress UI.
-7. Success screen gives clear result and explorer links.
+| Mode | SDK call | Behavior |
+|---|---|---|
+| `swap` | `swapWithExactIn` / `swapWithExactOut` | Users choose source and receive assets |
+| `send` | `swapAndTransfer` | Exact-out, users choose token/amount to send |
+| `deposit` | `swapAndExecute` | Exact-out, with opportunity execute builder |
 
-## 6.2 Optional Journey Branches
-1. Simulation appears only when a route needs quote/intent verification.
-2. Allowance step appears only when SDK requires approvals.
-3. For direct-eligible paths, flow can skip simulation and/or allowance.
+## 8) Deposit Opportunities
 
-## 7) ASCII Wireframes
+`opportunities` is required only when `mode` is `"deposit"`. Each opportunity describes a destination asset and the contract execution Nexus performs after the swap settles.
 
-## 7.1 Main Screen
-```text
-+----------------------------------------------------------------------------------+
-| Unified Element (name TBD)                                          [⚙ Settings] |
-|----------------------------------------------------------------------------------|
-| Goal                                                                            |
-| From: [Token ▼] [Chain ▼] [Amount ___________________________]                  |
-| To:   [Token ▼] [Chain ▼]                                                       |
-| Recipient (optional): [0x.................................................]      |
-| Deposit Target (optional): [None | Aave | Hyperliquid | Custom ▼]              |
-|----------------------------------------------------------------------------------|
-| Route: [AUTO]  Selected: [Bridge]                           [Override ▼]        |
-| Enabled: [Swap ✓] [Bridge ✓] [Transfer ✓] [Deposit ✓]                          |
-|----------------------------------------------------------------------------------|
-| Balance: Bridgeable $X,XXX | Swappable $Y,YYY                      [Details ▸] |
-|----------------------------------------------------------------------------------|
-| Quote                                                                            |
-| You pay: ...                                                                     |
-| You receive: ...                                                                 |
-| Fees: ...                                                                        |
-| ETA: ...                                                                         |
-| [Advanced ▸] Source constraints / source chain selection                         |
-|----------------------------------------------------------------------------------|
-| [Reset]                                                      [Continue / Execute]|
-+----------------------------------------------------------------------------------+
-```
-
-## 7.2 Progress State
-```text
-+--------------------------------------------------------------+
-| Transaction Progress                                         |
-|--------------------------------------------------------------|
-| [✓] Intent confirmed (if required)                           |
-| [~] Approval (if required)                                   |
-| [ ] Source execution                                         |
-| [ ] Destination execution                                    |
-|--------------------------------------------------------------|
-| Status: Executing...                                         |
-| Explorer: [View transaction]                                 |
-|--------------------------------------------------------------|
-| [Close]                                                      |
-+--------------------------------------------------------------+
-```
-
-## 7.3 Single-Flow Locked UX
-```text
-Config: { bridge: true, swap: false, transfer: false, deposit: false }
-
-Behavior:
-- Mode selector hidden
-- Bridge-specific labels and CTA
-- Only bridge-compatible fields shown
-```
-
-## 8) Configurability Model
-
-## 8.1 Core Props
 ```ts
-type UnifiedMode = "auto" | "swap" | "bridge" | "transfer" | "deposit";
-
-interface EnabledFlows {
-  swap: boolean;
-  bridge: boolean;
-  transfer: boolean;
-  deposit: boolean;
+interface DepositOpportunity {
+  id: string;
+  protocol: string;
+  chainId: number;
+  tokenSymbol: string;
+  tokenAddress: `0x${string}`;
+  execute:
+    | ExecuteConfig
+    | ((amount: bigint, connectedAddress: `0x${string}`) => ExecuteConfig);
+  label?: string;
+  title?: string;
+  subtitle?: string;
+  logo?: string;
+  tokenLogo?: string;
+  apy?: string;
+  description?: string;
 }
 
-interface UnifiedPrefill {
-  fromChainId?: number;
-  fromTokenAddress?: `0x${string}`;
-  toChainId?: number;
-  toTokenAddress?: `0x${string}`;
-  amount?: string;
-  recipient?: `0x${string}`;
-  swapAmountMode?: "exactIn" | "exactOut";
-  depositPreset?: "aave" | "hyperliquid" | "custom";
-}
-
-interface UnifiedElementProps {
-  connectedAddress?: `0x${string}`;
-  mode?: UnifiedMode;
-  enabledFlows?: Partial<EnabledFlows>;
-  prefill?: UnifiedPrefill;
-  maxAmount?: string | number;
-  allowModeOverride?: boolean;
-  showInlineBalance?: boolean;
-  showAdvancedControls?: boolean;
-  depositPresets?: {
-    aave?: { enabled: boolean; poolByChain: Record<number, `0x${string}`>; referralCode?: number };
-    hyperliquid?: { enabled: boolean; contractByChain: Record<number, `0x${string}`>; functionName?: string };
-    custom?: {
-      enabled: boolean;
-      executeBuilder: (
-        tokenSymbol: string,
-        tokenAddress: `0x${string}`,
-        amount: bigint,
-        chainId: number,
-        user: `0x${string}`
-      ) => Omit<ExecuteParams, "toChainId">;
-    };
+interface ExecuteConfig {
+  to: `0x${string}`;
+  data?: `0x${string}`;
+  value?: bigint;
+  gas: bigint;
+  gasPrice?: "low" | "medium" | "high";
+  tokenApproval?: {
+    token: `0x${string}`;
+    amount: bigint;
+    spender: `0x${string}`;
   };
-  onModeResolved?: (mode: "swap" | "bridge" | "transfer" | "deposit") => void;
-  onStart?: (ctx: { mode: "swap" | "bridge" | "transfer" | "deposit" }) => void;
-  onError?: (ctx: { mode?: "swap" | "bridge" | "transfer" | "deposit"; message: string }) => void;
-  onComplete?: (ctx: { mode: "swap" | "bridge" | "transfer" | "deposit"; explorerUrl?: string; amount?: string; txHashes?: string[] }) => void;
 }
 ```
 
-## 8.2 Flow Enablement Rules
-1. If one flow is enabled, lock to that flow and hide selector.
-2. If multiple flows are enabled, run auto-route and optionally show override.
-3. If explicit mode is disabled by config, show clear config error state.
-4. If all flows are disabled, block render with configuration guidance.
+## 9) Architecture
 
-## 9) Routing Logic (Rule-Based)
-1. If deposit target/preset is chosen and deposit is enabled -> `deposit`.
-2. Else if recipient exists and recipient differs from connected wallet and transfer is enabled -> `transfer`.
-3. Else if token differs and swap is enabled -> `swap`.
-4. Else if chain differs and token same and bridge is enabled -> `bridge`.
-5. Else fallback to first compatible enabled flow.
-6. If no compatible flow exists, show `Flow Disabled by Config` state.
+- `NexusProvider` = SDK lifecycle + shared data + hooks (unchanged, still required)
+- `NexusOne` = unified element with internal state management per mode
+- Legacy elements (FastBridge, FastTransfer, SwapWidget, Deposit, BridgeDeposit, UnifiedBalance, ViewHistory) = **deprecated and removed**
 
-## 10) State Machine (Optional Steps Explicit)
-```text
-idle -> editing -> [optional simulating] -> review -> [optional awaitingAllowance]
--> executing -> success | error
-```
+## 10) Module layout
 
-Transition notes:
-1. `simulating` is conditional.
-2. `awaitingAllowance` is conditional.
-3. Some routes can go directly to review or execute.
-4. Cancel/deny returns to editing with inputs preserved by default.
+- `registry/nexus-elements/nexus-one/nexus-one.tsx` — main component
+- `registry/nexus-elements/nexus-one/components/*` — mode-specific UI
+- `registry/nexus-elements/nexus-one/hooks/*` — flow hooks
+- `registry/nexus-elements/nexus-one/types.ts` — shared types
+- `registry/nexus-elements/nexus/NexusProvider.tsx` — SDK provider (shared)
 
-## 11) Architecture (Dedicated Provider)
-1. Create a dedicated internal provider for this element: `UnifiedFlowProvider`.
-2. Keep this provider inside the component boundary so host usage stays simple.
-3. Continue to rely on external `NexusProvider` for SDK access.
+## 11) What was deprecated
 
-Proposed module layout:
-1. `registry/nexus-elements/unified-flow/unified-flow.tsx`
-2. `registry/nexus-elements/unified-flow/provider/UnifiedFlowProvider.tsx`
-3. `registry/nexus-elements/unified-flow/hooks/useUnifiedFlowRouter.ts`
-4. `registry/nexus-elements/unified-flow/hooks/useUnifiedFlowSimulation.ts`
-5. `registry/nexus-elements/unified-flow/hooks/useUnifiedFlowExecution.ts`
-6. `registry/nexus-elements/unified-flow/hooks/useUnifiedFlowBalances.ts`
-7. `registry/nexus-elements/unified-flow/presets/builders.ts`
-8. `registry/nexus-elements/unified-flow/components/*`
-9. `registry/nexus-elements/unified-flow/types.ts`
-
-## 12) Functional Details Per Flow
-1. Swap uses `swapWithExactIn` / `swapWithExactOut`.
-2. Bridge uses `bridge`.
-3. Transfer uses `bridgeAndTransfer`.
-4. Deposit uses `swapAndExecute` with preset/custom execute builder.
-5. Shared progress renderer normalizes step messaging across all flows.
-6. Shared error normalization maps SDK errors to user-safe messages.
-
-## 13) UX Copy + Interaction Details
-1. CTA labels:
-- Editing: `Continue`
-- Review: `Confirm and Execute`
-- Executing: `Processing...`
-- Success: `Done`
-2. Validation copy:
-- `Enter a valid amount`
-- `Recipient address is invalid`
-- `This route is disabled by configuration`
-- `No available balance for this operation`
-3. Empty states:
-- `No supported assets found`
-- `Connect wallet to continue`
-4. Advanced controls label:
-- `Advanced route controls`
-5. Reduce anxiety:
-- Always show what user pays, receives, fees, and ETA before final confirm.
-
-## 14) Accessibility and Responsiveness
-1. Keyboard navigable controls end-to-end.
-2. Proper labels/aria for all form inputs.
-3. Focus management for modals/progress dialogs.
-4. Mobile-first layout with single-column flow.
-5. Large tap targets and legible spacing.
-6. High-contrast status and error states.
-
-## 15) Performance Expectations
-1. Debounced simulation requests.
-2. Minimize re-renders with memoized selectors in provider.
-3. Lazy-render advanced sections.
-4. Fast initial paint with skeleton placeholders for async balance/quote areas.
-
-## 16) Testing Plan
-1. Config matrix tests for all enabled-flow combinations.
-2. Router tests for token/chain/recipient/deposit target permutations.
-3. State machine tests for optional simulation and allowance branches.
-4. Flow tests for swap exact-in/exact-out.
-5. Deposit preset encoding tests for Aave and Hyperliquid.
-6. Custom builder success/failure tests.
-7. UX tests for lock-to-single-flow behavior.
-8. Mobile and accessibility checks.
-9. Callback payload contract tests.
-
-## 17) Acceptance Criteria
-1. One component can run any enabled subset of flows.
-2. Optional states appear only when required.
-3. UX remains simple with advanced options hidden by default.
-4. No public registry exposure in this phase.
-5. Internal beta passes route and execution matrix without blocker issues.
-
-## 18) Assumptions
-1. Final component name is still TBD.
-2. Work occurs in a dedicated branch.
-3. Existing elements remain untouched during this build.
-4. No registry or docs publication until explicitly approved.
+| Legacy element | What it did | Why removed |
+|---|---|---|
+| `FastBridge` | Self-bridge via `sdk.bridge` | Subsumed by Nexus One swap mode |
+| `FastTransfer` | Bridge-to-recipient via `sdk.bridgeAndTransfer` | Subsumed by Nexus One send mode |
+| `SwapWidget` | Cross-chain swap via `sdk.swapWithExactIn`/`Out` | Subsumed by Nexus One swap mode |
+| `Deposit` (NexusDeposit) | Swap+execute deposit via `sdk.swapAndExecute` | Subsumed by Nexus One deposit mode |
+| `BridgeDeposit` | Bridge+execute deposit via `sdk.bridgeAndExecute` | Subsumed by Nexus One deposit mode |
+| `UnifiedBalance` | Balance visualization | Inline in Nexus One |
+| `ViewHistory` | Intent history list | Not in V1; use `sdk.getMyIntents()` |

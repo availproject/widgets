@@ -1,33 +1,52 @@
 ---
 name: nexus-elements-overview
-description: End-to-end integration guide for Nexus Elements in any TypeScript/React codebase. Use when setting up Nexus Elements from scratch, choosing which widget to install, wiring NexusProvider + wallet initialization, or validating bridge/transfer/swap/deposit/history behavior in production-like flows.
+description: End-to-end integration guide for Nexus Elements. Use Nexus One as the single unified component for all swap, send, and deposit flows. Legacy standalone widgets (FastBridge, FastTransfer, SwapWidget, Deposit, BridgeDeposit, UnifiedBalance, ViewHistory) have been deprecated and removed.
 ---
 
 # Nexus Elements Overview
 
-## Integrate end-to-end in any TS/React app
-- Install project deps:
-  - `pnpm add @avail-project/nexus-core wagmi viem lucide-react`
-- If using wagmi (recommended), also install:
-  - `pnpm add @tanstack/react-query`
-- Ensure shadcn/ui is initialized (`components.json` exists) if installing from registry.
+## Nexus One is the only element you need
 
-## Configure registry
-- Add this mapping in `components.json`:
+All legacy standalone widgets have been **deprecated and removed**. **Nexus One** is the single unified component that handles swap, send (transfer), and deposit flows.
+
+| Legacy element | Status | Nexus One replacement |
+|---|---|---|
+| `FastBridge` | ❌ Removed | `NexusOne` with `config.mode = "swap"` |
+| `FastTransfer` | ❌ Removed | `NexusOne` with `config.mode = "send"` |
+| `SwapWidget` | ❌ Removed | `NexusOne` with `config.mode = "swap"` |
+| `Deposit` | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `opportunities` |
+| `BridgeDeposit` | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `opportunities` |
+| `UnifiedBalance` | ❌ Removed | Inline balance view in Nexus One |
+| `ViewHistory` | ❌ Removed | Use `sdk.getMyIntents()` directly |
+
+## Install Nexus One
+
+```bash
+npx shadcn@latest add @nexus-elements/nexus-one
+```
+
+## Integrate end-to-end in any TS/React app
+
+### 1. Install project deps
+```bash
+pnpm add @avail-project/nexus-core wagmi viem lucide-react @tanstack/react-query
+```
+
+### 2. Configure registry
+Add this mapping in `components.json`:
 ```json
 "registries": {
   "@nexus-elements/": "https://elements.nexus.availproject.org/r/{name}.json"
 }
 ```
 
-## Set up SDK + wallet foundation first
-- Install and wire `nexus-provider` before any other element:
-  - `npx shadcn@latest add @nexus-elements/nexus-provider`
-- Wrap your app with `NexusProvider`.
-- On wallet connect, resolve an EIP-1193 provider and call `handleInit(provider)`.
-- Pass `config={{ network: "mainnet" | "testnet", debug?: boolean }}` to `NexusProvider` when needed.
+### 3. Set up NexusProvider
+Install and wire `nexus-provider` before Nexus One:
+```bash
+npx shadcn@latest add @nexus-elements/nexus-provider
+```
 
-### Minimal provider wrapper
+Wrap your app with `NexusProvider`:
 ```tsx
 "use client";
 
@@ -38,7 +57,7 @@ export function AppNexusProvider({ children }: { children: React.ReactNode }) {
 }
 ```
 
-### Initialize SDK on connect
+### 4. Initialize SDK on wallet connect
 ```tsx
 "use client";
 
@@ -70,68 +89,48 @@ export function InitNexusOnConnect() {
 }
 ```
 
-## Install widgets
-- Install all widgets:
-  - `npx shadcn@latest add @nexus-elements/all`
-- Or install individually:
-  - `@nexus-elements/fast-bridge`
-  - `@nexus-elements/transfer`
-  - `@nexus-elements/swaps`
-  - `@nexus-elements/deposit`
-  - `@nexus-elements/bridge-deposit`
-  - `@nexus-elements/unified-balance`
-  - `@nexus-elements/view-history`
+### 5. Render Nexus One
+```tsx
+import { NexusOne } from "@/components/nexus-one/nexus-one";
 
-## SDK function map by widget
-- `FastBridge`:
-  - `sdk.bridge`
-  - `sdk.calculateMaxForBridge`
-  - hooks: `setOnIntentHook`, `setOnAllowanceHook`
-  - events: `NEXUS_EVENTS.STEPS_LIST`, `NEXUS_EVENTS.STEP_COMPLETE`
-- `FastTransfer`:
-  - `sdk.bridgeAndTransfer`
-  - `sdk.calculateMaxForBridge`
-  - hooks: `setOnIntentHook`, `setOnAllowanceHook`
-  - events: `NEXUS_EVENTS.STEPS_LIST`, `NEXUS_EVENTS.STEP_COMPLETE`
-- `SwapWidget`:
-  - `sdk.swapWithExactIn`, `sdk.swapWithExactOut`
-  - hook: `setOnSwapIntentHook`
-  - event: `NEXUS_EVENTS.SWAP_STEP_COMPLETE`
-- `Deposit`:
-  - `sdk.swapAndExecute`
-  - hook: `setOnSwapIntentHook`
-  - event: `NEXUS_EVENTS.SWAP_STEP_COMPLETE`
-- `BridgeDeposit`:
-  - `sdk.simulateBridgeAndExecute`
-  - `sdk.bridgeAndExecute`
-  - hooks: `setOnIntentHook`, `setOnAllowanceHook`
-  - events: `NEXUS_EVENTS.STEPS_LIST`, `NEXUS_EVENTS.STEP_COMPLETE`
-- `UnifiedBalance`:
-  - `sdk.getBalancesForBridge`, `sdk.getBalancesForSwap`
-- `ViewHistory`:
-  - `sdk.getMyIntents`
+// Swap mode (also handles bridges)
+<NexusOne config={{ mode: "swap" }} connectedAddress={address} />
 
-## Pick the right widget
-- Use `fast-bridge` for self-bridge UX (recipient defaults to connected address).
-- Use `transfer` for bridge-to-recipient UX.
-- Use `swaps` for exact-in and exact-out cross-chain swaps.
-- Use `deposit` for swap + execute integrations where destination token/chain is fixed by product config.
-- Use `bridge-deposit` for bridge + execute integrations with lighter UI and manual execute builder.
-- Use `unified-balance` to show cross-chain balances.
-- Use `view-history` for intent history.
+// Send mode
+<NexusOne config={{ mode: "send" }} connectedAddress={address} />
+
+// Deposit mode
+<NexusOne
+  config={{
+    mode: "deposit",
+    opportunities: [{ /* ... */ }],
+  }}
+  connectedAddress={address}
+/>
+```
+
+## Nexus SDK agent skills
+
+For detailed SDK integration guidance, use the **Nexus SDK agent skills** (`.agents/skills/`):
+
+- `nexus-sdk-setup` — SDK initialization and wallet wiring
+- `nexus-sdk-bridge-flows` — bridge, bridgeAndTransfer, bridgeAndExecute
+- `nexus-sdk-swap-flows` — swapWithExactIn, swapWithExactOut, swapAndExecute
+- `nexus-sdk-hooks-events` — intent hooks and event streaming
+- `nexus-sdk-balances-metadata-utils` — balances, supported chains/tokens, formatters
+- `nexus-sdk-integration` — end-to-end integration guide
 
 ## E2E readiness checklist
 - Confirm wallet connects and `handleInit` runs once per session.
 - Confirm `useNexus().nexusSDK` is non-null after connect.
-- Confirm balances load (`bridgableBalance`, `swapBalance`).
-- Confirm intent hooks are populated during preview states.
-- Confirm every flow can reach success and emits explorer URLs.
+- Confirm Nexus One renders and responds to mode/prefill config.
+- Confirm every flow (swap, send, deposit) can reach success.
 - Confirm disconnect clears SDK state (`deinitializeNexus`).
 
 ## Common integration failures
 - Invalid provider object:
   - Ensure provider has `request()`.
-- Widget stuck in preview:
-  - Ensure hook handlers eventually call `allow()` or `deny()`.
-- Empty balances/history:
+- Nexus One not rendering:
+  - Ensure `NexusProvider` wraps your app and SDK is initialized.
+- Empty balance/sources:
   - Ensure SDK init finished and wallet is connected on a supported network.

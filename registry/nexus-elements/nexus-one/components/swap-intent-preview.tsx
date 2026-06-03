@@ -1116,18 +1116,31 @@ export function SwapIntentPreview({
           </div>
         </div>
 
-        <Row
-          title={isDepositMode || isSendMode ? "Paying With" : "You Swap"}
-          subtitle={sourceLabel}
-          value={sourceUsd}
-        >
-          <DetailToggle
-            expanded={showSourceDetails}
-            onClick={() => setShowSourceDetails((value) => !value)}
+        {singleSourceHeader ? (
+          <Row
+            title={isDepositMode || isSendMode ? "Paying With" : "You Swap"}
+            subtitle={
+              singleSourceHeader.chainName
+                ? `${singleSourceHeader.symbol} on ${singleSourceHeader.chainName}`
+                : singleSourceHeader.symbol
+            }
+            value={sourceUsd}
+            secondaryValue={`${singleSourceHeader.amount} ${singleSourceHeader.symbol}`}
           />
-        </Row>
+        ) : (
+          <Row
+            title={isDepositMode || isSendMode ? "Paying With" : "You Swap"}
+            subtitle={sourceLabel}
+            value={sourceUsd}
+          >
+            <DetailToggle
+              expanded={showSourceDetails}
+              onClick={() => setShowSourceDetails((value) => !value)}
+            />
+          </Row>
+        )}
 
-        <AnimatedDetails open={showSourceDetails}>
+        {!singleSourceHeader && <AnimatedDetails open={showSourceDetails}>
           {sourceDetailRows.length > 0 ? (
             <div
               style={{
@@ -1299,7 +1312,7 @@ export function SwapIntentPreview({
               </span>
             </div>
           )}
-        </AnimatedDetails>
+        </AnimatedDetails>}
 
         <Row
           title={

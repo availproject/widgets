@@ -1,153 +1,71 @@
 ---
 name: nexus-elements-deposit
-description: Integrate the Deposit element for swap-plus-execute deposit flows in React/TypeScript apps. Use when installing or debugging destination-fixed deposits, execute call builders, swap-intent confirmation UX, and `sdk.swapAndExecute` progress from quote to completion.
+description: "DEPRECATED — The standalone Deposit element (NexusDeposit) has been removed. Use Nexus One (config.mode = \"deposit\" with opportunities) for all deposit flows. Refer to the nexus-sdk-* agent skills for current integration guidance."
 ---
 
-# Nexus Elements - Deposit
+# ⚠️ Deprecated — Use Nexus One
 
-## Install
-- Install widget:
-  - `npx shadcn@latest add @nexus-elements/deposit`
-- Ensure `NexusProvider` is installed and initialized before rendering.
+**The standalone Deposit element (NexusDeposit) has been removed from Nexus Elements.**
 
-## Required setup before rendering
-- Ensure `useNexus().nexusSDK` is initialized.
-- Ensure `exchangeRate` contains destination token rate (widget requires it for amount simulation).
-- Provide a correct `destination` config and `executeDeposit` builder.
-- If using the built-in `MAX` interaction, ensure the widget can compute current source selections so it can call `sdk.calculateMaxForSwap(...)`.
+All deposit flows (swap + execute into a protocol) are now handled by **Nexus One** with `config.mode = "deposit"` and an `opportunities` array.
 
-## Initialize SDK (required once per app)
-- On wallet connect, resolve an EIP-1193 provider and call `useNexus().handleInit(provider)`.
-- Wait for `useNexus().nexusSDK` before allowing amount confirmation.
-- Re-run init after reconnect if wallet session resets.
+## Migration
 
-## Render widget
+Replace any `NexusDeposit` usage with `NexusOne`:
+
 ```tsx
-"use client";
+import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { encodeFunctionData } from "viem";
 
-import NexusDeposit from "@/components/deposit/nexus-deposit";
-import {
-  SUPPORTED_CHAINS,
-  TOKEN_CONTRACT_ADDRESSES,
-  TOKEN_METADATA,
-  CHAIN_METADATA,
-} from "@avail-project/nexus-core";
-import { encodeFunctionData, type Abi } from "viem";
+const AAVE_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
+const USDT_ARBITRUM = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
 
-export function DepositPanel() {
-  return (
-    <NexusDeposit
-      heading="Deposit USDC"
-      destination={{
-        chainId: SUPPORTED_CHAINS.BASE,
-        tokenAddress: TOKEN_CONTRACT_ADDRESSES["USDC"][SUPPORTED_CHAINS.BASE],
-        tokenSymbol: "USDC",
-        tokenDecimals: TOKEN_METADATA["USDC"].decimals,
-        tokenLogo: TOKEN_METADATA["USDC"].icon,
-        label: "Deposit to protocol",
-        gasTokenSymbol: CHAIN_METADATA[SUPPORTED_CHAINS.BASE].nativeCurrency.symbol,
-        explorerUrl: CHAIN_METADATA[SUPPORTED_CHAINS.BASE].blockExplorerUrls[0],
-        estimatedTime: "~30s",
-      }}
-      executeDeposit={(tokenSymbol, tokenAddress, amount, _chainId, user) => {
-        const contract = "0x0000000000000000000000000000000000000000" as const;
-        const abi: Abi = [
-          {
-            type: "function",
-            name: "deposit",
-            stateMutability: "nonpayable",
-            inputs: [
-              { name: "asset", type: "address" },
-              { name: "amount", type: "uint256" },
-              { name: "beneficiary", type: "address" },
-            ],
-            outputs: [],
-          },
-        ];
-
-        const data = encodeFunctionData({
-          abi,
-          functionName: "deposit",
-          args: [tokenAddress, amount, user],
-        });
-
-        return {
-          to: contract,
-          data,
+<NexusOne
+  config={{
+    mode: "deposit",
+    opportunities: [
+      {
+        id: "aave-usdt-arbitrum",
+        title: "Aave",
+        protocol: "Aave",
+        subtitle: "Deposit USDT on Arbitrum",
+        chainId: 42161,
+        tokenSymbol: "USDT",
+        tokenAddress: USDT_ARBITRUM,
+        execute: (amount, connectedAddress) => ({
+          to: AAVE_POOL,
+          data: encodeFunctionData({ /* ... */ }),
+          gas: 300000n,
           tokenApproval: {
-            token: tokenAddress,
+            token: USDT_ARBITRUM,
             amount,
-            spender: contract,
+            spender: AAVE_POOL,
           },
-        };
-      }}
-      onSuccess={() => {
-        // success
-      }}
-      onError={(message) => {
-        console.error(message);
-      }}
-    />
-  );
-}
+        }),
+      },
+    ],
+  }}
+  connectedAddress={address}
+/>
 ```
 
-## Live prop contract
-- Required:
-  - `destination: DestinationConfig`
-  - `executeDeposit(tokenSymbol, tokenAddress, amount, chainId, user)`
-- Optional:
-  - `heading`, `embed`, `className`
-  - `open`, `onOpenChange`, `defaultOpen` (dialog mode)
-  - `onSuccess`, `onError`, `onClose`
+## Install Nexus One
 
-## SDK flow details (under the hood)
-- Main execute call:
-  - `sdk.swapAndExecute({ toChainId, toTokenAddress, toAmount, fromSources?, execute }, { onEvent })`
-- Max amount call:
-  - `sdk.calculateMaxForSwap({ toChainId, toTokenAddress, fromSources? })`
-- Step and status behavior:
-  - amount step starts simulation-loading
-  - waits for `swapIntent` hook to enter previewing state
-  - confirm order calls `activeIntent.allow()` and moves to executing
-- Event mapping:
-  - listens to `NEXUS_EVENTS.SWAP_STEP_COMPLETE`
-  - handles `DETERMINING_SWAP` and `SWAP_SKIPPED`
-- Fee handling:
-  - destination execute receipt computes actual gas USD in success path
+```bash
+npx shadcn@latest add @nexus-elements/nexus-one
+```
 
-## Important amount semantics
-- Amount input is interpreted as USD in this widget flow.
-- Widget converts USD amount to destination token amount via provider exchange rates.
-- `MAX` is destination-token aware:
-  - widget computes `MaxSwapInput` from the current destination and selected source pool
-  - widget calls `sdk.calculateMaxForSwap(...)`
-  - returned destination-token max is converted back to USD for the input field
-- If destination token exchange rate is missing/invalid, widget shows error and blocks confirmation.
+## Current skills to use instead
 
-## Source selection semantics
-- Amount changes reset source selection back to auto mode.
-- In auto mode, the widget derives source balances from the current filter and current widget logic before simulation.
-- Preset filters in the source picker (`Any token`, `Stablecoins`, `Native`) act as explicit source selections for that pool.
-- Manual source edits are treated as exact selected sources until the amount changes again.
-- `Pay using` and the `fromSources` sent to `sdk.swapAndExecute(...)` should reflect the same current source set.
+For integration guidance, refer to the **Nexus SDK agent skills** (`.agents/skills/`):
 
-## Preview cancellation behavior
-- Backing out from the confirmation screen before `activeIntent.allow()` denies the preview intent.
-- This intentional preview cancellation should not surface as the widget's own local error banner, though external `onError` handlers may still observe the rejection if the app wants it.
+- `nexus-sdk-setup` — SDK initialization and wallet wiring
+- `nexus-sdk-swap-flows` — swapWithExactIn, swapWithExactOut, swapAndExecute
+- `nexus-sdk-hooks-events` — intent hooks and event streaming
+- `nexus-sdk-balances-metadata-utils` — balances, supported chains/tokens, formatters
+- `nexus-sdk-integration` — end-to-end integration guide
 
-## E2E verification
-- Enter amount and continue to confirmation.
-- Confirm simulation appears and updates every polling cycle.
-- Confirm order and verify status screen transitions.
-- Verify both source and destination explorer links when available.
-- Verify `onSuccess` and balance refresh after completion.
-- Verify error screen appears on failed simulation/execution.
+## Documentation
 
-## Common failure cases
-- `Nexus SDK is not initialized`:
-  - ensure `handleInit(provider)` ran after wallet connect.
-- `Unable to fetch pricing for <token>`:
-  - ensure rates loaded in provider and token symbol is valid.
-- Execute revert:
-  - validate `executeDeposit` target, calldata, and token approval spender.
+- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)
+- [Deposit docs](https://elements.nexus.availproject.org/docs/components/deposit)

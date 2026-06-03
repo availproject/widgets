@@ -123,7 +123,6 @@ const defaultConfig = getDefaultConfig({
     monadTestnet,
     monad,
   ],
-  enableFamily: false,
 });
 
 const wagmiConfig = createConfig(defaultConfig);
