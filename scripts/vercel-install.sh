@@ -1,10 +1,6 @@
 #!/bin/sh
 set -e
 
-# Make sure we use a writable home directory for git config
-export HOME=$PWD
-export GIT_CONFIG_GLOBAL=$PWD/.gitconfig
-
 if [ -z "$GH_PAT" ]; then
   echo "ERROR: GH_PAT is not set in Vercel environment variables."
   exit 1
