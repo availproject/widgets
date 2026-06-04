@@ -38,7 +38,7 @@ export function ComponentPreview({
   align = "center",
   hideCode = false,
   chromeLessOnMobile = false,
-  showAllFiles = true,
+  showAllFiles = false,
   ...props
 }: ComponentPreviewProps) {
   const showcaseLoader = SHOWCASE_MAP[name];
@@ -67,12 +67,14 @@ export function ComponentPreview({
       hideCode={hideCode}
       component={<Showcase />}
       source={
-        <ComponentSource
-          name={name}
-          collapsible={false}
-          styleName={styleName}
-          showAllFiles={showAllFiles}
-        />
+        hideCode ? null : (
+          <ComponentSource
+            name={name}
+            collapsible={false}
+            styleName={styleName}
+            showAllFiles={showAllFiles}
+          />
+        )
       }
       chromeLessOnMobile={chromeLessOnMobile}
       {...props}
