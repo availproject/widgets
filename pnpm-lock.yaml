@@ -220,7 +220,7 @@ packages:
       }
     hasBin: true
 
-  "@avail-project/nexus-sdk-v2@git+https://git@github.com:availproject/nexus-sdk-v2.git#c8a25f92747a47b7d3c1d0df5183e53b813080dd":
+  "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#c8a25f92747a47b7d3c1d0df5183e53b813080dd":
     resolution:
       {
         commit: c8a25f92747a47b7d3c1d0df5183e53b813080dd,
