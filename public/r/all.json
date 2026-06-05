@@ -3,7 +3,7 @@
   "name": "all",
   "type": "registry:component",
   "title": "All Elements",
-  "description": "Install all Nexus Elements in one command",
+  "description": "Install all Nexus Elements. For new integrations, use @nexus-elements/nexus-one instead — it provides unified swap, send, and deposit in one component.",
   "registryDependencies": [
     "https://elements.nexus.availproject.org/r/bridge-deposit.json",
     "https://elements.nexus.availproject.org/r/deposit.json",

@@ -599,6 +599,7 @@ export function SwapIntentPreview({
   const flowMode = mode ?? activeMode ?? "swap";
   const isDepositMode = flowMode === "deposit";
   const isSendMode = flowMode === "send";
+  const hasRecipientTransfer = Boolean(recipientAddress) && !isDepositMode;
   const isExactOutDisplayFlow = (isDepositMode || isSendMode) && swapType === "exactOut";
   const shouldShowSwapBuffer = swapType !== "exactIn";
   const intentSources = intentData?.sources ?? [];
@@ -973,7 +974,7 @@ export function SwapIntentPreview({
   const ctaLabel =
     flowMode === "deposit"
       ? "Deposit now"
-      : flowMode === "send"
+      : flowMode === "send" || hasRecipientTransfer
         ? "Send now"
         : "Swap now";
   const shouldPulseCta =
@@ -1116,18 +1117,31 @@ export function SwapIntentPreview({
           </div>
         </div>
 
-        <Row
-          title={isDepositMode || isSendMode ? "Paying With" : "You Swap"}
-          subtitle={sourceLabel}
-          value={sourceUsd}
-        >
-          <DetailToggle
-            expanded={showSourceDetails}
-            onClick={() => setShowSourceDetails((value) => !value)}
+        {singleSourceHeader ? (
+          <Row
+            title={isDepositMode || isSendMode ? "Paying With" : "You Swap"}
+            subtitle={
+              singleSourceHeader.chainName
+                ? `${singleSourceHeader.symbol} on ${singleSourceHeader.chainName}`
+                : singleSourceHeader.symbol
+            }
+            value={sourceUsd}
+            secondaryValue={`${singleSourceHeader.amount} ${singleSourceHeader.symbol}`}
           />
-        </Row>
+        ) : (
+          <Row
+            title={isDepositMode || isSendMode ? "Paying With" : "You Swap"}
+            subtitle={sourceLabel}
+            value={sourceUsd}
+          >
+            <DetailToggle
+              expanded={showSourceDetails}
+              onClick={() => setShowSourceDetails((value) => !value)}
+            />
+          </Row>
+        )}
 
-        <AnimatedDetails open={showSourceDetails}>
+        {!singleSourceHeader && <AnimatedDetails open={showSourceDetails}>
           {sourceDetailRows.length > 0 ? (
             <div
               style={{
@@ -1299,7 +1313,7 @@ export function SwapIntentPreview({
               </span>
             </div>
           )}
-        </AnimatedDetails>
+        </AnimatedDetails>}
 
         <Row
           title={
@@ -1312,7 +1326,7 @@ export function SwapIntentPreview({
           secondaryValue={destinationTokenDisplay}
         />
 
-        {isSendMode && recipientAddress && (
+        {hasRecipientTransfer && recipientAddress && (
           <RecipientRow address={recipientAddress} />
         )}
 
@@ -1461,7 +1475,7 @@ export function SwapIntentPreview({
             destinationLogos={destinationProgressLogos}
             hasMultipleSources={progressSources.length > 1}
             sources={progressSources.length > 1 ? progressSources : undefined}
-            isTransferMode={isSendMode}
+            isTransferMode={hasRecipientTransfer}
             depositOpportunityName={
               isDepositMode
                 ? opportunity?.title || opportunity?.protocol
@@ -1494,7 +1508,11 @@ export function SwapIntentPreview({
         }}
       >
         {isExecuting ? (
-          isDepositMode ? "Depositing..." : isSendMode ? "Sending..." : "Swapping..."
+          isDepositMode
+            ? "Depositing..."
+            : isSendMode || hasRecipientTransfer
+              ? "Sending..."
+              : "Swapping..."
         ) : isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : isRefreshing ? (

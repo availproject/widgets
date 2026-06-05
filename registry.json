@@ -28,7 +28,7 @@
       "name": "all",
       "type": "registry:component",
       "title": "All Elements",
-      "description": "Install all Nexus Elements in one command",
+      "description": "Install all Nexus Elements. For new integrations, use @nexus-elements/nexus-one instead — it provides unified swap, send, and deposit in one component.",
       "files": [
         {
           "path": "registry/nexus-elements/all/index.ts",
@@ -84,7 +84,7 @@
       "name": "bridge-deposit",
       "type": "registry:component",
       "title": "Bridge Deposit",
-      "description": "A component built with Nexus for bridge deposit functionality",
+      "description": "Deprecated: use Nexus One instead. Bridge Deposit has been removed in favor of Nexus One deposit mode.",
       "files": [
         {
           "path": "registry/nexus-elements/bridge-deposit/components/allowance-modal.tsx",
@@ -248,7 +248,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.2.0",
+        "@avail-project/nexus-core@1.5.0",
         "lucide-react",
         "viem"
       ],
@@ -267,7 +267,12 @@
         "https://elements.nexus.availproject.org/r/tabs.json",
         "https://elements.nexus.availproject.org/r/tooltip.json",
         "https://elements.nexus.availproject.org/r/utils.json"
-      ]
+      ],
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+      },
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
     },
     {
       "name": "button",
@@ -604,7 +609,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.2.0",
+        "@avail-project/nexus-core@1.5.0",
         "clsx",
         "lucide-react",
         "tailwind-merge",
@@ -802,7 +807,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.2.0",
+        "@avail-project/nexus-core@1.5.0",
         "lucide-react",
         "viem"
       ],
@@ -866,7 +871,7 @@
       "name": "nexus-one",
       "type": "registry:component",
       "title": "Nexus One",
-      "description": "A component built with Nexus for nexus one functionality",
+      "description": "The unified Nexus element for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
       "files": [
         {
           "path": "registry/nexus-elements/nexus-one/components/amount-input-unified.tsx",
@@ -1050,7 +1055,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.2.0",
+        "@avail-project/nexus-core@1.5.0",
         "decimal.js",
         "lucide-react",
         "viem",
@@ -1060,7 +1065,11 @@
         "https://elements.nexus.availproject.org/r/button.json",
         "https://elements.nexus.availproject.org/r/nexus-provider.json",
         "https://elements.nexus.availproject.org/r/swaps.json"
-      ]
+      ],
+      "meta": {
+        "featured": true
+      },
+      "docs": "Nexus One is the single recommended component for all cross-chain flows. Supports config.mode = \"swap\" | \"send\" | \"deposit\"."
     },
     {
       "name": "nexus-provider",
@@ -1075,7 +1084,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.2.0",
+        "@avail-project/nexus-core@1.5.0",
         "wagmi"
       ]
     },
@@ -1328,7 +1337,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.2.0",
+        "@avail-project/nexus-core@1.5.0",
         "lucide-react",
         "viem"
       ],
@@ -1541,7 +1550,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.2.0",
+        "@avail-project/nexus-core@1.5.0",
         "lucide-react",
         "viem"
       ],
@@ -1570,7 +1579,7 @@
       "name": "unified-balance",
       "type": "registry:component",
       "title": "Unified Balance",
-      "description": "A simple component built with Nexus to display unified balance",
+      "description": "Deprecated: use Nexus One instead. Unified Balance has been removed in favor of Nexus One's inline balance views.",
       "files": [
         {
           "path": "registry/nexus-elements/unified-balance/unified-balance.tsx",
@@ -1579,7 +1588,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.2.0",
+        "@avail-project/nexus-core@1.5.0",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1589,7 +1598,12 @@
         "https://elements.nexus.availproject.org/r/separator.json",
         "https://elements.nexus.availproject.org/r/tabs.json",
         "https://elements.nexus.availproject.org/r/utils.json"
-      ]
+      ],
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+      },
+      "docs": "Deprecated in favor of Nexus One. Nexus One includes inline balance views during swap, send, and deposit flows."
     },
     {
       "name": "utils",
@@ -1612,7 +1626,7 @@
       "name": "view-history",
       "type": "registry:component",
       "title": "View History",
-      "description": "A simple component built with Nexus to display view history",
+      "description": "Deprecated: use Nexus One instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
       "files": [
         {
           "path": "registry/nexus-elements/view-history/history-events.ts",
@@ -1726,7 +1740,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.2.0",
+        "@avail-project/nexus-core@1.5.0",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1737,7 +1751,12 @@
         "https://elements.nexus.availproject.org/r/nexus-provider.json",
         "https://elements.nexus.availproject.org/r/separator.json",
         "https://elements.nexus.availproject.org/r/utils.json"
-      ]
+      ],
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "View History is deprecated. Use sdk.getMyIntents() for programmatic intent history access."
+      },
+      "docs": "Deprecated in favor of Nexus One. Intent history is not included in Nexus One V1. Use sdk.getMyIntents() directly."
     }
   ]
 }

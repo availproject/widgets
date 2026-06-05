@@ -3,9 +3,9 @@
   "name": "unified-balance",
   "type": "registry:component",
   "title": "Unified Balance",
-  "description": "A simple component built with Nexus to display unified balance",
+  "description": "Deprecated: use Nexus One instead. Unified Balance has been removed in favor of Nexus One's inline balance views.",
   "dependencies": [
-    "@avail-project/nexus-core@1.2.0",
+    "@avail-project/nexus-core@1.5.0",
     "lucide-react"
   ],
   "registryDependencies": [
@@ -23,5 +23,10 @@
       "type": "registry:component",
       "target": "components/unified-balance/unified-balance.tsx"
     }
-  ]
+  ],
+  "meta": {
+    "deprecated": true,
+    "deprecationMessage": "Unified Balance is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+  },
+  "docs": "Deprecated in favor of Nexus One. Nexus One includes inline balance views during swap, send, and deposit flows."
 }
