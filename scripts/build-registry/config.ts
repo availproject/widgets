@@ -24,12 +24,35 @@ const DEFAULT_CONFIG: RegistryConfig = {
     "fast-bridge": {
       title: "Fast Bridge",
       description:
-        "A simple component built with Nexus to enable cross chain bridging",
+        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain bridging.",
+      docs: "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
+      meta: {
+        deprecated: true,
+        deprecationMessage:
+          "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
+      },
     },
     "fast-transfer": {
       title: "Fast Transfer",
       description:
-        "A simple component built with Nexus to enable cross chain transfer",
+        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
+      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+      meta: {
+        deprecated: true,
+        deprecationMessage:
+          'Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+      },
+    },
+    transfer: {
+      title: "Fast Transfer",
+      description:
+        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
+      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+      meta: {
+        deprecated: true,
+        deprecationMessage:
+          'Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+      },
     },
     "nexus-provider": {
       title: "Nexus Provider",
@@ -37,11 +60,25 @@ const DEFAULT_CONFIG: RegistryConfig = {
     },
     deposit: {
       title: "Deposit",
-      description: "A simple component built with Nexus to enable deposits",
+      description:
+        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
+      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and opportunities for new integrations.',
+      meta: {
+        deprecated: true,
+        deprecationMessage:
+          'Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and opportunities for new integrations.',
+      },
     },
     swaps: {
       title: "Swaps",
-      description: "Swap tokens across chains (Exact In)",
+      description:
+        "Deprecated: use Nexus One instead. Legacy swap tokens across chains component.",
+      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "swap" for new integrations.',
+      meta: {
+        deprecated: true,
+        deprecationMessage:
+          'Swaps is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "swap" for new integrations.',
+      },
     },
     "unified-balance": {
       title: "Unified Balance",

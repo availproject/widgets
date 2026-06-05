@@ -1,56 +1,45 @@
 ---
 name: nexus-elements-unified-balance
-description: Integrate the UnifiedBalance element for cross-chain token balance views in React/TypeScript apps. Use when installing or debugging bridgeable/swappable balance aggregation, per-chain breakdown rendering, and formatting powered by Nexus SDK balance APIs.
+description: "DEPRECATED — UnifiedBalance has been removed. Nexus One includes an inline balance view. Refer to the nexus-sdk-* agent skills for balance API guidance."
 ---
 
-# Nexus Elements - Unified Balance
+# ⚠️ Deprecated — Use Nexus One
 
-## Install
-- Install widget:
-  - `npx shadcn@latest add @nexus-elements/unified-balance`
-- Ensure `NexusProvider` is installed and initialized before rendering.
+**UnifiedBalance has been removed from Nexus Elements.**
 
-## Required setup before rendering
-- Ensure `useNexus().nexusSDK` is initialized.
-- Ensure provider has fetched bridge and swap balances.
+Nexus One includes an **inline balance view** as part of its unified swap, send, and deposit flows. There is no longer a standalone balance widget.
 
-## Initialize SDK (required once per app)
-- On wallet connect, resolve an EIP-1193 provider and call `useNexus().handleInit(provider)`.
-- Wait for `useNexus().nexusSDK` before expecting balance data.
-- Re-run init after reconnect if wallet session resets.
+## Migration
 
-## Render widget
-```tsx
-"use client";
+Remove `UnifiedBalance` from your app. If you need to display balances, use Nexus One — it shows relevant balances inline during flow execution.
 
-import UnifiedBalance from "@/components/unified-balance/unified-balance";
+For programmatic balance access, use the Nexus SDK directly:
 
-export function BalancePanel() {
-  return <UnifiedBalance className="max-w-lg" />;
-}
+```ts
+// Bridge balances
+const bridgeBalances = await sdk.getBalancesForBridge();
+
+// Swap balances
+const swapBalances = await sdk.getBalancesForSwap();
+
+// Format for display
+const formatted = sdk.utils.formatTokenBalance(balance);
 ```
 
-## Live prop contract
-- `className?`: class passthrough for container styling.
+## Install Nexus One
 
-## SDK flow details (under the hood)
-- Data source:
-  - `bridgableBalance` from `sdk.getBalancesForBridge()`
-  - `swapBalance` from `sdk.getBalancesForSwap()`
-- Formatting:
-  - `nexusSDK.utils.formatTokenBalance(...)`
-- Presentation behavior:
-  - if swap balance is unavailable, render bridge breakdown only
-  - if swap balance exists, render tabs for bridge vs swap balances
+```bash
+npx shadcn@latest add @nexus-elements/nexus-one
+```
 
-## E2E verification
-- Confirm non-zero tokens show chain counts and per-chain rows.
-- Confirm total fiat reflects aggregate `balanceInFiat` values.
-- Confirm tab switch works when both bridge and swap balances exist.
-- Confirm styles from `className` are applied in both render branches.
+## Current skills to use instead
 
-## Common failure cases
-- Empty panel:
-  - SDK not initialized or wallet has no supported assets.
-- Incorrect formatting:
-  - ensure token decimals/symbol values exist in returned balance data.
+For balance and metadata APIs, refer to the **Nexus SDK agent skills** (`.agents/skills/`):
+
+- `nexus-sdk-balances-metadata-utils` — balances, supported chains/tokens, formatters
+- `nexus-sdk-setup` — SDK initialization and wallet wiring
+- `nexus-sdk-integration` — end-to-end integration guide
+
+## Documentation
+
+- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)

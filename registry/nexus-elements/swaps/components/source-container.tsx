@@ -96,18 +96,54 @@ const SourceContainer: React.FC<SourceContainerProps> = ({
 
   // Render exact-out read-only view
   if (isExactOut) {
+    const intentSources = swapIntent?.current?.intent?.sources ?? [];
     return (
       <div className="bg-background rounded-xl flex flex-col items-center w-full gap-y-4 h-[134px]">
         <div className="w-full flex items-center justify-between">
           <Label className="text-lg font-medium text-foreground">Sell</Label>
         </div>
-        <div className="flex items-center justify-center w-full py-4">
-          <p className="text-sm text-muted-foreground text-center">
-            Enter destination token, chain and amount.
-            <br />
-            We&apos;ll calculate the best sources for you.
-          </p>
-        </div>
+        {intentSources.length > 0 ? (
+          <div className="flex flex-col gap-y-2 w-full overflow-hidden">
+            {intentSources.slice(0, 2).map((source) => (
+              <div
+                key={`${source.chain.id}-${source.token.contractAddress}`}
+                className="flex items-center justify-between gap-x-3 w-full"
+              >
+                <span className="text-2xl font-medium truncate">
+                  {formatBalance(
+                    source.amount,
+                    source.token.symbol,
+                    source.token.decimals
+                  )}
+                </span>
+                <div className="flex items-center gap-x-2 shrink-0">
+                  <TokenIcon
+                    symbol={source.token.symbol}
+                    chainLogo={source.chain.logo}
+                    size="sm"
+                  />
+                  <span className="text-sm font-medium">
+                    {source.token.symbol}
+                  </span>
+                </div>
+              </div>
+            ))}
+            {intentSources.length > 2 && (
+              <p className="text-xs text-muted-foreground">
+                +{intentSources.length - 2} more source
+                {intentSources.length - 2 === 1 ? "" : "s"}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center w-full py-4">
+            <p className="text-sm text-muted-foreground text-center">
+              Enter destination token, chain and amount.
+              <br />
+              We&apos;ll calculate the best sources for you.
+            </p>
+          </div>
+        )}
       </div>
     );
   }

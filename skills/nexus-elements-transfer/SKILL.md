@@ -1,90 +1,52 @@
 ---
 name: nexus-elements-transfer
-description: Integrate the Transfer element (registry name `transfer`) for bridge-to-recipient flows in React/TypeScript apps. Use when installing or debugging cross-chain recipient transfers, allowance/intent approvals, source-selection constraints, and `sdk.bridgeAndTransfer` step execution.
+description: "DEPRECATED — FastTransfer has been removed. Use Nexus One (config.mode = \"send\") for all cross-chain recipient transfer flows. Refer to the nexus-sdk-* agent skills for current integration guidance."
 ---
 
-# Nexus Elements - Transfer
+# ⚠️ Deprecated — Use Nexus One
 
-## Install
-- Install widget:
-  - `npx shadcn@latest add @nexus-elements/transfer`
-- Ensure `NexusProvider` is installed and initialized before rendering.
+**FastTransfer has been removed from Nexus Elements.**
 
-## Required setup before rendering
-- Ensure `useNexus().nexusSDK` is initialized.
-- Ensure `bridgableBalance` has loaded.
-- Ensure recipient is valid EVM address (prefill or user input).
+All cross-chain transfers to a recipient are now handled by **Nexus One** with `config.mode = "send"`.
 
-## Initialize SDK (required once per app)
-- On wallet connect, resolve an EIP-1193 provider and call `useNexus().handleInit(provider)`.
-- Wait for `useNexus().nexusSDK` before allowing transfer actions.
-- Re-run init after reconnect if wallet session resets.
+## Migration
 
-## Render widget
+Replace any `FastTransfer` usage with `NexusOne`:
+
 ```tsx
-"use client";
+import { NexusOne } from "@/components/nexus-one/nexus-one";
 
-import FastTransfer from "@/components/transfer/transfer";
-import { SUPPORTED_CHAINS } from "@avail-project/nexus-core";
-
-export function TransferPanel() {
-  return (
-    <FastTransfer
-      prefill={{
-        token: "USDC",
-        chainId: SUPPORTED_CHAINS.BASE,
-        recipient: "0x000000000000000000000000000000000000dead",
-      }}
-      onStart={() => {
-        // pending
-      }}
-      onComplete={() => {
-        // success
-      }}
-      onError={(message) => {
-        console.error(message);
-      }}
-    />
-  );
-}
+<NexusOne
+  config={{
+    mode: "send",
+    prefill: {
+      token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      chain: 8453, // USDC on Base
+      amount: "10",
+      recipient: "0xRecipientAddress",
+    },
+  }}
+  connectedAddress={address}
+/>
 ```
 
-## Live prop contract
-- `prefill?`:
-  - `token`, `chainId`, optional `amount`, optional `recipient`.
-- `maxAmount?`: cap transferable amount.
-- `onStart?`, `onComplete?`, `onError?(message)` callbacks.
+## Install Nexus One
 
-## SDK flow details (under the hood)
-- Primary execute call:
-  - `sdk.bridgeAndTransfer({ token, amount, toChainId, recipient, sourceChains }, { onEvent })`
-- Pre-execution checks:
-  - validate recipient + amount
-  - compute max available via `sdk.calculateMaxForBridge(...)`
-  - enforce selected-source sufficiency
-- Hook usage:
-  - `intent.current` for transfer intent preview/refresh/allow
-  - `allowance.current` for source-specific allowance decisions
-- Event mapping:
-  - `NEXUS_EVENTS.STEPS_LIST` -> initialize step tracker
-  - `NEXUS_EVENTS.STEP_COMPLETE` -> progress update and elapsed timer
+```bash
+npx shadcn@latest add @nexus-elements/nexus-one
+```
 
-## Understand recipient behavior
-- Transfer flow requires recipient address.
-- Prefill recipient locks input.
-- Without prefill, UI validates recipient and blocks invalid addresses.
+## Current skills to use instead
 
-## E2E verification
-- Fill token/chain/amount/recipient and confirm intent preview appears.
-- Adjust source chains and confirm coverage indicators update.
-- Accept and verify allowance step when required.
-- Confirm success updates explorer URL and refreshes balances.
-- Confirm history refresh event appears in `ViewHistory` (when present).
+For integration guidance, refer to the **Nexus SDK agent skills** (`.agents/skills/`):
 
-## Common failure cases
-- Invalid recipient:
-  - pass a checksummed or valid hex address.
-- Exceeds selected source max:
-  - reduce amount or enable more source chains.
-- Flow canceled:
-  - expect `onError` with user-cancel message and reset state.
+- `nexus-sdk-setup` — SDK initialization and wallet wiring
+- `nexus-sdk-bridge-flows` — bridge, bridgeAndTransfer, bridgeAndExecute
+- `nexus-sdk-hooks-events` — intent hooks and event streaming
+- `nexus-sdk-balances-metadata-utils` — balances, supported chains/tokens, formatters
+- `nexus-sdk-integration` — end-to-end integration guide
+
+## Documentation
+
+- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)
+- [Send docs](https://elements.nexus.availproject.org/docs/components/transfer)

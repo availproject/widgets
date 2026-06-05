@@ -2,7 +2,7 @@ import { type FC, Fragment, memo } from "react";
 import { TokenIcon } from "./token-icon";
 import { StackedTokenIcons } from "./stacked-token-icons";
 import { cn } from "@/lib/utils";
-import { Atom, CircleCheck, SquareArrowOutUpRight } from "lucide-react";
+import { Atom, CircleCheck, CircleX, SquareArrowOutUpRight } from "lucide-react";
 import { type DisplayStep } from "./transaction-progress";
 
 interface TokenSource {
@@ -44,6 +44,7 @@ interface StepItemProps {
   explorerUrl: string | null;
   isCompleted: boolean;
   isCurrent: boolean;
+  isFailed: boolean;
   totalSteps: number;
   index: number;
   allCompleted: boolean;
@@ -56,6 +57,7 @@ const StepItem: FC<StepItemProps> = memo(
     step,
     isCompleted,
     isCurrent,
+    isFailed,
     logos,
     symbol,
     totalSteps,
@@ -102,24 +104,21 @@ const StepItem: FC<StepItemProps> = memo(
         )}
       >
         {/* Left Indicator */}
-        {isCurrent ? (
-          <div className="rounded-full relative">
-            <div
-              className={cn(
-                "rounded-full flex items-center justify-center ring-2 ring-chart-1 ring-offset-2 ring-offset-background transition-all duration-300 animate-pulse",
-                hasMultipleSources ? "min-w-max px-1" : "size-6"
-              )}
-            >
-              {renderIcon()}
-            </div>
+        {isFailed ? (
+          <div className="w-6 h-6 min-w-6 min-h-6 shrink-0 flex items-center justify-center rounded-full bg-red-500/10 text-red-500">
+             <span className="w-2 h-2 min-w-[8px] min-h-[8px] rounded-full bg-red-500" />
+          </div>
+        ) : isCurrent ? (
+          <div className="w-6 h-6 min-w-6 min-h-6 shrink-0 flex items-center justify-center rounded-full bg-chart-1/20 animate-pulse">
+            <span className="w-2.5 h-2.5 min-w-[10px] min-h-[10px] rounded-full bg-chart-1" />
           </div>
         ) : isCompleted ? (
-          <div className="size-6 flex items-center justify-center rounded-full bg-chart-1/10">
-            <span className="size-2 rounded-full bg-chart-1" />
+          <div className="w-6 h-6 min-w-6 min-h-6 shrink-0 flex items-center justify-center rounded-full bg-chart-1/10">
+            <span className="w-2 h-2 min-w-[8px] min-h-[8px] rounded-full bg-chart-1" />
           </div>
         ) : (
-          <div className="size-6 flex items-center justify-center rounded-full">
-            <span className="size-2 rounded-full bg-muted-foreground/50" />
+          <div className="w-6 h-6 min-w-6 min-h-6 shrink-0 flex items-center justify-center rounded-full">
+            <span className="w-2 h-2 min-w-[8px] min-h-[8px] rounded-full bg-muted-foreground/50" />
           </div>
         )}
 
@@ -129,7 +128,7 @@ const StepItem: FC<StepItemProps> = memo(
             <h3
               className={cn(
                 "font-medium text-sm transition-colors duration-300",
-                isCompleted || isCurrent
+                isFailed ? "text-red-500" : isCompleted || isCurrent
                   ? "text-foreground"
                   : "text-muted-foreground"
               )}
@@ -137,8 +136,8 @@ const StepItem: FC<StepItemProps> = memo(
               {step.label}
             </h3>
             {explorerUrl &&
-              isCompleted &&
-              (isSecondLast || index === totalSteps - 1) && (
+              (isCompleted || isFailed) &&
+              (isSecondLast || index === totalSteps - 1 || isFailed) && (
                 <a
                   href={explorerUrl}
                   target="_blank"
@@ -151,12 +150,13 @@ const StepItem: FC<StepItemProps> = memo(
           </div>
 
           {/* Right Actions */}
-          {isCurrent && !isCompleted && (
+          {isCurrent && !isCompleted && !isFailed && (
             <p className="text-xs text-muted-foreground">
               Step {index + 1} of {totalSteps}
             </p>
           )}
-          {isCompleted && <CircleCheck className="size-5 text-chart-1" />}
+          {isCompleted && !isFailed && <CircleCheck className="size-5 shrink-0 text-chart-1" />}
+          {isFailed && <CircleX className="size-5 shrink-0 text-red-500" />}
         </div>
       </div>
     );
@@ -183,14 +183,15 @@ export const StepFlow: FC<StepFlowProps> = memo(
       <div className="flex flex-col gap-y-0 w-full">
         {steps.map((step, index) => {
           const isCompleted = !!step.completed;
+          const isFailed = !!step.failed;
           const isCurrent =
             currentIndex === -1 ? false : index === currentIndex;
           const isLast = index === steps.length - 1;
-          const url = isLast
+          const url = step.explorerUrl ?? (isLast
             ? explorerUrls.destinationExplorerUrl
             : index === steps.length - 2
             ? explorerUrls.sourceExplorerUrl
-            : null;
+            : null);
 
           // For source steps (not the last step), pass multiple sources info
           const isSourceStep = !isLast;
@@ -202,6 +203,7 @@ export const StepFlow: FC<StepFlowProps> = memo(
                 step={step}
                 isCompleted={isCompleted}
                 isCurrent={isCurrent}
+                isFailed={isFailed}
                 index={index}
                 symbol={isLast ? destinationSymbol : sourceSymbol}
                 logos={isLast ? destinationLogos : sourceLogos}

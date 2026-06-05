@@ -9,7 +9,12 @@ const ConnectWalletButton = () => {
     <ConnectKitButton.Custom>
       {({ isConnected, isConnecting, show, address }) => {
         return (
-          <Button variant={"outline"} size={"sm"} onClick={show}>
+          <Button
+            variant={"outline"}
+            size={"sm"}
+            disabled={!show || isConnecting}
+            onClick={() => show?.()}
+          >
             {isConnecting && <Loader2 className="size-5 animate-spin" />}
             {isConnected ? truncateAddress(address ?? "", 4, 4) : "Connect"}
           </Button>

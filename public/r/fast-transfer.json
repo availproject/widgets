@@ -1,0 +1,18 @@
+{
+  "files": [
+    {
+      "path": "transfer-showcase.tsx",
+      "content": "import React from \"react\";\nimport ShowcaseWrapper from \"./showcase-wrapper\";\nimport FastTransfer from \"@/registry/nexus-elements/transfer/transfer\";\n\nconst TransferShowcase = () => {\n  return (\n    <ShowcaseWrapper\n      connectLabel=\"Connect wallet to use Nexus Fast Transfer\"\n      type=\"fast-transfer\"\n    >\n      <FastTransfer />\n    </ShowcaseWrapper>\n  );\n};\n\nexport default TransferShowcase;\n"
+    }
+  ],
+  "name": "fast-transfer",
+  "type": "registry:component",
+  "title": "Fast Transfer",
+  "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
+  "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations.",
+  "meta": {
+    "deprecated": true,
+    "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations.",
+    "replacement": "@nexus-elements/nexus-one"
+  }
+}

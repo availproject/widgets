@@ -31,6 +31,8 @@ export interface RegistryConfig {
 export interface ComponentOverride {
   title?: string;
   description?: string;
+  docs?: string;
+  meta?: Record<string, unknown>;
   /** Additional npm dependencies not detected from imports */
   additionalDependencies?: string[];
   /** Skip this component */
@@ -117,6 +119,10 @@ export interface RegistryItem {
   dependencies?: string[];
   /** URLs to other registry components */
   registryDependencies?: string[];
+  /** Additional metadata consumed by registry clients */
+  meta?: Record<string, unknown>;
+  /** Documentation text for registry clients */
+  docs?: string;
   /** Files to install */
   files: RegistryFile[];
 }

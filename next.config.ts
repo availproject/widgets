@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   // Optimize barrel file imports (bundle-barrel-imports)
   experimental: {
-    optimizePackageImports: ["lucide-react"],
+    // optimizePackageImports: ["lucide-react"],
   },
   webpack: (config, { isServer, webpack }) => {
     if (!isServer) {

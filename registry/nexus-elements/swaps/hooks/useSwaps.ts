@@ -360,16 +360,36 @@ const useSwaps = ({
   >(null);
   const [appliedExactOutSelectionKey, setAppliedExactOutSelectionKey] =
     useState("ALL");
+  const selectedSourceInputKey = useMemo(() => {
+    const sourceToken = state.inputs.fromToken;
+    const sourceChainId = state.inputs.fromChainID;
+    if (!sourceToken || typeof sourceChainId !== "number") return null;
+    return buildSourceOptionKey(sourceChainId, sourceToken.contractAddress);
+  }, [state.inputs.fromChainID, state.inputs.fromToken]);
 
   const effectiveExactOutSelectedKeys = useMemo(() => {
     const allKeys = exactOutAllSourceKeys;
     if (allKeys.length === 0) return [];
 
+    if (
+      state.swapMode === "exactOut" &&
+      exactOutSelectedKeys === null &&
+      selectedSourceInputKey &&
+      allKeys.includes(selectedSourceInputKey)
+    ) {
+      return [selectedSourceInputKey];
+    }
+
     const selectedKeys = exactOutSelectedKeys ?? allKeys;
     const selectedSet = new Set(selectedKeys);
     const filtered = allKeys.filter((key) => selectedSet.has(key));
     return filtered.length > 0 ? filtered : allKeys;
-  }, [exactOutSelectedKeys, exactOutAllSourceKeys]);
+  }, [
+    exactOutSelectedKeys,
+    exactOutAllSourceKeys,
+    selectedSourceInputKey,
+    state.swapMode,
+  ]);
 
   const isExactOutAllSelected = useMemo(() => {
     if (exactOutAllSourceKeys.length === 0) return true;
@@ -684,7 +704,7 @@ const useSwaps = ({
     return runId;
   };
 
-  const debouncedSwapStart = useDebouncedCallback(startSwap, 1200);
+  const debouncedSwapStart = useDebouncedCallback(startSwap, 800);
 
   const reset = () => {
     // invalidate any in-flight swap run

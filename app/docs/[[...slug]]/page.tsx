@@ -68,7 +68,7 @@ export default async function Page(props: {
   const neighbours = findNeighbour(source.pageTree, page.url);
   const raw = await page.data.getText("raw");
   const { attributes } = fm(raw);
-  const { links } = z
+  const { links, deprecated, deprecationMessage } = z
     .object({
       links: z
         .object({
@@ -76,6 +76,8 @@ export default async function Page(props: {
           api: z.string().optional(),
         })
         .optional(),
+      deprecated: z.boolean().optional(),
+      deprecationMessage: z.string().optional(),
     })
     .parse(attributes);
 
@@ -86,10 +88,17 @@ export default async function Page(props: {
         <div className="mx-auto flex w-full max-w-2xl min-w-0 flex-1 flex-col gap-8 px-4 py-6 text-neutral-800 md:px-0 lg:py-8 dark:text-neutral-300">
           <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-2">
-              <div className="flex items-start justify-between">
-                <h1 className="scroll-m-20 text-4xl font-semibold tracking-tight sm:text-3xl xl:text-4xl">
-                  {doc.title}
-                </h1>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 flex-wrap items-center gap-3">
+                  <h1 className="scroll-m-20 text-4xl font-semibold tracking-tight sm:text-3xl xl:text-4xl">
+                    {doc.title}
+                  </h1>
+                  {deprecated ? (
+                    <Badge className="rounded-full border-amber-200 bg-amber-100 text-amber-900 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+                      Deprecated
+                    </Badge>
+                  ) : null}
+                </div>
                 <div className="docs-nav bg-background/80 border-border/50 fixed inset-x-0 bottom-0 isolate z-50 flex items-center gap-2 border-t px-6 py-4 backdrop-blur-sm sm:static sm:z-0 sm:border-t-0 sm:bg-transparent sm:px-0 sm:pt-1.5 sm:backdrop-blur-none">
                   <DocsCopyPage page={raw} url={absoluteUrl(page.url)} />
                   {neighbours.previous && (
@@ -125,6 +134,11 @@ export default async function Page(props: {
                   {doc.description}
                 </p>
               )}
+              {deprecated && deprecationMessage ? (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                  {deprecationMessage}
+                </div>
+              ) : null}
             </div>
             {links ? (
               <div className="flex items-center gap-2 pt-4">

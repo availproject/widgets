@@ -1,60 +1,36 @@
 ---
 name: nexus-elements-common
-description: Use shared Nexus Elements hooks, transaction-step helpers, and constants to build custom Nexus UX. Use when extending widgets or implementing custom bridge/transfer/swap/deposit flows that need debouncing, polling, step orchestration, or Nexus error normalization.
+description: "DEPRECATED — Common hooks and helpers are now internal to Nexus One. Use Nexus One for all flows. Refer to the nexus-sdk-* agent skills for building custom integrations."
 ---
 
-# Nexus Elements - Common
+# ⚠️ Deprecated — Use Nexus One
 
-## Understand scope
-- `common` is not a standalone widget.
-- Use it to build custom flows on top of a working `NexusProvider` + SDK initialization path.
+**The Common hooks package is now internal to Nexus One.**
 
-## Set up foundation first
-- Install and wire `nexus-provider` before using `common` hooks.
-- Ensure `useNexus().nexusSDK` is initialized before calling SDK-dependent helpers.
+Shared hooks like `useTransactionSteps`, `usePolling`, `useDebouncedValue`, and `useNexusError` are bundled inside Nexus One and no longer need separate installation or direct usage.
 
-## Initialize SDK (required once per app)
-- On wallet connect, resolve an EIP-1193 provider and call `useNexus().handleInit(provider)`.
-- Wait for `useNexus().nexusSDK` before invoking SDK-backed flow helpers.
-- Re-run init after reconnect if wallet session resets.
+## Migration
 
-## Install source files
-- `common` is bundled via other widget installs.
-- If needed manually, copy from:
-  - `registry/nexus-elements/common/*`
+- If you were using Common hooks to build custom flows, use **Nexus One** directly — it handles all swap, send, and deposit flows out of the box.
+- If you need programmatic SDK access for custom UX, use the Nexus SDK directly.
 
-## Use core exports
-```ts
-import {
-  usePolling,
-  useStopwatch,
-  useDebouncedValue,
-  useDebouncedCallback,
-  useTransactionSteps,
-  useNexusError,
-  SHORT_CHAIN_NAME,
-  SWAP_EXPECTED_STEPS,
-  WidgetErrorBoundary,
-} from "@/components/common";
+## Install Nexus One
+
+```bash
+npx shadcn@latest add @nexus-elements/nexus-one
 ```
 
-## Build custom flow state machines
-- Use `useTransactionSteps` to seed expected steps and mark completions from SDK events.
-- Use `usePolling` for intent/simulation refresh loops.
-- Use `useDebouncedValue`/`useDebouncedCallback` before simulation calls.
-- Use `useNexusError` to normalize SDK exceptions into user-facing messages.
+## Current skills to use instead
 
-## SDK events this package is designed around
-- Bridge/transfer/bridge-deposit flows:
-  - `NEXUS_EVENTS.STEPS_LIST`
-  - `NEXUS_EVENTS.STEP_COMPLETE`
-- Swap/deposit flows:
-  - `NEXUS_EVENTS.SWAP_STEP_COMPLETE`
+For building custom integrations, refer to the **Nexus SDK agent skills** (`.agents/skills/`):
 
-## E2E checklist for custom components
-- Ensure wallet connects and SDK initializes.
-- Seed steps before starting execution.
-- Attach event handlers and map them into step state.
-- Clear intent/allowance/swapIntent refs on cancel/error.
-- Refresh balances after success.
-- Reset timers and step state on completion/cancel.
+- `nexus-sdk-setup` — SDK initialization and wallet wiring
+- `nexus-sdk-bridge-flows` — bridge, bridgeAndTransfer, bridgeAndExecute
+- `nexus-sdk-swap-flows` — swapWithExactIn, swapWithExactOut, swapAndExecute
+- `nexus-sdk-hooks-events` — intent hooks and event streaming
+- `nexus-sdk-balances-metadata-utils` — balances, supported chains/tokens, formatters
+- `nexus-sdk-integration` — end-to-end integration guide
+
+## Documentation
+
+- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)

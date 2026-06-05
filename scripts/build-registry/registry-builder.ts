@@ -247,6 +247,14 @@ function buildRegistryItem(
     item.registryDependencies = toRegistryUrls(registryDeps, config);
   }
 
+  if (override?.meta) {
+    item.meta = override.meta;
+  }
+
+  if (override?.docs) {
+    item.docs = override.docs;
+  }
+
   return item;
 }
 

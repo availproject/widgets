@@ -14,19 +14,25 @@ function Checkbox({
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer border-input dark:bg-input/30 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:data-[state=checked]:bg-primary data-[state=checked]:border-primary focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-4 shrink-0 rounded-[4px] border shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+        "peer outline-none ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 shrink-0 transition-colors",
+        "w-[20px] h-[20px] rounded-[4px]",
+        "data-[state=unchecked]:bg-[#FFFFFE] data-[state=unchecked]:border-[2px] data-[state=unchecked]:border-[#E8E8E7]",
+        "data-[state=checked]:bg-[#006BF4] data-[state=checked]:border-transparent",
         className
       )}
       {...props}
     >
       <CheckboxPrimitive.Indicator
         data-slot="checkbox-indicator"
-        className="grid place-content-center text-current transition-none"
+        className="flex items-center justify-center text-current w-full h-full"
       >
-        <CheckIcon className="size-3.5" />
+        <div className="w-[8px] h-[8px] rounded-[2px] bg-[#FFFFFE]" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )
 }
+
+// Since absolute inline styles override tailwind data states, let's refine the component styling 
+// inside a style tag or purely via Tailwind arbitrarily extending the exact colors.
 
 export { Checkbox }

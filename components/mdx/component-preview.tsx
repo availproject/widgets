@@ -25,6 +25,10 @@ const SHOWCASE_MAP: Record<
     import("@/components/showcase/unified-balance-showcase"),
   "fast-transfer": () => import("@/components/showcase/transfer-showcase"),
   "view-history": () => import("@/components/showcase/view-history-showcase"),
+  "nexus-one": () => import("@/components/showcase/nexus-one-showcase"),
+  "nexus-one-transfer": () => import("@/components/showcase/nexus-one-transfer-showcase"),
+  "nexus-one-swap": () => import("@/components/showcase/nexus-one-swap-showcase"),
+  "nexus-one-deposit": () => import("@/components/showcase/nexus-one-deposit-showcase"),
 };
 
 export function ComponentPreview({
@@ -38,6 +42,8 @@ export function ComponentPreview({
   ...props
 }: ComponentPreviewProps) {
   const showcaseLoader = SHOWCASE_MAP[name];
+  const isNexusOnePreview =
+    name === "nexus-one" || name.startsWith("nexus-one-");
   const Showcase = dynamic(showcaseLoader, {
     loading: () => <Skeleton className="w-full h-full" />,
   });
@@ -57,7 +63,7 @@ export function ComponentPreview({
   return (
     <ComponentPreviewTabs
       className={className}
-      align={align}
+      align={isNexusOnePreview ? "start" : align}
       hideCode={hideCode}
       component={<Showcase />}
       source={

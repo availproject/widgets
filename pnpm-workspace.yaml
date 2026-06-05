@@ -1,5 +1,8 @@
+blockExoticSubdeps: false
+
 allowBuilds:
   "@avail-project/ca-common": true
+  "@avail-project/nexus-core": true
   bufferutil: true
   core-js: true
   esbuild: true
@@ -11,10 +14,12 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   utf-8-validate: true
-onlyBuiltDependencies:
-  - "@avail-project/ca-common"
-  - "@avail-project/nexus-core"
 
 overrides:
   "@types/react": "19.1.2"
   "@types/react-dom": "19.1.2"
+  "axios": ">=1.15.0"
+
+minimumReleaseAgeExclude:
+  - '@avail-project/ca-common@2.3.0'
+  - '@avail-project/nexus-core@1.5.0'

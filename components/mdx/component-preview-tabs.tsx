@@ -10,6 +10,7 @@ export function ComponentPreviewTabs({
   hideCode = false,
   chromeLessOnMobile = false,
   component,
+  previewClassName,
   source,
   ...props
 }: React.ComponentProps<"div"> & {
@@ -17,6 +18,7 @@ export function ComponentPreviewTabs({
   hideCode?: boolean;
   chromeLessOnMobile?: boolean;
   component: React.ReactNode;
+  previewClassName?: string;
   source: React.ReactNode;
 }) {
   return (
@@ -32,7 +34,8 @@ export function ComponentPreviewTabs({
           data-align={align}
           className={cn(
             "preview flex w-full justify-center data-[align=center]:items-center data-[align=end]:items-end data-[align=start]:items-start sm:h-max sm:p-10 p-5",
-            chromeLessOnMobile ? "" : ""
+            chromeLessOnMobile ? "" : "",
+            previewClassName
           )}
         >
           {component}

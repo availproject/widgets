@@ -1,6 +1,6 @@
 ---
 title: Get Started
-description: Install and configure Nexus Elements in your React project. Prebuilt components with full Nexus SDK integration, perfect for plug-and-play.
+description: Install and configure Nexus Elements in your React project. Nexus One is the single unified component for all swap, send, and deposit flows.
 ---
 
 import Link from "next/link";
@@ -44,62 +44,22 @@ Nexus Elements internally uses shadcn/ui components as its foundation. While you
   <p>Once installed, come back to continue with Nexus Elements.</p>
 </Steps>
 
-## Install Element
+## Install Nexus One
 
 <p className="font-serif">
-  You can now start adding Nexus Elements components to your project. The
-  command below installs the <code>unified-balance</code> component. Replace it
-  with any other component name as needed.
+  **Nexus One** is the single unified component for all swap, send, and deposit
+  flows. Install it with one command:
 </p>
 
 ```bash
-npx shadcn@latest add @nexus-elements/unified-balance
+npx shadcn@latest add @nexus-elements/nexus-one
 ```
 
 <p className="mt-3! font-serif">
-  The command will add all required files and dependencies for the selected
-  component.
+  The command will add all required files and dependencies for Nexus One.
 </p>
-
-<p className="mt-3! font-serif">
-  If you want every Nexus element installed at once, run:
-</p>
-
-```bash
-npx shadcn@latest add @nexus-elements/all
-```
 
 <span id="usage" className="block -mt-24 pt-24" />
-
-## Build with Nexus Elements Skills
-
-<span id="skills" className="block mt-6" />
-
-Nexus Elements ships with agent skills that help you set up providers, integrate components, and ship faster.
-
-Install the skill pack once in your environment:
-
-```bash
-npx skills add availproject/nexus-elements
-```
-<span className="block mt-6" />
-
-For more information view https://skills.sh/availproject/nexus-elements.
-
-<span className="block mt-6" />
-
-Skills included in this pack:
-
-- `nexus-elements-overview`
-- `nexus-elements-nexus-provider`
-- `nexus-elements-fast-bridge`
-- `nexus-elements-transfer`
-- `nexus-elements-deposit`
-- `nexus-elements-bridge-deposit`
-- `nexus-elements-swaps`
-- `nexus-elements-unified-balance`
-- `nexus-elements-view-history`
-- `nexus-elements-common`
 
 ## Wrap your app with the provider
 

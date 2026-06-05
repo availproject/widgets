@@ -60,39 +60,19 @@ const NAV_ITEMS = [
     section: "Components",
     children: [
       {
+        id: "swap-and-bridge",
+        label: "Swap and Bridge",
+        href: "/docs/components/swaps",
+      },
+      {
         id: "deposit",
         label: "Deposit",
         href: "/docs/components/deposit",
       },
       {
-        id: "fast-bridge",
-        label: "Fast Bridge",
-        href: "/docs/components/fast-bridge",
-      },
-      // {
-      //   id: "swap-deposit",
-      //   label: "Swap And Deposit",
-      //   href: "/docs/components/swap-deposit",
-      // },
-      {
-        id: "swaps",
-        label: "Swaps",
-        href: "/docs/components/swaps",
-      },
-      {
-        id: "transfer",
-        label: "Transfer",
+        id: "send",
+        label: "Send",
         href: "/docs/components/transfer",
-      },
-      {
-        id: "unified-balance",
-        label: "Unified Balance",
-        href: "/docs/components/unified-balance",
-      },
-      {
-        id: "view-history",
-        label: "View History",
-        href: "/docs/components/view-history",
       },
     ],
   },

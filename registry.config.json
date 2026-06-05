@@ -7,7 +7,7 @@
   "outputPath": "registry.json",
   "peerDependencies": ["react", "react-dom"],
   "pinnedDependencies": {
-    "@avail-project/nexus-core": "1.2.0"
+    "@avail-project/nexus-core": "1.5.0"
   },
   "aliases": {
     "@/lib/utils": "lib/utils.ts",
@@ -17,13 +17,31 @@
   "targetPrefix": "components",
   "libTarget": "lib",
   "componentOverrides": {
+    "nexus-one": {
+      "title": "Nexus One",
+      "description": "The unified Nexus element for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
+      "docs": "Nexus One is the single recommended component for all cross-chain flows. Supports config.mode = \"swap\" | \"send\" | \"deposit\".",
+      "meta": {
+        "featured": true
+      }
+    },
     "fast-bridge": {
       "title": "Fast Bridge",
-      "description": "A simple component built with Nexus to enable cross chain bridging"
+      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain bridging.",
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+      }
     },
     "transfer": {
       "title": "Fast Transfer",
-      "description": "A simple component built with Nexus to enable cross chain transfer"
+      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations.",
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations."
+      }
     },
     "nexus": {
       "name": "nexus-provider",
@@ -32,23 +50,52 @@
     },
     "deposit": {
       "title": "Deposit",
-      "description": "A simple component built with Nexus to enable deposits"
+      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations.",
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+      }
     },
     "swaps": {
       "title": "Swaps",
-      "description": "Swap tokens across chains (Exact In)"
+      "description": "Deprecated: use Nexus One instead. Legacy swap tokens across chains component.",
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations.",
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "Swaps is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
+      }
     },
     "unified-balance": {
       "title": "Unified Balance",
-      "description": "A simple component built with Nexus to display unified balance"
+      "description": "Deprecated: use Nexus One instead. Unified Balance has been removed in favor of Nexus One's inline balance views.",
+      "docs": "Deprecated in favor of Nexus One. Nexus One includes inline balance views during swap, send, and deposit flows.",
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+      }
     },
     "view-history": {
       "title": "View History",
-      "description": "A simple component built with Nexus to display view history"
+      "description": "Deprecated: use Nexus One instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
+      "docs": "Deprecated in favor of Nexus One. Intent history is not included in Nexus One V1. Use sdk.getMyIntents() directly.",
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "View History is deprecated. Use sdk.getMyIntents() for programmatic intent history access."
+      }
+    },
+    "bridge-deposit": {
+      "title": "Bridge Deposit",
+      "description": "Deprecated: use Nexus One instead. Bridge Deposit has been removed in favor of Nexus One deposit mode.",
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations.",
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+      }
     },
     "all": {
       "title": "All Elements",
-      "description": "Install all Nexus Elements in one command"
+      "description": "Install all Nexus Elements. For new integrations, use @nexus-elements/nexus-one instead — it provides unified swap, send, and deposit in one component."
     },
     "utils": {
       "title": "Utils (cn)",

@@ -3,19 +3,28 @@ import type { SupportedChainsAndTokensResult } from "@avail-project/nexus-core";
 const COINBASE_SPOT_API_BASE = "https://api.coinbase.com/v2/prices";
 const COINBASE_EXCHANGE_RATES_API_BASE =
   "https://api.coinbase.com/v2/exchange-rates";
+const COINGECKO_SIMPLE_PRICE_API_BASE =
+  "https://api.coingecko.com/api/v3/simple/price";
+const COINGECKO_SEARCH_API_URL = "https://api.coingecko.com/api/v3/search";
 
 export const DEFAULT_COINBASE_PRICE_REQUEST_TIMEOUT_MS = 4_000;
 export const USD_PEGGED_FALLBACK_RATE = 1;
 export const DEFAULT_USD_PEGGED_TOKEN_SYMBOLS = [
   "USDT",
   "USDC",
+  "USDC.E",
+  "USDT.E",
   "USDS",
   "DAI",
+  "CTUSD",
+  "JUSD",
   "USDM",
   "FDUSD",
   "BUSD",
   "TUSD",
   "PYUSD",
+  "GUSD",
+  "SVJUSD",
   "LUSD",
   "USDE",
   "USDP",
@@ -110,6 +119,22 @@ type CoinbaseExchangeRatesResponse = {
   };
 };
 
+type CoinGeckoSimplePriceResponse = Record<
+  string,
+  {
+    usd?: string | number;
+  }
+>;
+
+type CoinGeckoSearchResponse = {
+  coins?: {
+    id?: string;
+    market_cap_rank?: number | null;
+    name?: string;
+    symbol?: string;
+  }[];
+};
+
 type SupportedTokenMetadata = {
   symbol?: string;
   equivalentCurrency?: string;
@@ -121,6 +146,26 @@ type SupportedChainMetadata = {
 
 export function normalizeTokenSymbol(tokenSymbol: string): string {
   return tokenSymbol.trim().toUpperCase();
+}
+
+const USD_RATE_PEG_SYMBOLS: Record<string, string> = {
+  CBTC: "BTC",
+  CTUSD: "USDC",
+  GUSD: "USDT",
+  JUSD: "USDC",
+  SVJUSD: "USDT",
+  SYBTC: "BTC",
+  "USDC.E": "USDC",
+  "USDT.E": "USDT",
+  "WBTC.E": "BTC",
+  WCBTC: "BTC",
+};
+
+export function getUsdRatePegSymbol(tokenSymbol: string): string | null {
+  const normalized = normalizeTokenSymbol(tokenSymbol);
+  if (!normalized) return null;
+
+  return USD_RATE_PEG_SYMBOLS[normalized] ?? null;
 }
 
 export function toFinitePositiveNumber(value: unknown): number | null {
@@ -135,6 +180,7 @@ export function getCoinbaseSymbolCandidates(tokenSymbol: string): string[] {
   const normalized = normalizeTokenSymbol(tokenSymbol);
   if (!normalized) return [];
 
+  const pegSymbol = getUsdRatePegSymbol(normalized);
   const baseSymbol = normalized.split(/[._-]/)[0] ?? normalized;
   const wrappedBase =
     baseSymbol.startsWith("W") && baseSymbol.length > 3
@@ -143,10 +189,54 @@ export function getCoinbaseSymbolCandidates(tokenSymbol: string): string[] {
 
   return Array.from(
     new Set(
-      [normalized, baseSymbol, wrappedBase].filter(
+      [normalized, baseSymbol, wrappedBase, pegSymbol].filter(
         (symbol): symbol is string => Boolean(symbol),
       ),
     ),
+  );
+}
+
+const COINGECKO_ID_CANDIDATES_BY_SYMBOL: Record<string, string[]> = {
+  AAVE: ["aave"],
+  AVAX: ["avalanche-2"],
+  BTC: ["bitcoin"],
+  BNB: ["binancecoin"],
+  DAI: ["dai"],
+  ETH: ["ethereum"],
+  GHO: ["gho"],
+  HYPE: ["hyperliquid"],
+  MATIC: ["matic-network"],
+  OP: ["optimism"],
+  POL: ["polygon-ecosystem-token"],
+  UNI: ["uniswap"],
+  USDC: ["usd-coin"],
+  USDS: ["usds"],
+  USDT: ["tether"],
+  WETH: ["weth"],
+};
+
+function getCoinGeckoIdCandidates(tokenSymbol: string): string[] {
+  const normalized = normalizeTokenSymbol(tokenSymbol);
+  if (!normalized) return [];
+
+  const pegSymbol = getUsdRatePegSymbol(normalized);
+  const baseSymbol = normalized.split(/[._-]/)[0] ?? normalized;
+  const wrappedBase =
+    baseSymbol.startsWith("W") && baseSymbol.length > 3
+      ? baseSymbol.slice(1)
+      : null;
+
+  return Array.from(
+    new Set([
+      ...(COINGECKO_ID_CANDIDATES_BY_SYMBOL[normalized] ?? []),
+      ...(COINGECKO_ID_CANDIDATES_BY_SYMBOL[baseSymbol] ?? []),
+      ...(wrappedBase
+        ? COINGECKO_ID_CANDIDATES_BY_SYMBOL[wrappedBase] ?? []
+        : []),
+      ...(pegSymbol
+        ? COINGECKO_ID_CANDIDATES_BY_SYMBOL[pegSymbol] ?? []
+        : []),
+    ]),
   );
 }
 
@@ -222,4 +312,61 @@ export async function fetchCoinbaseUsdRate(
   }
 
   return null;
+}
+
+async function fetchCoinGeckoUsdRateByIds(
+  ids: string[],
+  requestTimeoutMs: number,
+): Promise<number | null> {
+  if (ids.length === 0) return null;
+
+  const body = await fetchJsonWithTimeout<CoinGeckoSimplePriceResponse>(
+    `${COINGECKO_SIMPLE_PRICE_API_BASE}?ids=${encodeURIComponent(
+      ids.join(","),
+    )}&vs_currencies=usd`,
+    requestTimeoutMs,
+  );
+
+  for (const id of ids) {
+    const rate = toFinitePositiveNumber(body?.[id]?.usd);
+    if (rate) return rate;
+  }
+
+  return null;
+}
+
+export async function fetchCoinGeckoUsdRate(
+  tokenSymbol: string,
+  requestTimeoutMs = DEFAULT_COINBASE_PRICE_REQUEST_TIMEOUT_MS,
+): Promise<number | null> {
+  const normalized = normalizeTokenSymbol(tokenSymbol);
+  if (!normalized) return null;
+
+  const knownIdsRate = await fetchCoinGeckoUsdRateByIds(
+    getCoinGeckoIdCandidates(normalized),
+    requestTimeoutMs,
+  );
+  if (knownIdsRate) return knownIdsRate;
+
+  const searchBody = await fetchJsonWithTimeout<CoinGeckoSearchResponse>(
+    `${COINGECKO_SEARCH_API_URL}?query=${encodeURIComponent(normalized)}`,
+    requestTimeoutMs,
+  );
+  const exactSymbolMatches = (searchBody?.coins ?? [])
+    .filter(
+      (coin) => normalizeTokenSymbol(coin.symbol ?? "") === normalized && coin.id,
+    )
+    .sort((a, b) => {
+      const aRank = a.market_cap_rank ?? Number.MAX_SAFE_INTEGER;
+      const bRank = b.market_cap_rank ?? Number.MAX_SAFE_INTEGER;
+      return aRank - bRank;
+    });
+
+  return fetchCoinGeckoUsdRateByIds(
+    exactSymbolMatches
+      .map((coin) => coin.id)
+      .filter((id): id is string => Boolean(id))
+      .slice(0, 5),
+    requestTimeoutMs,
+  );
 }
