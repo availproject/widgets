@@ -13,16 +13,16 @@
     "wagmi"
   ],
   "registryDependencies": [
-    "https://elements.nexus.availproject.org/r/animated-spinner.json",
-    "https://elements.nexus.availproject.org/r/button.json",
-    "https://elements.nexus.availproject.org/r/card.json",
-    "https://elements.nexus.availproject.org/r/checkbox.json",
-    "https://elements.nexus.availproject.org/r/dialog.json",
-    "https://elements.nexus.availproject.org/r/nexus-provider.json",
-    "https://elements.nexus.availproject.org/r/skeleton.json",
-    "https://elements.nexus.availproject.org/r/tabs.json",
-    "https://elements.nexus.availproject.org/r/tooltip.json",
-    "https://elements.nexus.availproject.org/r/utils.json"
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/animated-spinner.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/skeleton.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tabs.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
   ],
   "files": [
     {

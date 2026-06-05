@@ -5,14 +5,14 @@
   "title": "All Elements",
   "description": "Install all Nexus Elements. For new integrations, use @nexus-elements/nexus-one instead — it provides unified swap, send, and deposit in one component.",
   "registryDependencies": [
-    "https://elements.nexus.availproject.org/r/bridge-deposit.json",
-    "https://elements.nexus.availproject.org/r/deposit.json",
-    "https://elements.nexus.availproject.org/r/fast-bridge.json",
-    "https://elements.nexus.availproject.org/r/nexus-provider.json",
-    "https://elements.nexus.availproject.org/r/swaps.json",
-    "https://elements.nexus.availproject.org/r/transfer.json",
-    "https://elements.nexus.availproject.org/r/unified-balance.json",
-    "https://elements.nexus.availproject.org/r/view-history.json"
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/bridge-deposit.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/deposit.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/fast-bridge.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/swaps.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/transfer.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/unified-balance.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/view-history.json"
   ],
   "files": [
     {

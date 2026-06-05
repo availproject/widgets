@@ -9,12 +9,12 @@
     "lucide-react"
   ],
   "registryDependencies": [
-    "https://elements.nexus.availproject.org/r/accordion.json",
-    "https://elements.nexus.availproject.org/r/label.json",
-    "https://elements.nexus.availproject.org/r/nexus-provider.json",
-    "https://elements.nexus.availproject.org/r/separator.json",
-    "https://elements.nexus.availproject.org/r/tabs.json",
-    "https://elements.nexus.availproject.org/r/utils.json"
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/separator.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tabs.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
   ],
   "files": [
     {

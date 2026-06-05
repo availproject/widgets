@@ -5,7 +5,7 @@
   "title": "Input",
   "description": "UI primitive: Input",
   "registryDependencies": [
-    "https://elements.nexus.availproject.org/r/utils.json"
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
   ],
   "files": [
     {

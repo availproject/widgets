@@ -12,9 +12,9 @@
     "wagmi"
   ],
   "registryDependencies": [
-    "https://elements.nexus.availproject.org/r/button.json",
-    "https://elements.nexus.availproject.org/r/nexus-provider.json",
-    "https://elements.nexus.availproject.org/r/swaps.json"
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/swaps.json"
   ],
   "files": [
     {
