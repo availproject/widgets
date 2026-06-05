@@ -67,12 +67,14 @@ export function ComponentPreview({
       hideCode={hideCode}
       component={<Showcase />}
       source={
-        <ComponentSource
-          name={name}
-          collapsible={false}
-          styleName={styleName}
-          showAllFiles={showAllFiles}
-        />
+        hideCode ? null : (
+          <ComponentSource
+            name={name}
+            collapsible={false}
+            styleName={styleName}
+            showAllFiles={showAllFiles}
+          />
+        )
       }
       chromeLessOnMobile={chromeLessOnMobile}
       {...props}
