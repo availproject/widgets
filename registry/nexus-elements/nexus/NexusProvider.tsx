@@ -139,13 +139,21 @@ const NexusProvider = ({
       debug: stableConfig.debug,
     });
 
-    void nextSdk.initialize().then(() => {
-      if (cancelled) return;
-      sdkRef.current = nextSdk;
-      setSdk(nextSdk);
-    }).catch((err) => {
-      console.error("Failed to initialize default read-only Nexus client:", err);
-    });
+    void nextSdk
+      .initialize()
+      .then(() => {
+        if (cancelled) return;
+        sdkRef.current = nextSdk;
+        setSdk(nextSdk);
+        console.log("ChainList", nextSdk.chainList.chains);
+        console.log("SupportedChains", nextSdk.getSupportedChains());
+      })
+      .catch((err) => {
+        console.error(
+          "Failed to initialize default read-only Nexus client:",
+          err,
+        );
+      });
 
     return () => {
       cancelled = true;
@@ -206,7 +214,10 @@ const NexusProvider = ({
       list = sdk.getSupportedChains();
       swapList = sdk.getSupportedChains();
     } catch (e) {
-      console.warn("SDK getSupportedChains failed (likely not initialized yet):", e);
+      console.warn(
+        "SDK getSupportedChains failed (likely not initialized yet):",
+        e,
+      );
     }
 
     supportedChainsAndTokens.current = list;
@@ -246,7 +257,8 @@ const NexusProvider = ({
 
       return assets.map((asset) => {
         let computedAssetUsd = 0;
-        const sourceBalances = (asset as any).chainBalances ?? (asset as any).breakdown ?? [];
+        const sourceBalances =
+          (asset as any).chainBalances ?? (asset as any).breakdown ?? [];
 
         const breakdown = sourceBalances.map((entry: any) => {
           const balance = Number.parseFloat(String(entry.balance ?? "0"));

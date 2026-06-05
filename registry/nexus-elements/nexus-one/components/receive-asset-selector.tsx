@@ -13,7 +13,6 @@ import { Search, X, ChevronDown, Check, Info, Copy, Globe } from "lucide-react";
 import {
   getTokenSearchRank,
   RadioDot,
-  SWAP_CHAIN_DISPLAY_ORDER,
   sortChainIdsBySwapDisplayOrder,
   type SwapTokenOption,
 } from "./swap-asset-selector";
@@ -21,7 +20,6 @@ import { useNexus } from "../../nexus/NexusProvider";
 import { CHAIN_METADATA } from "../../common";
 import { formatTokenBalance } from "@avail-project/nexus-sdk-v2/utils";
 import {
-  CITREA_CHAIN_ID,
   CITREA_STABLE_SYMBOLS,
   getCitreaChainMeta,
   getCitreaReceiveTokenOptions,
@@ -32,7 +30,6 @@ interface ReceiveAssetSelectorProps {
   onBack: () => void;
 }
 
-const SUPPORTED_RECEIVE_CHAIN_IDS = new Set<number>(SWAP_CHAIN_DISPLAY_ORDER);
 const CHAIN_SELECTOR_CLOSE_MS = 220;
 const MODAL_HEIGHT_TRANSITION_MS = 260;
 const modalHeightTransitionStyle = {
@@ -225,6 +222,10 @@ export function ReceiveAssetSelector({
   const [isLoading, setIsLoading] = useState(true);
   const [dynamicStableSymbols, setDynamicStableSymbols] = useState<Set<string>>(STABLE_SYMBOLS);
 
+  const supportedReceiveChainIds = useMemo(() => {
+    return new Set((supportedChainsAndTokens ?? []).map((chain) => chain.id));
+  }, [supportedChainsAndTokens]);
+
   useEffect(() => {
     setPortalRoot(
       selectorRef.current?.closest("[data-nexus-one-root]") as HTMLElement | null,
@@ -359,30 +360,33 @@ export function ReceiveAssetSelector({
         map.set(c.id, { name: c.name, logo: c.logo });
       }
     }
-    if (!map.has(CITREA_CHAIN_ID)) {
-      map.set(CITREA_CHAIN_ID, getCitreaChainMeta());
+    for (const token of getCitreaReceiveTokenOptions()) {
+      if (token.chainId && supportedReceiveChainIds.has(token.chainId)) {
+        map.set(token.chainId, getCitreaChainMeta());
+      }
     }
     return map;
-  }, [supportedChainsAndTokens, swapSupportedChainsAndTokens]);
+  }, [supportedChainsAndTokens, swapSupportedChainsAndTokens, supportedReceiveChainIds]);
 
   const chainFilterIds = useMemo(() => {
-    const supportedIds = swapSupportedChainsAndTokens
-      ?.map((chain) => chain.id)
-      .filter((id) => SUPPORTED_RECEIVE_CHAIN_IDS.has(id));
-
-    const nextIds = new Set(
-      supportedIds?.length ? supportedIds : Array.from(SUPPORTED_RECEIVE_CHAIN_IDS),
-    );
-    nextIds.add(CITREA_CHAIN_ID);
-
-    return sortChainIdsBySwapDisplayOrder(
-      Array.from(nextIds).filter((id) => SUPPORTED_RECEIVE_CHAIN_IDS.has(id)),
-    );
-  }, [swapSupportedChainsAndTokens]);
+    return sortChainIdsBySwapDisplayOrder(Array.from(supportedReceiveChainIds));
+  }, [supportedReceiveChainIds]);
 
   useEffect(() => {
     let active = true;
     const fetchTokens = async () => {
+      if (!supportedChainsAndTokens) {
+        setApiTokens([]);
+        setIsLoading(true);
+        return;
+      }
+
+      if (supportedReceiveChainIds.size === 0) {
+        setApiTokens([]);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         preloadReceiveTokens();
@@ -404,7 +408,7 @@ export function ReceiveAssetSelector({
         const chains = data.tokens || {};
         for (const chainIdStr of Object.keys(chains)) {
           const chainId = parseInt(chainIdStr, 10);
-          if (!SUPPORTED_RECEIVE_CHAIN_IDS.has(chainId)) continue;
+          if (!supportedReceiveChainIds.has(chainId)) continue;
           const meta = chainMetaMap.get(chainId) || { name: `Chain ${chainId}`, logo: "" };
           for (const t of chains[chainIdStr]) {
             allParsed.push({
@@ -421,8 +425,11 @@ export function ReceiveAssetSelector({
             });
           }
         }
+        const citreaTokens = getCitreaReceiveTokenOptions().filter(
+          (token) => token.chainId && supportedReceiveChainIds.has(token.chainId),
+        );
         const tokensByKey = new Map<string, SwapTokenOption>();
-        for (const token of [...allParsed, ...getCitreaReceiveTokenOptions()]) {
+        for (const token of [...allParsed, ...citreaTokens]) {
           const address =
             token.contractAddress.toLowerCase() ===
             "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
@@ -439,7 +446,7 @@ export function ReceiveAssetSelector({
     };
     fetchTokens();
     return () => { active = false; };
-  }, [chainMetaMap]);
+  }, [chainMetaMap, supportedChainsAndTokens, supportedReceiveChainIds]);
 
   const isNativeToken = (t: SwapTokenOption) =>
     t.contractAddress.toLowerCase() === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" ||
