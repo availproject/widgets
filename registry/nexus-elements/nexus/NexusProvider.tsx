@@ -65,10 +65,13 @@ type NexusProviderProps = {
   config?: {
     network?: NexusNetwork;
     debug?: boolean;
+    mode?: "deposit" | "swap" | "send";
   };
 };
 
-const defaultConfig: Required<NexusProviderProps["config"]> = {
+const NEXUS_ELEMENTS_NAME = "nexus_elements";
+
+const defaultConfig: Required<Pick<NonNullable<NexusProviderProps["config"]>, "network" | "debug">> = {
   network: "mainnet",
   debug: true,
 };
@@ -119,8 +122,17 @@ const NexusProvider = ({
   const swapIntent = useRef<OnSwapIntentHookData | null>(null);
 
   useEffect(() => {
+    const appName = stableConfig.mode
+      ? `${NEXUS_ELEMENTS_NAME}_${stableConfig.mode}`
+      : NEXUS_ELEMENTS_NAME;
     const nextSdk = new NexusSDK({
-      ...stableConfig,
+      network: stableConfig.network,
+      debug: stableConfig.debug,
+      analytics: {
+        appMetadata: {
+          appName,
+        },
+      },
     });
 
     sdkRef.current = nextSdk;
