@@ -6114,7 +6114,8 @@ export function NexusOne({
       data-nexus-one-root
       style={{
         backgroundColor: "#F9F9F8",
-        backgroundImage: "url(/nexus-one/card-bg.png)",
+        backgroundImage:
+          "url(https://files.availproject.org/nexus-elements/nexus-one/card-bg.png)",
         backgroundPosition: "center",
         backgroundPositionX: "center",
         backgroundPositionY: "center",
