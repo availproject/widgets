@@ -41,11 +41,11 @@ Locks the element to the swap flow. This preview prefills USDC on Arbitrum as th
 
 ### Deposit
 
-Locks the element to the deposit flow. A non-empty `opportunities` array is required.
+Locks the element to the deposit flow. A single `deposit` config is required.
 
 <ComponentPreview
   name="nexus-one-deposit"
-  description="Locked deposit mode for protocol or smart-contract opportunities."
+  description="Locked deposit mode for a configured protocol or smart-contract action."
   align="center"
   hideCode
 />
@@ -105,42 +105,11 @@ export function App({ address }: { address?: `0x${string}` }) {
 
 `config.mode` is always required. Every other field is optional unless the selected mode makes it conditional.
 
-```ts title="NexusOneConfig"
-type NexusOneMode = "swap" | "send" | "deposit";
-
-interface NexusOneConfig {
-  mode: NexusOneMode;
-  prefill?: {
-    token?: `0x${string}`;
-    chain?: number;
-    amount?: string;
-    recipient?: `0x${string}`;
-    source?: {
-      token: `0x${string}`;
-      chain: number;
-    };
-    destination?: {
-      token: `0x${string}`;
-      chain: number;
-    };
-  };
-  allowedSourcePairs?: {
-    token: `0x${string}`;
-    chain: number;
-  }[];
-  allowedDestinationPairs?: {
-    token: `0x${string}`;
-    chain: number;
-  }[];
-  opportunities?: DepositOpportunity[];
-}
-```
-
 ### Required Props
 
 | Prop | Type | Notes |
 | --- | --- | --- |
-| `config` | `NexusOneConfig` | Selects the workflow and any mode-specific behavior. |
+| `config` | `object` | Selects the workflow and any mode-specific behavior. |
 
 ### Optional Props
 
@@ -148,6 +117,9 @@ interface NexusOneConfig {
 | --- | --- | --- |
 | `connectedAddress` | `` `0x${string}` `` | Wallet address to use. If omitted, Nexus One falls back to the connected wagmi wallet account. |
 | `embed` | `boolean` | Defaults to `true`. Set `false` when rendering Nexus One as a modal surface. |
+| `open` | `boolean` | Controls the modal when `embed={false}`. |
+| `onOpenChange` | `(open: boolean) => void` | Receives modal state changes when `embed={false}`. |
+| `defaultOpen` | `boolean` | Opens the modal by default in uncontrolled modal mode. |
 | `onComplete` | `(explorerUrl?: string) => void` | Called after a successful swap, send, or deposit. |
 | `onStart` | `() => void` | Called when the user starts execution. |
 | `onError` | `(message: string) => void` | Called when execution fails. |
@@ -172,45 +144,11 @@ interface NexusOneConfig {
 | --- | --- | --- | --- |
 | `swap` | `config.mode = "swap"` | `prefill`, `allowedSourcePairs`, `allowedDestinationPairs` | Users choose source and receive assets. Nexus One switches between exact-in and exact-out quoting based on which amount field the user changes. |
 | `send` | `config.mode = "send"` | `prefill.recipient`, `prefill.amount`, source/destination pair filters | Send is exact-out. Users choose the token and amount to send, then Nexus resolves the pay-with sources. |
-| `deposit` | `config.mode = "deposit"` and `opportunities.length > 0` | `prefill.amount`, source filters | Deposit is exact-out. If one opportunity is provided, Nexus One opens the deposit form directly. If multiple opportunities are provided, users pick from a list first. |
+| `deposit` | `config.mode = "deposit"` and `deposit` | `prefill.amount`, source filters | Deposit is exact-out. Nexus One opens the deposit form directly for the configured destination and app call. |
 
-## Deposit Opportunities
+## Deposit Config
 
-`opportunities` is required only when `mode` is `"deposit"`. Every opportunity describes the destination asset and the contract execution Nexus should perform after the swap settles.
-
-```ts title="DepositOpportunity"
-interface DepositOpportunity {
-  id: string;
-  protocol: string;
-  chainId: number;
-  tokenSymbol: string;
-  tokenAddress: `0x${string}`;
-  execute:
-    | ExecuteConfig
-    | ((amount: bigint, connectedAddress: `0x${string}`) => ExecuteConfig);
-
-  label?: string;
-  title?: string;
-  subtitle?: string;
-  logo?: string;
-  tokenLogo?: string;
-  apy?: string;
-  description?: string;
-}
-
-interface ExecuteConfig {
-  to: `0x${string}`;
-  data?: `0x${string}`;
-  value?: bigint;
-  gas: bigint;
-  gasPrice?: "low" | "medium" | "high";
-  tokenApproval?: {
-    token: `0x${string}`;
-    amount: bigint;
-    spender: `0x${string}`;
-  };
-}
-```
+`deposit` is required only when `mode` is `"deposit"`. It describes the destination asset and the contract execution Nexus should perform after the swap settles.
 
 ## Examples
 
@@ -270,58 +208,95 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
 import { NexusOne } from "@/components/nexus-one/nexus-one";
 import { encodeFunctionData } from "viem";
 
-const AAVE_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
-const USDT_ARBITRUM = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
+// Configure these for your app.
+const APP_DEPOSIT_CONTRACT = "0x...";
+const DESTINATION_TOKEN = "0x...";
+const DESTINATION_CHAIN_ID = 42161;
+const DESTINATION_TOKEN_SYMBOL = "USDT";
+const DESTINATION_TOKEN_DECIMALS = 6;
 
-const AAVE_ABI = [
+const APP_DEPOSIT_ABI = [
   {
     inputs: [
-      { name: "asset", type: "address" },
+      { name: "token", type: "address" },
       { name: "amount", type: "uint256" },
-      { name: "onBehalfOf", type: "address" },
-      { name: "referralCode", type: "uint16" },
+      { name: "user", type: "address" },
     ],
-    name: "supply",
+    name: "deposit",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
 ] as const;
 
-export function DepositExample({ address }: { address?: `0x${string}` }) {
-  return (
-    <NexusOne
-      config={{
-        mode: "deposit",
-        opportunities: [
-          {
-            id: "aave-usdt-arbitrum",
-            title: "Aave",
-            protocol: "Aave",
-            subtitle: "Deposit USDT on Arbitrum",
-            logo: "https://files.availproject.org/uploads/2026-04-16/aave.svg",
-            chainId: 42161,
-            tokenSymbol: "USDT",
-            tokenAddress: USDT_ARBITRUM,
-            execute: (amount, connectedAddress) => ({
-              to: AAVE_POOL,
-              data: encodeFunctionData({
-                abi: AAVE_ABI,
-                functionName: "supply",
-                args: [USDT_ARBITRUM, amount, connectedAddress, 0],
-              }),
-              gas: BigInt(300000),
-              tokenApproval: {
-                token: USDT_ARBITRUM,
-                amount,
-                spender: AAVE_POOL,
-              },
-            }),
-          },
-        ],
-      }}
-      connectedAddress={address}
-    />
-  );
+function buildDepositExecuteConfig(
+  tokenAddress: `0x${string}`,
+  amount: bigint,
+  user: `0x${string}`,
+) {
+  return {
+    to: APP_DEPOSIT_CONTRACT,
+    data: encodeFunctionData({
+      abi: APP_DEPOSIT_ABI,
+      functionName: "deposit",
+      args: [tokenAddress, amount, user],
+      // Aave reference: supply(asset, amount, onBehalfOf, referralCode)
+    }),
+    tokenApproval: {
+      token: tokenAddress,
+      amount,
+      spender: APP_DEPOSIT_CONTRACT,
+    },
+  };
 }
+
+const depositConfig = {
+  mode: "deposit",
+  deposit: {
+    // Configure the destination asset Nexus should deliver.
+    chainId: DESTINATION_CHAIN_ID,
+    tokenSymbol: DESTINATION_TOKEN_SYMBOL,
+    tokenDecimals: DESTINATION_TOKEN_DECIMALS,
+    tokenAddress: DESTINATION_TOKEN,
+
+    // Configure display metadata for your app/protocol.
+    title: "Your App",
+    protocol: "Your App",
+    label: "Deposit USDT",
+
+    // Configure the app call Nexus should execute after the swap settles.
+    executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) =>
+      buildDepositExecuteConfig(tokenAddress, amount, user),
+  },
+} as const;
+
+<NexusOne config={depositConfig} connectedAddress={address} />;
+```
+
+### Modal Deposit
+
+```tsx showLineNumbers
+import { NexusOne } from "@/components/nexus-one/nexus-one";
+
+<NexusOne
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  defaultOpen={false}
+/>;
+```
+
+```tsx showLineNumbers
+import { useState } from "react";
+import { NexusOne } from "@/components/nexus-one/nexus-one";
+
+const [open, setOpen] = useState(false);
+
+<NexusOne
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  open={open}
+  onOpenChange={setOpen}
+/>;
 ```

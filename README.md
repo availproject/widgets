@@ -91,66 +91,66 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
 
 ### Deposit
 
-Deposit into DeFi protocols with a single intent. A non-empty `opportunities` array is required when `mode` is `"deposit"`.
+Deposit into a configured protocol or app action with a single intent. A single `deposit` config is required when `mode` is `"deposit"`.
 
 ```tsx
 import { NexusOne } from "@/components/nexus-one/nexus-one";
 import { encodeFunctionData } from "viem";
 
-const AAVE_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
-const USDT_ARBITRUM = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
+const APP_DEPOSIT_CONTRACT = "0x...";
+const DESTINATION_TOKEN = "0x...";
 
-const AAVE_ABI = [
+const APP_DEPOSIT_ABI = [
   {
     inputs: [
-      { name: "asset", type: "address" },
+      { name: "token", type: "address" },
       { name: "amount", type: "uint256" },
-      { name: "onBehalfOf", type: "address" },
-      { name: "referralCode", type: "uint16" },
+      { name: "user", type: "address" },
     ],
-    name: "supply",
+    name: "deposit",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
 ] as const;
 
-export function DepositExample({ address }: { address?: `0x${string}` }) {
-  return (
-    <NexusOne
-      config={{
-        mode: "deposit",
-        opportunities: [
-          {
-            id: "aave-usdt-arbitrum",
-            title: "Aave",
-            protocol: "Aave",
-            subtitle: "Deposit USDT on Arbitrum",
-            logo: "https://files.availproject.org/uploads/2026-04-16/aave.svg",
-            chainId: 42161,
-            tokenSymbol: "USDT",
-            tokenAddress: USDT_ARBITRUM,
-            execute: (amount, connectedAddress) => ({
-              to: AAVE_POOL,
-              data: encodeFunctionData({
-                abi: AAVE_ABI,
-                functionName: "supply",
-                args: [USDT_ARBITRUM, amount, connectedAddress, 0],
-              }),
-              gas: BigInt(300000),
-              tokenApproval: {
-                token: USDT_ARBITRUM,
-                amount,
-                spender: AAVE_POOL,
-              },
-            }),
-          },
-        ],
-      }}
-      connectedAddress={address}
-    />
-  );
+function buildDepositExecuteConfig(
+  tokenAddress: `0x${string}`,
+  amount: bigint,
+  user: `0x${string}`,
+) {
+  return {
+    to: APP_DEPOSIT_CONTRACT,
+    data: encodeFunctionData({
+      abi: APP_DEPOSIT_ABI,
+      functionName: "deposit",
+      args: [tokenAddress, amount, user],
+      // Aave reference: supply(asset, amount, onBehalfOf, referralCode)
+    }),
+    tokenApproval: {
+      token: tokenAddress,
+      amount,
+      spender: APP_DEPOSIT_CONTRACT,
+    },
+  };
 }
+
+<NexusOne
+  config={{
+    mode: "deposit",
+    deposit: {
+      chainId: 42161,
+      tokenSymbol: "USDT",
+      tokenDecimals: 6,
+      tokenAddress: DESTINATION_TOKEN,
+      title: "Your App",
+      protocol: "Your App",
+      executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) =>
+        buildDepositExecuteConfig(tokenAddress, amount, user),
+    },
+  }}
+  connectedAddress={address}
+/>;
 ```
 
 ### With Callbacks
@@ -207,9 +207,10 @@ export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
 
 | Prop | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `config` | `NexusOneConfig` | ✅ | Selects the workflow and any mode-specific behavior. |
+| `config` | `object` | ✅ | Selects the workflow and any mode-specific behavior. |
 | `connectedAddress` | `` `0x${string}` `` | | Wallet address. Falls back to connected wagmi account. |
 | `embed` | `boolean` | | Defaults to `true`. Set `false` for modal rendering. |
+| `open`, `onOpenChange`, `defaultOpen` | modal controls | | Control modal rendering when `embed={false}`. |
 | `onComplete` | `(explorerUrl?: string) => void` | | Called on success. |
 | `onStart` | `() => void` | | Called when execution begins. |
 | `onError` | `(message: string) => void` | | Called on failure. |
@@ -228,7 +229,7 @@ export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
 | `prefill.destination` | `{ token; chain }` | Prefills destination token and chain. |
 | `allowedSourcePairs` | `{ token; chain }[]` | Restricts selectable source pairs. |
 | `allowedDestinationPairs` | `{ token; chain }[]` | Restricts selectable destination pairs. |
-| `opportunities` | `DepositOpportunity[]` | Required for deposit mode. |
+| `deposit` | `object` | Required for deposit mode. |
 
 ## References
 

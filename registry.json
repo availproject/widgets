@@ -270,9 +270,9 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and a deposit config for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and a deposit config for new integrations."
     },
     {
       "name": "button",
@@ -630,9 +630,9 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and a deposit config for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and a deposit config for new integrations."
     },
     {
       "name": "dialog",
@@ -889,11 +889,6 @@
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/opportunity-list.tsx",
-          "target": "components/nexus-one/components/opportunity-list.tsx",
-          "type": "registry:component"
-        },
-        {
           "path": "registry/nexus-elements/nexus-one/components/pay-using-selector.tsx",
           "target": "components/nexus-one/components/pay-using-selector.tsx",
           "type": "registry:component"
@@ -956,6 +951,11 @@
         {
           "path": "registry/nexus-elements/nexus-one/utils/citrea-tokens.ts",
           "target": "components/nexus-one/utils/citrea-tokens.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/nexus-elements/nexus-one/utils/deposit-source-selection.ts",
+          "target": "components/nexus-one/utils/deposit-source-selection.ts",
           "type": "registry:component"
         },
         {
@@ -1063,6 +1063,7 @@
       ],
       "registryDependencies": [
         "https://elements.nexus.availproject.org/r/button.json",
+        "https://elements.nexus.availproject.org/r/dialog.json",
         "https://elements.nexus.availproject.org/r/nexus-provider.json",
         "https://elements.nexus.availproject.org/r/swaps.json"
       ],

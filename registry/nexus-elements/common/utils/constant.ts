@@ -25,6 +25,17 @@ export const SHORT_CHAIN_NAME: Record<number, string> = {
   // [SUPPORTED_CHAINS.TRON_SHASTA]: "Tron Shasta",
 } as const;
 
+export const getShortChainName = (
+  chainId?: number | null,
+  fallback?: string | null,
+) => {
+  if (typeof chainId === "number" && SHORT_CHAIN_NAME[chainId]) {
+    return SHORT_CHAIN_NAME[chainId];
+  }
+
+  return fallback ?? "";
+};
+
 const DEFAULT_SAFETY_MARGIN = 0.01; // 1%
 
 /**

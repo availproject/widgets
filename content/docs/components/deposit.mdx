@@ -1,6 +1,6 @@
 ---
 title: Deposit
-description: Route funds into configured protocol opportunities with Nexus intents.
+description: Route funds into a configured protocol or app action with Nexus intents.
 component: true
 links:
   doc: https://docs.availproject.org/nexus/avail-nexus-sdk/bridge-methods/bridge-and-execute
@@ -9,7 +9,7 @@ links:
 
 <ComponentPreview
   name="nexus-one-deposit"
-  description="Deposit mode with an Aave opportunity and amount prefilled."
+  description="Deposit mode with a single configured destination and amount prefilled."
   align="center"
   hideCode
 />
@@ -30,65 +30,72 @@ Wrap your app with the Nexus provider first. See [Get Started](/docs/get-started
 import { NexusOne } from "@/components/nexus-one/nexus-one";
 import { encodeFunctionData } from "viem";
 
-const AAVE_POOL_ARBITRUM = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
-const USDT_ARBITRUM = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
+// Configure these for your app.
+const APP_DEPOSIT_CONTRACT = "0x...";
+const DESTINATION_TOKEN = "0x...";
+const DESTINATION_CHAIN_ID = 42161;
+const DESTINATION_TOKEN_SYMBOL = "USDT";
+const DESTINATION_TOKEN_DECIMALS = 6;
 
-const AAVE_ABI = [
+const APP_DEPOSIT_ABI = [
   {
     inputs: [
-      { internalType: "address", name: "asset", type: "address" },
+      { internalType: "address", name: "token", type: "address" },
       { internalType: "uint256", name: "amount", type: "uint256" },
-      { internalType: "address", name: "onBehalfOf", type: "address" },
-      { internalType: "uint16", name: "referralCode", type: "uint16" },
+      { internalType: "address", name: "user", type: "address" },
     ],
-    name: "supply",
+    name: "deposit",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
 ] as const;
 
-export function DepositExample({ address }: { address?: `0x${string}` }) {
-  return (
-    <NexusOne
-      connectedAddress={address}
-      config={{
-        mode: "deposit",
-        prefill: {
-          amount: "0.1",
-        },
-        opportunities: [
-          {
-            id: "aave-arbitrum-usdt",
-            title: "Aave",
-            protocol: "Aave",
-            subtitle: "Deposit USDT on Aave on Arbitrum",
-            logo: "https://files.availproject.org/uploads/2026-04-16/aave.svg",
-            chainId: 42161,
-            tokenSymbol: "USDT",
-            tokenAddress: USDT_ARBITRUM,
-            tokenLogo:
-              "https://raw.githubusercontent.com/availproject/nexus-assets/refs/heads/main/tokens/usdt/logo.png",
-            execute: (amount, connectedAddress) => ({
-              to: AAVE_POOL_ARBITRUM,
-              data: encodeFunctionData({
-                abi: AAVE_ABI,
-                functionName: "supply",
-                args: [USDT_ARBITRUM, amount, connectedAddress, 0],
-              }),
-              gas: 300000n,
-              tokenApproval: {
-                token: USDT_ARBITRUM,
-                amount,
-                spender: AAVE_POOL_ARBITRUM,
-              },
-            }),
-          },
-        ],
-      }}
-    />
-  );
+function buildDepositExecuteConfig(
+  tokenAddress: `0x${string}`,
+  amount: bigint,
+  user: `0x${string}`,
+) {
+  return {
+    to: APP_DEPOSIT_CONTRACT,
+    data: encodeFunctionData({
+      abi: APP_DEPOSIT_ABI,
+      functionName: "deposit",
+      args: [tokenAddress, amount, user],
+      // Aave reference: supply(asset, amount, onBehalfOf, referralCode)
+    }),
+    tokenApproval: {
+      token: tokenAddress,
+      amount,
+      spender: APP_DEPOSIT_CONTRACT,
+    },
+  };
 }
+
+const depositConfig = {
+  mode: "deposit",
+  prefill: {
+    amount: "0.1",
+  },
+  deposit: {
+    // Configure the destination asset Nexus should deliver.
+    chainId: DESTINATION_CHAIN_ID,
+    tokenSymbol: DESTINATION_TOKEN_SYMBOL,
+    tokenDecimals: DESTINATION_TOKEN_DECIMALS,
+    tokenAddress: DESTINATION_TOKEN,
+
+    // Configure display metadata for your app/protocol.
+    title: "Your App",
+    protocol: "Your App",
+    label: "Deposit USDT",
+
+    // Configure the app call Nexus should execute after the swap settles.
+    executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) =>
+      buildDepositExecuteConfig(tokenAddress, amount, user),
+  },
+} as const;
+
+<NexusOne config={depositConfig} connectedAddress={address} />;
 ```
 
 ## Configuration
@@ -98,55 +105,38 @@ Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the des
 | Prop | Required | Description |
 | --- | --- | --- |
 | `config.mode` | Yes | Must be `"deposit"`. |
-| `config.opportunities` | Yes | Must contain at least one opportunity. One opportunity opens the deposit form directly. Multiple opportunities render the opportunity picker first. |
-| `config.opportunities[].execute` | Yes | Transaction builder passed to `swapAndExecute`. |
+| `config.deposit` | Yes | Single destination and app-call config. Deposit opens the form directly. |
+| `config.deposit.executeDeposit` | Yes | Transaction builder passed to `swapAndExecute`. |
 | `config.prefill.amount` | Optional | Prefills the exact output deposit amount. |
 | `config.allowedSourcePairs` | Optional | Restricts pay-with source assets. |
 | `connectedAddress` | Optional | Wallet address to use. If omitted, the connected wagmi account is used. |
 | `embed` | Optional | Defaults to `true`. Set `false` to render as a modal surface. |
+| `open`, `onOpenChange`, `defaultOpen` | Optional | Control the modal when `embed={false}`. |
 | `onStart`, `onComplete`, `onError`, `onClose` | Optional | Lifecycle callbacks for host apps. |
 
-<CodeCollapsibleWrapper className="mt-4">
+## Modal Usage
 
-```ts title="DepositConfig"
-interface DepositConfig {
-  mode: "deposit";
-  prefill?: {
-    amount?: string;
-  };
-  opportunities: DepositOpportunity[];
-  allowedSourcePairs?: {
-    token: `0x${string}`;
-    chain: number;
-  }[];
-}
+Render `embed={false}` to invoke Deposit from a button and show the element as a modal.
 
-interface DepositOpportunity {
-  id: string;
-  protocol: string;
-  title?: string;
-  subtitle?: string;
-  logo?: string;
-  chainId: number;
-  tokenSymbol: string;
-  tokenLogo?: string;
-  tokenAddress: `0x${string}`;
-  execute:
-    | ExecuteParams
-    | ((amount: bigint, connectedAddress: `0x${string}`) => ExecuteParams);
-}
-
-type ExecuteParams = {
-  to: `0x${string}`;
-  data?: `0x${string}`;
-  value?: bigint;
-  gas: bigint;
-  tokenApproval?: {
-    token: `0x${string}`;
-    amount: bigint;
-    spender: `0x${string}`;
-  };
-};
+```tsx showLineNumbers
+<NexusOne
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  defaultOpen={false}
+/>;
 ```
 
-</CodeCollapsibleWrapper>
+Control the modal from app state when needed.
+
+```tsx showLineNumbers
+const [open, setOpen] = useState(false);
+
+<NexusOne
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  open={open}
+  onOpenChange={setOpen}
+/>;
+```

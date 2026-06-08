@@ -19,6 +19,7 @@ import {
 } from "./swap-asset-selector";
 import { useNexus } from "../../nexus/NexusProvider";
 import { CHAIN_METADATA, formatTokenBalance } from "@avail-project/nexus-core";
+import { getShortChainName } from "../../common/utils/constant";
 import {
   CITREA_CHAIN_ID,
   CITREA_STABLE_SYMBOLS,
@@ -350,12 +351,12 @@ export function ReceiveAssetSelector({
     const map = new Map<number, { name: string; logo: string }>();
     if (supportedChainsAndTokens) {
       for (const c of supportedChainsAndTokens) {
-        map.set(c.id, { name: c.name, logo: c.logo });
+        map.set(c.id, { name: getShortChainName(c.id, c.name), logo: c.logo });
       }
     }
     if (swapSupportedChainsAndTokens) {
       for (const c of swapSupportedChainsAndTokens) {
-        map.set(c.id, { name: c.name, logo: c.logo });
+        map.set(c.id, { name: getShortChainName(c.id, c.name), logo: c.logo });
       }
     }
     if (!map.has(CITREA_CHAIN_ID)) {
@@ -404,7 +405,10 @@ export function ReceiveAssetSelector({
         for (const chainIdStr of Object.keys(chains)) {
           const chainId = parseInt(chainIdStr, 10);
           if (!SUPPORTED_RECEIVE_CHAIN_IDS.has(chainId)) continue;
-          const meta = chainMetaMap.get(chainId) || { name: `Chain ${chainId}`, logo: "" };
+          const meta = chainMetaMap.get(chainId) || {
+            name: getShortChainName(chainId, `Chain ${chainId}`),
+            logo: "",
+          };
           for (const t of chains[chainIdStr]) {
             allParsed.push({
               contractAddress: t.address,

@@ -4,9 +4,10 @@ import React, { useRef, useState } from "react";
 import Decimal from "decimal.js";
 import { ChevronDown, Info, Loader2 } from "lucide-react";
 import { Button } from "../../ui/button";
-import { type NexusOneMode, type DepositOpportunity } from "../types";
+import { type NexusOneMode, type NexusOneDepositMetadata } from "../types";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { CHAIN_METADATA, type SwapStepType } from "@avail-project/nexus-core";
+import { getShortChainName } from "../../common/utils/constant";
 import TransactionProgress from "../../swaps/components/transaction-progress";
 
 export interface SwapIntentSource {
@@ -65,7 +66,7 @@ export interface SwapIntentPreviewProps {
   swapType?: "exactIn" | "exactOut";
   intentData?: SwapIntentData | null;
   mode?: NexusOneMode;
-  opportunity?: DepositOpportunity;
+  opportunity?: NexusOneDepositMetadata;
   recipientAddress?: string;
   swapBalances?: any[] | null;
   supportedTokenAssets?: any[] | null;
@@ -642,8 +643,11 @@ export function SwapIntentPreview({
     "-";
   const destChainName =
     flowMode === "deposit"
-      ? opportunity?.title || opportunity?.protocol || "Opportunity"
-      : normalizedIntentDest?.chain.name || toToken?.chainName || "";
+      ? opportunity?.title || opportunity?.protocol || "App"
+      : getShortChainName(
+          normalizedIntentDest?.chain.id ?? toToken?.chainId,
+          normalizedIntentDest?.chain.name || toToken?.chainName || "",
+        );
 
   const requestedDestinationAmount =
     isExactOutDisplayFlow ? parseDecimal(toAmountTokens ?? toAmount) : undefined;
@@ -811,8 +815,8 @@ export function SwapIntentPreview({
   const pendingLabel = isLoading ? "Fetching quote" : "Quote unavailable";
   const pendingValue = isLoading ? "..." : "--";
   const sourceUsd =
-    intentSourceUsdNumber !== undefined
-      ? `${formatAmount(intentSourceUsdNumber)} USD`
+    effectiveSourceUsdNumber !== undefined
+      ? `${formatAmount(effectiveSourceUsdNumber)} USD`
       : pendingValue;
   const receiveUsd = hasFiatQuote
     ? `${formatAmount(destinationUsdNumber)} USD`
@@ -858,7 +862,7 @@ export function SwapIntentPreview({
             tokenLogo: source.token.logo || fallbackSource?.logo || "",
             chainLogo: source.chain.logo || fallbackSource?.chainLogo || "",
             symbol: source.token.symbol,
-            chainName: source.chain.name,
+            chainName: getShortChainName(source.chain.id, source.chain.name),
             tokenAmount: `${formatTokenAmount(source.amount)} ${source.token.symbol}`,
             usdAmount:
               parseDecimal(source.value) !== undefined
@@ -875,7 +879,7 @@ export function SwapIntentPreview({
             tokenLogo: source.logo || "",
             chainLogo: source.chainLogo || "",
             symbol: source.symbol,
-            chainName: source.chainName || "",
+            chainName: getShortChainName(source.chainId, source.chainName),
             tokenAmount: sourceAmount
               ? `${formatTokenAmount(sourceAmount)} ${source.symbol}`
               : pendingLabel,
@@ -899,7 +903,10 @@ export function SwapIntentPreview({
           tokenLogo: normalizedIntentDest?.token.logo || toToken?.logo || "",
           chainLogo: normalizedIntentDest?.chain.logo || toToken?.chainLogo || "",
           symbol: destTokenSymbol,
-          chainName: normalizedIntentDest?.chain.name || toToken?.chainName || "",
+          chainName: getShortChainName(
+            normalizedIntentDest?.chain.id ?? toToken?.chainId,
+            normalizedIntentDest?.chain.name || toToken?.chainName || "",
+          ),
           tokenAmount: `${formatTokenAmount(displayOnlyDestinationCoverage)} ${destTokenSymbol}`,
           usdAmount:
             displayOnlyDestinationCoverageUsd !== undefined
@@ -912,11 +919,12 @@ export function SwapIntentPreview({
     ? [...baseSourceDetailRows, displayOnlyDestinationSourceRow]
     : baseSourceDetailRows;
   const singleSourceHeader = (() => {
+    if (displayOnlyDestinationSourceRow) return null;
     if (!displayOnlyDestinationSourceRow && normalizedIntentSources.length === 1) {
       const source = normalizedIntentSources[0];
       return {
         amount: formatTokenAmount(source.amount),
-        chainName: source.chain.name,
+        chainName: getShortChainName(source.chain.id, source.chain.name),
         symbol: source.token.symbol,
       };
     }
@@ -927,7 +935,7 @@ export function SwapIntentPreview({
       if (!sourceAmount) return null;
       return {
         amount: formatTokenAmount(sourceAmount),
-        chainName: source.chainName || "",
+        chainName: getShortChainName(source.chainId, source.chainName),
         symbol: source.symbol,
       };
     }
@@ -936,8 +944,8 @@ export function SwapIntentPreview({
   })();
   const sourceHeaderAmount =
     singleSourceHeader?.amount ||
-    (intentSourceUsdNumber !== undefined
-      ? formatAmount(intentSourceUsdNumber)
+    (effectiveSourceUsdNumber !== undefined
+      ? formatAmount(effectiveSourceUsdNumber)
       : pendingValue);
   const sourceHeaderUnit = singleSourceHeader?.symbol || "USD";
   const sourceHeaderSubtitle = (() => {

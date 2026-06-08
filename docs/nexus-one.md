@@ -11,7 +11,7 @@ Last updated: June 2, 2026
 A single unified component that handles:
 - **Swap and Bridge** (`config.mode = "swap"`) — cross-chain swaps with exact-in and exact-out. Bridge paths are resolved automatically when tokens match.
 - **Send / Transfer** (`config.mode = "send"`) — cross-chain transfers to a recipient address.
-- **Deposit** (`config.mode = "deposit"`) — swap-and-execute deposit into protocols like Aave, with configurable opportunities.
+- **Deposit** (`config.mode = "deposit"`) — swap-and-execute deposit into a single configured protocol or app action.
 
 ## 3) Install
 
@@ -30,34 +30,7 @@ npx shadcn@latest add @nexus-elements/nexus-one
 
 ## 5) Configuration Model
 
-```ts
-type NexusOneMode = "swap" | "send" | "deposit";
-
-interface NexusOneConfig {
-  mode: NexusOneMode;
-  prefill?: {
-    token?: `0x${string}`;
-    chain?: number;
-    amount?: string;
-    recipient?: `0x${string}`;
-    source?: { token: `0x${string}`; chain: number };
-    destination?: { token: `0x${string}`; chain: number };
-  };
-  allowedSourcePairs?: { token: `0x${string}`; chain: number }[];
-  allowedDestinationPairs?: { token: `0x${string}`; chain: number }[];
-  opportunities?: DepositOpportunity[]; // required for deposit mode
-}
-
-interface NexusOneProps {
-  config: NexusOneConfig;
-  connectedAddress?: `0x${string}`;
-  embed?: boolean; // default true
-  onComplete?: (explorerUrl?: string) => void;
-  onStart?: () => void;
-  onError?: (message: string) => void;
-  onClose?: () => void;
-}
-```
+Use `config.mode` to select `swap`, `send`, or `deposit`. Optional config fields include `prefill`, `allowedSourcePairs`, `allowedDestinationPairs`, and `deposit` for deposit mode.
 
 ## 6) UX Principles
 
@@ -74,44 +47,11 @@ interface NexusOneProps {
 |---|---|---|
 | `swap` | `swapWithExactIn` / `swapWithExactOut` | Users choose source and receive assets |
 | `send` | `swapAndTransfer` | Exact-out, users choose token/amount to send |
-| `deposit` | `swapAndExecute` | Exact-out, with opportunity execute builder |
+| `deposit` | `swapAndExecute` | Exact-out, with a configured deposit execute builder |
 
-## 8) Deposit Opportunities
+## 8) Deposit Config
 
-`opportunities` is required only when `mode` is `"deposit"`. Each opportunity describes a destination asset and the contract execution Nexus performs after the swap settles.
-
-```ts
-interface DepositOpportunity {
-  id: string;
-  protocol: string;
-  chainId: number;
-  tokenSymbol: string;
-  tokenAddress: `0x${string}`;
-  execute:
-    | ExecuteConfig
-    | ((amount: bigint, connectedAddress: `0x${string}`) => ExecuteConfig);
-  label?: string;
-  title?: string;
-  subtitle?: string;
-  logo?: string;
-  tokenLogo?: string;
-  apy?: string;
-  description?: string;
-}
-
-interface ExecuteConfig {
-  to: `0x${string}`;
-  data?: `0x${string}`;
-  value?: bigint;
-  gas: bigint;
-  gasPrice?: "low" | "medium" | "high";
-  tokenApproval?: {
-    token: `0x${string}`;
-    amount: bigint;
-    spender: `0x${string}`;
-  };
-}
-```
+`deposit` is required only when `mode` is `"deposit"`. It describes the destination asset and the contract execution Nexus performs after the swap settles.
 
 ## 9) Architecture
 

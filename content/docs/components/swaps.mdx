@@ -74,25 +74,3 @@ Swap and Bridge uses only `mode: "swap"`. This mode is exact-in: users enter the
 | `connectedAddress` | Optional | Wallet address to use. If omitted, the connected wagmi account is used. |
 | `embed` | Optional | Defaults to `true`. Set `false` to render as a modal surface. |
 | `onStart`, `onComplete`, `onError`, `onClose` | Optional | Lifecycle callbacks for host apps. |
-
-<CodeCollapsibleWrapper className="mt-4">
-
-```ts title="SwapAndBridgeConfig"
-type TokenChainPair = {
-  token: `0x${string}`;
-  chain: number;
-};
-
-interface SwapAndBridgeConfig {
-  mode: "swap";
-  prefill?: {
-    amount?: string;
-    source?: TokenChainPair;
-    destination?: TokenChainPair;
-  };
-  allowedSourcePairs?: TokenChainPair[];
-  allowedDestinationPairs?: TokenChainPair[];
-}
-```
-
-</CodeCollapsibleWrapper>

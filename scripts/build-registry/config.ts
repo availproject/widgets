@@ -62,11 +62,11 @@ const DEFAULT_CONFIG: RegistryConfig = {
       title: "Deposit",
       description:
         "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
-      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and opportunities for new integrations.',
+      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and a deposit config for new integrations.',
       meta: {
         deprecated: true,
         deprecationMessage:
-          'Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and opportunities for new integrations.',
+          'Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and a deposit config for new integrations.',
       },
     },
     swaps: {

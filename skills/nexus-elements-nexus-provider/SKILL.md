@@ -11,6 +11,7 @@ description: Install and configure NexusProvider for Nexus Elements with full SD
 > For detailed SDK integration, refer to the Nexus SDK agent skills (`.agents/skills/nexus-sdk-*`).
 
 ## Install and wire provider
+
 - Install:
   - `npx shadcn@latest add @nexus-elements/nexus-provider`
 - Ensure dependencies exist:
@@ -18,6 +19,7 @@ description: Install and configure NexusProvider for Nexus Elements with full SD
   - `wagmi`
 
 ## Wrap your app
+
 ```tsx
 "use client";
 
@@ -33,6 +35,7 @@ export function AppNexusProvider({ children }: { children: React.ReactNode }) {
 ```
 
 ## Initialize SDK on wallet connect
+
 - Resolve an EIP-1193 provider from your wallet stack.
 - Call `handleInit(provider)` after wallet status becomes connected.
 - Pass only providers with `request()`.
@@ -55,10 +58,13 @@ export function InitNexusOnConnect() {
 
     void (async () => {
       const mobileProvider = walletClient
-        ? ({ request: (args: unknown) => walletClient.request(args as never) } as EthereumProvider)
+        ? ({
+            request: (args: unknown) => walletClient.request(args as never),
+          } as EthereumProvider)
         : undefined;
       const desktopProvider = await connector?.getProvider();
-      const provider = mobileProvider ?? (desktopProvider as EthereumProvider | undefined);
+      const provider =
+        mobileProvider ?? (desktopProvider as EthereumProvider | undefined);
       if (!provider || typeof provider.request !== "function") return;
       await handleInit(provider);
     })();
@@ -69,6 +75,7 @@ export function InitNexusOnConnect() {
 ```
 
 ## Understand provider lifecycle (current implementation)
+
 - `handleInit(provider)`:
   - guard: skips if already initialized or loading.
   - validate provider shape.
@@ -85,6 +92,7 @@ export function InitNexusOnConnect() {
   - provider uses `useAccountEffect` from wagmi to deinit on disconnect.
 
 ## SDK functions NexusProvider relies on
+
 - Init/lifecycle:
   - `sdk.initialize(provider)`
   - `sdk.deinit()`
@@ -101,11 +109,13 @@ export function InitNexusOnConnect() {
   - `sdk.setOnSwapIntentHook(...)`
 
 ## Understand hook contract
+
 - Any active hook payload includes `allow()` and `deny()`.
 - If a widget sets hook-driven confirmation UI, always call one of them.
 - Not calling `allow()`/`deny()` leaves a flow pending.
 
 ## `useNexus()` API surface
+
 - Core:
   - `nexusSDK`, `loading`, `network`
 - Lifecycle:
@@ -119,6 +129,7 @@ export function InitNexusOnConnect() {
   - `fetchBridgableBalance`, `fetchSwapBalance`, `getFiatValue(amount, token)`
 
 ## E2E validation
+
 - Connect wallet and assert `nexusSDK` becomes non-null.
 - Assert supported chains/tokens are populated.
 - Assert bridge and swap balances are fetched.
@@ -126,9 +137,10 @@ export function InitNexusOnConnect() {
 - Disconnect wallet and confirm state clears.
 
 ## Troubleshoot
+
 - `Invalid EIP-1193 provider`:
   - use `connector.getProvider()` or a wallet client wrapper exposing `request()`.
 - Init succeeds but widgets fail:
   - ensure `handleInit` runs before mounting interactive flows.
 - Missing fiat values:
-  - check `exchangeRate`; fallback is token amount * `1` if rate missing.
+  - check `exchangeRate`; fallback is token amount \* `1` if rate missing.

@@ -7,9 +7,10 @@ import {
   type BridgeStepType,
   type SwapStepType,
 } from "@avail-project/nexus-core";
-import { type NexusOneMode, type DepositOpportunity } from "../types";
+import { type NexusOneMode, type NexusOneDepositMetadata } from "../types";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
+import { getShortChainName } from "../../common/utils/constant";
 
 type ProgressSdkStep = SwapStepType | BridgeStepType;
 
@@ -35,7 +36,7 @@ interface NexusOneProgressScreenProps {
   toAmountUsd?: string;
   intentData?: SwapIntentData | null;
   mode: NexusOneMode;
-  opportunity?: DepositOpportunity;
+  opportunity?: NexusOneDepositMetadata;
   steps?: ProgressStep[];
   progressEvents?: NexusOneProgressEvent[];
   failedStep?: ProgressSdkStep | null;
@@ -630,8 +631,10 @@ export function NexusOneProgressScreen({
     toToken?.symbol ||
     opportunity?.tokenSymbol ||
     "";
-  const destinationChainName =
-    intentDestination?.chain.name || toToken?.chainName || "";
+  const destinationChainName = getShortChainName(
+    intentDestination?.chain.id ?? toToken?.chainId,
+    intentDestination?.chain.name || toToken?.chainName || "",
+  );
   const destinationChain =
     mode === "deposit"
       ? opportunity?.title || opportunity?.protocol || destinationChainName

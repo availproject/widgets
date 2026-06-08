@@ -16,6 +16,7 @@ import {
   CHAIN_METADATA,
   formatTokenBalance,
 } from "@avail-project/nexus-core";
+import { getShortChainName } from "../../common/utils/constant";
 
 const tabularNums: React.CSSProperties = {
   fontFeatureSettings: '"tnum"',
@@ -59,6 +60,8 @@ interface SwapAssetSelectorProps {
   allowSelectedTokenRemoval?: boolean;
   hideCustomTab?: boolean;
   autoSelectFilterTabs?: boolean;
+  filterTabBehavior?: FilterTabBehavior;
+  onFilterTabSelect?: (tab: Exclude<FilterTab, "custom">) => void;
   lockedTokens?: SwapTokenOption[];
   onSelectionChange?: (tokens: SwapTokenOption[]) => void;
   requiredUsd?: string;
@@ -86,7 +89,10 @@ export function deriveTokenOptions(swapBalance: UserAsset[]): SwapTokenOption[] 
             ? `$${Number(bd.balanceInFiat).toFixed(2)}`
             : "$0.00",
         chainId: bd.chain?.id,
-        chainName: chainMeta?.name ?? bd.chain?.name,
+        chainName: getShortChainName(
+          bd.chain?.id,
+          chainMeta?.name ?? bd.chain?.name,
+        ),
         chainLogo: chainMeta?.logo ?? bd.chain?.logo,
       });
     }
@@ -165,7 +171,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
         out.push({
           id: t.chainId,
           logo: t.chainLogo,
-          name: t.chainName,
+          name: getShortChainName(t.chainId, t.chainName),
           balance: t.balance,
           balanceInFiat: t.balanceInFiat,
         });
@@ -287,6 +293,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
 
 /* ── Filter tabs ── */
 type FilterTab = "all" | "native" | "stables" | "custom";
+type FilterTabBehavior = "select-all" | "source-pool";
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "all", label: "All" },
   { key: "native", label: "Native" },
@@ -754,6 +761,8 @@ export function SwapAssetSelector({
   allowSelectedTokenRemoval = false,
   hideCustomTab = false,
   autoSelectFilterTabs = false,
+  filterTabBehavior = "select-all",
+  onFilterTabSelect,
   lockedTokens = [],
   onSelectionChange,
   requiredUsd,
@@ -928,7 +937,12 @@ export function SwapAssetSelector({
   );
 
   useEffect(() => {
-    if (!autoSelectFilterTabs || !isMulti || activeTab === "custom") return;
+    if (
+      !autoSelectFilterTabs ||
+      filterTabBehavior === "source-pool" ||
+      !isMulti ||
+      activeTab === "custom"
+    ) return;
     if (activeSelectedTokens.length === 0 && lockedSelectedTokens.length === 0) return;
     if (!selectionMatchesFilterTab(activeTab)) {
       setActiveTab("custom");
@@ -937,6 +951,7 @@ export function SwapAssetSelector({
     activeTab,
     activeSelectedTokens.length,
     autoSelectFilterTabs,
+    filterTabBehavior,
     isMulti,
     lockedSelectedTokens.length,
     selectionMatchesFilterTab,
@@ -1151,9 +1166,13 @@ export function SwapAssetSelector({
     if (
       autoSelectFilterTabs &&
       isMulti &&
-      tab !== "custom" &&
-      onSelectionChange
+      tab !== "custom"
     ) {
+      if (filterTabBehavior === "source-pool") {
+        onFilterTabSelect?.(tab);
+        return;
+      }
+      if (!onSelectionChange) return;
       emitSelectionChange(getFilterTabTokens(tab));
     }
   };
@@ -1514,12 +1533,12 @@ export function SwapAssetSelector({
       options.set(chain.id, {
         contractAddress: "",
         symbol: "",
-        name: chain.name,
+        name: getShortChainName(chain.id, chain.name),
         decimals: 18,
         balance: "0",
         balanceInFiat: "$0.00",
         chainId: chain.id,
-        chainName: chain.name,
+        chainName: getShortChainName(chain.id, chain.name),
         chainLogo: chain.logo,
       });
     }

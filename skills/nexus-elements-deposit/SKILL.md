@@ -25,7 +25,6 @@ const USDT_ARBITRUM = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
     mode: "deposit",
     opportunities: [
       {
-        id: "aave-usdt-arbitrum",
         title: "Aave",
         protocol: "Aave",
         subtitle: "Deposit USDT on Arbitrum",

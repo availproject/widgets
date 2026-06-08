@@ -234,6 +234,7 @@ export function useDepositWidget(
         ...inputs,
         fromSources,
       };
+      let transactionSucceeded = false;
       nexusSDK
         .swapAndExecute(inputsWithSources, {
           onEvent: (event) => {
@@ -354,6 +355,7 @@ export function useDepositWidget(
           });
           onSuccess?.();
           dispatch({ type: "setStatus", payload: "success" });
+          transactionSucceeded = true;
           dispatch({
             type: "setStep",
             payload: { step: "transaction-complete", direction: "forward" },
@@ -394,7 +396,9 @@ export function useDepositWidget(
           onError?.(message);
         })
         .finally(async () => {
-          await fetchSwapBalance();
+          await fetchSwapBalance(
+            transactionSucceeded ? { force: true } : undefined,
+          );
         });
     },
     [
