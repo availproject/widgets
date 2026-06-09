@@ -2088,7 +2088,12 @@ export function NexusOne({
   const [rootContentHeight, setRootContentHeight] = useState<number | null>(
     null,
   );
+  const rootContentHeightRef = useRef<number | null>(null);
   const [hasMeasuredRootContent, setHasMeasuredRootContent] = useState(false);
+  const [shouldAnimateRootHeight, setShouldAnimateRootHeight] = useState(false);
+  const rootHeightTransitionTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const [fromTokens, setFromTokens] = useState<SwapTokenOption[]>([]);
   const [sourceSelectionTouched, setSourceSelectionTouched] = useState(false);
   const [sourceSelectionRevision, setSourceSelectionRevision] = useState(0);
@@ -2305,6 +2310,9 @@ export function NexusOne({
       if (drawerCloseTimerRef.current) {
         clearTimeout(drawerCloseTimerRef.current);
       }
+      if (rootHeightTransitionTimerRef.current) {
+        clearTimeout(rootHeightTransitionTimerRef.current);
+      }
     };
   }, []);
 
@@ -2343,7 +2351,7 @@ export function NexusOne({
     setSwapStep(nextStep);
   }, []);
 
-  const syncRootContentHeight = useCallback(() => {
+  const syncRootContentHeight = useCallback((animate = false) => {
     const element = rootContentRef.current;
     if (!element) return;
 
@@ -2352,14 +2360,29 @@ export function NexusOne({
     );
     if (nextHeight <= 0) return;
 
-    setRootContentHeight((previousHeight) =>
-      previousHeight === nextHeight ? previousHeight : nextHeight,
-    );
+    if (rootContentHeightRef.current === nextHeight) {
+      setHasMeasuredRootContent(true);
+      return;
+    }
+
+    rootContentHeightRef.current = nextHeight;
+    setShouldAnimateRootHeight(animate);
+    if (rootHeightTransitionTimerRef.current) {
+      clearTimeout(rootHeightTransitionTimerRef.current);
+      rootHeightTransitionTimerRef.current = null;
+    }
+    if (animate) {
+      rootHeightTransitionTimerRef.current = setTimeout(() => {
+        setShouldAnimateRootHeight(false);
+        rootHeightTransitionTimerRef.current = null;
+      }, ROOT_HEIGHT_TRANSITION_MS);
+    }
+    setRootContentHeight(nextHeight);
     setHasMeasuredRootContent(true);
   }, []);
 
   useLayoutEffect(() => {
-    syncRootContentHeight();
+    syncRootContentHeight(true);
 
     const element = rootContentRef.current;
     if (!element || typeof ResizeObserver === "undefined") return;
@@ -2369,7 +2392,9 @@ export function NexusOne({
       if (frame) {
         window.cancelAnimationFrame(frame);
       }
-      frame = window.requestAnimationFrame(syncRootContentHeight);
+      frame = window.requestAnimationFrame(() => {
+        syncRootContentHeight(false);
+      });
     });
 
     observer.observe(element);
@@ -7241,7 +7266,7 @@ export function NexusOne({
         scrollbarGutter: "stable",
         scrollbarWidth: "thin",
         position: "relative",
-        transition: hasMeasuredRootContent
+        transition: hasMeasuredRootContent && shouldAnimateRootHeight
           ? `height ${ROOT_HEIGHT_TRANSITION_MS}ms ease-out`
           : undefined,
         willChange: "height",
