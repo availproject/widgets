@@ -6668,7 +6668,7 @@ export function NexusOne({
   const shouldShowPredictiveExactOutDisplay =
     (activeMode === "deposit" || activeMode === "send") &&
     (quoteRefreshing || intentLoading) &&
-    !hasIntentSources &&
+    !hasCurrentIntentSources &&
     Boolean(
       predictiveExactOutQuote &&
       ((predictiveExactOutQuote.sources?.length ?? 0) > 0 ||
