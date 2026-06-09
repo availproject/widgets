@@ -626,13 +626,14 @@ export function SwapIntentPreview({
         ? [fromToken]
         : [];
 
-  const sourceSymbols =
+  const baseSourceSymbols =
     normalizedIntentSources.length > 0
       ? unique(normalizedIntentSources.map((source) => source.token.symbol))
       : unique(fallbackSources.map((source) => source.symbol));
-  const sourceLabel = formatSymbolSummary(sourceSymbols);
-  const sourceAssetCount =
-    normalizedIntentSources.length || fallbackSources.length || sourceSymbols.length;
+  const baseSourceAssetCount =
+    normalizedIntentSources.length ||
+    fallbackSources.length ||
+    baseSourceSymbols.length;
   const hasResolvedQuote = Boolean(normalizedIntentDest && normalizedIntentSources.length > 0);
   const quoteUnavailable = !isLoading && !hasResolvedQuote;
 
@@ -666,8 +667,7 @@ export function SwapIntentPreview({
         )
       : undefined;
   const displayOnlyDestinationSourceAmount =
-    displayOnlyDestinationCoverage &&
-    displayOnlyDestinationCoverage.gt(0) &&
+    isExactOutDisplayFlow &&
     destinationBalanceAmount &&
     destinationBalanceAmount.gt(0)
       ? destinationBalanceAmount
@@ -1055,6 +1055,21 @@ export function SwapIntentPreview({
   const sourceDetailRows = displayOnlyDestinationSourceRow
     ? [...baseSourceDetailRows, displayOnlyDestinationSourceRow]
     : baseSourceDetailRows;
+  const sourceSymbols = (() => {
+    const symbols =
+      sourceDetailRows.length > 0
+        ? sourceDetailRows.map((source) => source.symbol)
+        : baseSourceSymbols;
+    return destTokenSymbol && symbols.includes(destTokenSymbol)
+      ? unique([
+          destTokenSymbol,
+          ...symbols.filter((symbol) => symbol !== destTokenSymbol),
+        ])
+      : unique(symbols);
+  })();
+  const sourceLabel = formatSymbolSummary(sourceSymbols);
+  const sourceAssetCount =
+    sourceDetailRows.length || baseSourceAssetCount || sourceSymbols.length;
   const singleSourceHeader = (() => {
     if (displayOnlyDestinationSourceRow) return null;
     if (!displayOnlyDestinationSourceRow && normalizedIntentSources.length === 1) {
@@ -1095,8 +1110,7 @@ export function SwapIntentPreview({
       : singleSourceHeader?.symbol || "USD";
   const sourceHeaderSubtitle = (() => {
     if (isExactOutDisplayFlow && exactOutPaidUsdNumber !== undefined) {
-      const count =
-        sourceAssetCount + (displayOnlyDestinationSourceRow ? 1 : 0) || 1;
+      const count = sourceAssetCount || 1;
       return `${count} asset${count === 1 ? "" : "s"}`;
     }
 
@@ -1106,8 +1120,7 @@ export function SwapIntentPreview({
         : "";
     }
 
-    const count =
-      sourceAssetCount + (displayOnlyDestinationSourceRow ? 1 : 0) || 1;
+    const count = sourceAssetCount || 1;
     return `${count} asset${count === 1 ? "" : "s"}`;
   })();
   const shouldScrollSourceDetails = sourceDetailRows.length > 5;

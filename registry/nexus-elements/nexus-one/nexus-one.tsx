@@ -754,20 +754,33 @@ const getDestinationBalanceCoverage = (entry: SwapHistoryEntry) => {
 };
 
 const getDestinationBalanceSource = (entry: SwapHistoryEntry) => {
-  const coverage = getDestinationBalanceCoverage(entry);
-  if (!coverage || !entry.toToken) return null;
+  if (entry.mode !== "deposit" && entry.mode !== "send") return null;
+  if (!entry.toToken) return null;
 
   const destinationBalanceAmount = parseDecimalLoose(
     entry.toToken.balance?.replace(entry.toToken.symbol, ""),
   );
   if (!destinationBalanceAmount || destinationBalanceAmount.lte(0)) return null;
 
-  const coverageAmount = parseDecimalLoose(coverage.amount);
-  const coverageValue = parseDecimalLoose(coverage.value);
+  const coverage = getDestinationBalanceCoverage(entry);
+  const coverageAmount = parseDecimalLoose(coverage?.amount);
+  const coverageValue = parseDecimalLoose(coverage?.value);
+  const requestedAmount = parseDecimalLoose(entry.requestedToAmount);
+  const requestedValue = parseDecimalLoose(entry.requestedToValue);
+  const destinationAmount = parseDecimalLoose(
+    entry.intentData?.destination.amount,
+  );
+  const destinationValue = parseDecimalLoose(
+    entry.intentData?.destination.value,
+  );
   const rate =
     coverageAmount && coverageAmount.gt(0) && coverageValue
       ? coverageValue.div(coverageAmount)
-      : undefined;
+      : requestedAmount && requestedAmount.gt(0) && requestedValue
+        ? requestedValue.div(requestedAmount)
+        : destinationAmount && destinationAmount.gt(0) && destinationValue
+          ? destinationValue.div(destinationAmount)
+          : undefined;
 
   return {
     amount: destinationBalanceAmount
@@ -2408,7 +2421,7 @@ export function NexusOne({
   const hasMinimumSourceUsdBalance = (
     token: Pick<SwapTokenOption, "balanceInFiat">,
   ) =>
-    (parseFiatNumber(token.balanceInFiat) ?? new Decimal(0)).gte(
+    (parseFiatNumber(token.balanceInFiat) ?? new Decimal(0)).gt(
       minimumSourceUsd,
     );
   const filterMinimumSourceUsdTokens = (tokens: SwapTokenOption[]) =>
@@ -2501,7 +2514,7 @@ export function NexusOne({
         return sum.plus(
           breakdown.reduce((breakdownSum, item) => {
             const value = parseFiatNumber(item.balanceInFiat) ?? new Decimal(0);
-            return value.gte(minimumSourceUsd)
+            return value.gt(minimumSourceUsd)
               ? breakdownSum.plus(value)
               : breakdownSum;
           }, new Decimal(0)),
@@ -2509,7 +2522,7 @@ export function NexusOne({
       }
 
       const value = parseFiatNumber(asset.balanceInFiat) ?? new Decimal(0);
-      return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
+      return value.gt(minimumSourceUsd) ? sum.plus(value) : sum;
     }, new Decimal(0));
 
   const getTokenUsdRate = (token: SwapTokenOption) => {
@@ -2793,17 +2806,26 @@ export function NexusOne({
   const buildDestinationBalanceDisplayToken = (
     coverage: ReturnType<typeof getExactOutDestinationBalanceCoverage>,
     token?: SwapTokenOption,
+    requestedAmount?: Decimal,
   ): SwapTokenOption | null => {
-    if (!coverage || !token || coverage.amount.lte(0)) return null;
+    if (
+      (activeMode !== "deposit" && activeMode !== "send") ||
+      !token ||
+      !requestedAmount ||
+      requestedAmount.lte(0)
+    ) {
+      return null;
+    }
 
     const balanceAmount =
       parseFiatNumber(destinationBalance) ??
       parseFiatNumber(token.balance) ??
-      coverage.amount;
+      coverage?.amount ??
+      new Decimal(0);
     if (balanceAmount.lte(0)) return null;
 
     const coverageRate =
-      coverage.usd && coverage.amount.gt(0)
+      coverage?.usd && coverage.amount.gt(0)
         ? coverage.usd.div(coverage.amount)
         : undefined;
     const fallbackRate = getTokenUsdRate(token);
@@ -3107,7 +3129,7 @@ export function NexusOne({
           !contractAddress ||
           balance.lte(0) ||
           !fiatBalance ||
-          fiatBalance.lt(minimumSourceUsd)
+          fiatBalance.lte(minimumSourceUsd)
         )
           continue;
 
@@ -3135,6 +3157,22 @@ export function NexusOne({
     }
 
     return getExpandedSourceTokens(tokens).filter(hasGasForSource);
+  };
+
+  const getMinimumBalanceSourceTokens = () =>
+    filterMinimumSourceUsdTokens(
+      getExpandedSourceTokens(swapBalance ? deriveTokenOptions(swapBalance) : []),
+    );
+
+  const getPayloadSourceTokens = (tokens: SwapTokenOption[]) => {
+    const sourceTokens =
+      activeMode === "deposit" || activeMode === "send"
+        ? sourceSelectionTouched
+          ? getExpandedSourceTokens(fromTokens)
+          : getMinimumBalanceSourceTokens()
+        : getExpandedSourceTokens(tokens);
+
+    return filterMinimumSourceUsdTokens(sourceTokens);
   };
 
   const getDepositDestinationForSourceSelection = () => {
@@ -3257,40 +3295,41 @@ export function NexusOne({
   };
 
   const getExactOutSourceTokens = (
-    mode: "all" | "selected" = exactOutQuoteSourceModeRef.current,
+    _mode: "all" | "selected" = exactOutQuoteSourceModeRef.current,
     targetAmountUsd?: Decimal,
   ) => {
     if (activeMode === "deposit") {
-      const selection = getResolvedDepositSourceSelection({ targetAmountUsd });
+      if (!sourceSelectionTouched) {
+        return getMinimumBalanceSourceTokens();
+      }
+
+      const selection = getResolvedDepositSourceSelection({
+        isManualSelection: true,
+        targetAmountUsd,
+      });
       return getDepositSourceTokensForIds(selection.selectedSourceIds);
     }
 
-    if (activeMode === "send" && mode === "selected" && fromTokens.length > 0) {
-      return filterMinimumSourceUsdTokens(
-        getExpandedSourceTokens(fromTokens),
-      ).filter(hasGasForSource);
+    if (activeMode === "send") {
+      if (!sourceSelectionTouched) {
+        return getMinimumBalanceSourceTokens();
+      }
+
+      return filterMinimumSourceUsdTokens(getExpandedSourceTokens(fromTokens));
     }
 
     return getGasCapableBalanceSourceTokens();
   };
 
   const buildFromSourcesPayload = (tokens: SwapTokenOption[]) => {
-    if (activeMode === "deposit") {
-      return {
-        fromSources: getResolvedDepositSourceSelection().fromSources,
-      };
-    }
-
     const seenSourceKeys = new Set<string>();
-    const eligibleTokens = filterMinimumSourceUsdTokens(tokens).filter(
-      (token) => {
-        if (!token.chainId || !token.contractAddress) return false;
-        const key = `${token.chainId}-${token.contractAddress.toLowerCase()}`;
-        if (seenSourceKeys.has(key)) return false;
-        seenSourceKeys.add(key);
-        return true;
-      },
-    );
+    const eligibleTokens = getPayloadSourceTokens(tokens).filter((token) => {
+      if (!token.chainId || !token.contractAddress) return false;
+      const key = `${token.chainId}-${token.contractAddress.toLowerCase()}`;
+      if (seenSourceKeys.has(key)) return false;
+      seenSourceKeys.add(key);
+      return true;
+    });
     return {
       fromSources: eligibleTokens.map((token) => ({
         chainId: token.chainId!,
@@ -3390,23 +3429,21 @@ export function NexusOne({
   };
 
   const getExactOutAvailableSourceUsd = () => {
-    const selectedSourceTotal =
-      exactOutQuoteSourceModeRef.current === "selected" && fromTokens.length > 0
-        ? fromTokens.reduce((sum, token) => {
-            const value =
-              parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
-            return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
-          }, new Decimal(0))
-        : undefined;
+    const selectedSourceTotal = sourceSelectionTouched
+      ? getPayloadSourceTokens(fromTokens).reduce((sum, token) => {
+          const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
+          return value.gt(minimumSourceUsd) ? sum.plus(value) : sum;
+        }, new Decimal(0))
+      : undefined;
 
-    if (selectedSourceTotal && selectedSourceTotal.gt(0)) {
+    if (selectedSourceTotal) {
       return selectedSourceTotal;
     }
 
-    const allSourceTotal = getGasCapableBalanceSourceTokens().reduce(
+    const allSourceTotal = getMinimumBalanceSourceTokens().reduce(
       (sum, token) => {
         const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
-        return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
+        return value.gt(minimumSourceUsd) ? sum.plus(value) : sum;
       },
       new Decimal(0),
     );
@@ -4821,7 +4858,7 @@ export function NexusOne({
         const chainMeta = CHAIN_METADATA[chainId];
         const symbol = breakdown.symbol ?? asset.symbol ?? toToken.symbol;
         const fiatBalance = parseFiatNumber(breakdown.balanceInFiat);
-        if (!fiatBalance || fiatBalance.lt(minimumSourceUsd)) continue;
+        if (!fiatBalance || fiatBalance.lte(minimumSourceUsd)) continue;
         return [
           {
             chainId,
@@ -6766,6 +6803,7 @@ export function NexusOne({
   const destinationBalanceDisplayToken = buildDestinationBalanceDisplayToken(
     exactOutDestinationCoverage,
     toTokenWithFetchedBalance,
+    previewExactOutDestinationAmount,
   );
   const shouldShowPredictiveExactOutDisplay =
     (activeMode === "deposit" || activeMode === "send") &&
@@ -7139,19 +7177,14 @@ export function NexusOne({
                   <div
                     className="w-full"
                     style={{
-                      maxHeight: "calc(90dvh - 72px)",
                       minHeight: 0,
                       overflowX: "hidden",
-                      overflowY: "auto",
-                      overscrollBehavior: "contain",
                       paddingRight: "2px",
-                      scrollbarColor: "#C8C8C7 transparent",
-                      scrollbarWidth: "thin",
                     }}
                   >
                     <SwapIntentPreview
-                      fromTokens={fromTokens}
-                      fromToken={fromTokens[0]}
+                      fromTokens={displayFromTokens}
+                      fromToken={displayFromTokens[0]}
                       toToken={toTokenWithFetchedBalance}
                       fromAmount={amount}
                       fromAmountUsd={previewDisplayFromAmountUsd}
@@ -7187,7 +7220,7 @@ export function NexusOne({
 
                 {swapStep === "progress" && (
                   <NexusOneProgressScreen
-                    fromTokens={fromTokens}
+                    fromTokens={displayFromTokens}
                     toToken={toTokenWithFetchedBalance}
                     fromAmountUsd={previewDisplayFromAmountUsd}
                     toAmount={previewDestinationAmount}

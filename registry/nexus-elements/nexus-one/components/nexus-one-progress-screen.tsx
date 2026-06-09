@@ -614,10 +614,30 @@ export function NexusOneProgressScreen({
 }: NexusOneProgressScreenProps) {
   const intentSources = intentData?.sources ?? [];
   const intentDestination = intentData?.destination;
-  const sourceSymbols =
-    intentSources.length > 0
-      ? unique(intentSources.map((source) => source.token.symbol))
-      : unique(fromTokens.map((token) => token.symbol));
+  const destinationSourceToken = fromTokens.find((token) => {
+    const destinationChainId = intentDestination?.chain.id ?? toToken?.chainId;
+    const destinationTokenAddress = (
+      intentDestination?.token.contractAddress ??
+      toToken?.contractAddress ??
+      ""
+    ).toLowerCase();
+    const tokenAmount =
+      parseDecimal(token.userAmount) ?? parseDecimal(token.balance);
+
+    return (
+      destinationChainId !== undefined &&
+      destinationTokenAddress !== "" &&
+      token.chainId === destinationChainId &&
+      token.contractAddress.toLowerCase() === destinationTokenAddress &&
+      Boolean(tokenAmount && tokenAmount.gt(0))
+    );
+  });
+  const sourceSymbols = unique([
+    ...(destinationSourceToken ? [destinationSourceToken.symbol] : []),
+    ...(intentSources.length > 0
+      ? intentSources.map((source) => source.token.symbol)
+      : fromTokens.map((token) => token.symbol)),
+  ]);
   const intentSourceUsd =
     intentSources.length > 0
       ? intentSources.reduce(
