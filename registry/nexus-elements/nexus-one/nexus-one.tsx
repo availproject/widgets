@@ -616,6 +616,20 @@ const getSdkExplorerUrl = (result: any) =>
   result?.transferExplorerUrl ||
   null;
 
+const isUserRejectedError = (err: any) => {
+  const errMessage =
+    (typeof err?.message === "string" ? err.message : "") ||
+    (typeof err === "string" ? err : "");
+  const errName = typeof err?.name === "string" ? err.name : "";
+  return (
+    err?.code === 4001 ||
+    err?.code === "ACTION_REJECTED" ||
+    err?.code === "USER_DENIED_INTENT" ||
+    errName === "UserRejectedRequestError" ||
+    /user rejected|user denied/i.test(errMessage)
+  );
+};
+
 function MiniLogo({
   src,
   label,
@@ -802,12 +816,15 @@ const getDestinationBalanceCoverage = (entry: SwapHistoryEntry) => {
   const destinationValue = parseDecimalLoose(
     entry.intentData?.destination.value,
   );
+  const destinationBalanceValue = parseDecimalLoose(entry.toToken.balanceInFiat);
   const rate =
     requestedValue && requestedAmount.gt(0)
       ? requestedValue.div(requestedAmount)
       : destinationValue && intentCoversAmount.gt(0)
         ? destinationValue.div(intentCoversAmount)
-        : undefined;
+        : destinationBalanceValue && destinationBalanceAmount.gt(0)
+          ? destinationBalanceValue.div(destinationBalanceAmount)
+          : undefined;
 
   return {
     amount: displayAmount
@@ -816,9 +833,7 @@ const getDestinationBalanceCoverage = (entry: SwapHistoryEntry) => {
         Decimal.ROUND_DOWN,
       )
       .toFixed(),
-    value: rate
-      ? displayAmount.mul(rate).toFixed()
-      : entry.toToken.balanceInFiat,
+    value: rate ? displayAmount.mul(rate).toFixed() : undefined,
   };
 };
 
@@ -834,6 +849,8 @@ const getDestinationBalanceSource = (entry: SwapHistoryEntry) => {
   const coverage = getDestinationBalanceCoverage(entry);
   const coverageAmount = parseDecimalLoose(coverage?.amount);
   const coverageValue = parseDecimalLoose(coverage?.value);
+  if (!coverageAmount || coverageAmount.lte(0)) return null;
+
   const requestedAmount = parseDecimalLoose(entry.requestedToAmount);
   const requestedValue = parseDecimalLoose(entry.requestedToValue);
   const destinationAmount = parseDecimalLoose(
@@ -842,6 +859,7 @@ const getDestinationBalanceSource = (entry: SwapHistoryEntry) => {
   const destinationValue = parseDecimalLoose(
     entry.intentData?.destination.value,
   );
+  const destinationBalanceValue = parseDecimalLoose(entry.toToken.balanceInFiat);
   const rate =
     coverageAmount && coverageAmount.gt(0) && coverageValue
       ? coverageValue.div(coverageAmount)
@@ -849,18 +867,23 @@ const getDestinationBalanceSource = (entry: SwapHistoryEntry) => {
         ? requestedValue.div(requestedAmount)
         : destinationAmount && destinationAmount.gt(0) && destinationValue
           ? destinationValue.div(destinationAmount)
-          : undefined;
+          : destinationBalanceValue && destinationBalanceAmount.gt(0)
+            ? destinationBalanceValue.div(destinationBalanceAmount)
+            : undefined;
+  const displayAmount = Decimal.min(destinationBalanceAmount, coverageAmount);
 
   return {
-    amount: destinationBalanceAmount
+    amount: displayAmount
       .toDecimalPlaces(
         Math.max(0, entry.toToken.decimals ?? 18),
         Decimal.ROUND_DOWN,
       )
       .toFixed(),
-    value: rate
-      ? destinationBalanceAmount.mul(rate).toFixed()
-      : entry.toToken.balanceInFiat,
+    value: coverageValue
+      ? coverageValue.toFixed()
+      : rate
+        ? displayAmount.mul(rate).toFixed()
+        : undefined,
   };
 };
 
@@ -2904,7 +2927,8 @@ export function NexusOne({
       (activeMode !== "deposit" && activeMode !== "send") ||
       !token ||
       !requestedAmount ||
-      requestedAmount.lte(0)
+      requestedAmount.lte(0) ||
+      !coverage
     ) {
       return null;
     }
@@ -2915,6 +2939,9 @@ export function NexusOne({
       coverage?.amount ??
       new Decimal(0);
     if (balanceAmount.lte(0)) return null;
+
+    const displayAmount = Decimal.min(balanceAmount, coverage.amount);
+    if (displayAmount.lte(0)) return null;
 
     const coverageRate =
       coverage?.usd && coverage.amount.gt(0)
@@ -2928,15 +2955,15 @@ export function NexusOne({
           ? fallbackRate
           : undefined;
 
-    const amount = balanceAmount
+    const amount = displayAmount
       .toDecimalPlaces(Math.max(0, token.decimals ?? 18), Decimal.ROUND_DOWN)
       .toFixed();
     const usd = usdRate
-      ? balanceAmount.mul(usdRate).toDecimalPlaces(6, Decimal.ROUND_DOWN).toFixed()
+      ? displayAmount.mul(usdRate).toDecimalPlaces(6, Decimal.ROUND_DOWN).toFixed()
       : undefined;
     const balanceUsd = usdRate
-      ? `$${balanceAmount.mul(usdRate).toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed()}`
-      : token.balanceInFiat || "$0.00";
+      ? `$${displayAmount.mul(usdRate).toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed()}`
+      : "$0.00";
 
     return {
       ...token,
@@ -3497,10 +3524,12 @@ export function NexusOne({
   const buildPredictiveExactOutSources = async (requiredSourceUsd: Decimal) => {
     if (requiredSourceUsd.lte(0)) return [];
 
+    const destinationKey = getTokenSelectionKey(toToken);
     const candidates = getExactOutSourceTokens(
       exactOutQuoteSourceModeRef.current,
       requiredSourceUsd,
     )
+      .filter((token) => getTokenSelectionKey(token) !== destinationKey)
       .filter((token) => getTokenBalanceUsd(token).gt(0))
       .sort((a, b) => {
         const priorityDelta =
@@ -5948,12 +5977,7 @@ export function NexusOne({
         const errMessage =
           (typeof err?.message === "string" ? err.message : "") ||
           (typeof err === "string" ? err : "");
-        const errName = typeof err?.name === "string" ? err.name : "";
-        const isUserRejected =
-          err?.code === 4001 ||
-          err?.code === "ACTION_REJECTED" ||
-          errName === "UserRejectedRequestError" ||
-          /user rejected|user denied/i.test(errMessage);
+        const isUserRejected = isUserRejectedError(err);
         const failedAtStep:
           | "simulation"
           | "nexus_operation"
@@ -6023,9 +6047,12 @@ export function NexusOne({
           }
         }, 700);
       };
-      if (err?.code === "USER_DENIED_INTENT") {
+      const userRejected = isUserRejectedError(err);
+      if (userRejected) {
         if (hasActiveExecution) {
-          showFailedProgressThenReceipt("Transaction cancelled by user");
+          showFailedProgressThenReceipt("User rejected", {
+            failureMessage: "User rejected",
+          });
         } else if (!background && swapStepRef.current === "preview-intent") {
           setSwapStep("idle");
         }
@@ -6455,18 +6482,36 @@ export function NexusOne({
     if (activeMode === "swap") {
       if (swapStep === "progress") return "Swapping…";
       if (swapStep === "success") return "Swap Complete";
+      if (
+        swapStep === "failed" &&
+        currentSwapEntry?.failureMessage === "User rejected"
+      ) {
+        return "User rejected";
+      }
       if (swapStep === "failed") return "Swap Failed";
       return "Swap and Bridge";
     }
     if (activeMode === "deposit") {
       if (swapStep === "progress") return "Depositing…";
       if (swapStep === "success") return "Deposit Complete";
+      if (
+        swapStep === "failed" &&
+        currentSwapEntry?.failureMessage === "User rejected"
+      ) {
+        return "User rejected";
+      }
       if (swapStep === "failed") return "Deposit Failed";
       return getDepositTitle();
     }
     if (activeMode === "send") {
       if (swapStep === "progress") return "Sending…";
       if (swapStep === "success") return "Send Complete";
+      if (
+        swapStep === "failed" &&
+        currentSwapEntry?.failureMessage === "User rejected"
+      ) {
+        return "User rejected";
+      }
       if (swapStep === "failed") return "Send Failed";
       return "Send";
     }
@@ -6500,6 +6545,10 @@ export function NexusOne({
     }
     if (swapStep === "enter-recipient") {
       closeDrawerToIdle();
+      return;
+    }
+    if (swapStep === "success" || swapStep === "failed") {
+      handleReset();
       return;
     }
     if (swapStep === "preview-intent") {
