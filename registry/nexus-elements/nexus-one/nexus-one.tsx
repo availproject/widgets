@@ -1857,7 +1857,9 @@ export function NexusOne({
   const [fromTokens, setFromTokens] = useState<SwapTokenOption[]>([]);
   const [sourceSelectionTouched, setSourceSelectionTouched] = useState(false);
   const [sourceSelectionRevision, setSourceSelectionRevision] = useState(0);
-  const [, setExactOutQuoteSourceMode] = useState<"all" | "selected">("all");
+  const [exactOutQuoteSourceMode, setExactOutQuoteSourceMode] = useState<
+    "all" | "selected"
+  >("all");
   const exactOutQuoteSourceModeRef = useRef<"all" | "selected">("all");
   const [toToken, setToToken] = useState<SwapTokenOption | undefined>(
     undefined,
@@ -2032,6 +2034,7 @@ export function NexusOne({
     sourceExplorerUrl: string | null;
     destinationExplorerUrl: string | null;
   }>({ sourceExplorerUrl: null, destinationExplorerUrl: null });
+  const activeQuoteInputKeyRef = useRef("");
 
   // Ref to store swap intent hook allow/deny callbacks
   const swapIntentRef = useRef<{
@@ -2040,6 +2043,7 @@ export function NexusOne({
     deny: () => void;
     refresh: () => Promise<any>;
     runId?: number;
+    quoteInputKey?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -3025,6 +3029,27 @@ export function NexusOne({
       tokenSymbol,
     };
   };
+  const getDestinationSourceIdForDeposit = () => {
+    const destination = getDepositDestinationForSourceSelection();
+    return destination
+      ? getDepositSourceId(destination.tokenAddress, destination.chainId)
+      : undefined;
+  };
+  const getDepositSourceTargetUsd = () => {
+    if (activeMode !== "deposit") return undefined;
+    const requestedUsd = depositUsdDecimal;
+    if (!requestedUsd || requestedUsd.lte(0)) return undefined;
+
+    const coverage = getExactOutDestinationBalanceCoverage({
+      requestedAmount: depositTokenAmountForQuote,
+      requestedUsd,
+      token: toToken,
+    });
+    return Decimal.max(
+      requestedUsd.minus(coverage?.usd ?? new Decimal(0)),
+      new Decimal(0),
+    );
+  };
 
   const getDepositSourceIdsFromTokens = (tokens: SwapTokenOption[]) =>
     getExpandedSourceTokens(tokens)
@@ -3079,10 +3104,11 @@ export function NexusOne({
     const selectedSourceIds = getDepositSourceIdsFromTokens(
       selectedTokensForResolution,
     );
+    const destinationSourceId = getDestinationSourceIdForDeposit();
     const targetAmountUsd =
       options?.targetAmountUsd ??
       (activeMode === "deposit"
-        ? depositUsdDecimal
+        ? getDepositSourceTargetUsd()
         : activeMode === "send"
           ? new Decimal(sendAmountUsd || 0)
           : undefined);
@@ -3097,6 +3123,7 @@ export function NexusOne({
       isManualSelection: manualSelection,
       minimumBalanceUsd: minimumSourceUsd.toNumber(),
       targetAmountUsd: targetAmountUsd?.toNumber(),
+      excludedSourceIds: destinationSourceId ? [destinationSourceId] : [],
     });
   };
 
@@ -3677,16 +3704,26 @@ export function NexusOne({
   );
 
   // Register swap intent hook immediately before executing a swap to prevent race conditions across multiple components
-  const registerIntentHook = (runId: number) => {
+  const registerIntentHook = (runId: number, quoteInputKey: string) => {
     if (!nexusSDK) return;
     nexusSDK.setOnSwapIntentHook(async ({ intent, allow, deny, refresh }) => {
-      if (swapRunIdRef.current !== runId) {
+      if (
+        swapRunIdRef.current !== runId ||
+        activeQuoteInputKeyRef.current !== quoteInputKey
+      ) {
         deny();
         return;
       }
       // Store callbacks so accept/reject buttons can call them
       providerSwapIntent.current = { intent, allow, deny, refresh };
-      swapIntentRef.current = { intent, allow, deny, refresh, runId };
+      swapIntentRef.current = {
+        intent,
+        allow,
+        deny,
+        refresh,
+        runId,
+        quoteInputKey,
+      };
       // Populate intent data for preview
       applySwapIntent(intent);
       setIntentLoading(false);
@@ -4187,6 +4224,54 @@ export function NexusOne({
     depositTokenAmountForQuote
       ?.toDecimalPlaces(toToken?.decimals ?? 18)
       .toFixed() ?? "0";
+  const depositSourceTargetUsdKey =
+    activeMode === "deposit"
+      ? (getDepositSourceTargetUsd()?.toFixed() ?? "")
+      : "";
+  const normalizedQuoteAmountKey = parseFiatNumber(amount)?.toFixed() ?? "";
+  const quoteRecipientKey =
+    activeMode === "swap"
+      ? effectiveRecipientAddress
+      : activeMode === "send"
+        ? recipientAddress
+        : "";
+  const activeQuoteInputKey = [
+    activeMode,
+    swapType,
+    normalizedQuoteAmountKey,
+    toTokenQuoteKey,
+    quoteRecipientKey.toLowerCase(),
+    activeMode === "swap" ? fromTokensQuoteKey : "",
+    activeMode === "deposit"
+      ? [
+          depositAmountMode,
+          depositQuoteAmountKey,
+          selectedOpportunityIdentity,
+          depositSourceTargetUsdKey,
+          depositSourceFilter,
+          sourceSelectionTouched ? "manual" : "auto",
+          sourceSelectionRevision,
+          exactOutQuoteSourceMode,
+        ].join(":")
+      : "",
+    activeMode === "send"
+      ? [
+          sourceSelectionTouched ? "manual" : "auto",
+          sourceSelectionRevision,
+          exactOutQuoteSourceMode,
+        ].join(":")
+      : "",
+  ].join("|");
+
+  useEffect(() => {
+    activeQuoteInputKeyRef.current = activeQuoteInputKey;
+  }, [activeQuoteInputKey]);
+  const hasCurrentQuoteIntent = Boolean(
+    intentData &&
+      swapIntentRef.current &&
+      swapIntentRef.current.runId === swapRunIdRef.current &&
+      swapIntentRef.current.quoteInputKey === activeQuoteInputKey,
+  );
 
   useEffect(() => {
     if (activeMode !== "deposit") return;
@@ -4548,6 +4633,7 @@ export function NexusOne({
     activeMode,
     depositSourceFilter,
     depositQuoteAmountKey,
+    depositSourceTargetUsdKey,
     depositUsdDecimal.toFixed(),
     fromTokensQuoteKey,
     selectedOpportunity?.chainId,
@@ -4855,6 +4941,9 @@ export function NexusOne({
   const handleEnterPreview = async (options: { background?: boolean } = {}) => {
     const { background = false } = options;
     const isExactOutFlow = activeMode === "deposit" || activeMode === "send";
+    const quoteInputKey = activeQuoteInputKeyRef.current;
+    const isCurrentQuoteInput = () =>
+      activeQuoteInputKeyRef.current === quoteInputKey;
 
     if (!toToken) {
       return;
@@ -4887,6 +4976,7 @@ export function NexusOne({
     if (
       !background &&
       swapIntentRef.current?.runId === swapRunIdRef.current &&
+      swapIntentRef.current?.quoteInputKey === quoteInputKey &&
       intentData &&
       (activeMode !== "send" || Boolean(recipientAddress)) &&
       ((activeMode !== "deposit" && activeMode !== "send") ||
@@ -4960,6 +5050,10 @@ export function NexusOne({
       }
     }
 
+    if (!isCurrentQuoteInput()) {
+      return;
+    }
+
     if (!background) {
       swapStepRef.current = "preview-intent";
       setSwapStep("preview-intent");
@@ -4992,7 +5086,7 @@ export function NexusOne({
     const runId = swapRunIdRef.current;
 
     // Claim ownership of global singleton hook before executing SDK swap
-    registerIntentHook(runId);
+    registerIntentHook(runId, quoteInputKey);
 
     const getSwapStepListFromEvent = (event: { args: any }) => {
       const args = (event as any).args;
@@ -5133,7 +5227,7 @@ export function NexusOne({
     };
 
     const onEvent = (event: any) => {
-      if (swapRunIdRef.current !== runId) return;
+      if (swapRunIdRef.current !== runId || !isCurrentQuoteInput()) return;
       handleSwapEvent(event);
     };
 
@@ -5475,7 +5569,9 @@ export function NexusOne({
             },
             {
               onEvent: (event: any) => {
-                if (swapRunIdRef.current !== runId) return;
+                if (swapRunIdRef.current !== runId || !isCurrentQuoteInput()) {
+                  return;
+                }
                 handleSwapEvent(event);
               },
             },
@@ -5515,7 +5611,7 @@ export function NexusOne({
       }
     } catch (err: any) {
       console.error("Error in handleEnterPreview:", err);
-      if (swapRunIdRef.current !== runId) {
+      if (swapRunIdRef.current !== runId || !isCurrentQuoteInput()) {
         return;
       }
       if (activeMode === "deposit" && err?.code !== "USER_DENIED_INTENT") {
@@ -5650,6 +5746,12 @@ export function NexusOne({
       return;
     }
 
+    if (hasCurrentQuoteIntent) {
+      setIntentLoading(false);
+      setQuoteRefreshing(false);
+      return;
+    }
+
     clearPendingSwapIntent(true, { keepQuoteRefreshing: true });
     setQuoteRefreshing(true);
     let quoteStarted = false;
@@ -5667,9 +5769,11 @@ export function NexusOne({
     };
   }, [
     activeMode,
+    activeQuoteInputKey,
     amount,
     defaultRecipientAddress,
     fromTokensQuoteKey,
+    hasCurrentQuoteIntent,
     nexusSDK,
     recipientAddress,
     swapStep,
@@ -5698,6 +5802,12 @@ export function NexusOne({
       return;
     }
 
+    if (hasCurrentQuoteIntent) {
+      setIntentLoading(false);
+      setQuoteRefreshing(false);
+      return;
+    }
+
     clearPendingSwapIntent(true, { keepQuoteRefreshing: true });
     setQuoteRefreshing(true);
     let quoteStarted = false;
@@ -5716,8 +5826,10 @@ export function NexusOne({
   }, [
     activeMode,
     amount,
+    activeQuoteInputKey,
     depositAmountMode,
     depositQuoteAmountKey,
+    hasCurrentQuoteIntent,
     nexusSDK,
     sourceSelectionRevision,
     selectedOpportunityIdentity,
@@ -5742,6 +5854,12 @@ export function NexusOne({
       return;
     }
 
+    if (hasCurrentQuoteIntent) {
+      setIntentLoading(false);
+      setQuoteRefreshing(false);
+      return;
+    }
+
     clearPendingSwapIntent(true, { keepQuoteRefreshing: true });
     setQuoteRefreshing(true);
     let quoteStarted = false;
@@ -5760,6 +5878,8 @@ export function NexusOne({
   }, [
     activeMode,
     amount,
+    activeQuoteInputKey,
+    hasCurrentQuoteIntent,
     nexusSDK,
     sourceSelectionRevision,
     swapStep,
@@ -5779,6 +5899,10 @@ export function NexusOne({
     }
 
     const runId = activeIntent.runId;
+    const quoteInputKey = activeIntent.quoteInputKey;
+    if (!quoteInputKey || activeQuoteInputKeyRef.current !== quoteInputKey) {
+      return;
+    }
     const isPreviewRefresh = swapStepRef.current === "preview-intent";
     if (isPreviewRefresh) {
       setPreviewQuoteRefreshing(true);
@@ -5787,7 +5911,13 @@ export function NexusOne({
     }
     try {
       const updated = await activeIntent.refresh();
-      if (!updated || swapRunIdRef.current !== runId) return;
+      if (
+        !updated ||
+        swapRunIdRef.current !== runId ||
+        activeQuoteInputKeyRef.current !== quoteInputKey
+      ) {
+        return;
+      }
 
       if (swapIntentRef.current) {
         swapIntentRef.current.intent = updated;
@@ -5796,7 +5926,10 @@ export function NexusOne({
     } catch (err) {
       console.error("Unable to refresh swap intent", err);
     } finally {
-      if (swapRunIdRef.current === runId) {
+      if (
+        swapRunIdRef.current === runId &&
+        activeQuoteInputKeyRef.current === quoteInputKey
+      ) {
         if (isPreviewRefresh) {
           setPreviewQuoteRefreshing(false);
         } else {
@@ -5817,7 +5950,11 @@ export function NexusOne({
       (activeMode === "swap" ||
         activeMode === "deposit" ||
         activeMode === "send") &&
-      Boolean(intentData && swapIntentRef.current) &&
+      Boolean(
+        intentData &&
+          swapIntentRef.current &&
+          swapIntentRef.current.quoteInputKey === activeQuoteInputKey,
+      ) &&
       (swapStep === "idle" || swapStep === "preview-intent");
 
     if (!hasRefreshableIntent) return;
@@ -5859,6 +5996,7 @@ export function NexusOne({
     };
   }, [
     activeMode,
+    activeQuoteInputKey,
     intentData,
     intentLoading,
     previewQuoteRefreshing,
@@ -5873,7 +6011,11 @@ export function NexusOne({
       (activeMode === "swap" ||
         activeMode === "deposit" ||
         activeMode === "send") &&
-      Boolean(intentData && swapIntentRef.current) &&
+      Boolean(
+        intentData &&
+          swapIntentRef.current &&
+          swapIntentRef.current.quoteInputKey === activeQuoteInputKey,
+      ) &&
       (swapStep === "idle" || swapStep === "preview-intent");
 
     if (!hasRefreshableIntent) {
@@ -5893,11 +6035,21 @@ export function NexusOne({
     const interval = window.setInterval(updateProgress, 250);
 
     return () => window.clearInterval(interval);
-  }, [activeMode, intentData, swapStep]);
+  }, [activeMode, activeQuoteInputKey, intentData, swapStep]);
 
   /** User accepted swap from the preview — call allow() from the intent hook */
   const handleSwapAccept = () => {
-    if (swapIntentRef.current) {
+    const activeIntent = swapIntentRef.current;
+    if (activeIntent) {
+      if (
+        activeIntent.quoteInputKey &&
+        activeQuoteInputKeyRef.current !== activeIntent.quoteInputKey
+      ) {
+        clearPendingSwapIntent(true, { keepQuoteRefreshing: true });
+        setQuoteRefreshing(true);
+        setSwapStep("idle");
+        return;
+      }
       if (activeMode === "deposit") {
         previewConfirmedTsRef.current = Date.now();
         attemptCountRef.current += 1;
@@ -5920,7 +6072,7 @@ export function NexusOne({
       } else {
         resetSteps();
       }
-      swapIntentRef.current.allow();
+      activeIntent.allow();
     }
   };
 
@@ -6320,9 +6472,7 @@ export function NexusOne({
     swapQuoteIssue?.type === "insufficientSources"
       ? swapQuoteIssue
       : null;
-  const hasCurrentRunnableIntent =
-    Boolean(intentData && swapIntentRef.current) &&
-    swapIntentRef.current?.runId === swapRunIdRef.current;
+  const hasCurrentRunnableIntent = hasCurrentQuoteIntent;
   const hasIntentSources = Boolean((intentData?.sources ?? []).length > 0);
   const hasCurrentIntentSources = hasCurrentRunnableIntent && hasIntentSources;
   const isExactOutRouteLoading =
@@ -6568,7 +6718,7 @@ export function NexusOne({
     (activeMode === "swap" ||
       activeMode === "deposit" ||
       activeMode === "send") &&
-    Boolean(intentData && swapIntentRef.current) &&
+    hasCurrentQuoteIntent &&
     (swapStep === "idle" || swapStep === "preview-intent");
   const isRecipientDrawerClosing = closingDrawerStep === "enter-recipient";
   const isSwapAssetDrawerClosing = closingDrawerStep === "choose-swap-asset";
@@ -7698,9 +7848,7 @@ export function NexusOne({
                       }
                     : undefined
                 }
-                lockedTokens={
-                  activeMode === "deposit" ? [] : lockedDestinationSourceTokens
-                }
+                lockedTokens={lockedDestinationSourceTokens}
                 requiredUsd={
                   activeMode === "deposit"
                     ? depositUsdDisplay

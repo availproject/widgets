@@ -291,23 +291,26 @@ export const resolveDepositSourceSelection = (params: {
   isManualSelection: boolean;
   minimumBalanceUsd: number;
   targetAmountUsd?: number;
+  excludedSourceIds?: Iterable<string>;
 }): ResolvedDepositSourceSelection => {
   const {
     swapBalance,
     destination,
+    excludedSourceIds,
     filter,
     selectedSourceIds,
     isManualSelection,
     minimumBalanceUsd,
     targetAmountUsd,
   } = params;
+  const excludedSourceIdSet = new Set(excludedSourceIds ?? []);
 
   const sourcePoolIds = buildDepositSourcePoolIds({
     swapBalance,
     filter,
     selectedSourceIds,
     isManualSelection,
-  });
+  }).filter((sourceId) => !excludedSourceIdSet.has(sourceId));
 
   const resolvedSelectedSourceIds = isManualSelection
     ? sortSourceIdsByPriority({
