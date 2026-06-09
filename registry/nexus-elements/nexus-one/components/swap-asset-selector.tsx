@@ -2,7 +2,6 @@
 import React, {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -769,10 +768,8 @@ export function SwapAssetSelector({
 }: SwapAssetSelectorProps) {
   const selectorRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const stableListHeightRef = useRef(0);
   const chainCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
-  const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [showBelowMin, setShowBelowMin] = useState(false);
@@ -830,31 +827,6 @@ export function SwapAssetSelector({
       listRef.current.scrollTop = 0;
     }
   }, [query, activeTab, selectedChainFilter]);
-
-  const preserveListHeight = useCallback(() => {
-    const listEl = listRef.current;
-    if (!listEl) return;
-
-    const nextHeight = Math.ceil(listEl.getBoundingClientRect().height);
-    if (nextHeight <= stableListHeightRef.current) return;
-
-    stableListHeightRef.current = nextHeight;
-    setStableListHeight(nextHeight);
-  }, []);
-
-  useLayoutEffect(() => {
-    preserveListHeight();
-
-    const listEl = listRef.current;
-    if (!listEl || typeof ResizeObserver === "undefined") return;
-
-    const observer = new ResizeObserver(() => {
-      preserveListHeight();
-    });
-    observer.observe(listEl);
-
-    return () => observer.disconnect();
-  }, [preserveListHeight]);
 
   const allTokens = useMemo<SwapTokenOption[]>(() => {
     const baseTokens = staticOptions
@@ -1727,7 +1699,7 @@ export function SwapAssetSelector({
         ref={listRef}
         style={{
           flex: "1 1 auto",
-          minHeight: stableListHeight ? `${stableListHeight}px` : 0,
+          minHeight: 0,
           overflowY: "auto",
           paddingBottom: 6,
         }}
@@ -1904,7 +1876,7 @@ export function SwapAssetSelector({
 
       {/* Done button */}
       {isMulti && (
-        <div style={{ paddingBottom: 6, marginTop: "auto" }}>
+        <div style={{ flexShrink: 0, paddingBottom: 6, marginTop: "auto" }}>
           {shouldShowSelectionProgress && requiredUsdAmount && (
             <div
               style={{

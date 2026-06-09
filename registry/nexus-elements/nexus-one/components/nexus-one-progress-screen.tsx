@@ -34,6 +34,7 @@ interface NexusOneProgressScreenProps {
   fromAmountUsd?: string;
   toAmount?: string;
   toAmountUsd?: string;
+  totalFeeUsd?: string;
   intentData?: SwapIntentData | null;
   mode: NexusOneMode;
   opportunity?: NexusOneDepositMetadata;
@@ -601,6 +602,8 @@ export function NexusOneProgressScreen({
   toToken,
   fromAmountUsd,
   toAmount,
+  toAmountUsd,
+  totalFeeUsd,
   intentData,
   mode,
   opportunity,
@@ -615,13 +618,77 @@ export function NexusOneProgressScreen({
     intentSources.length > 0
       ? unique(intentSources.map((source) => source.token.symbol))
       : unique(fromTokens.map((token) => token.symbol));
-  const sourceUsd =
+  const intentSourceUsd =
     intentSources.length > 0
       ? intentSources.reduce(
           (sum, source) => sum.plus(parseDecimal(source.value) ?? 0),
           new Decimal(0),
         )
       : parseDecimal(fromAmountUsd);
+  const requestedDestinationAmount = parseDecimal(toAmount);
+  const quotedDestinationAmount = parseDecimal(intentDestination?.amount);
+  const destinationBalanceAmount = parseDecimal(toToken?.balance);
+  const requestedDestinationUsd = parseDecimal(toAmountUsd);
+  const destinationUsdRate =
+    requestedDestinationAmount &&
+    requestedDestinationAmount.gt(0) &&
+    requestedDestinationUsd &&
+    requestedDestinationUsd.gt(0)
+      ? requestedDestinationUsd.div(requestedDestinationAmount)
+      : quotedDestinationAmount &&
+          quotedDestinationAmount.gt(0) &&
+          intentDestination?.value
+        ? (parseDecimal(intentDestination.value) ?? new Decimal(0)).div(
+            quotedDestinationAmount,
+          )
+        : undefined;
+  const destinationCoverageUsd =
+    (mode === "deposit" || mode === "send") &&
+    requestedDestinationAmount &&
+    requestedDestinationAmount.gt(0) &&
+    quotedDestinationAmount &&
+    requestedDestinationAmount.gt(quotedDestinationAmount) &&
+    destinationBalanceAmount &&
+    destinationBalanceAmount.gt(0) &&
+    destinationUsdRate &&
+    destinationUsdRate.gt(0)
+      ? Decimal.min(
+          requestedDestinationAmount.minus(quotedDestinationAmount),
+          destinationBalanceAmount,
+        ).mul(destinationUsdRate)
+      : undefined;
+  const quotedDestinationUsd = parseDecimal(intentDestination?.value);
+  const feeUsd = parseDecimal(totalFeeUsd);
+  const sourceUsd =
+    mode === "deposit" || mode === "send"
+      ? [
+          destinationCoverageUsd !== undefined
+            ? (intentSourceUsd ?? new Decimal(0)).plus(destinationCoverageUsd)
+            : intentSourceUsd,
+          requestedDestinationUsd,
+          requestedDestinationUsd &&
+          requestedDestinationUsd.gt(0) &&
+          intentSourceUsd &&
+          intentSourceUsd.gt(0) &&
+          quotedDestinationUsd &&
+          quotedDestinationUsd.gt(0)
+            ? requestedDestinationUsd.plus(
+                Decimal.max(intentSourceUsd.minus(quotedDestinationUsd), 0),
+              )
+            : undefined,
+          requestedDestinationUsd &&
+          requestedDestinationUsd.gt(0) &&
+          feeUsd &&
+          feeUsd.gt(0)
+            ? requestedDestinationUsd.plus(feeUsd)
+            : undefined,
+        ]
+          .filter((value): value is Decimal => Boolean(value && value.gt(0)))
+          .reduce<Decimal | undefined>(
+            (max, value) => (!max || value.gt(max) ? value : max),
+            undefined,
+          )
+      : intentSourceUsd;
   const destinationAmount =
     (mode === "deposit" || mode === "send") && toAmount
       ? toAmount

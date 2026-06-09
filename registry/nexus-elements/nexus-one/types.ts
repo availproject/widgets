@@ -86,4 +86,5 @@ export interface NexusOneProps {
   onStart?: () => void;
   onError?: (message: string) => void;
   onClose?: () => void;
+  onConnectWallet?: () => void | Promise<void>;
 }

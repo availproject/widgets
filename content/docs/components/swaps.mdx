@@ -73,4 +73,4 @@ Swap and Bridge uses only `mode: "swap"`. This mode is exact-in: users enter the
 | `config.allowedDestinationPairs` | Optional | Restricts receive token and chain choices. |
 | `connectedAddress` | Optional | Wallet address to use. If omitted, the connected wagmi account is used. |
 | `embed` | Optional | Defaults to `true`. Set `false` to render as a modal surface. |
-| `onStart`, `onComplete`, `onError`, `onClose` | Optional | Lifecycle callbacks for host apps. |
+| `onStart`, `onComplete`, `onError`, `onClose`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectWallet` to route the element CTA to your app-level wallet flow. |
