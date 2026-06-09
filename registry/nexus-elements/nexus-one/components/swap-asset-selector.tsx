@@ -59,6 +59,7 @@ interface SwapAssetSelectorProps {
   allowSelectedTokenRemoval?: boolean;
   hideCustomTab?: boolean;
   autoSelectFilterTabs?: boolean;
+  initialFilterTab?: FilterTab;
   filterTabBehavior?: FilterTabBehavior;
   onFilterTabSelect?: (tab: Exclude<FilterTab, "custom">) => void;
   lockedTokens?: SwapTokenOption[];
@@ -760,6 +761,7 @@ export function SwapAssetSelector({
   allowSelectedTokenRemoval = false,
   hideCustomTab = false,
   autoSelectFilterTabs = false,
+  initialFilterTab = "all",
   filterTabBehavior = "select-all",
   onFilterTabSelect,
   lockedTokens = [],
@@ -771,7 +773,11 @@ export function SwapAssetSelector({
   const chainCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const normalizedInitialFilterTab =
+    hideCustomTab && initialFilterTab === "custom" ? "all" : initialFilterTab;
+  const [activeTab, setActiveTab] = useState<FilterTab>(
+    normalizedInitialFilterTab,
+  );
   const [showBelowMin, setShowBelowMin] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showChainSelector, setShowChainSelector] = useState(false);
@@ -821,6 +827,14 @@ export function SwapAssetSelector({
       setActiveTab("all");
     }
   }, [activeTab, hideCustomTab]);
+
+  useEffect(() => {
+    setActiveTab((current) =>
+      current === normalizedInitialFilterTab
+        ? current
+        : normalizedInitialFilterTab,
+    );
+  }, [normalizedInitialFilterTab]);
 
   useEffect(() => {
     if (listRef.current) {

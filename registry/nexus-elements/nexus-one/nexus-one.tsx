@@ -161,6 +161,7 @@ const QUOTE_REFRESH_INTERVAL_MS = 30000;
 const EXACT_OUT_INPUT_DEBOUNCE_MS = 1300;
 const DRAWER_CLOSE_MS = 220;
 const MODAL_HEIGHT_TRANSITION_MS = 220;
+const ROOT_HEIGHT_TRANSITION_MS = 140;
 const BASIS_POINTS = 10000;
 const PREDICTIVE_EXACT_IN_DISCOUNT_BPS = 50;
 const PREDICTIVE_EXACT_OUT_BUFFER_BPS = 100;
@@ -2286,6 +2287,11 @@ export function NexusOne({
     swapStepRef.current = swapStep;
   }, [swapStep]);
 
+  const isQuoteEditLocked = useCallback(
+    () => swapStepRef.current === "choose-swap-asset",
+    [],
+  );
+
   const getQuoteRequestDelay = useCallback(() => {
     if (immediateQuoteAfterSourceEditRef.current) {
       immediateQuoteAfterSourceEditRef.current = false;
@@ -2309,6 +2315,7 @@ export function NexusOne({
       swapStep === "enter-recipient";
 
     if (!isDrawerStep) {
+      swapStepRef.current = "idle";
       setSwapStep("idle");
       return;
     }
@@ -2319,6 +2326,7 @@ export function NexusOne({
 
     setClosingDrawerStep(swapStep);
     drawerCloseTimerRef.current = setTimeout(() => {
+      swapStepRef.current = "idle";
       setSwapStep("idle");
       setClosingDrawerStep(null);
       drawerCloseTimerRef.current = null;
@@ -2331,6 +2339,7 @@ export function NexusOne({
       drawerCloseTimerRef.current = null;
     }
     setClosingDrawerStep(null);
+    swapStepRef.current = nextStep;
     setSwapStep(nextStep);
   }, []);
 
@@ -6248,7 +6257,7 @@ export function NexusOne({
       quoteRefreshing ||
       receiveMaxCalculating ||
       previewQuoteRefreshing ||
-      swapStepRef.current === "choose-swap-asset"
+      isQuoteEditLocked()
     ) {
       return;
     }
@@ -6269,7 +6278,8 @@ export function NexusOne({
       if (
         !updated ||
         swapRunIdRef.current !== runId ||
-        activeQuoteInputKeyRef.current !== quoteInputKey
+        activeQuoteInputKeyRef.current !== quoteInputKey ||
+        isQuoteEditLocked()
       ) {
         return;
       }
@@ -6295,6 +6305,7 @@ export function NexusOne({
   }, [
     applySwapIntent,
     intentLoading,
+    isQuoteEditLocked,
     previewQuoteRefreshing,
     quoteRefreshing,
     receiveMaxCalculating,
@@ -6325,7 +6336,8 @@ export function NexusOne({
           intentLoading ||
           quoteRefreshing ||
           receiveMaxCalculating ||
-          previewQuoteRefreshing
+          previewQuoteRefreshing ||
+          isQuoteEditLocked()
         ) {
           if (!cancelled) {
             timeout = window.setTimeout(scheduleRefresh, 1000);
@@ -6354,6 +6366,7 @@ export function NexusOne({
     activeQuoteInputKey,
     intentData,
     intentLoading,
+    isQuoteEditLocked,
     previewQuoteRefreshing,
     quoteRefreshing,
     receiveMaxCalculating,
@@ -7043,6 +7056,13 @@ export function NexusOne({
     toTokenWithFetchedBalance,
     previewExactOutDestinationAmount,
   );
+  const quotedExactOutSourceTokens =
+    (activeMode === "deposit" || activeMode === "send") &&
+    hasCurrentExactOutPaymentIntent
+      ? sortSwapTokensByUsdDesc(
+          (intentData?.sources ?? []).map(buildIntentSourceToken),
+        )
+      : undefined;
   const shouldShowPredictiveExactOutDisplay =
     (activeMode === "deposit" || activeMode === "send") &&
     (quoteRefreshing || intentLoading) &&
@@ -7054,6 +7074,8 @@ export function NexusOne({
     );
   const baseDisplayFromTokens = shouldShowPredictiveExactOutDisplay
     ? (predictiveExactOutQuote?.sources ?? fromTokens)
+    : quotedExactOutSourceTokens !== undefined
+      ? quotedExactOutSourceTokens
     : fromTokens;
   const displayFromTokens = (() => {
     if (
@@ -7169,6 +7191,14 @@ export function NexusOne({
   const isSwapAssetDrawerClosing = closingDrawerStep === "choose-swap-asset";
   const isReceiveAssetDrawerClosing =
     closingDrawerStep === "choose-receive-asset";
+  const sourcePickerInitialFilterTab: "all" | "native" | "stables" | "custom" =
+    activeMode === "deposit"
+      ? depositSourceFilter === "stablecoins"
+        ? "stables"
+        : depositSourceFilter
+      : activeMode === "send" && sourceSelectionTouched
+        ? "custom"
+        : "all";
   const isDrawerOverlayActive =
     swapStep === "choose-swap-asset" ||
     swapStep === "choose-receive-asset" ||
@@ -7212,7 +7242,7 @@ export function NexusOne({
         scrollbarWidth: "thin",
         position: "relative",
         transition: hasMeasuredRootContent
-          ? `height ${MODAL_HEIGHT_TRANSITION_MS}ms ease`
+          ? `height ${ROOT_HEIGHT_TRANSITION_MS}ms ease-out`
           : undefined,
         willChange: "height",
         maxWidth: "450px",
@@ -8273,6 +8303,7 @@ export function NexusOne({
                 autoSelectFilterTabs={
                   activeMode === "deposit" || activeMode === "send"
                 }
+                initialFilterTab={sourcePickerInitialFilterTab}
                 filterTabBehavior={
                   activeMode === "deposit" || activeMode === "send"
                     ? "source-pool"

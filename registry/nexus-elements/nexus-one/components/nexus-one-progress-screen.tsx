@@ -276,7 +276,16 @@ const buildStatusRows = ({
   const destinationChain = context.destinationChain || "destination";
   const opportunityName = context.opportunityName || "app";
   const immutableApprovalTotal =
-    approvalTotalCount ?? countListedSteps(swapListSteps, SWAP_APPROVAL_TYPES);
+    approvalTotalCount ??
+    Math.max(
+      countListedSteps(swapListSteps, SWAP_APPROVAL_TYPES),
+      countListedSteps(fallbackSteps, SWAP_APPROVAL_TYPES),
+      getEventStepCount(
+        events,
+        "SWAP_STEP_COMPLETE",
+        SWAP_APPROVAL_TYPES,
+      ),
+    );
   const refundEligibleFailure =
     failedStep !== null &&
     failedStep !== undefined &&
@@ -726,8 +735,20 @@ export function NexusOneProgressScreen({
     mode === "deposit"
       ? opportunity?.title || opportunity?.protocol || destinationChainName
       : destinationChainName;
-  const computedApprovalTotal =
-    getApprovalTotalFromSwapStepsList(progressEvents);
+  const seededApprovalTotal = countListedSteps(
+    (steps ?? []).map((item) => item.step),
+    SWAP_APPROVAL_TYPES,
+  );
+  const completedApprovalEventTotal = getEventStepCount(
+    progressEvents,
+    "SWAP_STEP_COMPLETE",
+    SWAP_APPROVAL_TYPES,
+  );
+  const computedApprovalTotal = Math.max(
+    getApprovalTotalFromSwapStepsList(progressEvents),
+    seededApprovalTotal,
+    completedApprovalEventTotal,
+  );
   const [lockedApprovalTotal, setLockedApprovalTotal] = useState<number | null>(
     null,
   );
