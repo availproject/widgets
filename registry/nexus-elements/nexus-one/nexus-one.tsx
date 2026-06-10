@@ -4107,13 +4107,12 @@ export function NexusOne({
   const registerIntentHook = (runId: number, quoteInputKey: string) => {
     if (!nexusSDK) return;
     nexusSDK.setOnSwapIntentHook(async ({ intent, allow, deny, refresh }) => {
-      if (
-        swapRunIdRef.current !== runId ||
-        activeQuoteInputKeyRef.current !== quoteInputKey
-      ) {
+      if (swapRunIdRef.current !== runId) {
         deny();
         return;
       }
+      const resolvedQuoteInputKey =
+        activeQuoteInputKeyRef.current || quoteInputKey;
       // Store callbacks so accept/reject buttons can call them
       providerSwapIntent.current = { intent, allow, deny, refresh };
       swapIntentRef.current = {
@@ -4122,7 +4121,7 @@ export function NexusOne({
         deny,
         refresh,
         runId,
-        quoteInputKey,
+        quoteInputKey: resolvedQuoteInputKey,
       };
       flushSync(() => {
         applySwapIntent(intent);
@@ -4772,11 +4771,17 @@ export function NexusOne({
         : false;
   const invalidateExactOutQuoteForRefresh = () => {
     const shouldLoadQuote = Boolean(nexusSDK && canRefreshExactOutQuote());
-    clearPendingSwapIntent(true, { keepQuoteRefreshing: shouldLoadQuote });
-    if (shouldLoadQuote) {
+    const shouldDeferQuoteRefresh = isQuoteEditLocked();
+    clearPendingSwapIntent(true, {
+      keepQuoteRefreshing: shouldLoadQuote && !shouldDeferQuoteRefresh,
+    });
+    if (shouldLoadQuote && !shouldDeferQuoteRefresh) {
       setQuoteRefreshing(true);
       setTxError(null);
       setSwapQuoteIssue(null);
+    } else if (shouldDeferQuoteRefresh) {
+      setQuoteRefreshing(false);
+      setPreviewQuoteRefreshing(false);
     }
     return shouldLoadQuote;
   };
@@ -6933,10 +6938,9 @@ export function NexusOne({
     : !hasPositiveRootAmount ||
       !toToken ||
       receiveMaxCalculating ||
-      (!hasCurrentExactOutPaymentIntent &&
-        (quoteRefreshing ||
-          intentLoading ||
-          isQuoteUnavailableForAutoSourceFlow)) ||
+      quoteRefreshing ||
+      intentLoading ||
+      (!hasCurrentExactOutPaymentIntent && isQuoteUnavailableForAutoSourceFlow) ||
       Boolean(exactOutInsufficientSourceIssue);
   const sendNeedsRecipient = activeMode === "send" && !recipientAddress;
   const isSendCtaDisabled = needsWalletConnection
@@ -6945,11 +6949,11 @@ export function NexusOne({
       !toToken ||
       hasSameOwnerSendRecipient ||
       receiveMaxCalculating ||
+      quoteRefreshing ||
+      intentLoading ||
       (!sendNeedsRecipient &&
         !hasCurrentExactOutPaymentIntent &&
-        (quoteRefreshing ||
-          intentLoading ||
-          isQuoteUnavailableForAutoSourceFlow)) ||
+        isQuoteUnavailableForAutoSourceFlow) ||
       Boolean(exactOutInsufficientSourceIssue);
   const isSourcePickerDisabled =
     quoteRefreshing ||
@@ -6960,7 +6964,7 @@ export function NexusOne({
     if (needsWalletConnection) return walletCtaLabel;
     if (exactOutInsufficientSourceIssue) return "Insufficient balance";
     if (receiveMaxCalculating) return "Calculating...";
-    if (!hasCurrentExactOutPaymentIntent && (quoteRefreshing || intentLoading)) {
+    if (quoteRefreshing || intentLoading) {
       return "Fetching quotes...";
     }
     if (isQuoteUnavailableForAutoSourceFlow) return "Quote unavailable";
@@ -7734,9 +7738,10 @@ export function NexusOne({
                       fromTokens={displayFromTokens}
                       isSourcePickerDisabled={isSourcePickerDisabled}
                       reserveSourceRows={hasCurrentExactOutPaymentIntent}
-                      onOpenSourcePicker={() =>
-                        openDrawerStep("choose-swap-asset")
-                      }
+                      onOpenSourcePicker={() => {
+                        if (isSourcePickerDisabled) return;
+                        openDrawerStep("choose-swap-asset");
+                      }}
                       onSetPercent={handleDepositPercentSelect}
                       routeStatus={
                         exactOutInsufficientSourceIssue
@@ -7808,8 +7813,8 @@ export function NexusOne({
                             }}
                           />
                         ) : (needsWalletConnection && walletConnectBusy) ||
-                          (!hasCurrentExactOutPaymentIntent &&
-                            (quoteRefreshing || intentLoading)) ||
+                          quoteRefreshing ||
+                          intentLoading ||
                           receiveMaxCalculating ? (
                           <Loader2
                             className="animate-spin"
@@ -7955,8 +7960,8 @@ export function NexusOne({
                       />
                     ) : (needsWalletConnection && walletConnectBusy) ||
                       (!sendNeedsRecipient &&
-                        ((!hasCurrentExactOutPaymentIntent &&
-                          (quoteRefreshing || intentLoading)) ||
+                        (quoteRefreshing ||
+                          intentLoading ||
                           receiveMaxCalculating)) ? (
                       <Loader2
                         className="animate-spin"

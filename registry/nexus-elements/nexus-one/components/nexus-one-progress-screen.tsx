@@ -112,6 +112,7 @@ const STATUS_ORDER: ProgressStatusId[] = [
 const SWAP_APPROVAL_TYPES = [
   "CREATE_PERMIT_EOA_TO_EPHEMERAL",
   "CREATE_PERMIT_FOR_SOURCE_SWAP",
+  "BRIDGE_DEPOSIT",
 ];
 
 const REFUND_ELIGIBLE_SWAP_TYPES = ["RFF_ID", "BRIDGE_DEPOSIT"];
@@ -154,11 +155,7 @@ const getStatusForStep = (
     return "swapTokens";
   }
 
-  if (
-    type.includes("DESTINATION_SWAP") ||
-    type.includes("DESTINATION_BATCH") ||
-    type.includes("BRIDGE_DEPOSIT")
-  ) {
+  if (type.includes("DESTINATION_SWAP") || type.includes("DESTINATION_BATCH")) {
     return "receiveToken";
   }
 
@@ -241,8 +238,7 @@ const hasStartedStatus = (
   hasTransferAction = false,
 ) =>
   events.some(
-    (event) =>
-      getStatusForStep(event.step, mode, hasTransferAction) === id,
+    (event) => getStatusForStep(event.step, mode, hasTransferAction) === id,
   );
 
 const buildStatusRows = ({
@@ -280,11 +276,7 @@ const buildStatusRows = ({
     Math.max(
       countListedSteps(swapListSteps, SWAP_APPROVAL_TYPES),
       countListedSteps(fallbackSteps, SWAP_APPROVAL_TYPES),
-      getEventStepCount(
-        events,
-        "SWAP_STEP_COMPLETE",
-        SWAP_APPROVAL_TYPES,
-      ),
+      getEventStepCount(events, "SWAP_STEP_COMPLETE", SWAP_APPROVAL_TYPES),
     );
   const refundEligibleFailure =
     failedStep !== null &&
@@ -358,10 +350,10 @@ const buildStatusRows = ({
       description: state === "preapproval" ? "Approve in wallet" : undefined,
       label:
         state === "completed"
-          ? `Approved swaps (${immutableApprovalTotal} of ${immutableApprovalTotal})`
+          ? `Approved tokens for swap (${immutableApprovalTotal} of ${immutableApprovalTotal})`
           : state === "error"
             ? "Collection failed"
-            : `Approve swaps (${approvalCurrent} of ${immutableApprovalTotal})`,
+            : `Approve tokens for swap (${approvalCurrent} of ${immutableApprovalTotal})`,
     });
   }
 
@@ -457,7 +449,7 @@ const buildStatusRows = ({
             : state === "error"
               ? "Deposit failed. Funds are in your wallet."
               : state === "preapproval"
-                ? "Approve Deposit"
+                ? `Approve Deposit of ${destinationSymbol} to ${opportunityName}`
                 : `Deposit ${destinationSymbol} to ${opportunityName}`
         : state === "completed"
           ? `${destinationSymbol} sent`
