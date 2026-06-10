@@ -4841,9 +4841,9 @@ export function NexusOne({
       : activeMode === "send"
         ? Boolean(hasPositiveDecimalInput(amount) && toToken)
         : false;
-  const invalidateExactOutQuoteForRefresh = () => {
+  const invalidateExactOutQuoteForRefresh = (ignoreLock = false) => {
     const shouldLoadQuote = Boolean(nexusSDK && canRefreshExactOutQuote());
-    const shouldDeferQuoteRefresh = isQuoteEditLocked();
+    const shouldDeferQuoteRefresh = !ignoreLock && isQuoteEditLocked();
     clearPendingSwapIntent(true, {
       keepQuoteRefreshing: shouldLoadQuote && !shouldDeferQuoteRefresh,
     });
@@ -8433,7 +8433,7 @@ export function NexusOne({
                           setSourceFilter("custom");
                         }
                         immediateQuoteAfterSourceEditRef.current = true;
-                        invalidateExactOutQuoteForRefresh();
+                        invalidateExactOutQuoteForRefresh(true);
                         setSourceSelectionRevision((current) => current + 1);
                         setFromTokens(
                           tokens.map((token) => ({
