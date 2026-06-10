@@ -41,7 +41,7 @@ const toComparableSdkAddress = (address: string): string => {
 export const getDepositSourceId = (
   tokenAddress: string,
   chainId: number,
-): string => `${tokenAddress}-${chainId}`;
+): string => `${tokenAddress.toLowerCase()}-${chainId}`;
 
 export const parseDepositSourceId = (
   sourceId: string,
@@ -49,7 +49,7 @@ export const parseDepositSourceId = (
   const separatorIndex = sourceId.lastIndexOf("-");
   if (separatorIndex <= 0) return null;
 
-  const tokenAddress = sourceId.slice(0, separatorIndex) as Hex;
+  const tokenAddress = sourceId.slice(0, separatorIndex).toLowerCase() as Hex;
   const chainId = Number.parseInt(sourceId.slice(separatorIndex + 1), 10);
   if (!Number.isInteger(chainId) || chainId <= 0) return null;
 

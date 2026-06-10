@@ -2128,6 +2128,8 @@ export function NexusOne({
 
   useEffect(() => {
     if (!nexusSDK) return;
+    if (swapStep === "choose-swap-asset") return;
+
     void fetchSwapBalance();
 
     const refreshTimer = window.setInterval(() => {
@@ -2137,7 +2139,7 @@ export function NexusOne({
     return () => {
       window.clearInterval(refreshTimer);
     };
-  }, [fetchSwapBalance, nexusSDK]);
+  }, [fetchSwapBalance, nexusSDK, swapStep]);
 
   useEffect(() => {
     setSourceSelectionTouched(false);
@@ -3415,7 +3417,7 @@ export function NexusOne({
           : getMinimumBalanceSourceTokens()
         : getExpandedSourceTokens(tokens);
 
-    return activeMode === "swap"
+    return activeMode === "swap" || sourceSelectionTouched
       ? sourceTokens
       : filterMinimumSourceUsdTokens(sourceTokens);
   };
@@ -3567,18 +3569,36 @@ export function NexusOne({
         return getMinimumBalanceSourceTokens();
       }
 
-      return filterMinimumSourceUsdTokens(getExpandedSourceTokens(fromTokens));
+      return getExpandedSourceTokens(fromTokens);
     }
 
     return getGasCapableBalanceSourceTokens();
   };
 
   const buildFromSourcesPayload = (tokens: SwapTokenOption[]) => {
+    if (activeMode === "deposit") {
+      return {
+        fromSources: getResolvedDepositSourceSelection().fromSources,
+      };
+    }
+
+    const lockedKeys = new Set(
+      lockedDestinationSourceTokens.map((t) =>
+        `${t.chainId}-${(t.contractAddress || "").toLowerCase()}`
+      )
+    );
+
     const seenSourceKeys = new Set<string>();
     const eligibleTokens = getPayloadSourceTokens(tokens).filter((token) => {
       if (!token.chainId || !token.contractAddress) return false;
       const key = `${token.chainId}-${token.contractAddress.toLowerCase()}`;
       if (seenSourceKeys.has(key)) return false;
+      if (
+        activeMode === "send" &&
+        lockedKeys.has(key)
+      ) {
+        return false;
+      }
       seenSourceKeys.add(key);
       return true;
     });

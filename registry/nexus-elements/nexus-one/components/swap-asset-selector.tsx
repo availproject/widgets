@@ -696,6 +696,11 @@ function sameTokenOption(a?: SwapTokenOption, b?: SwapTokenOption) {
   );
 }
 
+function isSameTokenList(a: SwapTokenOption[], b: SwapTokenOption[]) {
+  if (a.length !== b.length) return false;
+  return a.every((tokenA) => b.some((tokenB) => sameTokenOption(tokenA, tokenB)));
+}
+
 function dedupeTokenOptions(tokens: SwapTokenOption[]) {
   return tokens.reduce<SwapTokenOption[]>((acc, token) => {
     if (!acc.some((item) => sameTokenOption(item, token))) {
@@ -798,12 +803,29 @@ export function SwapAssetSelector({
       lockedSelectedTokens.some((locked) => sameTokenOption(locked, token)),
     [lockedSelectedTokens],
   );
+  const prevTokensRef = useRef<{
+    selected: SwapTokenOption[];
+    locked: SwapTokenOption[];
+  } | null>(null);
   const [draftSelectedTokens, setDraftSelectedTokens] = useState<SwapTokenOption[]>(
     () => mergeTokenOptions(selectedTokens, lockedSelectedTokens),
   );
   useEffect(() => {
     if (!isMulti) return;
-    setDraftSelectedTokens(mergeTokenOptions(selectedTokens, lockedSelectedTokens));
+
+    const prev = prevTokensRef.current;
+    const hasChanged =
+      !prev ||
+      !isSameTokenList(prev.selected, selectedTokens) ||
+      !isSameTokenList(prev.locked, lockedSelectedTokens);
+
+    if (hasChanged) {
+      setDraftSelectedTokens(mergeTokenOptions(selectedTokens, lockedSelectedTokens));
+      prevTokensRef.current = {
+        selected: selectedTokens,
+        locked: lockedSelectedTokens,
+      };
+    }
   }, [isMulti, lockedSelectedTokens, selectedTokens]);
   const activeSelectedTokens = isMulti ? draftSelectedTokens : selectedTokens;
   const emitSelectionChange = useCallback(
