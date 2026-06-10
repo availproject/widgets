@@ -2104,7 +2104,16 @@ export function NexusOne({
   const [toToken, setToToken] = useState<SwapTokenOption | undefined>(
     undefined,
   );
-  const fromTokensQuoteKey = getSourceTokensQuoteKey(fromTokens);
+  const [fromTokensQuoteKey, setFromTokensQuoteKey] = useState("");
+
+  useEffect(() => {
+    const key = getSourceTokensQuoteKey(
+      activeMode === "swap"
+        ? getReadyExactInSourceTokens(fromTokens)
+        : fromTokens,
+    );
+    setFromTokensQuoteKey(key);
+  }, [activeMode, fromTokens]);
   const toTokenQuoteKey = getTokenQuoteKey(toToken);
   const appliedTokenPrefillRef = useRef<string | null>(null);
 
@@ -2353,6 +2362,7 @@ export function NexusOne({
     }
     setClosingDrawerStep(null);
     if (nextStep === "choose-swap-asset" && (activeMode === "deposit" || activeMode === "send")) {
+      clearPendingSwapIntent();
       setSourceFilter("all");
       setSourceSelectionTouched(false);
       setExactOutQuoteSourceModeValue("all");
@@ -3334,17 +3344,18 @@ export function NexusOne({
 
   const getDefaultSourceFilterTokens = (tab: SourceFilterTab) => {
     const isSwapMode = activeMode === "swap";
-    const balanceSources = sortSwapTokensByUsdDesc(
-      isSwapMode ? getAllBalanceSourceTokens() : getMinimumBalanceSourceTokens(),
-    );
 
     if (tab === "native") {
-      return balanceSources.filter(isNativeSourceToken);
+      return sortSwapTokensByUsdDesc(getAllBalanceSourceTokens().filter(isNativeSourceToken));
     }
 
     if (tab === "stables") {
-      return balanceSources.filter(isStableSourceToken);
+      return sortSwapTokensByUsdDesc(getAllBalanceSourceTokens().filter(isStableSourceToken));
     }
+
+    const balanceSources = sortSwapTokensByUsdDesc(
+      isSwapMode ? getAllBalanceSourceTokens() : getMinimumBalanceSourceTokens(),
+    );
 
     const intentSourceTokens = sortSwapTokensByUsdDesc(
       isSwapMode
@@ -4109,7 +4120,19 @@ export function NexusOne({
       setSwapQuoteIssue(null);
 
       if (!sourceSelectionTouched && sortedIntentSourceTokens.length > 0) {
-        autoPickedSourcesRef.current = sortedIntentSourceTokens;
+        const merged = [...sortedIntentSourceTokens];
+        for (const locked of lockedDestinationSourceTokens) {
+          if (
+            !merged.some(
+              (t) =>
+                t.chainId === locked.chainId &&
+                t.contractAddress?.toLowerCase() === locked.contractAddress?.toLowerCase(),
+            )
+          ) {
+            merged.push(locked);
+          }
+        }
+        autoPickedSourcesRef.current = merged;
         originalAutoIntentRef.current = sortedIntent;
       }
 
@@ -5131,9 +5154,7 @@ export function NexusOne({
   const lockedDestinationSourceTokens = useMemo<SwapTokenOption[]>(() => {
     if (
       (activeMode !== "deposit" && activeMode !== "send") ||
-      !toToken?.chainId ||
-      !requiredDestinationTokenAmount ||
-      requiredDestinationTokenAmount.lte(0)
+      !toToken?.chainId
     ) {
       return [];
     }
@@ -5159,7 +5180,6 @@ export function NexusOne({
         const chainMeta = CHAIN_METADATA[chainId];
         const symbol = breakdown.symbol ?? asset.symbol ?? toToken.symbol;
         const fiatBalance = parseFiatNumber(breakdown.balanceInFiat);
-        if (!fiatBalance || fiatBalance.lte(0)) continue;
         return [
           {
             chainId,
@@ -5189,7 +5209,6 @@ export function NexusOne({
     return [];
   }, [
     activeMode,
-    requiredDestinationTokenAmount?.toFixed(),
     swapBalance,
     toToken?.chainId,
     toToken?.chainLogo,
@@ -8424,13 +8443,16 @@ export function NexusOne({
                 onSelectionChange={
                   activeMode === "deposit" || activeMode === "send"
                     ? (tokens) => {
-                        if (sourceFilter === "all") {
-                          return;
-                        }
-                        setSourceSelectionTouched(true);
-                        setExactOutQuoteSourceModeValue("selected");
-                        if (sourceFilter !== "stables" && sourceFilter !== "native") {
-                          setSourceFilter("custom");
+                        const isAnyTab = sourceFilter === "all";
+                        if (isAnyTab) {
+                          setSourceSelectionTouched(false);
+                          setExactOutQuoteSourceModeValue("all");
+                        } else {
+                          setSourceSelectionTouched(true);
+                          setExactOutQuoteSourceModeValue("selected");
+                          if (sourceFilter !== "stables" && sourceFilter !== "native") {
+                            setSourceFilter("custom");
+                          }
                         }
                         immediateQuoteAfterSourceEditRef.current = true;
                         invalidateExactOutQuoteForRefresh(true);

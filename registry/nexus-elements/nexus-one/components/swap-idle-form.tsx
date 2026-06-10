@@ -601,6 +601,25 @@ export function SwapIdleForm({
   const sourceListRef = useRef<HTMLDivElement | null>(null);
   const sourceRowRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const previousSourceCountRef = useRef(fromTokens.length);
+  const prevTokensRef = useRef<SwapTokenOption[]>(fromTokens);
+  const [autofocusIndex, setAutofocusIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const prev = prevTokensRef.current;
+    if (fromTokens.length > prev.length) {
+      setAutofocusIndex(fromTokens.length - 1);
+    } else if (fromTokens.length === prev.length) {
+      for (let i = 0; i < fromTokens.length; i++) {
+        const p = prev[i];
+        const c = fromTokens[i];
+        if (p && c && (p.contractAddress !== c.contractAddress || p.chainId !== c.chainId) && !c.userAmount) {
+          setAutofocusIndex(i);
+          break;
+        }
+      }
+    }
+    prevTokensRef.current = fromTokens;
+  }, [fromTokens]);
 
   useEffect(() => {
     const previousSourceCount = previousSourceCountRef.current;
@@ -1100,6 +1119,13 @@ export function SwapIdleForm({
                             </span>
                           )}
                           <input
+                            ref={(el) => {
+                              if (el && autofocusIndex === index) {
+                                el.focus();
+                                el.select();
+                                setAutofocusIndex(null);
+                              }
+                            }}
                             type="text"
                             placeholder="0"
                             value={
