@@ -1158,6 +1158,9 @@ export function SwapAssetSelector({
       tab !== "custom"
     ) {
       if (filterTabBehavior === "source-pool") {
+        if (tab === "all") {
+          setDraftSelectedTokens(mergeTokenOptions(selectedTokens, lockedSelectedTokens));
+        }
         onFilterTabSelect?.(tab);
         return;
       }

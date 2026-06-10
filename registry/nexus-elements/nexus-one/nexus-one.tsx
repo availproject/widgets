@@ -2095,6 +2095,7 @@ export function NexusOne({
     typeof setTimeout
   > | null>(null);
   const [fromTokens, setFromTokens] = useState<SwapTokenOption[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilterTab>("all");
   const [sourceSelectionTouched, setSourceSelectionTouched] = useState(false);
   const [sourceSelectionRevision, setSourceSelectionRevision] = useState(0);
   const [exactOutQuoteSourceMode, setExactOutQuoteSourceMode] = useState<
@@ -2363,15 +2364,6 @@ export function NexusOne({
     setClosingDrawerStep(null);
     if (nextStep === "choose-swap-asset" && (activeMode === "deposit" || activeMode === "send")) {
       clearPendingSwapIntent();
-      setSourceFilter("all");
-      setSourceSelectionTouched(false);
-      setExactOutQuoteSourceModeValue("all");
-      if (autoPickedSourcesRef.current.length > 0) {
-        setFromTokens(autoPickedSourcesRef.current);
-      }
-      if (originalAutoIntentRef.current) {
-        applySwapIntent(originalAutoIntentRef.current);
-      }
     }
     swapStepRef.current = nextStep;
     setSwapStep(nextStep);
@@ -3383,7 +3375,7 @@ export function NexusOne({
         setFromTokens([]);
       }
       if (originalAutoIntentRef.current) {
-        applySwapIntent(originalAutoIntentRef.current);
+        applySwapIntent(originalAutoIntentRef.current, true);
       }
       setSourceSelectionRevision((current) => current + 1);
       return;
@@ -4102,7 +4094,7 @@ export function NexusOne({
   };
 
   const applySwapIntent = useCallback(
-    (intent: SwapIntentData) => {
+    (intent: SwapIntentData, isRefresh = false) => {
       const sortedIntent = {
         ...intent,
         sources: sortIntentSourcesByUsdDesc(intent.sources ?? []),
@@ -4119,7 +4111,7 @@ export function NexusOne({
       setIntentToAmount(sortedIntent.destination?.amount || undefined);
       setSwapQuoteIssue(null);
 
-      if (!sourceSelectionTouched && sortedIntentSourceTokens.length > 0) {
+      if (!sourceSelectionTouched && !isRefresh && sortedIntentSourceTokens.length > 0) {
         const merged = [...sortedIntentSourceTokens];
         for (const locked of lockedDestinationSourceTokens) {
           if (
@@ -4141,8 +4133,13 @@ export function NexusOne({
         swapStepRef.current === "choose-receive-asset" ||
         swapStepRef.current === "enter-recipient";
 
+      const shouldUpdateFromTokens =
+        sourceFilter === "all" ||
+        sourceFilter === "stables" ||
+        sourceFilter === "native";
+
       if (
-        !sourceSelectionTouched &&
+        shouldUpdateFromTokens &&
         !isDrawerOpen &&
         (activeMode === "send" ||
           (activeMode === "deposit" && swapType === "exactOut"))
@@ -4195,7 +4192,7 @@ export function NexusOne({
         setIntentFeeUsd(undefined);
       }
     },
-    [activeMode, fromTokens, sourceSelectionTouched, swapType, swapBalance, toToken],
+    [activeMode, fromTokens, sourceSelectionTouched, swapType, swapBalance, toToken, sourceFilter],
   );
 
   // Register swap intent hook immediately before executing a swap to prevent race conditions across multiple components
@@ -4237,8 +4234,6 @@ export function NexusOne({
   const [depositAmountMode, setDepositAmountMode] = useState<"token" | "usd">(
     "token",
   );
-  const [sourceFilter, setSourceFilter] =
-    useState<SourceFilterTab>("all");
 
   const trackDeposit = useCallback(
     (event: string, props?: Record<string, unknown>) => {
@@ -6408,7 +6403,7 @@ export function NexusOne({
       if (swapIntentRef.current) {
         swapIntentRef.current.intent = updated;
       }
-      applySwapIntent(updated);
+      applySwapIntent(updated, true);
     } catch (err) {
       console.error("Unable to refresh swap intent", err);
     } finally {
@@ -7178,6 +7173,14 @@ export function NexusOne({
     toTokenWithFetchedBalance,
     previewExactOutDestinationAmount,
   );
+  const exactOutDisplaySourcesRequiredUsd = useMemo(() => {
+    let sum = previewIntentSourceUsdNumber;
+    if (destinationBalanceDisplayToken) {
+      const destUsd = parseFiatNumber(destinationBalanceDisplayToken.userAmountUsd) ?? new Decimal(0);
+      sum = sum.plus(destUsd);
+    }
+    return sum;
+  }, [previewIntentSourceUsdNumber, destinationBalanceDisplayToken]);
   const quotedExactOutSourceTokens =
     (activeMode === "deposit" || activeMode === "send") &&
     hasCurrentExactOutPaymentIntent
@@ -8427,14 +8430,14 @@ export function NexusOne({
                 }
                 onFilterTabSelect={applySourceFilterTabSelection}
                 lockedTokens={lockedDestinationSourceTokens}
-                 requiredUsd={
+                requiredUsd={
                   activeMode === "deposit"
                     ? previewIntentSourceUsdNumber.gt(0)
-                      ? previewIntentSourceUsdNumber.toFixed(2)
+                      ? exactOutDisplaySourcesRequiredUsd.toFixed(2)
                       : depositUsdDisplay
                     : activeMode === "send" && sendAmountUsd > 0
                       ? previewIntentSourceUsdNumber.gt(0)
-                        ? previewIntentSourceUsdNumber.toFixed(2)
+                        ? exactOutDisplaySourcesRequiredUsd.toFixed(2)
                         : sendAmountUsd.toFixed(2)
                       : undefined
                 }
