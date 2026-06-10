@@ -2663,14 +2663,15 @@ export function NexusOne({
     }
   };
 
-  const getSwapBalanceTotalUsd = () =>
-    (swapBalance ?? []).reduce((sum, asset) => {
+  const getSwapBalanceTotalUsd = () => {
+    const skipMinimum = activeMode === "swap";
+    return (swapBalance ?? []).reduce((sum, asset) => {
       const breakdown = asset.breakdown ?? [];
       if (breakdown.length > 0) {
         return sum.plus(
           breakdown.reduce((breakdownSum, item) => {
             const value = parseFiatNumber(item.balanceInFiat) ?? new Decimal(0);
-            return value.gt(minimumSourceUsd)
+            return (skipMinimum ? value.gt(0) : value.gt(minimumSourceUsd))
               ? breakdownSum.plus(value)
               : breakdownSum;
           }, new Decimal(0)),
@@ -2678,8 +2679,11 @@ export function NexusOne({
       }
 
       const value = parseFiatNumber(asset.balanceInFiat) ?? new Decimal(0);
-      return value.gt(minimumSourceUsd) ? sum.plus(value) : sum;
+      return (skipMinimum ? value.gt(0) : value.gt(minimumSourceUsd))
+        ? sum.plus(value)
+        : sum;
     }, new Decimal(0));
+  };
 
   const getTokenUsdRate = (token: SwapTokenOption) => {
     const tokenBalance = parseFiatNumber(token.balance) ?? new Decimal(0);
@@ -3106,8 +3110,7 @@ export function NexusOne({
       (source) =>
         source.chainId &&
         source.contractAddress &&
-        getTokenBalanceAmount(source).gt(0) &&
-        hasMinimumSourceUsdBalance(source),
+        getTokenBalanceAmount(source).gt(0),
     );
     const allocated: SwapTokenOption[] = [];
 
@@ -3178,13 +3181,11 @@ export function NexusOne({
     tokens: SwapTokenOption[],
     fallbackAmount?: string,
   ) =>
-    tokens
-      .flatMap((token) =>
-        token.isUnified
-          ? allocateUnifiedExactInToken(token, fallbackAmount)
-          : [token],
-      )
-      .filter(hasMinimumSourceUsdBalance);
+    tokens.flatMap((token) =>
+      token.isUnified
+        ? allocateUnifiedExactInToken(token, fallbackAmount)
+        : [token],
+    );
 
   const hasPositiveDecimalInput = (value: unknown) =>
     Boolean(parseFiatNumber(value)?.gt(0));
@@ -3275,7 +3276,7 @@ export function NexusOne({
           !contractAddress ||
           balance.lte(0) ||
           !fiatBalance ||
-          fiatBalance.lte(minimumSourceUsd)
+          fiatBalance.lte(0)
         )
           continue;
 
@@ -3310,25 +3311,33 @@ export function NexusOne({
       getExpandedSourceTokens(swapBalance ? deriveTokenOptions(swapBalance) : []),
     );
 
+  const getAllBalanceSourceTokens = () =>
+    getExpandedSourceTokens(swapBalance ? deriveTokenOptions(swapBalance) : []).filter(
+      (token) => (parseFiatNumber(token.balanceInFiat) ?? new Decimal(0)).gt(0),
+    );
+
   const getDefaultSourceFilterTokens = (tab: SourceFilterTab) => {
-    const minimumBalanceSources = sortSwapTokensByUsdDesc(
-      getMinimumBalanceSourceTokens(),
+    const isSwapMode = activeMode === "swap";
+    const balanceSources = sortSwapTokensByUsdDesc(
+      isSwapMode ? getAllBalanceSourceTokens() : getMinimumBalanceSourceTokens(),
     );
 
     if (tab === "native") {
-      return minimumBalanceSources.filter(isNativeSourceToken);
+      return balanceSources.filter(isNativeSourceToken);
     }
 
     if (tab === "stables") {
-      return minimumBalanceSources.filter(isStableSourceToken);
+      return balanceSources.filter(isStableSourceToken);
     }
 
     const intentSourceTokens = sortSwapTokensByUsdDesc(
-      filterMinimumSourceUsdTokens(lastIntentSourceTokensRef.current),
+      isSwapMode
+        ? lastIntentSourceTokensRef.current
+        : filterMinimumSourceUsdTokens(lastIntentSourceTokensRef.current),
     );
     return intentSourceTokens.length > 0
       ? intentSourceTokens
-      : minimumBalanceSources;
+      : balanceSources;
   };
 
   const applySourceFilterTabSelection = (tab: SourceFilterTab) => {
@@ -3360,7 +3369,9 @@ export function NexusOne({
           : getMinimumBalanceSourceTokens()
         : getExpandedSourceTokens(tokens);
 
-    return filterMinimumSourceUsdTokens(sourceTokens);
+    return activeMode === "swap"
+      ? sourceTokens
+      : filterMinimumSourceUsdTokens(sourceTokens);
   };
 
   const getDepositDestinationForSourceSelection = () => {
