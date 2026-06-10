@@ -5848,12 +5848,14 @@ export function NexusOne({
           const sdkWithOptionalTransfer = nexusSDK as any;
 
           if (typeof sdkWithOptionalTransfer.swapAndTransfer === "function") {
+            const payload = {
+              mode: "exactIn",
+              recipient: resolvedRecipientAddress as `0x${string}`,
+              ...exactInSwapPayload,
+            };
+            console.log("fetching intent swapAndTransfer payload:", payload);
             const result = await sdkWithOptionalTransfer.swapAndTransfer(
-              {
-                mode: "exactIn",
-                recipient: resolvedRecipientAddress as `0x${string}`,
-                ...exactInSwapPayload,
-              },
+              payload,
               { onEvent },
             );
             if (result?.success === false) {
@@ -5878,6 +5880,7 @@ export function NexusOne({
               mergeExplorerUrls({ destinationExplorerUrl: finalExplorerUrl });
             }
           } else {
+            console.log("fetching intent swapWithExactIn payload:", exactInSwapPayload);
             const result = await nexusSDK.swapWithExactIn(exactInSwapPayload, {
               onEvent,
             });
@@ -5912,6 +5915,7 @@ export function NexusOne({
           }
         } else {
           // Start exact-in swap — the intent hook will fire and populate preview
+          console.log("fetching intent swapWithExactIn payload:", exactInSwapPayload);
           const result = await nexusSDK.swapWithExactIn(exactInSwapPayload, {
             onEvent,
           });
@@ -5998,28 +6002,35 @@ export function NexusOne({
 
         if (executeConfig) {
           const sdkWithOptionalTransfer = nexusSDK as any;
+          const payload =
+            (activeMode === "send" || hasCustomSwapRecipient) &&
+            typeof sdkWithOptionalTransfer.swapAndTransfer === "function"
+              ? {
+                  mode: "exactOut",
+                  toChainId: toToken.chainId!,
+                  toTokenAddress: toToken.contractAddress as `0x${string}`,
+                  toAmount: amountBigInt,
+                  recipient: resolvedRecipientAddress as `0x${string}`,
+                  ...fromSourcesPayload,
+                }
+              : {
+                  toChainId: toToken.chainId!,
+                  toTokenAddress: toToken.contractAddress as `0x${string}`,
+                  toAmountRaw: amountBigInt,
+                  execute: executeConfig,
+                  ...fromSourcesPayload,
+                };
+          console.log("fetching intent swapAndTransfer/swapAndExecute payload:", payload);
+
           const result =
             (activeMode === "send" || hasCustomSwapRecipient) &&
             typeof sdkWithOptionalTransfer.swapAndTransfer === "function"
               ? await sdkWithOptionalTransfer.swapAndTransfer(
-                  {
-                    mode: "exactOut",
-                    toChainId: toToken.chainId!,
-                    toTokenAddress: toToken.contractAddress as `0x${string}`,
-                    toAmount: amountBigInt,
-                    recipient: resolvedRecipientAddress as `0x${string}`,
-                    ...fromSourcesPayload,
-                  },
+                  payload as any,
                   { onEvent },
                 )
               : await nexusSDK.swapAndExecute(
-                  {
-                    toChainId: toToken.chainId!,
-                    toTokenAddress: toToken.contractAddress as `0x${string}`,
-                    toAmount: amountBigInt,
-                    execute: executeConfig,
-                    ...fromSourcesPayload,
-                  },
+                  payload as any,
                   { onEvent },
                 );
 
@@ -6054,13 +6065,15 @@ export function NexusOne({
             finalExplorerUrl,
           });
         } else {
+          const payload = {
+            toChainId: toToken.chainId!,
+            toTokenAddress: toToken.contractAddress as `0x${string}`,
+            toAmount: amountBigInt,
+            ...fromSourcesPayload,
+          };
+          console.log("fetching intent swapWithExactOut payload:", payload);
           const result = await nexusSDK.swapWithExactOut(
-            {
-              toChainId: toToken.chainId!,
-              toTokenAddress: toToken.contractAddress as `0x${string}`,
-              toAmount: amountBigInt,
-              ...fromSourcesPayload,
-            },
+            payload,
             {
               onEvent: (event: any) => {
                 if (swapRunIdRef.current !== runId || !isCurrentQuoteInput()) {
@@ -6410,7 +6423,9 @@ export function NexusOne({
       setQuoteRefreshing(true);
     }
     try {
+      console.log("refreshing active intent, current intent data:", activeIntent.intent);
       const updated = await activeIntent.refresh();
+      console.log("active intent refresh result:", updated);
       if (
         !updated ||
         swapRunIdRef.current !== runId ||
