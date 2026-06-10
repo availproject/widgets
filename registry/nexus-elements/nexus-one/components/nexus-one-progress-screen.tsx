@@ -344,10 +344,21 @@ const buildStatusRows = ({
       state = "preapproval";
     }
 
+    const approvalSteps = (
+      swapListSteps.length > 0 ? swapListSteps : fallbackSteps
+    ).filter((step) => stepMatches(step, SWAP_APPROVAL_TYPES));
+    const currentApprovalStep = approvalSteps[approvalCompletedCount];
+    const activeSymbol = currentApprovalStep ? (currentApprovalStep as any).symbol : undefined;
+
     pushRow({
       id: "approveTokens",
       state,
-      description: state === "preapproval" ? "Approve in wallet" : undefined,
+      description:
+        state === "preapproval"
+          ? activeSymbol
+            ? `Approve ${activeSymbol} in wallet`
+            : "Approve in wallet"
+          : undefined,
       label:
         state === "completed"
           ? `Approved tokens for swap (${immutableApprovalTotal} of ${immutableApprovalTotal})`
