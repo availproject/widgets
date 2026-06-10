@@ -6589,8 +6589,7 @@ export function NexusOne({
       return;
     }
     if (swapStep === "preview-intent") {
-      clearPendingSwapIntent();
-      resetInputsAfterSuccessfulExecution();
+      swapStepRef.current = "idle";
       setSwapStep("idle");
       return;
     }
