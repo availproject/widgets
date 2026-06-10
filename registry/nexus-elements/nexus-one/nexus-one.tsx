@@ -2293,7 +2293,10 @@ export function NexusOne({
   }, [swapStep]);
 
   const isQuoteEditLocked = useCallback(
-    () => swapStepRef.current === "choose-swap-asset",
+    () =>
+      swapStepRef.current === "choose-swap-asset" ||
+      swapStepRef.current === "choose-receive-asset" ||
+      swapStepRef.current === "enter-recipient",
     [],
   );
 
@@ -4058,8 +4061,14 @@ export function NexusOne({
       setIntentToAmount(sortedIntent.destination?.amount || undefined);
       setSwapQuoteIssue(null);
 
+      const isDrawerOpen =
+        swapStepRef.current === "choose-swap-asset" ||
+        swapStepRef.current === "choose-receive-asset" ||
+        swapStepRef.current === "enter-recipient";
+
       if (
         !sourceSelectionTouched &&
+        !isDrawerOpen &&
         (activeMode === "send" ||
           (activeMode === "deposit" && swapType === "exactOut"))
       ) {
@@ -5144,6 +5153,7 @@ export function NexusOne({
   ]);
 
   useEffect(() => {
+    if (swapStep !== "idle") return;
     if (activeMode !== "deposit" && activeMode !== "send") return;
     if (lockedDestinationSourceTokens.length === 0) return;
     if (activeMode === "deposit" && !sourceSelectionTouched) return;
@@ -5165,6 +5175,7 @@ export function NexusOne({
   }, [activeMode, lockedDestinationSourceTokens, sourceSelectionTouched]);
 
   useEffect(() => {
+    if (swapStep !== "idle") return;
     if (activeMode !== "deposit") return;
     if (sourceSelectionTouched) return;
     if (
@@ -5201,6 +5212,7 @@ export function NexusOne({
     depositQuoteAmountKey,
     resolvedDepositSourceTokens,
     sourceSelectionTouched,
+    swapStep,
     toTokenQuoteKey,
   ]);
 
