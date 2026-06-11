@@ -2597,7 +2597,7 @@ export function NexusOne({
   const hasMinimumSourceUsdBalance = (
     token: Pick<SwapTokenOption, "balanceInFiat">,
   ) =>
-    (parseFiatNumber(token.balanceInFiat) ?? new Decimal(0)).gt(
+    (parseFiatNumber(token.balanceInFiat) ?? new Decimal(0)).gte(
       minimumSourceUsd,
     );
   const filterMinimumSourceUsdTokens = (tokens: SwapTokenOption[]) =>
@@ -3417,9 +3417,13 @@ export function NexusOne({
           : getMinimumBalanceSourceTokens()
         : getExpandedSourceTokens(tokens);
 
-    return activeMode === "swap" || sourceSelectionTouched
-      ? sourceTokens
-      : filterMinimumSourceUsdTokens(sourceTokens);
+    const isExactOut = activeMode === "deposit" || activeMode === "send";
+
+    return isExactOut
+      ? filterMinimumSourceUsdTokens(sourceTokens)
+      : (activeMode === "swap" || sourceSelectionTouched
+        ? sourceTokens
+        : filterMinimumSourceUsdTokens(sourceTokens));
   };
 
   const getDepositDestinationForSourceSelection = () => {
@@ -4153,10 +4157,7 @@ export function NexusOne({
         swapStepRef.current === "choose-receive-asset" ||
         swapStepRef.current === "enter-recipient";
 
-      const shouldUpdateFromTokens =
-        sourceFilter === "all" ||
-        sourceFilter === "stables" ||
-        sourceFilter === "native";
+      const shouldUpdateFromTokens = sourceFilter === "all";
 
       if (
         shouldUpdateFromTokens &&

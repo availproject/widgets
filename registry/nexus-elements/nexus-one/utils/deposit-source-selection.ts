@@ -312,20 +312,12 @@ export const resolveDepositSourceSelection = (params: {
     isManualSelection,
   }).filter((sourceId) => !excludedSourceIdSet.has(sourceId));
 
-  const resolvedSelectedSourceIds = isManualSelection
-    ? sortSourceIdsByPriority({
-        sourceIds: sourcePoolIds,
-        swapBalance,
-        destination,
-        minimumBalanceUsd,
-      })
-    : buildPrioritySelectedSourceIds({
-        swapBalance,
-        destination,
-        minimumBalanceUsd,
-        targetAmountUsd,
-        sourceIds: sourcePoolIds,
-      });
+  const resolvedSelectedSourceIds = sortSourceIdsByPriority({
+    sourceIds: sourcePoolIds,
+    swapBalance,
+    destination,
+    minimumBalanceUsd,
+  });
 
   return {
     sourcePoolIds,
