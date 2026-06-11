@@ -655,6 +655,7 @@ const NexusProvider = ({
           sdk.getBalancesForSwap(false).then(normalizeUserAssetFiatValues);
         swapBalanceRequest.current = request;
         const updatedBalance = await request;
+        console.log("GetSwapBalances", updatedBalance);
         swapBalanceRef.current = updatedBalance;
         setSwapBalance(updatedBalance);
         lastSwapBalanceFetchAt.current = Date.now();
