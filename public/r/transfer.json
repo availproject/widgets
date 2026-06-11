@@ -10,19 +10,19 @@
     "viem"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/accordion.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/button.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/card.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/checkbox.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/dialog.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/input.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/label.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/select.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/skeleton.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/tooltip.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/view-history.json"
+    "https://elements.nexus.availproject.org/r/accordion.json",
+    "https://elements.nexus.availproject.org/r/button.json",
+    "https://elements.nexus.availproject.org/r/card.json",
+    "https://elements.nexus.availproject.org/r/checkbox.json",
+    "https://elements.nexus.availproject.org/r/dialog.json",
+    "https://elements.nexus.availproject.org/r/input.json",
+    "https://elements.nexus.availproject.org/r/label.json",
+    "https://elements.nexus.availproject.org/r/nexus-provider.json",
+    "https://elements.nexus.availproject.org/r/select.json",
+    "https://elements.nexus.availproject.org/r/skeleton.json",
+    "https://elements.nexus.availproject.org/r/tooltip.json",
+    "https://elements.nexus.availproject.org/r/utils.json",
+    "https://elements.nexus.availproject.org/r/view-history.json"
   ],
   "files": [
     {

@@ -5,7 +5,7 @@
   "title": "Skeleton",
   "description": "UI primitive: Skeleton",
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+    "https://elements.nexus.availproject.org/r/utils.json"
   ],
   "files": [
     {

@@ -12,10 +12,10 @@
     "wagmi"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/button.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/dialog.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/swaps.json"
+    "https://elements.nexus.availproject.org/r/button.json",
+    "https://elements.nexus.availproject.org/r/dialog.json",
+    "https://elements.nexus.availproject.org/r/nexus-provider.json",
+    "https://elements.nexus.availproject.org/r/swaps.json"
   ],
   "files": [
     {

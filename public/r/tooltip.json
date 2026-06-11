@@ -8,7 +8,7 @@
     "@radix-ui/react-tooltip"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+    "https://elements.nexus.availproject.org/r/utils.json"
   ],
   "files": [
     {

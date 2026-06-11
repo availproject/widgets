@@ -5,7 +5,7 @@
   "title": "Card",
   "description": "UI primitive: Card",
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+    "https://elements.nexus.availproject.org/r/utils.json"
   ],
   "files": [
     {
