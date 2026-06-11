@@ -937,6 +937,8 @@ const getFailureMessageForProgressStep = (
   const type = getProgressStepType(step);
   if (
     type.includes("CREATE_PERMIT_FOR_SOURCE_SWAP") ||
+    type.includes("CREATE_PERMIT_EOA_TO_EPHEMERAL") ||
+    type.includes("EOA_EXECUTE_CALL") ||
     type.includes("SOURCE_SWAP") ||
     type.includes("COLLECTION")
   ) {
@@ -7107,6 +7109,9 @@ export function NexusOne({
     (hasIntentSources ||
       ((activeMode === "deposit" || activeMode === "send") &&
         Boolean(intentData?.destination)));
+  const hasIntentOrSources =
+    (activeMode === "deposit" || activeMode === "send") &&
+    (Boolean(hasPositiveDecimalInput(amount)) || fromTokens.length > 0);
   const isExactOutRouteLoading =
     (activeMode === "deposit" || activeMode === "send") &&
     swapStep === "idle" &&
@@ -7960,7 +7965,7 @@ export function NexusOne({
                       tokenValue={depositTokenDisplay}
                       fromTokens={displayFromTokens}
                       isSourcePickerDisabled={isSourcePickerDisabled}
-                      reserveSourceRows={hasCurrentExactOutPaymentIntent}
+                      reserveSourceRows={hasIntentOrSources}
                       onOpenSourcePicker={() => {
                         if (isSourcePickerDisabled) return;
                         openDrawerStep("choose-swap-asset");
@@ -8092,7 +8097,7 @@ export function NexusOne({
                   toToken={toTokenWithFetchedBalance}
                   fromTokens={displayFromTokens}
                   isSourcePickerDisabled={isSourcePickerDisabled}
-                  reserveSourceRows={hasCurrentExactOutPaymentIntent}
+                  reserveSourceRows={hasIntentOrSources}
                   totalBalance={totalSwapBalanceUsd}
                   usdValue={
                     amount && sendAmountUsd > 0 ? sendAmountUsd.toFixed(2) : ""
@@ -8509,7 +8514,7 @@ export function NexusOne({
               style={{
                 ...modalHeightTransitionStyle,
                 bottom: 0,
-                height: "auto",
+                height: activeMode === "swap" ? "90%" : "auto",
                 left: 0,
                 maxHeight: "90%",
                 position: "absolute",
@@ -8906,7 +8911,7 @@ export function NexusOne({
               style={{
                 ...modalHeightTransitionStyle,
                 bottom: 0,
-                height: "auto",
+                height: activeMode === "swap" ? "90%" : "auto",
                 left: 0,
                 maxHeight: "90%",
                 position: "absolute",
