@@ -840,10 +840,6 @@ export function SwapIntentPreview({
       undefined,
     );
   })();
-  const priceImpactBaseUsd =
-    hasFiatQuote && feeNumber !== undefined
-      ? effectiveSourceUsdNumber.minus(feeNumber).minus(swapBufferNumber ?? new Decimal(0))
-      : undefined;
   const quoteImpactUsd =
     hasFiatQuote && feeNumber !== undefined
       ? Decimal.max(
@@ -860,8 +856,9 @@ export function SwapIntentPreview({
     hasFiatQuote && priceImpactUsd !== undefined
       ? priceImpactUsd.eq(0)
         ? new Decimal(0)
-        : priceImpactBaseUsd !== undefined && priceImpactBaseUsd.gt(0)
-          ? priceImpactUsd.neg().div(priceImpactBaseUsd).mul(100)
+        : effectiveSourceUsdNumber !== undefined &&
+            effectiveSourceUsdNumber.gt(0)
+          ? priceImpactUsd.neg().div(effectiveSourceUsdNumber).mul(100)
           : undefined
       : undefined;
   const swapImpactPercent =
@@ -1609,7 +1606,7 @@ export function SwapIntentPreview({
                 color:
                   hasFiatQuote &&
                   swapImpactPercent !== undefined &&
-                  swapImpactPercent.lte(0)
+                  swapImpactPercent.gte(0)
                     ? "#168A47"
                     : primary,
                 fontFamily,
