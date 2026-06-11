@@ -2133,6 +2133,7 @@ export function NexusOne({
 
   useEffect(() => {
     setPersistedRequirementUsd(null);
+    consecutiveTimeoutsRef.current = 0;
   }, [activeMode, toTokenQuoteKey, amount, recipientAddress]);
 
   const setExactOutQuoteSourceModeValue = useCallback(
@@ -2288,6 +2289,17 @@ export function NexusOne({
     null,
   );
   const swapStepRef = useRef<SwapStep>(swapStep);
+  const consecutiveTimeoutsRef = useRef(0);
+  const intentLoadingRef = useRef(intentLoading);
+  useEffect(() => {
+    intentLoadingRef.current = intentLoading;
+  }, [intentLoading]);
+
+  const quoteRefreshingRef = useRef(quoteRefreshing);
+  useEffect(() => {
+    quoteRefreshingRef.current = quoteRefreshing;
+  }, [quoteRefreshing]);
+
   const syncingIntentSourcesRef = useRef(false);
   const lastIntentSourceTokensRef = useRef<SwapTokenOption[]>([]);
   const autoPickedSourcesRef = useRef<SwapTokenOption[]>([]);
@@ -5467,6 +5479,7 @@ export function NexusOne({
   /** Start swap flow — SDK will trigger setOnSwapIntentHook for preview */
   const handleEnterPreview = async (options: { background?: boolean } = {}) => {
     const { background = false } = options;
+    let timeoutTimerId: number | undefined;
     const isExactOutFlow = activeMode === "deposit" || activeMode === "send";
     const quoteInputKey = activeQuoteInputKeyRef.current;
     const isCurrentQuoteInput = () =>
@@ -5612,6 +5625,31 @@ export function NexusOne({
 
     swapRunIdRef.current += 1;
     const runId = swapRunIdRef.current;
+
+    timeoutTimerId = window.setTimeout(() => {
+      if (
+        swapRunIdRef.current === runId &&
+        isCurrentQuoteInput() &&
+        (swapStepRef.current === "idle" || swapStepRef.current === "preview-intent") &&
+        (intentLoadingRef.current || quoteRefreshingRef.current)
+      ) {
+        console.warn(`[NexusOne] Intent fetch timed out (10s) for runId ${runId}. Retrying...`);
+        swapIntentRef.current?.deny();
+        swapIntentRef.current = null;
+
+        if (consecutiveTimeoutsRef.current < 2) {
+          consecutiveTimeoutsRef.current += 1;
+          void handleEnterPreview({ background });
+        } else {
+          console.error("[NexusOne] Max consecutive intent timeouts reached.");
+          flushSync(() => {
+            setIntentLoading(false);
+            setQuoteRefreshing(false);
+            setTxError("Failed to fetch intent quote. Please try again.");
+          });
+        }
+      }
+    }, 10000);
 
     // Claim ownership of global singleton hook before executing SDK swap
     registerIntentHook(runId, quoteInputKey);
@@ -6269,6 +6307,10 @@ export function NexusOne({
       }
       setTxError(errorMessage);
       onError?.(errorMessage);
+    } finally {
+      if (timeoutTimerId !== undefined) {
+        window.clearTimeout(timeoutTimerId);
+      }
     }
   };
 
