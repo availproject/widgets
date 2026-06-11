@@ -225,6 +225,19 @@ const isSameTokenSelection = (
   b?: SwapTokenOption | null,
 ) => Boolean(a && b && getTokenSelectionKey(a) === getTokenSelectionKey(b));
 
+const isSameReadySourceTokenList = (a: SwapTokenOption[], b: SwapTokenOption[]) => {
+  if (a.length !== b.length) return false;
+  return a.every((tokenA) =>
+    b.some(
+      (tokenB) =>
+        isSameTokenSelection(tokenA, tokenB) &&
+        tokenA.userAmount === tokenB.userAmount &&
+        tokenA.userAmountUsd === tokenB.userAmountUsd &&
+        tokenA.userAmountMode === tokenB.userAmountMode
+    )
+  );
+};
+
 const getDepositConfigIdentity = (
   deposit?: NexusOneDepositMetadata | null,
 ) => {
@@ -5329,6 +5342,16 @@ export function NexusOne({
     }
   };
 
+  const handleBackFromFailure = () => {
+    clearPendingSwapIntent();
+    setTxError(null);
+    setSwapQuoteIssue(null);
+    setSwapStep("idle");
+    setCurrentSwapId(null);
+    currentSwapIdRef.current = null;
+    currentSwapStartedAtRef.current = 0;
+  };
+
   const resetInputsAfterSuccessfulExecution = () => {
     setAmount("");
     setRecipientAddress("");
@@ -6190,7 +6213,9 @@ export function NexusOne({
           failedStepType: getProgressStepType(failedStep),
           ...patch,
         });
-        resetInputsAfterSuccessfulExecution();
+        if (!(activeMode === "swap" && swapType === "exactIn")) {
+          resetInputsAfterSuccessfulExecution();
+        }
         window.setTimeout(() => {
           if (
             swapRunIdRef.current === runId &&
@@ -6707,7 +6732,11 @@ export function NexusOne({
       return;
     }
     if (swapStep === "success" || swapStep === "failed") {
-      handleReset();
+      if (swapStep === "failed" && activeMode === "swap" && swapType === "exactIn") {
+        handleBackFromFailure();
+      } else {
+        handleReset();
+      }
       return;
     }
     if (swapStep === "preview-intent") {
@@ -7681,7 +7710,11 @@ export function NexusOne({
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
                       <SwapReceiptPanel
                         entry={currentSwapEntry}
-                        onDone={handleReset}
+                        onDone={
+                          swapStep === "failed" && activeMode === "swap" && swapType === "exactIn"
+                            ? handleBackFromFailure
+                            : handleReset
+                        }
                       />
                     </div>
                   )}
@@ -8733,8 +8766,12 @@ export function NexusOne({
                     }
 
                     if (tokenChanged) {
-                      clearPendingSwapIntent();
-                      setAmount(getSourceAmountInput(next));
+                      const prevReady = getReadyExactInSourceTokens(fromTokens);
+                      const nextReady = getReadyExactInSourceTokens(next);
+                      if (!isSameReadySourceTokenList(prevReady, nextReady)) {
+                        clearPendingSwapIntent();
+                        setAmount(getSourceAmountInput(next));
+                      }
                     }
                     if (swapType !== "exactIn") {
                       setSwapType("exactIn");
