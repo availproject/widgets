@@ -5,14 +5,14 @@
   "title": "All Elements",
   "description": "Install all Nexus Elements. For new integrations, use @nexus-elements/nexus-one instead — it provides unified swap, send, and deposit in one component.",
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/bridge-deposit.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/deposit.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/fast-bridge.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/swaps.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/transfer.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/unified-balance.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/view-history.json"
+    "https://elements.nexus.availproject.org/r/bridge-deposit.json",
+    "https://elements.nexus.availproject.org/r/deposit.json",
+    "https://elements.nexus.availproject.org/r/fast-bridge.json",
+    "https://elements.nexus.availproject.org/r/nexus-provider.json",
+    "https://elements.nexus.availproject.org/r/swaps.json",
+    "https://elements.nexus.availproject.org/r/transfer.json",
+    "https://elements.nexus.availproject.org/r/unified-balance.json",
+    "https://elements.nexus.availproject.org/r/view-history.json"
   ],
   "files": [
     {

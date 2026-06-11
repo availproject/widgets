@@ -21,7 +21,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -37,14 +37,14 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/bridge-deposit.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/deposit.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/fast-bridge.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/swaps.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/transfer.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/unified-balance.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/view-history.json"
+        "https://elements.nexus.availproject.org/r/bridge-deposit.json",
+        "https://elements.nexus.availproject.org/r/deposit.json",
+        "https://elements.nexus.availproject.org/r/fast-bridge.json",
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/swaps.json",
+        "https://elements.nexus.availproject.org/r/transfer.json",
+        "https://elements.nexus.availproject.org/r/unified-balance.json",
+        "https://elements.nexus.availproject.org/r/view-history.json"
       ]
     },
     {
@@ -77,7 +77,7 @@
         "class-variance-authority"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -253,20 +253,20 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/collapsible.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/popover.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/accordion.json",
+        "https://elements.nexus.availproject.org/r/button.json",
+        "https://elements.nexus.availproject.org/r/card.json",
+        "https://elements.nexus.availproject.org/r/checkbox.json",
+        "https://elements.nexus.availproject.org/r/collapsible.json",
+        "https://elements.nexus.availproject.org/r/dialog.json",
+        "https://elements.nexus.availproject.org/r/input.json",
+        "https://elements.nexus.availproject.org/r/label.json",
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/popover.json",
+        "https://elements.nexus.availproject.org/r/skeleton.json",
+        "https://elements.nexus.availproject.org/r/tabs.json",
+        "https://elements.nexus.availproject.org/r/tooltip.json",
+        "https://elements.nexus.availproject.org/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
@@ -291,7 +291,7 @@
         "class-variance-authority"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -307,7 +307,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -327,7 +327,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -617,16 +617,16 @@
         "wagmi"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/animated-spinner.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/animated-spinner.json",
+        "https://elements.nexus.availproject.org/r/button.json",
+        "https://elements.nexus.availproject.org/r/card.json",
+        "https://elements.nexus.availproject.org/r/checkbox.json",
+        "https://elements.nexus.availproject.org/r/dialog.json",
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/skeleton.json",
+        "https://elements.nexus.availproject.org/r/tabs.json",
+        "https://elements.nexus.availproject.org/r/tooltip.json",
+        "https://elements.nexus.availproject.org/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
@@ -651,7 +651,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -812,19 +812,19 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/view-history.json"
+        "https://elements.nexus.availproject.org/r/accordion.json",
+        "https://elements.nexus.availproject.org/r/button.json",
+        "https://elements.nexus.availproject.org/r/card.json",
+        "https://elements.nexus.availproject.org/r/checkbox.json",
+        "https://elements.nexus.availproject.org/r/dialog.json",
+        "https://elements.nexus.availproject.org/r/input.json",
+        "https://elements.nexus.availproject.org/r/label.json",
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/select.json",
+        "https://elements.nexus.availproject.org/r/skeleton.json",
+        "https://elements.nexus.availproject.org/r/tooltip.json",
+        "https://elements.nexus.availproject.org/r/utils.json",
+        "https://elements.nexus.availproject.org/r/view-history.json"
       ],
       "meta": {
         "deprecated": true,
@@ -845,7 +845,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -864,7 +864,7 @@
         "@radix-ui/react-label"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -1062,10 +1062,10 @@
         "wagmi"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/swaps.json"
+        "https://elements.nexus.availproject.org/r/button.json",
+        "https://elements.nexus.availproject.org/r/dialog.json",
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/swaps.json"
       ],
       "meta": {
         "featured": true
@@ -1105,7 +1105,7 @@
         "@radix-ui/react-popover"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -1125,7 +1125,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -1141,7 +1141,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -1157,7 +1157,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -1343,16 +1343,16 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/accordion.json",
+        "https://elements.nexus.availproject.org/r/button.json",
+        "https://elements.nexus.availproject.org/r/checkbox.json",
+        "https://elements.nexus.availproject.org/r/dialog.json",
+        "https://elements.nexus.availproject.org/r/label.json",
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/select.json",
+        "https://elements.nexus.availproject.org/r/separator.json",
+        "https://elements.nexus.availproject.org/r/tooltip.json",
+        "https://elements.nexus.availproject.org/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
@@ -1376,7 +1376,7 @@
         "@radix-ui/react-tabs"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -1395,7 +1395,7 @@
         "@radix-ui/react-tooltip"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/utils.json"
       ]
     },
     {
@@ -1556,19 +1556,19 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/view-history.json"
+        "https://elements.nexus.availproject.org/r/accordion.json",
+        "https://elements.nexus.availproject.org/r/button.json",
+        "https://elements.nexus.availproject.org/r/card.json",
+        "https://elements.nexus.availproject.org/r/checkbox.json",
+        "https://elements.nexus.availproject.org/r/dialog.json",
+        "https://elements.nexus.availproject.org/r/input.json",
+        "https://elements.nexus.availproject.org/r/label.json",
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/select.json",
+        "https://elements.nexus.availproject.org/r/skeleton.json",
+        "https://elements.nexus.availproject.org/r/tooltip.json",
+        "https://elements.nexus.availproject.org/r/utils.json",
+        "https://elements.nexus.availproject.org/r/view-history.json"
       ],
       "meta": {
         "deprecated": true,
@@ -1593,12 +1593,12 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/accordion.json",
+        "https://elements.nexus.availproject.org/r/label.json",
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/separator.json",
+        "https://elements.nexus.availproject.org/r/tabs.json",
+        "https://elements.nexus.availproject.org/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
@@ -1745,13 +1745,13 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/badge.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/update-nexus-one-design/public/r/utils.json"
+        "https://elements.nexus.availproject.org/r/badge.json",
+        "https://elements.nexus.availproject.org/r/button.json",
+        "https://elements.nexus.availproject.org/r/card.json",
+        "https://elements.nexus.availproject.org/r/dialog.json",
+        "https://elements.nexus.availproject.org/r/nexus-provider.json",
+        "https://elements.nexus.availproject.org/r/separator.json",
+        "https://elements.nexus.availproject.org/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
