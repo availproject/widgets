@@ -270,7 +270,7 @@ const sanitizeOpportunityForHistory = (
   if (!opportunity) return undefined;
   return {
     protocol: opportunity.protocol,
-    logo: opportunity.logo,
+    depositTargetLogo: opportunity.depositTargetLogo,
     title: opportunity.title,
     chainId: opportunity.chainId,
     tokenSymbol: opportunity.tokenSymbol,
@@ -1336,7 +1336,7 @@ function SwapReceiptPanel({
           <MiniLogo
             src={
               isDeposit
-                ? entry.opportunity?.logo || entry.toToken?.logo
+                ? entry.opportunity?.depositTargetLogo || entry.toToken?.logo
                 : entry.toToken?.logo
             }
             label={tokenSymbol}

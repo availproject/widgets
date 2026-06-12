@@ -27,6 +27,7 @@ Install the skill pack once in your environment:
 ```bash
 npx skills add availproject/nexus-elements
 ```
+
 <span className="block mt-6" />
 
 For more information, view [skills.sh/availproject/nexus-elements](https://skills.sh/availproject/nexus-elements).
@@ -121,17 +122,30 @@ const depositConfig = {
 
 Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the destination deposit amount, pay-with sources are selected, and the flow submits through `swapAndExecute`.
 
-| Prop | Required | Description |
-| --- | --- | --- |
-| `config.mode` | Yes | Must be `"deposit"`. |
-| `config.deposit` | Yes | Single destination and app-call config. Deposit opens the form directly. |
-| `config.deposit.executeDeposit` | Yes | Transaction builder passed to `swapAndExecute`. |
-| `config.prefill.amount` | Optional | Prefills the exact output deposit amount. |
-| `config.allowedSourcePairs` | Optional | Restricts pay-with source assets. |
-| `connectedAddress` | Optional | Wallet address to use. If omitted, the connected wagmi account is used. |
-| `embed` | Optional | Defaults to `true`. Set `false` to render as a modal surface. |
-| `open`, `onOpenChange`, `defaultOpen` | Optional | Control the modal when `embed={false}`. |
+| Prop                                                             | Required | Description                                                                                       |
+| ---------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `config.mode`                                                    | Yes      | Must be `"deposit"`.                                                                              |
+| `config.deposit`                                                 | Yes      | Single destination and app-call config. Deposit opens the form directly.                          |
+| `config.prefill.amount`                                          | Optional | Prefills the exact output deposit amount.                                                         |
+| `config.allowedSourcePairs`                                      | Optional | Restricts pay-with source assets.                                                                 |
+| `connectedAddress`                                               | Optional | Wallet address to use. If omitted, the connected wagmi account is used.                           |
+| `embed`                                                          | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                     |
+| `open`, `onOpenChange`, `defaultOpen`                            | Optional | Control the modal when `embed={false}`.                                                           |
 | `onStart`, `onComplete`, `onError`, `onClose`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectWallet` to route the element CTA to your app-level wallet flow. |
+
+### Deposit Config Fields (`config.deposit`)
+
+| Field               | Type                | Required | Description                                                                                                                                                                                                                                              |
+| ------------------- | ------------------- | :------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chainId`           | `number`            | **Yes**  | Chain ID of the destination network.                                                                                                                                                                                                                     |
+| `tokenAddress`      | `` `0x${string}` `` | **Yes**  | The contract address of the destination token on the destination chain.                                                                                                                                                                                  |
+| `tokenSymbol`       | `string`            | **Yes**  | The symbol of the destination token (e.g. `"USDC"`, `"USDT"`).                                                                                                                                                                                           |
+| `tokenDecimals`     | `number`            | **Yes**  | Decimals of the destination token (e.g. `6`, `18`).                                                                                                                                                                                                      |
+| `executeDeposit`    | `function`          | **Yes**  | Callback builder returning transaction execution parameters (target contract, call data, and token approval) for the final transaction: `(tokenSymbol, tokenAddress, amount, chainId, user) => { to, data, tokenApproval: { token, amount, spender } }`. |
+| `title`             | `string`            |    No    | Display title for the deposit opportunity (highest priority for headers and UI state).                                                                                                                                                                   |
+| `protocol`          | `string`            |    No    | Name of the target protocol/platform (used in fallback headers and progress labels).                                                                                                                                                                     |
+| `tokenLogo`         | `string`            |    No    | Logo URL override for the destination token.                                                                                                                                                                                                             |
+| `depositTargetLogo` | `string`            |    No    | URL of the protocol/target platform logo (used for headers, and transaction complete screens).                                                                                                                                                           |
 
 ## Modal Usage
 
@@ -143,21 +157,21 @@ Render `embed={false}` to invoke Deposit from a button and show the element as a
   connectedAddress={address}
   embed={false}
   defaultOpen={false}
-/>;
+/>
 ```
 
 Control the modal from app state when needed.
 
 ```tsx showLineNumbers
 const [open, setOpen] = useState(false);
- 
+
 <NexusOne
   config={depositConfig}
   connectedAddress={address}
   embed={false}
   open={open}
   onOpenChange={setOpen}
-/>
+/>;
 ```
 
 ## Supporting Multiple Opportunities / Selector UI
@@ -181,9 +195,15 @@ const OPPORTUNITIES = {
     protocol: "Aave",
     executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
       to: "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
-      data: encodeFunctionData({ /* Aave supply arguments */ }),
-      tokenApproval: { token: tokenAddress, amount, spender: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" }
-    })
+      data: encodeFunctionData({
+        /* Aave supply arguments */
+      }),
+      tokenApproval: {
+        token: tokenAddress,
+        amount,
+        spender: "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+      },
+    }),
   },
   compound: {
     chainId: 8453,
@@ -194,14 +214,21 @@ const OPPORTUNITIES = {
     protocol: "Compound",
     executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
       to: "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
-      data: encodeFunctionData({ /* Compound supply arguments */ }),
-      tokenApproval: { token: tokenAddress, amount, spender: "0xc3d688B66703497DAA19211EEdff47f25384cdc3" }
-    })
-  }
+      data: encodeFunctionData({
+        /* Compound supply arguments */
+      }),
+      tokenApproval: {
+        token: tokenAddress,
+        amount,
+        spender: "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+      },
+    }),
+  },
 };
 
 export function MultiDepositShowcase({ address }) {
-  const [selectedOpt, setSelectedOpt] = useState<keyof typeof OPPORTUNITIES>("aave");
+  const [selectedOpt, setSelectedOpt] =
+    useState<keyof typeof OPPORTUNITIES>("aave");
 
   return (
     <div className="space-y-4">
@@ -211,7 +238,9 @@ export function MultiDepositShowcase({ address }) {
         </label>
         <select
           value={selectedOpt}
-          onChange={(e) => setSelectedOpt(e.target.value as keyof typeof OPPORTUNITIES)}
+          onChange={(e) =>
+            setSelectedOpt(e.target.value as keyof typeof OPPORTUNITIES)
+          }
           className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent cursor-pointer"
         >
           <option value="aave">Aave (USDT on Arbitrum)</option>
@@ -222,7 +251,7 @@ export function MultiDepositShowcase({ address }) {
       <NexusOne
         config={{
           mode: "deposit",
-          deposit: OPPORTUNITIES[selectedOpt]
+          deposit: OPPORTUNITIES[selectedOpt],
         }}
         connectedAddress={address}
       />

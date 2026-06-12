@@ -152,6 +152,18 @@ export function App({ address }: { address?: `0x${string}` }) {
 
 `deposit` is required only when `mode` is `"deposit"`. It describes the destination asset and the contract execution Nexus should perform after the swap settles.
 
+| Field | Type | Required | Description |
+| --- | --- | :---: | --- |
+| `chainId` | `number` | **Yes** | Chain ID of the destination network. |
+| `tokenAddress` | `` `0x${string}` `` | **Yes** | The contract address of the destination token on the destination chain. |
+| `tokenSymbol` | `string` | **Yes** | The symbol of the destination token (e.g. `"USDC"`, `"USDT"`). |
+| `tokenDecimals` | `number` | **Yes** | Decimals of the destination token (e.g. `6`, `18`). |
+| `executeDeposit` | `function` | **Yes** | Callback builder returning transaction execution parameters (target contract, call data, and token approval) for the final transaction: `(tokenSymbol, tokenAddress, amount, chainId, user) => { to, data, tokenApproval: { token, amount, spender } }`. |
+| `title` | `string` | No | Display title for the deposit opportunity (highest priority for headers and UI state). |
+| `protocol` | `string` | No | Name of the target protocol/platform (used in fallback headers and progress labels). |
+| `tokenLogo` | `string` | No | Logo URL override for the destination token. |
+| `depositTargetLogo` | `string` | No | URL of the protocol/target platform logo (used for selector dropdowns, headers, and transaction complete screens). |
+
 ## Examples
 
 ### Swap

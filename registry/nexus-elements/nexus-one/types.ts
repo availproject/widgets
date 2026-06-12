@@ -13,7 +13,6 @@ export type DepositExecuteConfig = Omit<ExecuteParams, "toChainId">;
 
 export interface NexusOneDepositConfig {
   chainId: SUPPORTED_CHAINS_IDS;
-  depositTargetLogo?: string;
   tokenAddress: Address;
   tokenSymbol: string;
   tokenDecimals: number;
@@ -28,7 +27,7 @@ export interface NexusOneDepositConfig {
 
   /** Optional labels used by Nexus One history/progress copy. */
   protocol?: string;
-  logo?: string;
+  depositTargetLogo?: string;
   title?: string;
 }
 
