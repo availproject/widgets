@@ -77,7 +77,6 @@ export function DepositWidget({ address }: { address?: `0x${string}` }) {
       tokenAddress: DESTINATION_TOKEN,
       title: "MyProtocol",           // Name of your application/action
       protocol: "MyProtocol",
-      label: "Deposit USDT",         // CTA text in the UI
       executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) =>
         buildDepositExecuteConfig(tokenAddress, amount, user),
     },

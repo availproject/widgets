@@ -26,7 +26,6 @@ const USDT_ARBITRUM = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
     deposit: {
       title: "Aave",
       protocol: "Aave",
-      label: "Deposit USDT on Arbitrum",
       chainId: 42161,
       tokenSymbol: "USDT",
       tokenDecimals: 6,

@@ -107,7 +107,6 @@ const depositConfig = {
     // Configure display metadata for your app/protocol.
     title: "Your App",
     protocol: "Your App",
-    label: "Deposit USDT",
 
     // Configure the app call Nexus should execute after the swap settles.
     executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) =>
@@ -180,7 +179,6 @@ const OPPORTUNITIES = {
     tokenAddress: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
     title: "Aave Market",
     protocol: "Aave",
-    label: "Deposit USDT into Aave",
     executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
       to: "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
       data: encodeFunctionData({ /* Aave supply arguments */ }),
@@ -194,7 +192,6 @@ const OPPORTUNITIES = {
     tokenAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     title: "Compound Market",
     protocol: "Compound",
-    label: "Supply USDC into Compound",
     executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
       to: "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
       data: encodeFunctionData({ /* Compound supply arguments */ }),

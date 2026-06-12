@@ -18,10 +18,6 @@ export interface NexusOneDepositConfig {
   tokenSymbol: string;
   tokenDecimals: number;
   tokenLogo?: string;
-  label?: string;
-  estimatedTime?: string;
-  gasTokenSymbol?: string;
-  explorerUrl?: string;
   executeDeposit: (
     tokenSymbol: string,
     tokenAddress: Address,
@@ -34,9 +30,6 @@ export interface NexusOneDepositConfig {
   protocol?: string;
   logo?: string;
   title?: string;
-  subtitle?: string;
-  apy?: string;
-  description?: string;
 }
 
 export type NexusOneDepositMetadata = Omit<

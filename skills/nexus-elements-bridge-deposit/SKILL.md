@@ -26,7 +26,6 @@ const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
     deposit: {
       title: "Aave",
       protocol: "Aave",
-      label: "Deposit USDC on Base",
       chainId: 8453,
       tokenSymbol: "USDC",
       tokenDecimals: 6,

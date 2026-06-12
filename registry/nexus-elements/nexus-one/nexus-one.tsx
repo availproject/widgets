@@ -269,18 +269,14 @@ const sanitizeOpportunityForHistory = (
 ): NexusOneDepositMetadata | undefined => {
   if (!opportunity) return undefined;
   return {
-    label: opportunity.label,
     protocol: opportunity.protocol,
     logo: opportunity.logo,
     title: opportunity.title,
-    subtitle: opportunity.subtitle,
     chainId: opportunity.chainId,
     tokenSymbol: opportunity.tokenSymbol,
     tokenDecimals: opportunity.tokenDecimals,
     tokenLogo: opportunity.tokenLogo,
     tokenAddress: opportunity.tokenAddress,
-    apy: opportunity.apy,
-    description: opportunity.description,
   };
 };
 
@@ -6687,26 +6683,16 @@ export function NexusOne({
     if (!selectedOpportunity) return "Deposit";
 
     const configuredTitle = selectedOpportunity.title?.trim();
-    if (configuredTitle?.toLowerCase().startsWith("deposit ")) {
+    if (configuredTitle) {
       return configuredTitle;
     }
 
-    const configuredLabel = selectedOpportunity.label?.trim();
-    if (configuredLabel?.toLowerCase().startsWith("deposit ")) {
-      return configuredLabel;
+    const protocol = selectedOpportunity.protocol?.trim() || "";
+    if (protocol) {
+      return `Deposit ${selectedOpportunity.tokenSymbol} on ${protocol}`;
     }
 
-    const chainName =
-      getShortChainName(
-        selectedOpportunity.chainId,
-        CHAIN_METADATA[selectedOpportunity.chainId]?.name,
-      ) || "";
-    const protocol =
-      selectedOpportunity.protocol || configuredTitle || configuredLabel || "";
-    const parts = [`Deposit ${selectedOpportunity.tokenSymbol}`];
-    if (chainName) parts.push(`on ${chainName}`);
-    if (protocol) parts.push(`on ${protocol}`);
-    return parts.join(" ");
+    return `Deposit ${selectedOpportunity.tokenSymbol}`;
   };
 
   const getTitle = () => {
