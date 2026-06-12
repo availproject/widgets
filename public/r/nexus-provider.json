@@ -5,7 +5,7 @@
   "title": "Nexus Provider",
   "description": "Shared Nexus SDK provider and types for Nexus Elements",
   "dependencies": [
-    "@avail-project/nexus-core@1.5.0",
+    "@avail-project/nexus-core@1.6.0",
     "wagmi"
   ],
   "files": [

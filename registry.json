@@ -248,7 +248,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.5.0",
+        "@avail-project/nexus-core@1.6.0",
         "lucide-react",
         "viem"
       ],
@@ -609,7 +609,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.5.0",
+        "@avail-project/nexus-core@1.6.0",
         "clsx",
         "lucide-react",
         "tailwind-merge",
@@ -807,7 +807,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.5.0",
+        "@avail-project/nexus-core@1.6.0",
         "lucide-react",
         "viem"
       ],
@@ -1055,7 +1055,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.5.0",
+        "@avail-project/nexus-core@1.6.0",
         "decimal.js",
         "lucide-react",
         "viem",
@@ -1085,7 +1085,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.5.0",
+        "@avail-project/nexus-core@1.6.0",
         "wagmi"
       ]
     },
@@ -1338,7 +1338,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.5.0",
+        "@avail-project/nexus-core@1.6.0",
         "lucide-react",
         "viem"
       ],
@@ -1547,7 +1547,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.5.0",
+        "@avail-project/nexus-core@1.6.0",
         "lucide-react",
         "viem"
       ],
@@ -1585,7 +1585,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.5.0",
+        "@avail-project/nexus-core@1.6.0",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1737,7 +1737,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@1.5.0",
+        "@avail-project/nexus-core@1.6.0",
         "lucide-react"
       ],
       "registryDependencies": [

@@ -17,7 +17,7 @@ npx shadcn@latest add @nexus-elements/nexus-one
 
 Make sure peer dependencies are installed:
 ```bash
-npm install @avail-project/nexus-core decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
+npm install @avail-project/nexus-core@1.6.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
 ```
 
 ## 2. Basic Setup

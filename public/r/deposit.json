@@ -5,7 +5,7 @@
   "title": "Deposit",
   "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
   "dependencies": [
-    "@avail-project/nexus-core@1.5.0",
+    "@avail-project/nexus-core@1.6.0",
     "clsx",
     "lucide-react",
     "tailwind-merge",

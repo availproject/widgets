@@ -5,7 +5,7 @@
   "title": "Fast Transfer",
   "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
   "dependencies": [
-    "@avail-project/nexus-core@1.5.0",
+    "@avail-project/nexus-core@1.6.0",
     "lucide-react",
     "viem"
   ],

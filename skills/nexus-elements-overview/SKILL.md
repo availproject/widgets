@@ -29,7 +29,7 @@ npx shadcn@latest add @nexus-elements/nexus-one
 
 ### 1. Install project deps
 ```bash
-pnpm add @avail-project/nexus-core wagmi viem lucide-react @tanstack/react-query
+pnpm add @avail-project/nexus-core@1.6.0 wagmi viem lucide-react @tanstack/react-query
 ```
 
 ### 2. Configure registry
