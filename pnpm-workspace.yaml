@@ -23,3 +23,5 @@ overrides:
 minimumReleaseAgeExclude:
   - '@avail-project/ca-common@2.3.0'
   - '@avail-project/nexus-core@1.5.0'
+  - '@avail-project/ca-common@3.0.0'
+  - '@avail-project/nexus-core@1.6.0'
