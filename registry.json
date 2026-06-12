@@ -1164,7 +1164,7 @@
       "name": "swaps",
       "type": "registry:component",
       "title": "Swaps",
-      "description": "Deprecated: use Nexus One instead. Legacy swap tokens across chains component.",
+      "description": "Legacy swap tokens across chains component.",
       "files": [
         {
           "path": "registry/nexus-elements/swaps/components/amount-input.tsx",
@@ -1354,11 +1354,7 @@
         "https://elements.nexus.availproject.org/r/tooltip.json",
         "https://elements.nexus.availproject.org/r/utils.json"
       ],
-      "meta": {
-        "deprecated": true,
-        "deprecationMessage": "Swaps is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
-      },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
+      "docs": "Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
     },
     {
       "name": "tabs",

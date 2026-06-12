@@ -71,14 +71,8 @@ const DEFAULT_CONFIG: RegistryConfig = {
     },
     swaps: {
       title: "Swaps",
-      description:
-        "Deprecated: use Nexus One instead. Legacy swap tokens across chains component.",
-      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "swap" for new integrations.',
-      meta: {
-        deprecated: true,
-        deprecationMessage:
-          'Swaps is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "swap" for new integrations.',
-      },
+      description: "Legacy swap tokens across chains component.",
+      docs: 'Use @nexus-elements/nexus-one with config.mode = "swap" for new integrations.',
     },
     "unified-balance": {
       title: "Unified Balance",
