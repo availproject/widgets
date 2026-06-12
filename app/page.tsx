@@ -4,7 +4,7 @@ import { Check, Terminal, Zap, Shield, Globe, Box } from "lucide-react";
 import MockBridgeUI from "@/components/mock-ui-bridge";
 import { CopyButton } from "@/components/helpers/copy-button";
 
-const INSTALL_COMMAND = "npx shadcn@latest add @nexus-elements/all";
+const INSTALL_COMMAND = "npx shadcn@latest add @nexus-elements/nexus-one";
 
 export default function Home() {
   return (
@@ -46,7 +46,7 @@ export default function Home() {
                 <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50" />
               </div>
               <div className="text-xs text-muted-foreground font-mono">
-                fast-bridge-demo.tsx
+                nexus-one-swaps-demo.tsx
               </div>
               <div className="w-16" /> {/* Spacer for centering */}
             </div>
@@ -62,23 +62,32 @@ export default function Home() {
                 </div>
                 <div className="flex-1 overflow-auto p-8">
                   <pre className="text-sm font-mono text-chart-2 leading-relaxed">
-                    <code className="text-chart-2">{`import { FastBridge } from '@nexus/elements'
+                    <code className="text-chart-2">{`import { NexusOne } from '@nexus-elements/nexus-one'
 import { useAccount } from 'wagmi'
 
-export function BridgeInterface() {
+export function SwapInterface() {
   const { address } = useAccount()
 
   return (
     <div className="p-4">
-      <FastBridge
+      <NexusOne
         connectedAddress={address}
-        prefill={{
-          token: 'USDC',
-          chainId: 10,
-          amount: '100',
+        config={{
+          mode: 'swap',
+          prefill: {
+            source: {
+              token: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC on Arbitrum
+              chain: 42161,
+            },
+            destination: {
+              token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
+              chain: 8453,
+            },
+            amount: '100',
+          }
         }}
-        onComplete={(tx) => {
-          console.log('Bridge successful:', tx)
+        onComplete={(explorerUrl) => {
+          console.log('Swap successful:', explorerUrl)
         }}
       />
     </div>
