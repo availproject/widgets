@@ -59,6 +59,27 @@ const NEXUS_EVENTS = {
   SWAP_STEP_COMPLETE: "nexus_swap_step_complete",
 } as const;
 
+type NexusOneProgressStep = NonNullable<NexusOneProgressEvent["step"]>;
+
+type SourceFilterTab = "all" | "native" | "stables";
+
+const SOURCE_FILTER_STABLE_SYMBOLS = new Set([
+  "AUSD",
+  "DAI",
+  "DAI.E",
+  "GHO",
+  "PYUSD",
+  "USDC",
+  "USDC.E",
+  "USDE",
+  "USDM",
+  "USDS",
+  "USDT",
+  "USDT.E",
+  "USDT0",
+  "XDAI",
+]);
+
 const TOKEN_CONTRACT_ADDRESSES = {
   USDC: {
     1: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
@@ -765,7 +786,7 @@ const getDisplayDestinationSourceRow = (entry: SwapHistoryEntry) => {
   };
 };
 
-const getProgressStepType = (step?: SwapStepType | BridgeStepType | null) =>
+const getProgressStepType = (step?: NexusOneProgressStep | null) =>
   String((step as any)?.type ?? (step as any)?.typeID ?? "").toUpperCase();
 
 const isBridgeRefundStepType = (type: string) =>
@@ -778,7 +799,7 @@ const isAutoRefundAvailableProgressEvent = (event?: NexusOneProgressEvent) =>
   isBridgeRefundStepType(getProgressStepType(event.step));
 
 const getFailureMessageForProgressStep = (
-  step: SwapStepType | BridgeStepType | null | undefined,
+  step: NexusOneProgressStep | null | undefined,
   mode: NexusOneMode,
   autoRefundAvailable = false,
 ) => {
@@ -1900,9 +1921,8 @@ export function NexusOne({
   );
   const progressEventsRef = useRef<NexusOneProgressEvent[]>([]);
   const swapStepsListRef = useRef<SwapStepType[]>([]);
-  const [failedProgressStep, setFailedProgressStep] = useState<
-    SwapStepType | BridgeStepType | null
-  >(null);
+  const [failedProgressStep, setFailedProgressStep] =
+    useState<NexusOneProgressStep | null>(null);
   const [explorerUrls, setExplorerUrls] = useState<{
     sourceExplorerUrl: string | null;
     destinationExplorerUrl: string | null;
@@ -2919,6 +2939,71 @@ export function NexusOne({
     }
 
     return getExpandedSourceTokens(tokens).filter(hasGasForSource);
+  };
+
+  const sortSwapTokensByUsdDesc = (tokens: SwapTokenOption[]) =>
+    [...tokens].sort((a, b) => getTokenBalanceUsd(b).cmp(getTokenBalanceUsd(a)));
+
+  const isNativeSourceToken = (token: SwapTokenOption) =>
+    isNativeTokenAddress(token.contractAddress) ||
+    Boolean(
+      token.chainId &&
+        CHAIN_METADATA[
+          token.chainId
+        ]?.nativeCurrency?.symbol?.toUpperCase() === token.symbol.toUpperCase(),
+    );
+
+  const isStableSourceToken = (token: SwapTokenOption) =>
+    SOURCE_FILTER_STABLE_SYMBOLS.has(token.symbol.trim().toUpperCase());
+
+  const getDefaultSourceFilterTokens = (tab: SourceFilterTab) => {
+    const balanceSources = sortSwapTokensByUsdDesc(
+      filterMinimumSourceUsdTokens(getGasCapableBalanceSourceTokens()),
+    );
+
+    if (tab === "native") {
+      return balanceSources.filter(isNativeSourceToken);
+    }
+
+    if (tab === "stables") {
+      return balanceSources.filter(isStableSourceToken);
+    }
+
+    return balanceSources;
+  };
+
+  const sourcePickerInitialFilterTab: SourceFilterTab | "custom" =
+    sourceSelectionTouched ? "custom" : "all";
+
+  const applySourceFilterTabSelection = (tab: SourceFilterTab) => {
+    setSwapQuoteIssue(null);
+    setTxError(null);
+    invalidateExactOutQuoteForRefresh();
+    setSourceSelectionRevision((current) => current + 1);
+
+    if (tab === "all") {
+      setSourceSelectionTouched(false);
+      setExactOutQuoteSourceModeValue("all");
+      setFromTokens((current) => (current.length === 0 ? current : []));
+      return;
+    }
+
+    setSourceSelectionTouched(true);
+    setExactOutQuoteSourceModeValue("selected");
+
+    const seen = new Set<string>();
+    const nextTokens: SwapTokenOption[] = [];
+    for (const token of [
+      ...getDefaultSourceFilterTokens(tab),
+      ...lockedDestinationSourceTokens,
+    ]) {
+      const key = getTokenSelectionKey(token);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      nextTokens.push({ ...token, userAmount: "" });
+    }
+
+    setFromTokens(nextTokens);
   };
 
   const getExactOutSourceTokens = (
@@ -4687,6 +4772,42 @@ export function NexusOne({
     swapRunIdRef.current += 1;
     const runId = swapRunIdRef.current;
 
+    const normalizePlanStep = (
+      step: any,
+      stepType = step?.type,
+      patch: Record<string, any> = {},
+    ) => {
+      const normalizedType = String(stepType ?? step?.type ?? "")
+        .replace(/-/g, "_")
+        .toUpperCase();
+      return {
+        ...step,
+        ...patch,
+        type: normalizedType,
+        typeID: normalizedType,
+      };
+    };
+
+    const isCompletedPlanProgressState = (event: any) => {
+      const state = String(event?.state ?? "");
+      const stepType = String(event?.stepType ?? "");
+
+      if (state === "failed") return false;
+      if (state === "completed") return true;
+      if (state !== "confirmed") return false;
+
+      return [
+        "allowance_approval",
+        "vault_deposit",
+        "source_swap",
+        "eoa_to_ephemeral_transfer",
+        "bridge_deposit",
+        "destination_swap",
+        "execute_approval",
+        "execute_transaction",
+      ].includes(stepType);
+    };
+
     const getSwapStepListFromEvent = (event: { args: any }) => {
       const args = (event as any).args;
       return Array.isArray(args)
@@ -4763,10 +4884,15 @@ export function NexusOne({
         appendProgressEvent(event.name, step, true);
         if (
           [
+            "SOURCE_SWAP",
+            "EOA_TO_EPHEMERAL_TRANSFER",
             "SOURCE_SWAP_BATCH_TX",
             "SOURCE_SWAP_HASH",
             "BRIDGE_DEPOSIT",
+            "BRIDGE_INTENT_SUBMISSION",
+            "BRIDGE_FILL",
             "RFF_ID",
+            "DESTINATION_SWAP",
             "DESTINATION_SWAP_BATCH_TX",
             "DESTINATION_SWAP_HASH",
             "SWAP_COMPLETE",
@@ -4775,10 +4901,17 @@ export function NexusOne({
         ) {
           markSwapExecutionStarted();
         }
-        if (step?.type === "SOURCE_SWAP_HASH" && step.explorerURL) {
+        if (
+          (step?.type === "SOURCE_SWAP_HASH" || step?.type === "SOURCE_SWAP") &&
+          step.explorerURL
+        ) {
           mergeExplorerUrls({ sourceExplorerUrl: step.explorerURL });
         }
-        if (step?.type === "DESTINATION_SWAP_HASH" && step.explorerURL) {
+        if (
+          (step?.type === "DESTINATION_SWAP_HASH" ||
+            step?.type === "DESTINATION_SWAP") &&
+          step.explorerURL
+        ) {
           mergeExplorerUrls({ destinationExplorerUrl: step.explorerURL });
         }
         if (
@@ -4809,33 +4942,32 @@ export function NexusOne({
       }
 
       if (event.type === "plan_preview" || event.type === "plan_confirmed") {
-        const list = event.plan.steps.map((step: any) => ({
-          ...step,
-          type: step.type.toUpperCase(),
-          typeID: step.type.toUpperCase(),
-          completed: false,
-        }));
+        const list = event.plan.steps.map((step: any) =>
+          normalizePlanStep(step, step.type, { completed: false }),
+        );
         handleSwapEvent({
           name: NEXUS_EVENTS.SWAP_STEPS_LIST,
           args: list,
         });
       }
       if (event.type === "plan_progress") {
-        const completed =
-          event.state === "completed" ||
-          event.state === "confirmed" ||
-          event.state === "submitted";
-        if (completed) {
-          const step = {
-            ...event.step,
-            type: event.stepType.toUpperCase(),
-            typeID: event.stepType.toUpperCase(),
-            completed: true,
-          };
-          handleSwapEvent({
-            name: NEXUS_EVENTS.SWAP_STEP_COMPLETE,
-            args: step,
-          });
+        const completed = isCompletedPlanProgressState(event);
+        const failed = event.state === "failed";
+        const step = normalizePlanStep(event.step, event.stepType, {
+          completed,
+          error: event.error,
+          explorerURL: event.explorerUrl,
+          explorerUrl: event.explorerUrl,
+          intentRequestHash: event.intentRequestHash,
+          state: event.state,
+          txHash: event.txHash,
+        });
+        handleSwapEvent({
+          name: NEXUS_EVENTS.SWAP_STEP_COMPLETE,
+          args: step,
+        });
+        if (failed) {
+          setFailedProgressStep(step as SwapStepType);
         }
       }
     };
@@ -5910,10 +6042,12 @@ export function NexusOne({
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+  const insufficientSourceIssue =
+    swapQuoteIssue?.type === "insufficientSources" ? swapQuoteIssue : null;
   const exactOutInsufficientSourceIssue =
     (activeMode === "deposit" || activeMode === "send") &&
-    swapQuoteIssue?.type === "insufficientSources"
-      ? swapQuoteIssue
+    insufficientSourceIssue
+      ? insufficientSourceIssue
       : null;
   const isExactOutRouteLoading =
     (activeMode === "deposit" || activeMode === "send") &&
@@ -5935,7 +6069,7 @@ export function NexusOne({
     !quoteRefreshing &&
     !receiveMaxCalculating &&
     !intentLoading &&
-    !exactOutInsufficientSourceIssue &&
+    !insufficientSourceIssue &&
     (!hasCurrentRunnableIntent || !hasIntentSources);
   const hasPositiveRootAmount = hasPositiveDecimalInput(amount);
   const hasReadySwapQuoteInput = hasReadyExactInSwapInput(fromTokens, toToken);
@@ -5951,7 +6085,7 @@ export function NexusOne({
     : !hasReadySwapQuoteInput ||
       receiveMaxCalculating ||
       quoteRefreshing ||
-      Boolean(exactOutInsufficientSourceIssue);
+      Boolean(insufficientSourceIssue);
   const isDepositCtaDisabled = needsWalletConnection
     ? walletConnectBusy
     : !hasPositiveRootAmount ||
@@ -5972,7 +6106,7 @@ export function NexusOne({
       Boolean(exactOutInsufficientSourceIssue);
   const quoteCtaLabel = (fallback: string) => {
     if (needsWalletConnection) return walletCtaLabel;
-    if (exactOutInsufficientSourceIssue) return "Insufficient balance";
+    if (insufficientSourceIssue) return "Insufficient balance";
     if (receiveMaxCalculating) return "Calculating...";
     if (quoteRefreshing) return "Intent fetching...";
     if (isQuoteUnavailableForAutoSourceFlow) return "Quote unavailable";
@@ -5981,7 +6115,7 @@ export function NexusOne({
   };
   const sendCtaLabel = (() => {
     if (needsWalletConnection) return walletCtaLabel;
-    if (exactOutInsufficientSourceIssue) return "Insufficient balance";
+    if (insufficientSourceIssue) return "Insufficient balance";
     if (!hasPositiveRootAmount) return "Enter amount";
     if (!toToken) return "Select token";
     if (hasSameOwnerSendRecipient) return "Change recipient";
@@ -6563,13 +6697,13 @@ export function NexusOne({
                   toToken={toTokenWithFetchedBalance}
                   receiveQuoteUsd={idleReceiveQuoteUsd}
                   sourceRouteStatus={
-                    exactOutInsufficientSourceIssue
+                    insufficientSourceIssue
                       ? "insufficient"
                       : isExactOutRouteLoading
                         ? "loading"
                         : undefined
                   }
-                  sourceRouteMessage={exactOutInsufficientSourceIssue?.message}
+                  sourceRouteMessage={insufficientSourceIssue?.message}
                   totalBalance={totalSwapBalanceUsd}
                   usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
                   swapType={swapType}
@@ -6587,7 +6721,7 @@ export function NexusOne({
                   onUpdateTokens={setFromTokens}
                 />
 
-                {txError && !exactOutInsufficientSourceIssue && (
+                {txError && !insufficientSourceIssue && (
                   <StatusAlert type="error" message={txError} />
                 )}
 
@@ -6610,15 +6744,15 @@ export function NexusOne({
                     disabled={isSwapCtaDisabled}
                     style={{
                       alignItems: "center",
-                      backgroundColor: exactOutInsufficientSourceIssue
+                      backgroundColor: insufficientSourceIssue
                         ? "#FCEEED"
                         : isSwapCtaDisabled
                           ? "#F0F0EF"
                           : "#006BF4",
-                      border: exactOutInsufficientSourceIssue
+                      border: insufficientSourceIssue
                         ? "1px solid #F7C4C1"
                         : "none",
-                      borderRadius: exactOutInsufficientSourceIssue
+                      borderRadius: insufficientSourceIssue
                         ? "4px"
                         : "8px",
                       boxSizing: "border-box",
@@ -6632,7 +6766,7 @@ export function NexusOne({
                       width: "100%",
                     }}
                   >
-                    {exactOutInsufficientSourceIssue ? (
+                    {insufficientSourceIssue ? (
                       <AlertCircle
                         style={{
                           color: "#D32F2F",
@@ -6655,13 +6789,13 @@ export function NexusOne({
                     <div
                       style={{
                         boxSizing: "border-box",
-                        color: exactOutInsufficientSourceIssue
+                        color: insufficientSourceIssue
                           ? "#D32F2F"
                           : isSwapCtaDisabled
                             ? "#9E9E9C"
                             : "#FFFFFE",
                         fontFamily: '"Geist", system-ui, sans-serif',
-                        fontSize: exactOutInsufficientSourceIssue
+                        fontSize: insufficientSourceIssue
                           ? "15px"
                           : "16px",
                         fontWeight: 500,
@@ -7344,6 +7478,13 @@ export function NexusOne({
                 autoSelectFilterTabs={
                   activeMode === "deposit" || activeMode === "send"
                 }
+                initialFilterTab={sourcePickerInitialFilterTab}
+                filterTabBehavior={
+                  activeMode === "deposit" || activeMode === "send"
+                    ? "source-pool"
+                    : "select-all"
+                }
+                onFilterTabSelect={applySourceFilterTabSelection}
                 lockedTokens={lockedDestinationSourceTokens}
                 requiredUsd={
                   activeMode === "deposit"

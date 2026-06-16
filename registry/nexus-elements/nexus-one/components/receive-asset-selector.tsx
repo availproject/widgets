@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { Search, X, ChevronDown, Check, Info, Copy, Globe } from "lucide-react";
 import {
   getTokenSearchRank,
+  isAssetSelectorChainAllowed,
   RadioDot,
   sortChainIdsBySwapDisplayOrder,
   type SwapTokenOption,
@@ -223,7 +224,11 @@ export function ReceiveAssetSelector({
   const [dynamicStableSymbols, setDynamicStableSymbols] = useState<Set<string>>(STABLE_SYMBOLS);
 
   const supportedReceiveChainIds = useMemo(() => {
-    return new Set((supportedChainsAndTokens ?? []).map((chain) => chain.id));
+    return new Set(
+      (supportedChainsAndTokens ?? [])
+        .map((chain) => chain.id)
+        .filter(isAssetSelectorChainAllowed),
+    );
   }, [supportedChainsAndTokens]);
 
   useEffect(() => {
@@ -267,6 +272,7 @@ export function ReceiveAssetSelector({
     const map = new Map<string, Pick<SwapTokenOption, "balance" | "balanceInFiat">>();
     for (const asset of swapBalance ?? []) {
       for (const bd of asset.breakdown ?? []) {
+        if (!isAssetSelectorChainAllowed(bd.chain?.id)) continue;
         const key = getTokenBalanceKey(bd.chain?.id, bd.contractAddress);
         if (!key) continue;
         const fiatBalance = parseFiatValue(bd.balanceInFiat);

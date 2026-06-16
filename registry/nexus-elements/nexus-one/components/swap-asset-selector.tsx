@@ -59,6 +59,9 @@ interface SwapAssetSelectorProps {
   allowSelectedTokenRemoval?: boolean;
   hideCustomTab?: boolean;
   autoSelectFilterTabs?: boolean;
+  initialFilterTab?: FilterTab;
+  filterTabBehavior?: FilterTabBehavior;
+  onFilterTabSelect?: (tab: Exclude<FilterTab, "custom">) => void;
   lockedTokens?: SwapTokenOption[];
   onSelectionChange?: (tokens: SwapTokenOption[]) => void;
   requiredUsd?: string;
@@ -69,6 +72,7 @@ export function deriveTokenOptions(swapBalance: UserAsset[]): SwapTokenOption[] 
   for (const asset of swapBalance) {
     for (const bd of asset.breakdown ?? []) {
       if (Number.parseFloat(bd.balance ?? "0") <= 0) continue;
+      if (!isAssetSelectorChainAllowed(bd.chain?.id)) continue;
       const chainMeta = bd.chain?.id ? CHAIN_METADATA[bd.chain.id] : undefined;
       tokens.push({
         contractAddress: bd.contractAddress,
@@ -287,6 +291,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
 
 /* ── Filter tabs ── */
 type FilterTab = "all" | "native" | "stables" | "custom";
+type FilterTabBehavior = "select-all" | "source-pool";
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "all", label: "All" },
   { key: "native", label: "Native" },
@@ -372,6 +377,9 @@ const modalHeightTransitionStyle = {
   interpolateSize: "allow-keywords",
 } as React.CSSProperties;
 const modalHeightTransition = `height ${MODAL_HEIGHT_TRANSITION_MS}ms ease, max-height ${MODAL_HEIGHT_TRANSITION_MS}ms ease`;
+export const EXCLUDED_ASSET_SELECTOR_CHAIN_IDS = new Set([43114, 8217]);
+export const isAssetSelectorChainAllowed = (chainId?: number) =>
+  !chainId || !EXCLUDED_ASSET_SELECTOR_CHAIN_IDS.has(chainId);
 export const SWAP_CHAIN_DISPLAY_ORDER = [
   1, // Ethereum
   42161, // Arbitrum
@@ -380,11 +388,10 @@ export const SWAP_CHAIN_DISPLAY_ORDER = [
   10, // OP
   999, // HyperEVM
   56, // BSC
-  43114, // Avalanche
   143, // Monad
   4326, // MegaETH
   4114, // Citrea
-  8217, // Kaia
+  534352, // Scroll
 ] as const;
 const SWAP_CHAIN_DISPLAY_ORDER_RANK = new Map<number, number>(
   SWAP_CHAIN_DISPLAY_ORDER.map((chainId, index) => [chainId, index]),
@@ -412,7 +419,7 @@ export const compareChainsBySwapDisplayOrder = <
   return (a.chainName ?? "").localeCompare(b.chainName ?? "");
 };
 const UNIFIED_MAINNET_CHAIN_IDS = new Set([
-  1, 10, 56, 137, 143, 999, 4114, 8217, 8453, 42161, 43114, 534352, 4326,
+  1, 10, 56, 137, 143, 999, 4114, 8453, 42161, 534352, 4326,
 ]);
 
 const escapeRegExp = (value: string) =>
@@ -686,6 +693,13 @@ function sameTokenOption(a?: SwapTokenOption, b?: SwapTokenOption) {
   );
 }
 
+function isSameTokenList(a: SwapTokenOption[], b: SwapTokenOption[]) {
+  return (
+    a.length === b.length &&
+    a.every((token, index) => sameTokenOption(token, b[index]))
+  );
+}
+
 function dedupeTokenOptions(tokens: SwapTokenOption[]) {
   return tokens.reduce<SwapTokenOption[]>((acc, token) => {
     if (!acc.some((item) => sameTokenOption(item, token))) {
@@ -754,6 +768,9 @@ export function SwapAssetSelector({
   allowSelectedTokenRemoval = false,
   hideCustomTab = false,
   autoSelectFilterTabs = false,
+  initialFilterTab = "all",
+  filterTabBehavior = "select-all",
+  onFilterTabSelect,
   lockedTokens = [],
   onSelectionChange,
   requiredUsd,
@@ -765,7 +782,11 @@ export function SwapAssetSelector({
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const normalizedInitialFilterTab =
+    hideCustomTab && initialFilterTab === "custom" ? "all" : initialFilterTab;
+  const [activeTab, setActiveTab] = useState<FilterTab>(
+    normalizedInitialFilterTab,
+  );
   const [showBelowMin, setShowBelowMin] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showChainSelector, setShowChainSelector] = useState(false);
@@ -783,12 +804,31 @@ export function SwapAssetSelector({
       lockedSelectedTokens.some((locked) => sameTokenOption(locked, token)),
     [lockedSelectedTokens],
   );
+  const prevTokensRef = useRef<{
+    selected: SwapTokenOption[];
+    locked: SwapTokenOption[];
+  } | null>(null);
   const [draftSelectedTokens, setDraftSelectedTokens] = useState<SwapTokenOption[]>(
     () => mergeTokenOptions(selectedTokens, lockedSelectedTokens),
   );
   useEffect(() => {
     if (!isMulti) return;
-    setDraftSelectedTokens(mergeTokenOptions(selectedTokens, lockedSelectedTokens));
+
+    const prev = prevTokensRef.current;
+    const hasChanged =
+      !prev ||
+      !isSameTokenList(prev.selected, selectedTokens) ||
+      !isSameTokenList(prev.locked, lockedSelectedTokens);
+
+    if (hasChanged) {
+      setDraftSelectedTokens(
+        mergeTokenOptions(selectedTokens, lockedSelectedTokens),
+      );
+      prevTokensRef.current = {
+        selected: selectedTokens,
+        locked: lockedSelectedTokens,
+      };
+    }
   }, [isMulti, lockedSelectedTokens, selectedTokens]);
   const activeSelectedTokens = isMulti ? draftSelectedTokens : selectedTokens;
   const emitSelectionChange = useCallback(
@@ -815,6 +855,14 @@ export function SwapAssetSelector({
       setActiveTab("all");
     }
   }, [activeTab, hideCustomTab]);
+
+  useEffect(() => {
+    setActiveTab((current) =>
+      current === normalizedInitialFilterTab
+        ? current
+        : normalizedInitialFilterTab,
+    );
+  }, [normalizedInitialFilterTab]);
 
   useEffect(() => {
     if (listRef.current) {
@@ -848,11 +896,12 @@ export function SwapAssetSelector({
   }, [preserveListHeight]);
 
   const allTokens = useMemo<SwapTokenOption[]>(() => {
-    const baseTokens = staticOptions
+    const baseTokens = (staticOptions
       ? [...staticOptions]
       : swapBalance
         ? deriveTokenOptions(swapBalance)
-        : [];
+        : []
+    ).filter((token) => isAssetSelectorChainAllowed(token.chainId));
 
     if (
       !preserveSelectedBelowMinimum &&
@@ -928,7 +977,13 @@ export function SwapAssetSelector({
   );
 
   useEffect(() => {
-    if (!autoSelectFilterTabs || !isMulti || activeTab === "custom") return;
+    if (
+      !autoSelectFilterTabs ||
+      filterTabBehavior === "source-pool" ||
+      !isMulti ||
+      activeTab === "custom"
+    )
+      return;
     if (activeSelectedTokens.length === 0 && lockedSelectedTokens.length === 0) return;
     if (!selectionMatchesFilterTab(activeTab)) {
       setActiveTab("custom");
@@ -937,6 +992,7 @@ export function SwapAssetSelector({
     activeTab,
     activeSelectedTokens.length,
     autoSelectFilterTabs,
+    filterTabBehavior,
     isMulti,
     lockedSelectedTokens.length,
     selectionMatchesFilterTab,
@@ -1148,12 +1204,17 @@ export function SwapAssetSelector({
 
   const handleFilterTabClick = (tab: FilterTab) => {
     setActiveTab(tab);
-    if (
-      autoSelectFilterTabs &&
-      isMulti &&
-      tab !== "custom" &&
-      onSelectionChange
-    ) {
+    if (autoSelectFilterTabs && isMulti && tab !== "custom") {
+      if (filterTabBehavior === "source-pool") {
+        if (tab === "all") {
+          setDraftSelectedTokens(
+            mergeTokenOptions(selectedTokens, lockedSelectedTokens),
+          );
+        }
+        onFilterTabSelect?.(tab);
+        return;
+      }
+      if (!onSelectionChange) return;
       emitSelectionChange(getFilterTabTokens(tab));
     }
   };

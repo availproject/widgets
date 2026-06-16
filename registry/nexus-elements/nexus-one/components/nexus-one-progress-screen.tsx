@@ -8,7 +8,7 @@ import { type NexusOneMode, type DepositOpportunity } from "../types";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
 
-type ProgressSdkStep = SwapStepType | BridgeStepType;
+type ProgressSdkStep = SwapStepType | BridgeStepType | Record<string, any>;
 
 type ProgressStep = {
   id: number;
@@ -107,6 +107,9 @@ const STATUS_ORDER: ProgressStatusId[] = [
 const SWAP_APPROVAL_TYPES = [
   "CREATE_PERMIT_EOA_TO_EPHEMERAL",
   "CREATE_PERMIT_FOR_SOURCE_SWAP",
+  "EOA_EXECUTE_CALL",
+  "SOURCE_SWAP",
+  "EOA_TO_EPHEMERAL_TRANSFER",
 ];
 
 const REFUND_ELIGIBLE_SWAP_TYPES = ["RFF_ID", "BRIDGE_DEPOSIT"];
@@ -114,7 +117,64 @@ const REFUND_ELIGIBLE_SWAP_TYPES = ["RFF_ID", "BRIDGE_DEPOSIT"];
 const DESTINATION_SWAP_TYPES = [
   "DESTINATION_SWAP_BATCH_TX",
   "DESTINATION_SWAP_HASH",
+  "DESTINATION_SWAP",
 ];
+
+const BRIDGE_FILL_TYPES = ["BRIDGE_FILL"];
+
+type ApprovalUnit = {
+  symbol?: string;
+};
+
+const getPlanSymbol = (value: unknown) =>
+  typeof value === "string" && value.trim() ? value.trim() : undefined;
+
+const getApprovalUnitsForStep = (
+  step: ProgressSdkStep | undefined,
+): ApprovalUnit[] => {
+  if (!step) return [];
+  const type = getStepType(step);
+
+  if (type.includes("SOURCE_SWAP")) {
+    const swaps = Array.isArray((step as any).swaps) ? (step as any).swaps : [];
+    if (swaps.length > 0) {
+      return swaps.map((swap: any) => ({
+        symbol: getPlanSymbol(swap?.input?.symbol),
+      }));
+    }
+    return [{ symbol: getPlanSymbol((step as any).symbol) }];
+  }
+
+  if (type.includes("EOA_TO_EPHEMERAL_TRANSFER")) {
+    return [
+      {
+        symbol: getPlanSymbol(
+          (step as any).asset?.symbol ?? (step as any).symbol,
+        ),
+      },
+    ];
+  }
+
+  if (SWAP_APPROVAL_TYPES.some((token) => type.includes(token))) {
+    return [
+      {
+        symbol: getPlanSymbol(
+          (step as any).symbol ??
+            (step as any).token?.symbol ??
+            (step as any).asset?.symbol,
+        ),
+      },
+    ];
+  }
+
+  return [];
+};
+
+const getApprovalUnitsFromSteps = (steps: ProgressSdkStep[]) =>
+  steps.flatMap(getApprovalUnitsForStep);
+
+const countApprovalUnits = (steps: ProgressSdkStep[]) =>
+  getApprovalUnitsFromSteps(steps).length;
 
 const getStatusForStep = (
   step: ProgressSdkStep | undefined,
@@ -152,7 +212,7 @@ const getStatusForStep = (
   if (
     type.includes("DESTINATION_SWAP") ||
     type.includes("DESTINATION_BATCH") ||
-    type.includes("BRIDGE_DEPOSIT")
+    type.includes("BRIDGE_FILL")
   ) {
     return "receiveToken";
   }
@@ -208,26 +268,21 @@ const getListedSteps = (
   return listEvent?.steps ?? [];
 };
 
-const getEventStepCount = (
+const getEventApprovalUnitCount = (
   events: NexusOneProgressEvent[],
-  eventName: "SWAP_STEP_COMPLETE" | "STEP_COMPLETE",
-  tokens: string[],
   completedOnly = false,
 ) =>
-  events.filter((event) => {
-    if (event.name !== eventName || !event.step) return false;
-    if (completedOnly && !event.completed) return false;
-    return stepMatches(event.step, tokens);
-  }).length;
+  events.reduce((count, event) => {
+    if (event.name !== "SWAP_STEP_COMPLETE" || !event.step) return count;
+    if (completedOnly && !event.completed) return count;
+    return count + getApprovalUnitsForStep(event.step).length;
+  }, 0);
 
 const countListedSteps = (steps: ProgressSdkStep[], tokens: string[]) =>
   steps.filter((step) => stepMatches(step, tokens)).length;
 
 const getApprovalTotalFromSwapStepsList = (events: NexusOneProgressEvent[]) =>
-  countListedSteps(
-    getListedSteps(events, "SWAP_STEPS_LIST"),
-    SWAP_APPROVAL_TYPES,
-  );
+  countApprovalUnits(getListedSteps(events, "SWAP_STEPS_LIST"));
 
 const hasStartedStatus = (
   events: NexusOneProgressEvent[],
@@ -270,15 +325,26 @@ const buildStatusRows = ({
   const destinationSymbol = context.destinationSymbol || "token";
   const destinationChain = context.destinationChain || "destination";
   const opportunityName = context.opportunityName || "app";
+  const hasDestinationSwapStep =
+    countListedSteps(swapListSteps, DESTINATION_SWAP_TYPES) > 0 ||
+    countListedSteps(fallbackSteps, DESTINATION_SWAP_TYPES) > 0;
+  const receiveStepTypes = hasDestinationSwapStep
+    ? DESTINATION_SWAP_TYPES
+    : BRIDGE_FILL_TYPES;
   const immutableApprovalTotal =
-    approvalTotalCount ?? countListedSteps(swapListSteps, SWAP_APPROVAL_TYPES);
+    approvalTotalCount ??
+    Math.max(
+      countApprovalUnits(swapListSteps),
+      countApprovalUnits(fallbackSteps),
+      getEventApprovalUnitCount(events),
+    );
   const refundEligibleFailure =
     failedStep !== null &&
     failedStep !== undefined &&
     stepMatches(failedStep, REFUND_ELIGIBLE_SWAP_TYPES);
   const approvalCompletedCount = Math.min(
     immutableApprovalTotal || Number.MAX_SAFE_INTEGER,
-    getEventStepCount(events, "SWAP_STEP_COMPLETE", SWAP_APPROVAL_TYPES, true),
+    getEventApprovalUnitCount(events, true),
   );
   const hasSwapList =
     swapListSteps.length > 0 ||
@@ -286,26 +352,31 @@ const buildStatusRows = ({
       "SWAP_START",
       "DETERMINING_SWAP",
       "SOURCE_SWAP",
+      "EOA_TO_EPHEMERAL_TRANSFER",
       "DESTINATION_SWAP",
       "BRIDGE_DEPOSIT",
+      "BRIDGE_FILL",
       "SWAP_COMPLETE",
       "SWAP_SKIPPED",
     ]);
   const hasReceiveTokenStep =
-    countListedSteps(swapListSteps, DESTINATION_SWAP_TYPES) > 0 ||
-    countListedSteps(fallbackSteps, DESTINATION_SWAP_TYPES) > 0;
-  const destinationSwapStarted = hasEventType(events, DESTINATION_SWAP_TYPES);
-  const swapComplete = hasCompletedType(events, steps, [
+    countListedSteps(swapListSteps, receiveStepTypes) > 0 ||
+    countListedSteps(fallbackSteps, receiveStepTypes) > 0;
+  const receiveStepStarted = hasEventType(events, receiveStepTypes);
+  const receiveStepComplete = hasCompletedType(events, steps, receiveStepTypes);
+  const legacySwapComplete = hasCompletedType(events, steps, [
     "SWAP_COMPLETE",
     "SWAP_SKIPPED",
   ]);
+  const swapComplete = legacySwapComplete || receiveStepComplete;
   const swapSkipped = hasCompletedType(events, steps, ["SWAP_SKIPPED"]);
   const shouldShowSwapRows =
     hasSwapList && !(swapSkipped && (mode === "deposit" || mode === "send"));
   const swapTokensComplete = hasReceiveTokenStep
-    ? destinationSwapStarted
+    ? receiveStepStarted
     : swapComplete;
-  const receiveTokenComplete = hasReceiveTokenStep && swapComplete;
+  const receiveTokenComplete =
+    hasReceiveTokenStep && (receiveStepComplete || legacySwapComplete);
   const transactionSent = hasCompletedType(events, steps, ["TRANSACTION_SENT"]);
   const transactionConfirmed = hasCompletedType(events, steps, [
     "TRANSACTION_CONFIRMED",
@@ -341,7 +412,19 @@ const buildStatusRows = ({
     pushRow({
       id: "approveTokens",
       state,
-      description: state === "preapproval" ? "Approve in wallet" : undefined,
+      description:
+        state === "preapproval"
+          ? (() => {
+              const approvalUnits = (
+                swapListSteps.length > 0 ? swapListSteps : fallbackSteps
+              ).flatMap(getApprovalUnitsForStep);
+              const activeSymbol =
+                approvalUnits[approvalCompletedCount]?.symbol;
+              return activeSymbol
+                ? `Approve ${activeSymbol} in wallet`
+                : "Approve in wallet";
+            })()
+          : undefined,
       label:
         state === "completed"
           ? `Approved tokens for swap (${immutableApprovalTotal} of ${immutableApprovalTotal})`
@@ -397,7 +480,7 @@ const buildStatusRows = ({
             ? "error"
             : receiveTokenComplete
               ? "completed"
-              : destinationSwapStarted
+              : receiveStepStarted
                 ? "inProgress"
                 : "default",
         label:
@@ -407,7 +490,7 @@ const buildStatusRows = ({
               : "Destination swap failed."
             : receiveTokenComplete
               ? `Received ${destinationSymbol} on ${destinationChain}`
-              : destinationSwapStarted
+              : receiveStepStarted
                 ? `Receiving ${destinationSymbol} on ${destinationChain}`
                 : `Receive ${destinationSymbol} on ${destinationChain}`,
       });
@@ -443,7 +526,7 @@ const buildStatusRows = ({
             : state === "error"
               ? "Deposit failed. Funds are in your wallet."
               : state === "preapproval"
-                ? `Approve ${destinationSymbol} deposit to ${opportunityName}`
+                ? `Approve Deposit of ${destinationSymbol} to ${opportunityName}`
                 : `Deposit ${destinationSymbol} to ${opportunityName}`
         : state === "completed"
           ? `${destinationSymbol} sent`
