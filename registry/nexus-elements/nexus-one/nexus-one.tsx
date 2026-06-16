@@ -7473,6 +7473,9 @@ export function NexusOne({
                   activeMode === "swap"
                 }
                 preserveSelectedBelowMinimum={false}
+                hideBelowMinimumTokens={
+                  activeMode !== "swap" || swapType !== "exactIn"
+                }
                 allowSelectedTokenRemoval={false}
                 hideCustomTab={activeMode === "swap"}
                 autoSelectFilterTabs={
