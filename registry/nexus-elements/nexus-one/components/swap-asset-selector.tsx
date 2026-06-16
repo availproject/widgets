@@ -66,6 +66,7 @@ interface SwapAssetSelectorProps {
   onDone?: () => void;
   allowUnified?: boolean;
   preserveSelectedBelowMinimum?: boolean;
+  showBelowMinimumInline?: boolean;
   allowSelectedTokenRemoval?: boolean;
   hideCustomTab?: boolean;
   autoSelectFilterTabs?: boolean;
@@ -912,6 +913,7 @@ export function SwapAssetSelector({
   onDone,
   allowUnified = false,
   preserveSelectedBelowMinimum = false,
+  showBelowMinimumInline = false,
   allowSelectedTokenRemoval = false,
   hideCustomTab = false,
   autoSelectFilterTabs = false,
@@ -1069,6 +1071,10 @@ export function SwapAssetSelector({
         result = result.filter(isStableToken);
       }
 
+      if (showBelowMinimumInline) {
+        return mergeTokenOptions(result, lockedSelectedTokens);
+      }
+
       return mergeTokenOptions(
         result.filter(
           (token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD,
@@ -1078,7 +1084,12 @@ export function SwapAssetSelector({
         ),
       );
     },
-    [allTokens, lockedSelectedTokens, selectedChainFilter],
+    [
+      allTokens,
+      lockedSelectedTokens,
+      selectedChainFilter,
+      showBelowMinimumInline,
+    ],
   );
 
   const selectionMatchesFilterTab = useCallback(
@@ -1176,6 +1187,7 @@ export function SwapAssetSelector({
     for (const t of filtered) {
       const fiat = getTokenFiatValue(t);
       if (
+        showBelowMinimumInline ||
         fiat >= MIN_FIAT_THRESHOLD ||
         isTokenSelectedForVisibility(t) ||
         isPrioritySearchMatch(t, query)
@@ -1184,14 +1196,18 @@ export function SwapAssetSelector({
       else below.push(t);
     }
     return { aboveMin: above, belowMin: below };
-  }, [filtered, isTokenSelectedForVisibility, query]);
+  }, [filtered, isTokenSelectedForVisibility, query, showBelowMinimumInline]);
 
   /* Group by symbol */
   const groupedFiltered = useMemo(() => {
     const groups: Record<string, SwapTokenOption[]> = {};
     for (const token of filtered) {
       const unifiedSym = allowUnified ? getUnifiedSymbol(token) : null;
-      if (unifiedSym && getTokenFiatValue(token) < MIN_FIAT_THRESHOLD) {
+      if (
+        !showBelowMinimumInline &&
+        unifiedSym &&
+        getTokenFiatValue(token) < MIN_FIAT_THRESHOLD
+      ) {
         continue;
       }
       const key = unifiedSym ?? `${token.contractAddress}-${token.chainId}`;
@@ -1225,6 +1241,9 @@ export function SwapAssetSelector({
         const hasPrioritySearchMatch = group.tokens.some((token) =>
           isPrioritySearchMatch(token, query),
         );
+        if (showBelowMinimumInline) {
+          return true;
+        }
         if (group.isUnifiedCandidate) {
           return (
             group.totalFiat >= MIN_FIAT_THRESHOLD ||
@@ -1266,6 +1285,7 @@ export function SwapAssetSelector({
     isTokenSelectedForVisibility,
     isUnifiedSelectedForVisibility,
     query,
+    showBelowMinimumInline,
   ]);
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
