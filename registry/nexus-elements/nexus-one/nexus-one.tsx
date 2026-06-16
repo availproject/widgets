@@ -7369,21 +7369,23 @@ export function NexusOne({
     return sum;
   }, [previewIntentSourceUsdNumber, destinationBalanceDisplayToken]);
 
+  const exactOutDisplaySourcesRequiredUsdKey =
+    exactOutDisplaySourcesRequiredUsd.toFixed();
+
   useEffect(() => {
+    const requiredUsd = parseFiatNumber(exactOutDisplaySourcesRequiredUsdKey);
     if (
       (activeMode === "deposit" || activeMode === "send") &&
       intentData &&
-      exactOutDisplaySourcesRequiredUsd.gt(0)
+      requiredUsd?.gt(0)
     ) {
-      const buffer = Decimal.min(
-        exactOutDisplaySourcesRequiredUsd.mul(0.01),
-        new Decimal(2),
+      const buffer = Decimal.min(requiredUsd.mul(0.01), new Decimal(2));
+      const bufferedRequirement = requiredUsd.plus(buffer);
+      setPersistedRequirementUsd((current) =>
+        current?.eq(bufferedRequirement) ? current : bufferedRequirement,
       );
-      const bufferedRequirement =
-        exactOutDisplaySourcesRequiredUsd.plus(buffer);
-      setPersistedRequirementUsd(bufferedRequirement);
     }
-  }, [exactOutDisplaySourcesRequiredUsd, intentData, activeMode]);
+  }, [exactOutDisplaySourcesRequiredUsdKey, intentData, activeMode]);
   const quotedExactOutSourceTokens =
     (activeMode === "deposit" || activeMode === "send") &&
     hasCurrentExactOutPaymentIntent
@@ -9064,15 +9066,17 @@ export function NexusOne({
 
   return (
     <Dialog open={isModalOpen} onOpenChange={handleModalOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          {activeMode === "deposit"
-            ? "Deposit"
-            : activeMode === "send"
-              ? "Send"
-              : "Swap"}
-        </Button>
-      </DialogTrigger>
+      {!isControlledOpen && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            {activeMode === "deposit"
+              ? "Deposit"
+              : activeMode === "send"
+                ? "Send"
+                : "Swap"}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent
         className="max-w-md! border-0 bg-transparent p-0 shadow-none"
         dismissible={swapStep !== "progress"}
