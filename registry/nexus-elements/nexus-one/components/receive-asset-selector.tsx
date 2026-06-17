@@ -3,7 +3,6 @@ import { nexusOneTheme } from "../theme";
 import React, {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -193,10 +192,8 @@ export function ReceiveAssetSelector({
 }: ReceiveAssetSelectorProps) {
   const selectorRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const stableListHeightRef = useRef(0);
   const chainCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
-  const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const { supportedChainsAndTokens, swapBalance, swapSupportedChainsAndTokens } = useNexus();
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -327,31 +324,6 @@ export function ReceiveAssetSelector({
       listRef.current.scrollTop = 0;
     }
   }, [query, activeTab, selectedChainFilter]);
-
-  const preserveListHeight = useCallback(() => {
-    const listEl = listRef.current;
-    if (!listEl) return;
-
-    const nextHeight = Math.ceil(listEl.getBoundingClientRect().height);
-    if (nextHeight <= stableListHeightRef.current) return;
-
-    stableListHeightRef.current = nextHeight;
-    setStableListHeight(nextHeight);
-  }, []);
-
-  useLayoutEffect(() => {
-    preserveListHeight();
-
-    const listEl = listRef.current;
-    if (!listEl || typeof ResizeObserver === "undefined") return;
-
-    const observer = new ResizeObserver(() => {
-      preserveListHeight();
-    });
-    observer.observe(listEl);
-
-    return () => observer.disconnect();
-  }, [preserveListHeight]);
 
   // Cross-reference map for chain names & logos, and balances
   const chainMetaMap = useMemo(() => {
@@ -502,9 +474,9 @@ export function ReceiveAssetSelector({
         ...modalHeightTransitionStyle,
         boxSizing: "border-box",
         display: "flex",
-        flex: "0 1 auto",
+        flex: "1 1 auto",
         flexDirection: "column",
-        height: "auto",
+        height: "100%",
         maxHeight: "100%",
         minHeight: 0,
         overflow: "hidden",
@@ -620,7 +592,7 @@ export function ReceiveAssetSelector({
         ref={listRef}
         style={{
           flex: "1 1 auto",
-          minHeight: stableListHeight ? `${stableListHeight}px` : 0,
+          minHeight: 0,
           overflowY: "auto",
           position: "relative",
           zIndex: hoveredHash || tooltipState ? 20 : 1,

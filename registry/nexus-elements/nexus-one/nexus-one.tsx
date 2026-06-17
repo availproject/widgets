@@ -7624,9 +7624,10 @@ export function NexusOne({
               style={{
                 ...modalHeightTransitionStyle,
                 bottom: 0,
-                height: "auto",
+                height: "90%",
                 left: 0,
                 maxHeight: "90%",
+                minHeight: 0,
                 position: "absolute",
                 right: 0,
                 width: "100%",
@@ -7955,9 +7956,10 @@ export function NexusOne({
               style={{
                 ...modalHeightTransitionStyle,
                 bottom: 0,
-                height: "auto",
+                height: "90%",
                 left: 0,
                 maxHeight: "90%",
+                minHeight: 0,
                 position: "absolute",
                 right: 0,
                 width: "100%",
