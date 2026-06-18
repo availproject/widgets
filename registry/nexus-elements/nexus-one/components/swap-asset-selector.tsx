@@ -377,7 +377,7 @@ const modalHeightTransitionStyle = {
   interpolateSize: "allow-keywords",
 } as React.CSSProperties;
 const modalHeightTransition = `height ${MODAL_HEIGHT_TRANSITION_MS}ms ease, max-height ${MODAL_HEIGHT_TRANSITION_MS}ms ease`;
-export const EXCLUDED_ASSET_SELECTOR_CHAIN_IDS = new Set([43114, 8217, 999]);
+export const EXCLUDED_ASSET_SELECTOR_CHAIN_IDS = new Set([43114, 8217]);
 export const isAssetSelectorChainAllowed = (chainId?: number) =>
   !chainId || !EXCLUDED_ASSET_SELECTOR_CHAIN_IDS.has(chainId);
 export const SWAP_CHAIN_DISPLAY_ORDER = [
