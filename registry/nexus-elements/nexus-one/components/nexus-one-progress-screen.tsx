@@ -1,14 +1,20 @@
+// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+
 "use client";
 
-import React, { useEffect, useState } from "react";
 import Decimal from "decimal.js";
 import { Check, ChevronDown, Loader2, X } from "lucide-react";
-import { type BridgeStepType, type SwapStepType } from "../../common";
-import { type NexusOneMode, type DepositOpportunity } from "../types";
+import React, { useEffect, useState } from "react";
+import type {
+  BridgeStepType,
+  SwapStepType,
+} from "../../common/types/transaction-flow";
+import { getShortChainName } from "../../common/utils/constant";
+import { type NexusOneDepositMetadata, type NexusOneMode } from "../types";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
 
-type ProgressSdkStep = SwapStepType | BridgeStepType | Record<string, any>;
+type ProgressSdkStep = SwapStepType | BridgeStepType;
 
 type ProgressStep = {
   id: number;
@@ -20,23 +26,25 @@ export type NexusOneProgressEvent = {
   id: string;
   name: string;
   completed: boolean;
+  event?: unknown;
   step?: ProgressSdkStep;
   steps?: ProgressSdkStep[];
 };
 
 interface NexusOneProgressScreenProps {
-  fromTokens?: SwapTokenOption[];
-  toToken?: SwapTokenOption;
+  failedStep?: ProgressSdkStep | null;
   fromAmountUsd?: string;
-  toAmount?: string;
-  toAmountUsd?: string;
+  fromTokens?: SwapTokenOption[];
   intentData?: SwapIntentData | null;
   mode: NexusOneMode;
-  opportunity?: DepositOpportunity;
-  steps?: ProgressStep[];
+  opportunity?: NexusOneDepositMetadata;
   progressEvents?: NexusOneProgressEvent[];
-  failedStep?: ProgressSdkStep | null;
   recipientAddress?: string;
+  steps?: ProgressStep[];
+  toAmount?: string;
+  toAmountUsd?: string;
+  toToken?: SwapTokenOption;
+  totalFeeUsd?: string;
 }
 
 const fontFamily = '"Geist", var(--font-geist-sans), system-ui, sans-serif';
@@ -97,6 +105,17 @@ type ProgressStatusRow = {
   state: ProgressStatusState;
 };
 
+const PROGRESS_EVENT_NAMES = {
+  BRIDGE_PLAN_LIST: "bridge_plan_list",
+  BRIDGE_PLAN_PROGRESS: "bridge_plan_progress",
+  SWAP_PLAN_LIST: "swap_plan_list",
+  SWAP_PLAN_PROGRESS: "swap_plan_progress",
+} as const;
+
+type ProgressListEventName =
+  | typeof PROGRESS_EVENT_NAMES.BRIDGE_PLAN_LIST
+  | typeof PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST;
+
 const STATUS_ORDER: ProgressStatusId[] = [
   "approveTokens",
   "swapTokens",
@@ -105,81 +124,30 @@ const STATUS_ORDER: ProgressStatusId[] = [
 ];
 
 const SWAP_APPROVAL_TYPES = [
+  "SOURCE_SWAP",
   "CREATE_PERMIT_EOA_TO_EPHEMERAL",
   "CREATE_PERMIT_FOR_SOURCE_SWAP",
-  "EOA_EXECUTE_CALL",
-  "SOURCE_SWAP",
   "EOA_TO_EPHEMERAL_TRANSFER",
+  "EOA_EXECUTE_CALL",
+  // "BRIDGE_DEPOSIT",
 ];
 
-const REFUND_ELIGIBLE_SWAP_TYPES = ["RFF_ID", "BRIDGE_DEPOSIT"];
+const REFUND_ELIGIBLE_SWAP_TYPES = [
+  "BRIDGE_INTENT_SUBMISSION",
+  "BRIDGE_DEPOSIT",
+];
 
 const DESTINATION_SWAP_TYPES = [
+  "DESTINATION_SWAP",
   "DESTINATION_SWAP_BATCH_TX",
   "DESTINATION_SWAP_HASH",
-  "DESTINATION_SWAP",
 ];
-
-const BRIDGE_FILL_TYPES = ["BRIDGE_FILL"];
-
-type ApprovalUnit = {
-  symbol?: string;
-};
-
-const getPlanSymbol = (value: unknown) =>
-  typeof value === "string" && value.trim() ? value.trim() : undefined;
-
-const getApprovalUnitsForStep = (
-  step: ProgressSdkStep | undefined,
-): ApprovalUnit[] => {
-  if (!step) return [];
-  const type = getStepType(step);
-
-  if (type.includes("SOURCE_SWAP")) {
-    const swaps = Array.isArray((step as any).swaps) ? (step as any).swaps : [];
-    if (swaps.length > 0) {
-      return swaps.map((swap: any) => ({
-        symbol: getPlanSymbol(swap?.input?.symbol),
-      }));
-    }
-    return [{ symbol: getPlanSymbol((step as any).symbol) }];
-  }
-
-  if (type.includes("EOA_TO_EPHEMERAL_TRANSFER")) {
-    return [
-      {
-        symbol: getPlanSymbol(
-          (step as any).asset?.symbol ?? (step as any).symbol,
-        ),
-      },
-    ];
-  }
-
-  if (SWAP_APPROVAL_TYPES.some((token) => type.includes(token))) {
-    return [
-      {
-        symbol: getPlanSymbol(
-          (step as any).symbol ??
-            (step as any).token?.symbol ??
-            (step as any).asset?.symbol,
-        ),
-      },
-    ];
-  }
-
-  return [];
-};
-
-const getApprovalUnitsFromSteps = (steps: ProgressSdkStep[]) =>
-  steps.flatMap(getApprovalUnitsForStep);
-
-const countApprovalUnits = (steps: ProgressSdkStep[]) =>
-  getApprovalUnitsFromSteps(steps).length;
+const BRIDGE_FILL_RECEIVE_TYPES = ["BRIDGE_FILL"];
 
 const getStatusForStep = (
   step: ProgressSdkStep | undefined,
   mode: NexusOneMode,
-  hasTransferAction = false,
+  hasTransferAction = false
 ): ProgressStatusId | null => {
   const type = getStepType(step);
 
@@ -203,17 +171,16 @@ const getStatusForStep = (
     type.includes("SOURCE_SWAP") ||
     type.includes("SOURCE_BATCH") ||
     type.includes("SWAP_SOURCE") ||
+    type.includes("BRIDGE_DEPOSIT") ||
+    type.includes("BRIDGE_FILL") ||
+    type.includes("BRIDGE_INTENT_SUBMISSION") ||
     type.includes("SWAP_COMPLETE") ||
     type.includes("SWAP_SKIPPED")
   ) {
     return "swapTokens";
   }
 
-  if (
-    type.includes("DESTINATION_SWAP") ||
-    type.includes("DESTINATION_BATCH") ||
-    type.includes("BRIDGE_FILL")
-  ) {
+  if (type.includes("DESTINATION_SWAP") || type.includes("DESTINATION_BATCH")) {
     return "receiveToken";
   }
 
@@ -228,10 +195,10 @@ const stepMatches = (step: ProgressSdkStep | undefined, tokens: string[]) => {
 const hasCompletedType = (
   events: NexusOneProgressEvent[],
   steps: ProgressStep[],
-  tokens: string[],
+  tokens: string[]
 ) => {
   const completedEvent = events.some(
-    (event) => event.completed && stepMatches(event.step, tokens),
+    (event) => event.completed && stepMatches(event.step, tokens)
   );
   if (completedEvent) return true;
 
@@ -241,58 +208,178 @@ const hasCompletedType = (
 const hasStepType = (
   events: NexusOneProgressEvent[],
   steps: ProgressStep[],
-  tokens: string[],
+  tokens: string[]
 ) =>
   events.some(
     (event) =>
       stepMatches(event.step, tokens) ||
-      (event.steps ?? []).some((step) => stepMatches(step, tokens)),
+      (event.steps ?? []).some((step) => stepMatches(step, tokens))
   ) || steps.some((item) => stepMatches(item.step, tokens));
 
 const hasEventType = (events: NexusOneProgressEvent[], tokens: string[]) =>
   events.some(
     (event) =>
       stepMatches(event.step, tokens) ||
-      (event.steps ?? []).some((step) => stepMatches(step, tokens)),
+      (event.steps ?? []).some((step) => stepMatches(step, tokens))
+  );
+
+const hasProgressEventType = (
+  events: NexusOneProgressEvent[],
+  tokens: string[]
+) =>
+  events.some(
+    (event) =>
+      (event.name === PROGRESS_EVENT_NAMES.BRIDGE_PLAN_PROGRESS ||
+        event.name === PROGRESS_EVENT_NAMES.SWAP_PLAN_PROGRESS) &&
+      stepMatches(event.step, tokens)
   );
 
 const getListedSteps = (
   events: NexusOneProgressEvent[],
-  eventName: "SWAP_STEPS_LIST" | "STEPS_LIST",
+  eventName: ProgressListEventName
 ) => {
   const listEvent = [...events]
     .reverse()
     .find(
-      (event) => event.name === eventName && (event.steps?.length ?? 0) > 0,
+      (event) => event.name === eventName && (event.steps?.length ?? 0) > 0
     );
   return listEvent?.steps ?? [];
 };
 
-const getEventApprovalUnitCount = (
-  events: NexusOneProgressEvent[],
-  completedOnly = false,
-) =>
-  events.reduce((count, event) => {
-    if (event.name !== "SWAP_STEP_COMPLETE" || !event.step) return count;
-    if (completedOnly && !event.completed) return count;
-    return count + getApprovalUnitsForStep(event.step).length;
-  }, 0);
-
 const countListedSteps = (steps: ProgressSdkStep[], tokens: string[]) =>
   steps.filter((step) => stepMatches(step, tokens)).length;
 
+type ApprovalUnit = {
+  symbol?: string;
+};
+
+const getStepSwaps = (step?: ProgressSdkStep) => {
+  const swaps = (step as any)?.swaps;
+  return Array.isArray(swaps) ? swaps : [];
+};
+
+const getApprovalUnitsForStep = (step?: ProgressSdkStep): ApprovalUnit[] => {
+  if (!stepMatches(step, SWAP_APPROVAL_TYPES)) return [];
+
+  const swaps = getStepSwaps(step);
+  if (swaps.length > 0) {
+    return swaps.map((swap) => ({
+      symbol:
+        typeof swap?.input?.symbol === "string" ? swap.input.symbol : undefined,
+    }));
+  }
+
+  const assetSymbol = (step as any)?.asset?.symbol;
+  const tokenSymbol = (step as any)?.token?.symbol;
+  return [
+    {
+      symbol:
+        typeof assetSymbol === "string"
+          ? assetSymbol
+          : typeof tokenSymbol === "string"
+            ? tokenSymbol
+            : undefined,
+    },
+  ];
+};
+
+const countApprovalUnits = (steps: ProgressSdkStep[]) =>
+  steps.reduce((sum, step) => sum + getApprovalUnitsForStep(step).length, 0);
+
+const countCompletedApprovalUnitsFromEvents = (
+  events: NexusOneProgressEvent[]
+) =>
+  events.reduce((sum, event) => {
+    if (
+      event.name !== PROGRESS_EVENT_NAMES.SWAP_PLAN_PROGRESS ||
+      !event.completed
+    ) {
+      return sum;
+    }
+    return sum + getApprovalUnitsForStep(event.step).length;
+  }, 0);
+
+const countCompletedApprovalUnitsFromSteps = (steps: ProgressStep[]) =>
+  steps.reduce(
+    (sum, item) =>
+      item.completed ? sum + getApprovalUnitsForStep(item.step).length : sum,
+    0
+  );
+
+const getApprovalUnitSymbols = (steps: ProgressSdkStep[]) =>
+  steps
+    .flatMap((step) => getApprovalUnitsForStep(step))
+    .map((unit) => unit.symbol)
+    .filter(Boolean) as string[];
+
+const getNumericEventIndex = (...values: unknown[]) => {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+      return value;
+    }
+    if (typeof value === "string" && /^\d+$/.test(value)) {
+      return Number(value);
+    }
+  }
+  return undefined;
+};
+
+const getApprovalIndexFromEvent = (event?: NexusOneProgressEvent) => {
+  const rawEvent = event?.event as any;
+  const rawStep = event?.step as any;
+  return getNumericEventIndex(
+    rawEvent?.approvalIndex,
+    rawEvent?.swapIndex,
+    rawEvent?.currentIndex,
+    rawEvent?.index,
+    rawEvent?.data?.approvalIndex,
+    rawEvent?.data?.swapIndex,
+    rawEvent?.data?.currentIndex,
+    rawEvent?.data?.index,
+    rawStep?.approvalIndex,
+    rawStep?.swapIndex,
+    rawStep?.currentIndex,
+    rawStep?.index,
+    rawStep?.data?.approvalIndex,
+    rawStep?.data?.swapIndex,
+    rawStep?.data?.currentIndex,
+    rawStep?.data?.index
+  );
+};
+
+const getActiveApprovalProgressEvent = (events: NexusOneProgressEvent[]) =>
+  [...events]
+    .reverse()
+    .find(
+      (event) =>
+        event.name === PROGRESS_EVENT_NAMES.SWAP_PLAN_PROGRESS &&
+        !event.completed &&
+        getApprovalUnitsForStep(event.step).length > 0
+    );
+
+const getApprovalSymbolFromProgressEvent = (event?: NexusOneProgressEvent) => {
+  const units = getApprovalUnitsForStep(event?.step);
+  if (units.length === 0) return undefined;
+  if (units.length === 1) return units[0]?.symbol;
+
+  const index = getApprovalIndexFromEvent(event);
+  if (index === undefined || index >= units.length) return undefined;
+  return units[index]?.symbol;
+};
+
 const getApprovalTotalFromSwapStepsList = (events: NexusOneProgressEvent[]) =>
-  countApprovalUnits(getListedSteps(events, "SWAP_STEPS_LIST"));
+  countApprovalUnits(
+    getListedSteps(events, PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST)
+  );
 
 const hasStartedStatus = (
   events: NexusOneProgressEvent[],
   id: ProgressStatusId,
   mode: NexusOneMode,
-  hasTransferAction = false,
+  hasTransferAction = false
 ) =>
   events.some(
-    (event) =>
-      getStatusForStep(event.step, mode, hasTransferAction) === id,
+    (event) => getStatusForStep(event.step, mode, hasTransferAction) === id
   );
 
 const buildStatusRows = ({
@@ -320,24 +407,20 @@ const buildStatusRows = ({
   const failedStatus = failedStep
     ? getStatusForStep(failedStep, mode, hasTransferAction)
     : null;
-  const swapListSteps = getListedSteps(events, "SWAP_STEPS_LIST");
+  const swapListSteps = getListedSteps(
+    events,
+    PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST
+  );
   const fallbackSteps = steps.map((item) => item.step);
   const destinationSymbol = context.destinationSymbol || "token";
   const destinationChain = context.destinationChain || "destination";
   const opportunityName = context.opportunityName || "app";
-  const hasDestinationSwapStep =
-    countListedSteps(swapListSteps, DESTINATION_SWAP_TYPES) > 0 ||
-    countListedSteps(fallbackSteps, DESTINATION_SWAP_TYPES) > 0 ||
-    hasEventType(events, DESTINATION_SWAP_TYPES);
-  const receiveStepTypes = hasDestinationSwapStep
-    ? DESTINATION_SWAP_TYPES
-    : BRIDGE_FILL_TYPES;
   const immutableApprovalTotal =
     approvalTotalCount ??
     Math.max(
       countApprovalUnits(swapListSteps),
       countApprovalUnits(fallbackSteps),
-      getEventApprovalUnitCount(events),
+      countCompletedApprovalUnitsFromEvents(events)
     );
   const refundEligibleFailure =
     failedStep !== null &&
@@ -345,7 +428,16 @@ const buildStatusRows = ({
     stepMatches(failedStep, REFUND_ELIGIBLE_SWAP_TYPES);
   const approvalCompletedCount = Math.min(
     immutableApprovalTotal || Number.MAX_SAFE_INTEGER,
-    getEventApprovalUnitCount(events, true),
+    Math.max(
+      countCompletedApprovalUnitsFromEvents(events),
+      countCompletedApprovalUnitsFromSteps(steps)
+    )
+  );
+  const approvalSymbols = getApprovalUnitSymbols(
+    swapListSteps.length > 0 ? swapListSteps : fallbackSteps
+  );
+  const activeApprovalSymbol = getApprovalSymbolFromProgressEvent(
+    getActiveApprovalProgressEvent(events)
   );
   const hasSwapList =
     swapListSteps.length > 0 ||
@@ -353,32 +445,38 @@ const buildStatusRows = ({
       "SWAP_START",
       "DETERMINING_SWAP",
       "SOURCE_SWAP",
-      "EOA_TO_EPHEMERAL_TRANSFER",
       "DESTINATION_SWAP",
       "BRIDGE_DEPOSIT",
       "BRIDGE_FILL",
+      "BRIDGE_INTENT_SUBMISSION",
       "SWAP_COMPLETE",
       "SWAP_SKIPPED",
     ]);
+  const hasDestinationReceiveStep =
+    countListedSteps(swapListSteps, DESTINATION_SWAP_TYPES) > 0 ||
+    countListedSteps(fallbackSteps, DESTINATION_SWAP_TYPES) > 0 ||
+    hasProgressEventType(events, DESTINATION_SWAP_TYPES);
+  const receiveTokenTypes = hasDestinationReceiveStep
+    ? DESTINATION_SWAP_TYPES
+    : BRIDGE_FILL_RECEIVE_TYPES;
   const hasReceiveTokenStep =
-    countListedSteps(swapListSteps, receiveStepTypes) > 0 ||
-    countListedSteps(fallbackSteps, receiveStepTypes) > 0 ||
-    hasEventType(events, receiveStepTypes);
-  const receiveStepStarted = hasEventType(events, receiveStepTypes);
-  const receiveStepComplete = hasCompletedType(events, steps, receiveStepTypes);
-  const legacySwapComplete = hasCompletedType(events, steps, [
+    hasDestinationReceiveStep ||
+    countListedSteps(swapListSteps, receiveTokenTypes) > 0 ||
+    countListedSteps(fallbackSteps, receiveTokenTypes) > 0 ||
+    hasProgressEventType(events, receiveTokenTypes);
+  const receiveTokenStarted = hasProgressEventType(events, receiveTokenTypes);
+  const receiveTokenComplete =
+    hasReceiveTokenStep && hasCompletedType(events, steps, receiveTokenTypes);
+  const swapComplete = hasCompletedType(events, steps, [
     "SWAP_COMPLETE",
     "SWAP_SKIPPED",
   ]);
-  const swapComplete = legacySwapComplete || receiveStepComplete;
   const swapSkipped = hasCompletedType(events, steps, ["SWAP_SKIPPED"]);
   const shouldShowSwapRows =
     hasSwapList && !(swapSkipped && (mode === "deposit" || mode === "send"));
   const swapTokensComplete = hasReceiveTokenStep
-    ? receiveStepStarted
+    ? receiveTokenStarted
     : swapComplete;
-  const receiveTokenComplete =
-    hasReceiveTokenStep && (receiveStepComplete || legacySwapComplete);
   const transactionSent = hasCompletedType(events, steps, ["TRANSACTION_SENT"]);
   const transactionConfirmed = hasCompletedType(events, steps, [
     "TRANSACTION_CONFIRMED",
@@ -397,8 +495,16 @@ const buildStatusRows = ({
   if (immutableApprovalTotal > 0) {
     const approvalCurrent = Math.min(
       immutableApprovalTotal,
-      Math.max(1, approvalCompletedCount + 1),
+      Math.max(1, approvalCompletedCount + 1)
     );
+    const approvalSymbol =
+      activeApprovalSymbol ??
+      approvalSymbols[
+        Math.min(approvalCompletedCount, approvalSymbols.length - 1)
+      ];
+    const approvalDescription = approvalSymbol
+      ? `Approve ${approvalSymbol} in wallet`
+      : "Approve in wallet";
     let state: ProgressStatusState = "default";
     if (failedStatus === "approveTokens") {
       state = "error";
@@ -414,24 +520,12 @@ const buildStatusRows = ({
     pushRow({
       id: "approveTokens",
       state,
-      description:
-        state === "preapproval"
-          ? (() => {
-              const approvalUnits = (
-                swapListSteps.length > 0 ? swapListSteps : fallbackSteps
-              ).flatMap(getApprovalUnitsForStep);
-              const activeSymbol =
-                approvalUnits[approvalCompletedCount]?.symbol;
-              return activeSymbol
-                ? `Approve ${activeSymbol} in wallet`
-                : "Approve in wallet";
-            })()
-          : undefined,
+      description: state === "preapproval" ? approvalDescription : undefined,
       label:
         state === "completed"
           ? `Approved Swaps (${immutableApprovalTotal} of ${immutableApprovalTotal})`
           : state === "error"
-            ? "Approve Swaps failed"
+            ? "Collection failed"
             : `Approve Swaps (${approvalCurrent} of ${immutableApprovalTotal})`,
     });
   }
@@ -482,7 +576,7 @@ const buildStatusRows = ({
             ? "error"
             : receiveTokenComplete
               ? "completed"
-              : receiveStepStarted
+              : receiveTokenStarted
                 ? "inProgress"
                 : "default",
         label:
@@ -492,7 +586,7 @@ const buildStatusRows = ({
               : "Destination swap failed."
             : receiveTokenComplete
               ? `Received ${destinationSymbol} on ${destinationChain}`
-              : receiveStepStarted
+              : receiveTokenStarted
                 ? `Receiving ${destinationSymbol} on ${destinationChain}`
                 : `Receive ${destinationSymbol} on ${destinationChain}`,
       });
@@ -543,12 +637,12 @@ const buildStatusRows = ({
   }
 
   const orderedRows = rows.sort(
-    (a, b) => STATUS_ORDER.indexOf(a.id) - STATUS_ORDER.indexOf(b.id),
+    (a, b) => STATUS_ORDER.indexOf(a.id) - STATUS_ORDER.indexOf(b.id)
   );
 
   if (
     orderedRows.some(
-      (row) => row.state === "preapproval" || row.state === "inProgress",
+      (row) => row.state === "preapproval" || row.state === "inProgress"
     ) ||
     orderedRows.some((row) => row.state === "error")
   ) {
@@ -556,7 +650,7 @@ const buildStatusRows = ({
   }
 
   const nextActiveIndex = orderedRows.findIndex(
-    (row) => row.state === "default",
+    (row) => row.state === "default"
   );
   if (nextActiveIndex === -1) return orderedRows;
 
@@ -601,9 +695,9 @@ function MiniLogo({
   if (!failed && src) {
     return (
       <img
-        src={src}
         alt={label || ""}
         onError={() => setFailed(true)}
+        src={src}
         style={{
           background: "#FFFFFE",
           borderRadius: "999px",
@@ -654,17 +748,17 @@ function TokenLogoPair({
       style={{
         display: "inline-flex",
         flexShrink: 0,
-        height: 34,
+        height: 27,
         position: "relative",
-        width: 34,
+        width: 27,
       }}
     >
-      <MiniLogo src={tokenLogo} label={tokenSymbol} size={34} />
+      <MiniLogo label={tokenSymbol} size={27} src={tokenLogo} />
       {chainLogo && (
         <MiniLogo
-          src={chainLogo}
           label={chainName}
-          size={14}
+          size={12}
+          src={chainLogo}
           style={{
             bottom: -1,
             outline: "1px solid #FFFFFE",
@@ -682,6 +776,8 @@ export function NexusOneProgressScreen({
   toToken,
   fromAmountUsd,
   toAmount,
+  toAmountUsd,
+  totalFeeUsd,
   intentData,
   mode,
   opportunity,
@@ -692,17 +788,101 @@ export function NexusOneProgressScreen({
 }: NexusOneProgressScreenProps) {
   const intentSources = intentData?.sources ?? [];
   const intentDestination = intentData?.destination;
-  const sourceSymbols =
-    intentSources.length > 0
-      ? unique(intentSources.map((source) => source.token.symbol))
-      : unique(fromTokens.map((token) => token.symbol));
-  const sourceUsd =
+  const destinationSourceToken = fromTokens.find((token) => {
+    const destinationChainId = intentDestination?.chain.id ?? toToken?.chainId;
+    const destinationTokenAddress = (
+      intentDestination?.token.contractAddress ??
+      toToken?.contractAddress ??
+      ""
+    ).toLowerCase();
+    const tokenAmount =
+      parseDecimal(token.userAmount) ?? parseDecimal(token.balance);
+
+    return (
+      destinationChainId !== undefined &&
+      destinationTokenAddress !== "" &&
+      token.chainId === destinationChainId &&
+      token.contractAddress.toLowerCase() === destinationTokenAddress &&
+      Boolean(tokenAmount && tokenAmount.gt(0))
+    );
+  });
+  const sourceSymbols = unique([
+    ...(destinationSourceToken ? [destinationSourceToken.symbol] : []),
+    ...(intentSources.length > 0
+      ? intentSources.map((source) => source.token.symbol)
+      : fromTokens.map((token) => token.symbol)),
+  ]);
+  const intentSourceUsd =
     intentSources.length > 0
       ? intentSources.reduce(
           (sum, source) => sum.plus(parseDecimal(source.value) ?? 0),
-          new Decimal(0),
+          new Decimal(0)
         )
       : parseDecimal(fromAmountUsd);
+  const requestedDestinationAmount = parseDecimal(toAmount);
+  const quotedDestinationAmount = parseDecimal(intentDestination?.amount);
+  const destinationBalanceAmount = parseDecimal(toToken?.balance);
+  const requestedDestinationUsd = parseDecimal(toAmountUsd);
+  const destinationUsdRate =
+    requestedDestinationAmount &&
+    requestedDestinationAmount.gt(0) &&
+    requestedDestinationUsd &&
+    requestedDestinationUsd.gt(0)
+      ? requestedDestinationUsd.div(requestedDestinationAmount)
+      : quotedDestinationAmount &&
+          quotedDestinationAmount.gt(0) &&
+          intentDestination?.value
+        ? (parseDecimal(intentDestination.value) ?? new Decimal(0)).div(
+            quotedDestinationAmount
+          )
+        : undefined;
+  const destinationCoverageUsd =
+    (mode === "deposit" || mode === "send") &&
+    requestedDestinationAmount &&
+    requestedDestinationAmount.gt(0) &&
+    quotedDestinationAmount &&
+    requestedDestinationAmount.gt(quotedDestinationAmount) &&
+    destinationBalanceAmount &&
+    destinationBalanceAmount.gt(0) &&
+    destinationUsdRate &&
+    destinationUsdRate.gt(0)
+      ? Decimal.min(
+          requestedDestinationAmount.minus(quotedDestinationAmount),
+          destinationBalanceAmount
+        ).mul(destinationUsdRate)
+      : undefined;
+  const quotedDestinationUsd = parseDecimal(intentDestination?.value);
+  const feeUsd = parseDecimal(totalFeeUsd);
+  const sourceUsd =
+    mode === "deposit" || mode === "send"
+      ? [
+          destinationCoverageUsd !== undefined
+            ? (intentSourceUsd ?? new Decimal(0)).plus(destinationCoverageUsd)
+            : intentSourceUsd,
+          requestedDestinationUsd,
+          requestedDestinationUsd &&
+          requestedDestinationUsd.gt(0) &&
+          intentSourceUsd &&
+          intentSourceUsd.gt(0) &&
+          quotedDestinationUsd &&
+          quotedDestinationUsd.gt(0)
+            ? requestedDestinationUsd.plus(
+                Decimal.max(intentSourceUsd.minus(quotedDestinationUsd), 0)
+              )
+            : undefined,
+          requestedDestinationUsd &&
+          requestedDestinationUsd.gt(0) &&
+          feeUsd &&
+          feeUsd.gt(0)
+            ? requestedDestinationUsd.plus(feeUsd)
+            : undefined,
+        ]
+          .filter((value): value is Decimal => Boolean(value && value.gt(0)))
+          .reduce<Decimal | undefined>(
+            (max, value) => (!max || value.gt(max) ? value : max),
+            undefined
+          )
+      : intentSourceUsd;
   const destinationAmount =
     (mode === "deposit" || mode === "send") && toAmount
       ? toAmount
@@ -712,16 +892,26 @@ export function NexusOneProgressScreen({
     toToken?.symbol ||
     opportunity?.tokenSymbol ||
     "";
-  const destinationChainName =
-    intentDestination?.chain.name || toToken?.chainName || "";
+  const destinationChainName = getShortChainName(
+    intentDestination?.chain.id ?? toToken?.chainId,
+    intentDestination?.chain.name || toToken?.chainName || ""
+  );
   const destinationChain =
     mode === "deposit"
       ? opportunity?.title || opportunity?.protocol || destinationChainName
       : destinationChainName;
-  const computedApprovalTotal =
-    getApprovalTotalFromSwapStepsList(progressEvents);
+  const seededApprovalTotal = countApprovalUnits(
+    (steps ?? []).map((item) => item.step)
+  );
+  const completedApprovalEventTotal =
+    countCompletedApprovalUnitsFromEvents(progressEvents);
+  const computedApprovalTotal = Math.max(
+    getApprovalTotalFromSwapStepsList(progressEvents),
+    seededApprovalTotal,
+    completedApprovalEventTotal
+  );
   const [lockedApprovalTotal, setLockedApprovalTotal] = useState<number | null>(
-    null,
+    null
   );
   const approvalTotalCount =
     lockedApprovalTotal ??
@@ -752,30 +942,37 @@ export function NexusOneProgressScreen({
   const [stepsExpanded, setStepsExpanded] = useState(true);
   const activeRow =
     statusRows.find(
-      (row) => row.state === "preapproval" || row.state === "inProgress",
+      (row) => row.state === "preapproval" || row.state === "inProgress"
     ) ??
     statusRows.find((row) => row.state === "error") ??
     statusRows.find((row) => row.state === "default") ??
     statusRows[statusRows.length - 1];
   const visibleRows = stepsExpanded ? statusRows : activeRow ? [activeRow] : [];
   const canExpand = statusRows.length > 1;
-  const getRowHeight = (row: ProgressStatusRow) => (row.description ? 58 : 48);
-  const collapsedStatusHeight = activeRow ? getRowHeight(activeRow) : 48;
+  const getRowHeight = (row: ProgressStatusRow) => (row.description ? 47 : 40);
+  const collapsedStatusHeight = activeRow ? getRowHeight(activeRow) : 40;
   const expandedStatusHeight = statusRows.reduce(
     (sum, row) => sum + getRowHeight(row),
-    0,
+    0
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "7px",
+        width: "100%",
+      }}
+    >
       <div
         style={{
           background: "#FFFFFE",
           border: `1px solid ${border}`,
-          borderRadius: "12px",
+          borderRadius: "8px",
           boxShadow: "0px 1px 12px 0px #5B5B5B0D",
           boxSizing: "border-box",
-          padding: "18px 20px 14px",
+          padding: "12px 13px 9px",
           width: "100%",
         }}
       >
@@ -783,8 +980,8 @@ export function NexusOneProgressScreen({
           style={{
             color: muted,
             fontFamily,
-            fontSize: "12px",
-            lineHeight: "16px",
+            fontSize: "10px",
+            lineHeight: "14px",
             textAlign: "center",
           }}
         >
@@ -794,9 +991,9 @@ export function NexusOneProgressScreen({
           style={{
             color: primary,
             fontFamily,
-            fontSize: "22px",
+            fontSize: "16px",
             fontWeight: 600,
-            lineHeight: "28px",
+            lineHeight: "22px",
             marginTop: "2px",
             textAlign: "center",
           }}
@@ -805,14 +1002,15 @@ export function NexusOneProgressScreen({
         </div>
 
         <img
-          src="https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif"
           alt=""
           aria-hidden="true"
+          src="https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif"
           style={{
             display: "block",
             height: "148px",
-            margin: "18px auto 12px",
+            margin: "13px auto 9px",
             objectFit: "cover",
+            objectPosition: "center",
             width: "100%",
           }}
         />
@@ -831,22 +1029,22 @@ export function NexusOneProgressScreen({
               color: primary,
               display: "flex",
               fontFamily,
-              fontSize: "20px",
+              fontSize: "15px",
               fontWeight: 600,
-              gap: "8px",
-              lineHeight: "26px",
+              gap: "5px",
+              lineHeight: "22px",
             }}
           >
             <TokenLogoPair
+              chainLogo={intentDestination?.chain.logo || toToken?.chainLogo}
+              chainName={destinationChain}
               tokenLogo={
                 (intentDestination?.token as any)?.logo || toToken?.logo
               }
-              chainLogo={intentDestination?.chain.logo || toToken?.chainLogo}
               tokenSymbol={destinationSymbol}
-              chainName={destinationChain}
             />
-            <span>{formatDecimal(destinationAmount, 9)}</span>
-            <span style={{ fontSize: "13px", lineHeight: "18px" }}>
+            <span>{formatDecimal(destinationAmount, 8)}</span>
+            <span style={{ fontSize: "10px", lineHeight: "14px" }}>
               {destinationSymbol}
             </span>
           </div>
@@ -855,8 +1053,8 @@ export function NexusOneProgressScreen({
               style={{
                 color: muted,
                 fontFamily,
-                fontSize: "12px",
-                lineHeight: "16px",
+                fontSize: "9px",
+                lineHeight: "13px",
               }}
             >
               on {destinationChain}
@@ -870,7 +1068,7 @@ export function NexusOneProgressScreen({
         style={{
           background: "#FFFFFE",
           border: `1px solid ${border}`,
-          borderRadius: "10px",
+          borderRadius: "8px",
           boxShadow: "0px 1px 12px 0px #5B5B5B0D",
           boxSizing: "border-box",
           overflow: "hidden",
@@ -883,10 +1081,10 @@ export function NexusOneProgressScreen({
             display: "grid",
             gridTemplateRows: "1fr",
             maxHeight: stepsExpanded
-              ? `${Math.max(48, expandedStatusHeight)}px`
+              ? `${Math.max(43, expandedStatusHeight)}px`
               : `${collapsedStatusHeight}px`,
             overflow: "hidden",
-            transition: "max-height 260ms ease",
+            transition: "max-height 220ms ease",
           }}
         >
           <div
@@ -908,7 +1106,6 @@ export function NexusOneProgressScreen({
               return (
                 <button
                   key={row.id}
-                  type="button"
                   onClick={() => {
                     if (canExpand) setStepsExpanded((current) => !current);
                   }}
@@ -924,16 +1121,17 @@ export function NexusOneProgressScreen({
                     cursor: canExpand ? "pointer" : "default",
                     display: "flex",
                     fontFamily,
-                    fontSize: "13px",
+                    fontSize: "11px",
                     fontWeight: 400,
-                    gap: "10px",
+                    gap: "7px",
                     minHeight: `${getRowHeight(row)}px`,
-                    padding: "12px 16px",
+                    padding: "8px 11px",
                     textAlign: "left",
                     transition:
                       "color 220ms ease, min-height 220ms ease, opacity 220ms ease",
                     width: "100%",
                   }}
+                  type="button"
                 >
                   {isCompleted || isError ? (
                     <span
@@ -943,15 +1141,15 @@ export function NexusOneProgressScreen({
                         borderRadius: "999px",
                         color: "#FFFFFE",
                         display: "inline-flex",
-                        height: "18px",
+                        height: "15px",
                         justifyContent: "center",
-                        width: "18px",
+                        width: "15px",
                       }}
                     >
                       {isError ? (
-                        <X style={{ height: 12, width: 12 }} />
+                        <X style={{ height: 10, width: 10 }} />
                       ) : (
-                        <Check style={{ height: 13, width: 13 }} />
+                        <Check style={{ height: 11, width: 11 }} />
                       )}
                     </span>
                   ) : isDefault ? (
@@ -962,14 +1160,14 @@ export function NexusOneProgressScreen({
                         borderRadius: "999px",
                         boxSizing: "border-box",
                         display: "inline-flex",
-                        height: "18px",
-                        width: "18px",
+                        height: "15px",
+                        width: "15px",
                       }}
                     />
                   ) : (
                     <Loader2
                       className="animate-spin"
-                      style={{ color: brand, height: 18, width: 18 }}
+                      style={{ color: brand, height: 15, width: 15 }}
                     />
                   )}
                   <span
@@ -993,10 +1191,10 @@ export function NexusOneProgressScreen({
                       <span
                         style={{
                           color: isLoading ? brand : muted,
-                          fontSize: "12px",
+                          fontSize: "10px",
                           fontStyle: "italic",
                           fontWeight: 400,
-                          lineHeight: "16px",
+                          lineHeight: "13px",
                         }}
                       >
                         {row.description}

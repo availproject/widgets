@@ -22,8 +22,8 @@ Last updated: June 2, 2026
 | `FastBridge` | ❌ Removed | `NexusOne` with `config.mode = "swap"` |
 | `FastTransfer` | ❌ Removed | `NexusOne` with `config.mode = "send"` |
 | `SwapWidget` | ❌ Removed | `NexusOne` with `config.mode = "swap"` |
-| `Deposit` (NexusDeposit) | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `opportunities` |
-| `BridgeDeposit` | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `opportunities` |
+| `Deposit` (NexusDeposit) | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `deposit` |
+| `BridgeDeposit` | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `deposit` |
 | `UnifiedBalance` | ❌ Removed | Inline balance view in Nexus One |
 | `ViewHistory` | ❌ Removed | Use `sdk.getMyIntents()` directly |
 
@@ -66,27 +66,17 @@ File: `registry/nexus-elements/nexus-one/nexus-one.tsx`
 |---|---|---|
 | `swap` | `swapWithExactIn`, `swapWithExactOut` | Users choose source and receive assets. Nexus One switches between exact-in and exact-out quoting. Also handles direct bridge paths automatically. |
 | `send` | `swapAndTransfer` | Exact-out. Users choose the token and amount to send, then Nexus resolves the pay-with sources. |
-| `deposit` | `swapAndExecute` | Exact-out. Users select from opportunities, enter amount, and Nexus executes the deposit. |
+| `deposit` | `swapAndExecute` | Exact-out. Users enter amount for one configured deposit target, and Nexus executes the deposit. |
 
 ### Configuration model
 
-```ts
-type NexusOneMode = "swap" | "send" | "deposit";
-
-interface NexusOneConfig {
-  mode: NexusOneMode;
-  prefill?: { /* token, chain, amount, recipient, source, destination */ };
-  allowedSourcePairs?: { token; chain }[];
-  allowedDestinationPairs?: { token; chain }[];
-  opportunities?: DepositOpportunity[]; // required for deposit mode
-}
-```
+Use `config.mode` to select `swap`, `send`, or `deposit`. Optional config fields include `prefill`, source/destination filters, and `deposit` for deposit mode.
 
 ### Props
 
 | Prop | Type | Notes |
 |---|---|---|
-| `config` | `NexusOneConfig` | Selects workflow and mode-specific behavior |
+| `config` | `object` | Selects workflow and mode-specific behavior |
 | `connectedAddress` | `` `0x${string}` `` | Optional. Falls back to wagmi connected wallet. |
 | `embed` | `boolean` | Defaults to `true`. Set `false` for modal mode. |
 | `onComplete` | `(explorerUrl?) => void` | Called after success |

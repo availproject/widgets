@@ -248,7 +248,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2",
+        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
         "lucide-react",
         "viem"
       ],
@@ -270,9 +270,9 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
     },
     {
       "name": "button",
@@ -609,7 +609,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2",
+        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
         "clsx",
         "lucide-react",
         "tailwind-merge",
@@ -630,9 +630,9 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
     },
     {
       "name": "dialog",
@@ -807,7 +807,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2",
+        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
         "lucide-react",
         "viem"
       ],
@@ -889,11 +889,6 @@
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/opportunity-list.tsx",
-          "target": "components/nexus-one/components/opportunity-list.tsx",
-          "type": "registry:component"
-        },
-        {
           "path": "registry/nexus-elements/nexus-one/components/pay-using-selector.tsx",
           "target": "components/nexus-one/components/pay-using-selector.tsx",
           "type": "registry:component"
@@ -944,6 +939,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/nexus-elements/nexus-one/sdk-types.ts",
+          "target": "components/nexus-one/sdk-types.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/nexus-elements/nexus-one/theme.ts",
           "target": "components/nexus-one/theme.ts",
           "type": "registry:component"
@@ -956,6 +956,11 @@
         {
           "path": "registry/nexus-elements/nexus-one/utils/citrea-tokens.ts",
           "target": "components/nexus-one/utils/citrea-tokens.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/nexus-elements/nexus-one/utils/deposit-source-selection.ts",
+          "target": "components/nexus-one/utils/deposit-source-selection.ts",
           "type": "registry:component"
         },
         {
@@ -1055,7 +1060,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2",
+        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
         "decimal.js",
         "lucide-react",
         "viem",
@@ -1063,6 +1068,7 @@
       ],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
         "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
         "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/swaps.json"
       ],
@@ -1084,7 +1090,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2",
+        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
         "wagmi"
       ]
     },
@@ -1337,7 +1343,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2",
+        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
         "lucide-react",
         "viem"
       ],
@@ -1550,7 +1556,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2",
+        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
         "lucide-react",
         "viem"
       ],
@@ -1588,7 +1594,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2",
+        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1740,7 +1746,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2",
+        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
         "lucide-react"
       ],
       "registryDependencies": [

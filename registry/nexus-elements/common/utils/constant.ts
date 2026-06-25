@@ -3,26 +3,38 @@ import { formatUnits, parseUnits } from "viem";
 export const SUPPORTED_CHAINS = {
   ETHEREUM: 1,
   BASE: 8453,
-  ARBITRUM: 42161,
+  ARBITRUM: 42_161,
   OPTIMISM: 10,
   POLYGON: 137,
-  AVALANCHE: 43114,
-  SCROLL: 534352,
-  MEGAETH: 946007,
+  AVALANCHE: 43_114,
+  SCROLL: 534_352,
+  MEGAETH: 4326,
   KAIA: 8217,
   BNB: 56,
-  MONAD: 220024,
+  MONAD: 143,
   HYPEREVM: 999,
   CITREA: 4114,
-  SEPOLIA: 11155111,
-  BASE_SEPOLIA: 84532,
-  ARBITRUM_SEPOLIA: 421614,
-  OPTIMISM_SEPOLIA: 11155420,
-  POLYGON_AMOY: 80002,
-  MONAD_TESTNET: 10143,
+  SEPOLIA: 11_155_111,
+  BASE_SEPOLIA: 84_532,
+  ARBITRUM_SEPOLIA: 421_614,
+  OPTIMISM_SEPOLIA: 11_155_420,
+  POLYGON_AMOY: 80_002,
+  MONAD_TESTNET: 10_143,
 } as const;
 
-export const CHAIN_METADATA = {
+interface ChainMetadata {
+  blockExplorerUrls: string[];
+  logo: string;
+  name: string;
+  nativeCurrency: {
+    decimals: number;
+    name: string;
+    symbol: string;
+  };
+  rpcUrls?: string[];
+}
+
+export const CHAIN_METADATA: Record<number, ChainMetadata> = {
   [SUPPORTED_CHAINS.ETHEREUM]: {
     logo: "https://raw.githubusercontent.com/availproject/nexus-assets/main/chains/ethereum/logo.png",
     name: "Ethereum",
@@ -64,6 +76,34 @@ export const CHAIN_METADATA = {
     name: "Scroll",
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     blockExplorerUrls: ["https://scrollscan.com"],
+  },
+  [SUPPORTED_CHAINS.MEGAETH]: {
+    logo: "https://files.availproject.org/fastbridge/megaeth/megaeth-favicon.svg",
+    name: "MegaETH",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    blockExplorerUrls: ["https://mega.etherscan.io"],
+    rpcUrls: ["https://rpcs.avail.so/megaeth"],
+  },
+  [SUPPORTED_CHAINS.KAIA]: {
+    logo: "https://raw.githubusercontent.com/availproject/nexus-assets/main/chains/kaia/logo.png",
+    name: "Kaia",
+    nativeCurrency: { name: "KAIA", symbol: "KAIA", decimals: 18 },
+    blockExplorerUrls: ["https://kaiascan.io"],
+    rpcUrls: ["https://rpcs.avail.so/kaia"],
+  },
+  [SUPPORTED_CHAINS.MONAD]: {
+    logo: "https://files.availproject.org/fastbridge/monad/monad-favicon.svg",
+    name: "Monad",
+    nativeCurrency: { name: "Monad", symbol: "MON", decimals: 18 },
+    blockExplorerUrls: ["https://monadscan.com"],
+    rpcUrls: ["https://rpcs.avail.so/monad"],
+  },
+  [SUPPORTED_CHAINS.HYPEREVM]: {
+    logo: "https://raw.githubusercontent.com/availproject/nexus-assets/main/chains/hyperevm/logo.png",
+    name: "HyperEVM",
+    nativeCurrency: { name: "Hype", symbol: "HYPE", decimals: 18 },
+    blockExplorerUrls: ["https://hyperevmscan.io"],
+    rpcUrls: ["https://rpcs.avail.so/hyperevm"],
   },
   [SUPPORTED_CHAINS.BNB]: {
     logo: "https://raw.githubusercontent.com/availproject/nexus-assets/main/chains/bnb/logo.png",
@@ -108,7 +148,7 @@ export const CHAIN_METADATA = {
     nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 },
     blockExplorerUrls: ["https://amoy.polygonscan.com"],
   },
-} as any;
+};
 
 export const TOKEN_METADATA = {
   ETH: {
@@ -167,7 +207,99 @@ export const SHORT_CHAIN_NAME: Record<number, string> = {
   // [SUPPORTED_CHAINS.TRON_SHASTA]: "Tron Shasta",
 } as const;
 
+export type SdkChainWithSwapSupport = {
+  chain?: { id?: number | null } | null;
+  id?: number | null;
+  swapSupported?: boolean | null;
+};
+
+export type SdkChainListWithSwapSupport =
+  | readonly SdkChainWithSwapSupport[]
+  | null
+  | undefined;
+
+const getSdkChainId = (chain: SdkChainWithSwapSupport) => {
+  const rawId = chain.id ?? chain.chain?.id;
+  if (rawId == null) {
+    return undefined;
+  }
+
+  const chainId = Number(rawId);
+  return Number.isInteger(chainId) && chainId > 0 ? chainId : undefined;
+};
+
+export function getSdkSwapSupportedChainIds(
+  chains: SdkChainListWithSwapSupport
+): Set<number> | null {
+  if (!chains?.length) {
+    return null;
+  }
+
+  const hasExplicitSwapSupport = chains.some(
+    (chain) => typeof chain.swapSupported === "boolean"
+  );
+  if (!hasExplicitSwapSupport) {
+    return null;
+  }
+
+  const supportedIds = new Set<number>();
+  for (const chain of chains) {
+    if (chain.swapSupported !== true) {
+      continue;
+    }
+
+    const chainId = getSdkChainId(chain);
+    if (chainId) {
+      supportedIds.add(chainId);
+    }
+  }
+
+  return supportedIds;
+}
+
+export function isSwapSupportedBySdkChainList(
+  chainId: number | null | undefined,
+  chains: SdkChainListWithSwapSupport
+): boolean {
+  if (!chainId) {
+    return false;
+  }
+
+  const sdkSupportedIds = getSdkSwapSupportedChainIds(chains);
+  if (sdkSupportedIds) {
+    return sdkSupportedIds.has(Number(chainId));
+  }
+
+  return true;
+}
+
+export function getShortChainName(
+  chainId?: number,
+  fallbackName?: string
+): string {
+  if (!chainId) {
+    return fallbackName ?? "";
+  }
+  return SHORT_CHAIN_NAME[chainId] ?? fallbackName ?? String(chainId);
+}
+
+export const TOKEN_IMAGES: Record<string, string> = {
+  BNB: "https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png",
+  KAIA: "https://assets.coingecko.com/asset_platforms/images/9672/large/kaia.png",
+  SOPH: "https://assets.coingecko.com/coins/images/38680/large/sophon_logo_200.png",
+  USDC: "https://coin-images.coingecko.com/coins/images/6319/large/usdc.png",
+  USDM: "https://raw.githubusercontent.com/availproject/nexus-assets/refs/heads/main/tokens/usdm/logo.png",
+  USDS: "https://assets.coingecko.com/coins/images/39926/standard/usds.webp?1726666683",
+  USDT: "https://coin-images.coingecko.com/coins/images/35023/large/USDT.png",
+  "USD₮0":
+    "https://coin-images.coingecko.com/coins/images/35023/large/USDT.png",
+  WETH: "https://assets.coingecko.com/coins/images/279/large/ethereum.png?1595348880",
+};
+
 const DEFAULT_SAFETY_MARGIN = 0.01; // 1%
+const TRAILING_DECIMAL_ZERO_REGEX = /(\.\d*?[1-9])0+$/u;
+const ZERO_DECIMAL_REGEX = /\.0+$/u;
+const LONE_DECIMAL_POINT_REGEX = /^\.$/u;
 
 /**
  * Compute an amount string for fraction buttons (25%, 50%, 75%, 100%).
@@ -184,16 +316,20 @@ export function computeAmountFromFraction(
   fraction: number,
   decimals: number,
   safetyMargin = DEFAULT_SAFETY_MARGIN,
-  balanceIsBaseUnits = false,
+  balanceIsBaseUnits = false
 ): string {
-  if (!balanceStr) return "0";
+  if (!balanceStr) {
+    return "0";
+  }
 
   // parse balance into base units (BigInt)
   const balanceUnits: bigint = balanceIsBaseUnits
     ? BigInt(balanceStr)
     : parseUnits(balanceStr, decimals);
 
-  if (balanceUnits === BigInt(0)) return "0";
+  if (balanceUnits === BigInt(0)) {
+    return "0";
+  }
 
   // Use an integer precision multiplier to avoid FP issues
   const PREC = 1_000_000; // 1e6 precision for fraction & safety margin
@@ -207,17 +343,21 @@ export function computeAmountFromFraction(
   let desiredUnits = (maxAfterSafety * fractionMul) / BigInt(PREC);
 
   // Extra clamp just in case
-  if (desiredUnits > balanceUnits) desiredUnits = balanceUnits;
-  if (desiredUnits < BigInt(0)) desiredUnits = BigInt(0);
+  if (desiredUnits > balanceUnits) {
+    desiredUnits = balanceUnits;
+  }
+  if (desiredUnits < BigInt(0)) {
+    desiredUnits = BigInt(0);
+  }
 
   // format back to human readable decimal string with token decimals (formatUnits truncates/keeps decimals)
   // formatUnits will produce exactly decimals digits if fractional part exists; we'll strip trailing zeros.
   const raw = formatUnits(desiredUnits, decimals);
   // strip trailing zeros and possible trailing dot
   return raw
-    .replace(/(\.\d*?[1-9])0+$/u, "$1")
-    .replace(/\.0+$/u, "")
-    .replace(/^\.$/u, "0");
+    .replace(TRAILING_DECIMAL_ZERO_REGEX, "$1")
+    .replace(ZERO_DECIMAL_REGEX, "")
+    .replace(LONE_DECIMAL_POINT_REGEX, "0");
 }
 
 export const usdFormatter = new Intl.NumberFormat("en-US", {
@@ -240,11 +380,17 @@ const usdFormatterPrecise = new Intl.NumberFormat("en-US", {
  * Values between 0.001 and 0.01 are shown with 3 decimals.
  */
 export function formatUsdForDisplay(value: number): string {
-  if (!Number.isFinite(value)) return usdFormatter.format(0);
+  if (!Number.isFinite(value)) {
+    return usdFormatter.format(0);
+  }
   const absValue = Math.abs(value);
 
-  if (absValue === 0) return usdFormatter.format(0);
-  if (absValue < 0.001) return "< $0.001";
+  if (absValue === 0) {
+    return usdFormatter.format(0);
+  }
+  if (absValue < 0.001) {
+    return "< $0.001";
+  }
   if (absValue < 0.01) {
     return usdFormatterPrecise.format(value);
   }
@@ -263,7 +409,7 @@ export const TOKEN_CONTRACT_ADDRESSES = {
     43114: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
     56: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
     999: "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
-    220024: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+    143: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
     4114: "0xE045e6c36cF77FAA2CfB54466D71A3aEF7bbE839",
     11155111: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
     84532: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -284,13 +430,12 @@ export const TOKEN_CONTRACT_ADDRESSES = {
     56: "0x55d398326f99059fF775485246999027B3197955",
     999: "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
     4114: "0x9f3096Bac87e7F03DC09b0B416eB0DF837304dc4",
-    946007: "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
+    4326: "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
     421614: "0xF954d4A5859b37De88a91bdbb8Ad309056FB04B1",
     11155420: "0x6462693c2F21AC0E517f12641D404895030F7426",
     10143: "0x1c56F176D6735888fbB6f8bD9ADAd8Ad7a023a0b",
   },
   USDM: {
-    946007: "0xFAfDdbb3FC7688494971a79cc65DCa3EF82079E7",
+    4326: "0xFAfDdbb3FC7688494971a79cc65DCa3EF82079E7",
   },
 } as Record<string, Record<number, `0x${string}`>>;
-

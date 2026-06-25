@@ -7,7 +7,7 @@
   "outputPath": "registry.json",
   "peerDependencies": ["react", "react-dom"],
   "pinnedDependencies": {
-    "@avail-project/nexus-core": "1.5.0"
+    "@avail-project/nexus-sdk-v2": "git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2"
   },
   "aliases": {
     "@/lib/utils": "lib/utils.ts",
@@ -51,10 +51,10 @@
     "deposit": {
       "title": "Deposit",
       "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations.",
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
       }
     },
     "swaps": {
@@ -87,10 +87,10 @@
     "bridge-deposit": {
       "title": "Bridge Deposit",
       "description": "Deprecated: use Nexus One instead. Bridge Deposit has been removed in favor of Nexus One deposit mode.",
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations.",
+      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and opportunities for new integrations."
+        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
       }
     },
     "all": {

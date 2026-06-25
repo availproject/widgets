@@ -5,7 +5,7 @@
   "title": "Unified Balance",
   "description": "Deprecated: use Nexus One instead. Unified Balance has been removed in favor of Nexus One's inline balance views.",
   "dependencies": [
-    "@avail-project/nexus-sdk-v2",
+    "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
     "lucide-react"
   ],
   "registryDependencies": [

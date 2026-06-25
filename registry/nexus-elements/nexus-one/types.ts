@@ -1,99 +1,99 @@
-import { type Address } from "viem";
+import type { Address } from "viem";
 
 export type NexusOneMode = "swap" | "send" | "deposit";
 
 /** Exact In: user specifies the "from" amount. Exact Out: user specifies the "to" amount. */
 export type SwapType = "exactIn" | "exactOut";
 
-/**
- * A single DeFi yield/deposit opportunity that can be listed in the deposit widget.
- * Devs pass an array of these so users can pick which protocol to deposit into.
- */
-export interface DepositOpportunity {
-  id: string;
-  /** Display label, e.g. "Aave USDC on Polygon" */
-  label?: string;
-  /** Protocol name, e.g. "Aave" */
-  protocol: string;
-  /** Optional URL to a protocol/token logo */
-  logo?: string;
-  /** New title for UI (e.g. "Aave") */
-  title?: string;
-  /** New subtitle for UI (e.g. "Deposit USDC on Arbitrum") */
-  subtitle?: string;
-  chainId: number;
-  tokenSymbol: string;
-  /** Optional custom token logo provided by developer */
-  tokenLogo?: string;
-  tokenAddress: Address;
-  /** Optional APY string shown in the card, e.g. "4.2%" */
+export type DepositExecuteConfig = {
+  to: Address;
+  value?: bigint;
+  data?: `0x${string}`;
+  gas?: bigint;
+  gasPrice?: "low" | "medium" | "high";
+  tokenApproval?: {
+    toTokenAddress: Address;
+    amount: bigint;
+    spender: Address;
+  };
+};
+
+export interface NexusOneDepositConfig {
   apy?: string;
-  /** Short description shown in the card */
+  chainId: number;
+  depositTargetLogo?: string;
   description?: string;
-  /** Parameters for sdk.swapAndExecute */
-  execute?: 
-    | {
-        to: `0x${string}`;
-        data?: `0x${string}`;
-        value?: bigint;
-        gas: bigint;
-        gasPrice?: 'low' | 'medium' | 'high';
-        tokenApproval?: {
-          token: `0x${string}`;
-          amount: bigint;
-          spender: `0x${string}`;
-        };
-      }
-    | ((amount: bigint, connectedAddress: `0x${string}`) => {
-        to: `0x${string}`;
-        data?: `0x${string}`;
-        value?: bigint;
-        gas: bigint;
-        gasPrice?: 'low' | 'medium' | 'high';
-        tokenApproval?: {
-          token: `0x${string}`;
-          amount: bigint;
-          spender: `0x${string}`;
-        };
-      });
+  estimatedTime?: string;
+  executeDeposit: (
+    tokenSymbol: string,
+    tokenAddress: Address,
+    amount: bigint,
+    chainId: number,
+    user: Address
+  ) => DepositExecuteConfig;
+  explorerUrl?: string;
+  gasTokenSymbol?: string;
+  label?: string;
+  logo?: string;
+
+  /** Optional labels used by Nexus One history/progress copy. */
+  protocol?: string;
+  subtitle?: string;
+  title?: string;
+  tokenAddress: Address;
+  tokenDecimals: number;
+  tokenLogo?: string;
+  tokenSymbol: string;
 }
 
+export type NexusOneDepositMetadata = Omit<
+  NexusOneDepositConfig,
+  "executeDeposit"
+>;
+
 export interface NexusOnePrefill {
-  token?: Address;
-  chain?: number;
   amount?: string;
+  chain?: number;
+  destination?: {
+    token: Address;
+    chain: number;
+  };
   recipient?: Address;
   source?: {
     token: Address;
     chain: number;
   };
-  destination?: {
-    token: Address;
-    chain: number;
-  };
+  token?: Address;
 }
 
 export interface NexusOneConfig {
-  mode: NexusOneMode;
-  prefill?: NexusOnePrefill;
-  allowedSourcePairs?: {
-    token: Address;
-    chain: number;
-  }[];
   allowedDestinationPairs?: {
     token: Address;
     chain: number;
   }[];
-  /** For deposit mode: list of DeFi opportunities the user can pick from */
-  opportunities?: DepositOpportunity[];
+  allowedSourcePairs?: {
+    token: Address;
+    chain: number;
+  }[];
+  /** Required for deposit mode. Describes the single destination and app call. */
+  deposit?: NexusOneDepositConfig;
+  mode: NexusOneMode;
+  onConnectWalletClick?: () => void | Promise<void>;
+  prefill?: NexusOnePrefill;
 }
 
 export interface NexusOneProps {
+  className?: string;
   config: NexusOneConfig;
-  embed?: boolean;
   connectedAddress?: Address;
-  onComplete?: (explorerUrl?: string) => void;
-  onStart?: () => void;
-  onError?: (message: string) => void;
+  defaultOpen?: boolean;
+  embed?: boolean;
   onClose?: () => void;
+  onComplete?: (explorerUrl?: string) => void;
+  onConnectWallet?: () => void | Promise<void>;
+  onError?: (message: string) => void;
+  onOpenChange?: (open: boolean) => void;
+  onReceiveAssetChange?: (asset: any) => void;
+  onStart?: () => void;
+  open?: boolean;
 }

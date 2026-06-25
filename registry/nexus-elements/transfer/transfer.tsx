@@ -17,7 +17,6 @@ import {
 } from "../ui/dialog";
 import TransactionProgress from "./components/transaction-progress";
 import SourceBreakdown from "./components/source-breakdown";
-// removed nexus-core imports
 import { type Address } from "viem";
 import { Skeleton } from "../ui/skeleton";
 import RecipientAddress from "./components/recipient-address";

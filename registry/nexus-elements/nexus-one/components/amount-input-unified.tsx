@@ -1,6 +1,8 @@
-import React, { useMemo } from "react";
-import { type UserAssetDatum } from "../../nexus/NexusProvider";
+// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+
 import Decimal from "decimal.js";
+import React, { useMemo } from "react";
+import type { UserAsset } from "../../nexus/NexusProvider";
 import {
   formatTokenAmountDisplay,
   formatUsdBalanceLabel,
@@ -8,16 +10,16 @@ import {
 
 interface AmountInputUnifiedProps {
   amount: string;
+  disabled?: boolean;
+  header?: React.ReactNode;
+  maxAvailableAmount?: string;
   onChange: (value: string) => void;
   onCommit?: (value: string) => void;
-  disabled?: boolean;
-  maxAvailableAmount?: string;
-  unifiedBalances?: UserAssetDatum[];
   tokenIcon?: React.ReactNode;
-  usdValue?: string;
   /** Label shown beside Balance text, e.g. "USDC" */
   tokenSymbol?: string;
-  header?: React.ReactNode;
+  unifiedBalances?: UserAsset[];
+  usdValue?: string;
 }
 
 export function AmountInputUnified({
@@ -43,10 +45,7 @@ export function AmountInputUnified({
     if (!unifiedBalances || !unifiedBalances.length) return "";
     if (isUsdMode) {
       return unifiedBalances
-        .reduce(
-          (acc, curr) => acc.add(curr.balanceInFiat ?? 0),
-          new Decimal(0),
-        )
+        .reduce((acc, curr) => acc.add(curr.balanceInFiat ?? 0), new Decimal(0))
         .toDecimalPlaces(8, Decimal.ROUND_DOWN)
         .toFixed();
     }
@@ -60,124 +59,125 @@ export function AmountInputUnified({
     if (isUsdMode) {
       const fiatAmount = unifiedBalances.reduce(
         (acc, curr) => acc.add(curr.balanceInFiat ?? 0),
-        new Decimal(0),
+        new Decimal(0)
       );
       return formatUsdBalanceLabel(fiatAmount);
     }
     const amount = unifiedBalances.reduce(
       (acc, curr) => acc.add(curr.balance ?? 0),
-      new Decimal(0),
+      new Decimal(0)
     );
     return formatTokenAmountDisplay(amount);
   }, [isUsdMode, unifiedBalances]);
 
   return (
     <div
-      className="w-full flex flex-col bg-white min-h-[168px]"
+      className="w-full flex flex-col bg-white min-h-[136px] nexus-focus-container"
       style={{
-        borderRadius: "12px",
+        borderRadius: "10px",
         border: "1px solid var(--border-default, #E8E8E7)",
         boxShadow: "0px 1px 12px 0px #5B5B5B0D",
         background: "#FFFFFF",
       }}
     >
       {header && (
-        <div className="w-full border-b border-[#E8E8E7] px-4 py-3">
+        <div className="w-full border-b border-[#E8E8E7] px-3.5 py-2.5">
           {header}
         </div>
       )}
-      <div className="flex-1 w-full flex flex-col items-center justify-center p-4 relative">
-      {/* Central Input row: large amount + MAX button inline */}
-      <div className="flex items-center justify-center w-full gap-x-2 mb-1.5">
-        <div
-          className="flex items-center justify-center text-center"
-          style={{
-            fontSize: "34px",
-            fontWeight: 500,
-            gap: "2px",
-          }}
-        >
-          {tokenIcon ? (
-            <div className="flex items-center justify-center mr-3">
-              {tokenIcon}
-            </div>
-          ) : (
-            <span className="leading-none text-gray-800 mr-1.5">$</span>
-          )}
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="0"
-            className="min-w-0 text-start bg-transparent border-none outline-none p-0 focus:ring-0 placeholder:text-gray-300 truncate tabular-nums"
+      <div className="flex-1 w-full flex flex-col items-center justify-center p-3.5 relative">
+        {/* Central Input row: large amount + MAX button inline */}
+        <div className="flex items-center justify-center w-full gap-x-1.5 mb-1">
+          <div
+            className="flex items-center justify-center text-center"
             style={{
-              fontFamily: "'Delight', sans-serif",
+              fontSize: "28px",
               fontWeight: 500,
-              fontSize: "34px",
-              lineHeight: "100%",
-              height: "34px",
-              letterSpacing: "2%",
-              color: "var(--foreground-primary, #161615)",
-              fieldSizing: "content",
-              minWidth: "1ch",
-              maxWidth: "6ch",
-            }}
-            value={amount}
-            disabled={disabled}
-            onChange={(e) => {
-              let next = e.target.value.replaceAll(/[^0-9.]/g, "");
-              const parts = next.split(".");
-              if (parts.length > 2)
-                next = parts[0] + "." + parts.slice(1).join("");
-              if (next === ".") next = "0.";
-              onChange(next);
-            }}
-            onBlur={() => onCommit?.(amount)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onCommit?.(amount);
-            }}
-          />
-        </div>
-        {/* MAX button — inline beside the input */}
-        <button
-          onClick={handleMax}
-          disabled={disabled || !maxAvailableAmount}
-          className="shrink-0 focus:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-          style={{
-            background: "var(--background-tertiary, #F0F0EF)",
-            width: "40px",
-            height: "22px",
-            borderRadius: "6px",
-            padding: "3px 7px",
-            color: "var(--foreground-muted, #848483)",
-            fontFamily:
-              "var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-            fontWeight: 400,
-            fontSize: "10px",
-            lineHeight: "100%",
-          }}
-        >
-          MAX
-        </button>
-      </div>
-
-      {/* Balance display — below amount + MAX row */}
-      {(totalBalanceValue || maxAvailableAmount) && (
-        <div className="absolute bottom-4 left-0 w-full flex justify-center">
-          <p
-            style={{
-              color: "var(--widget-card-foreground-muted, #848483)",
-              fontFamily:
-                "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
-              fontWeight: 400,
-              fontSize: "12px",
-              lineHeight: "100%",
-              textAlign: "center",
+              gap: "2px",
             }}
           >
-            Balance: {totalBalanceLabel || "0"}{tokenSymbol ? ` ${tokenSymbol}` : ""}
-          </p>
+            {tokenIcon ? (
+              <div className="flex items-center justify-center mr-2">
+                {tokenIcon}
+              </div>
+            ) : (
+              <span className="leading-none text-gray-800 mr-1">$</span>
+            )}
+            <input
+              className="min-w-0 text-start bg-transparent border-none outline-none p-0 focus:ring-0 placeholder:text-gray-300 truncate tabular-nums"
+              disabled={disabled}
+              inputMode="decimal"
+              onBlur={() => onCommit?.(amount)}
+              onChange={(e) => {
+                let next = e.target.value.replaceAll(/[^0-9.]/g, "");
+                const parts = next.split(".");
+                if (parts.length > 2)
+                  next = parts[0] + "." + parts.slice(1).join("");
+                if (next === ".") next = "0.";
+                onChange(next);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onCommit?.(amount);
+              }}
+              placeholder="0"
+              style={{
+                fontFamily: "'Delight', sans-serif",
+                fontWeight: 500,
+                fontSize: "28px",
+                lineHeight: "100%",
+                height: "28px",
+                letterSpacing: "2%",
+                color: "var(--foreground-primary, #161615)",
+                fieldSizing: "content",
+                minWidth: "1ch",
+                maxWidth: "6ch",
+              }}
+              type="text"
+              value={amount}
+            />
+          </div>
+          {/* MAX button — inline beside the input */}
+          <button
+            className="shrink-0 focus:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            disabled={disabled || !maxAvailableAmount}
+            onClick={handleMax}
+            style={{
+              background: "var(--background-tertiary, #F0F0EF)",
+              width: "36px",
+              height: "20px",
+              borderRadius: "5px",
+              padding: "2px 6px",
+              color: "var(--foreground-muted, #848483)",
+              fontFamily:
+                "var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+              fontWeight: 400,
+              fontSize: "9px",
+              lineHeight: "100%",
+            }}
+          >
+            MAX
+          </button>
         </div>
-      )}
+
+        {/* Balance display — below amount + MAX row */}
+        {(totalBalanceValue || maxAvailableAmount) && (
+          <div className="absolute bottom-3 left-0 w-full flex justify-center">
+            <p
+              style={{
+                color: "var(--widget-card-foreground-muted, #848483)",
+                fontFamily:
+                  "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+                fontWeight: 400,
+                fontSize: "10.5px",
+                lineHeight: "100%",
+                textAlign: "center",
+              }}
+            >
+              Balance: {totalBalanceLabel || "0"}
+              {tokenSymbol ? ` ${tokenSymbol}` : ""}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

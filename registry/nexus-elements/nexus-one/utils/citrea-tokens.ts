@@ -1,4 +1,7 @@
+// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+
 import { CHAIN_METADATA } from "../../common";
+import { getShortChainName } from "../../common/utils/constant";
 import type { SwapTokenOption } from "../components/swap-asset-selector";
 
 export const CITREA_CHAIN_ID = 4114;
@@ -109,7 +112,10 @@ const normalizeAddress = (address?: string) => {
 
 export const getCitreaChainMeta = () => ({
   logo: CHAIN_METADATA[CITREA_CHAIN_ID]?.logo ?? CITREA_CHAIN_FALLBACK.logo,
-  name: CHAIN_METADATA[CITREA_CHAIN_ID]?.name ?? CITREA_CHAIN_FALLBACK.name,
+  name: getShortChainName(
+    CITREA_CHAIN_ID,
+    CHAIN_METADATA[CITREA_CHAIN_ID]?.name ?? CITREA_CHAIN_FALLBACK.name
+  ),
 });
 
 export const getCitreaReceiveTokenOptions = (): SwapTokenOption[] => {
