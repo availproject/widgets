@@ -10,16 +10,16 @@
     "viem"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/select.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/separator.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
   ],
   "files": [
     {

@@ -226,6 +226,7 @@ export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
 | `onStart`                             | `() => void`                     |          | Called when execution begins.                                                                    |
 | `onError`                             | `(message: string) => void`      |          | Called on failure.                                                                               |
 | `onClose`                             | `() => void`                     |          | Close button handler (modal mode only).                                                          |
+| `onConnectClick`                      | `() => void \| Promise<void>`    |          | Called when the internal Connect Wallet CTA is clicked. Use this to open your app/header wallet modal. |
 | `onConnectWallet`                     | `() => void \| Promise<void>`    |          | Called when the internal Connect Wallet CTA is clicked. Wire this to your app-level wallet flow. |
 
 ### Config Options

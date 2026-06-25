@@ -21,7 +21,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -37,14 +37,14 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/bridge-deposit.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/deposit.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/fast-bridge.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/swaps.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/transfer.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/unified-balance.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/view-history.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/bridge-deposit.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/deposit.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/fast-bridge.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/swaps.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/transfer.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/unified-balance.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
       ]
     },
     {
@@ -77,7 +77,7 @@
         "class-variance-authority"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -253,20 +253,20 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/collapsible.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/popover.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/collapsible.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/input.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/popover.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
@@ -291,7 +291,7 @@
         "class-variance-authority"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -307,7 +307,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -327,7 +327,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -617,16 +617,16 @@
         "wagmi"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/animated-spinner.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/animated-spinner.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
@@ -651,7 +651,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -812,19 +812,19 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/view-history.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/input.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
       ],
       "meta": {
         "deprecated": true,
@@ -845,7 +845,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -864,7 +864,7 @@
         "@radix-ui/react-label"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1067,10 +1067,10 @@
         "wagmi"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/swaps.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/swaps.json"
       ],
       "meta": {
         "featured": true
@@ -1110,7 +1110,7 @@
         "@radix-ui/react-popover"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1130,7 +1130,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1146,7 +1146,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1162,7 +1162,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1348,16 +1348,16 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
@@ -1381,7 +1381,7 @@
         "@radix-ui/react-tabs"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1400,7 +1400,7 @@
         "@radix-ui/react-tooltip"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1561,19 +1561,19 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/view-history.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/input.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
       ],
       "meta": {
         "deprecated": true,
@@ -1598,12 +1598,12 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
@@ -1750,13 +1750,13 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/badge.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/badge.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,

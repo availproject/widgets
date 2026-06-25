@@ -86,5 +86,5 @@ If the existing project has custom logic modifications inside the `components/ne
    - `onStart`: Called when transaction starts.
    - `onComplete(explorerUrl)`: Called when execution succeeds.
    - `onError(message)`: Called when execution fails.
-   - `onConnectWallet`: Custom handler for connect wallet CTA clicks.
+   - `onConnectClick`: Custom handler for connect wallet CTA clicks.
 3. **Port custom changes manually:** If custom internal logic (like custom UI layout/styles) was used, instruct the developer or make changes inside the new `components/nexus/` files manually. Do NOT copy the legacy files directly over.

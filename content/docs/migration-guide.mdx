@@ -212,6 +212,6 @@ If you or your team previously customized the source code of the legacy componen
    - `onStart`: Triggered when the transaction pipeline begins.
    - `onComplete`: Triggered when successful. Receives `explorerUrl`.
    - `onError`: Triggered when failing. Receives the `message`.
-   - `onConnectWallet`: Triggered when the user clicks the "Connect Wallet" CTA inside the widget.
+   - `onConnectClick`: Triggered when the user clicks the "Connect Wallet" CTA inside the widget. Use this to open your app/header wallet modal.
 4. **Port Custom UI Styles:** If you customized the design, update `components/nexus/nexus.tsx` or its child styling files using Tailwind CSS or standard theme classes matching your design system.
 5. **Clean Up:** Once the new component is fully verified, delete the old `components/nexus-elements/` directories to keep the workspace clean.

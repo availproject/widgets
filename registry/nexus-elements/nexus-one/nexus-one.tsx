@@ -3074,6 +3074,7 @@ function NexusOneInner({
   onOpenChange,
   defaultOpen = false,
   onComplete,
+  onConnectClick,
   onStart,
   onError,
   onReceiveAssetChange,
@@ -6861,7 +6862,8 @@ function NexusOneInner({
   const handleConnectWallet = async () => {
     if (walletActionPending || nexusLoading) return;
 
-    const clickHandler = config.onConnectWalletClick || onConnectWallet;
+    const clickHandler =
+      config.onConnectWalletClick || onConnectClick || onConnectWallet;
     if (clickHandler) {
       setWalletActionPending(true);
       setTxError(null);
@@ -8838,7 +8840,10 @@ function NexusOneInner({
     isWalletConnectPending ||
     walletStatus === "connecting";
   const hasConnectWalletHandler = Boolean(
-    config.onConnectWalletClick || onConnectWallet || connectors.length > 0
+    config.onConnectWalletClick ||
+      onConnectClick ||
+      onConnectWallet ||
+      connectors.length > 0
   );
   const walletCtaLabel = hasConnectWalletHandler
     ? walletConnectBusy

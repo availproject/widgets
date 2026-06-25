@@ -5,14 +5,14 @@
   "title": "All Elements",
   "description": "Install all Avail widgets. For new integrations, use @avail-widgets/nexus instead - it provides unified swap, send, and deposit in one component.",
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/bridge-deposit.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/deposit.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/fast-bridge.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/swaps.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/transfer.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/unified-balance.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/view-history.json"
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/bridge-deposit.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/deposit.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/fast-bridge.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/swaps.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/transfer.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/unified-balance.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
   ],
   "files": [
     {

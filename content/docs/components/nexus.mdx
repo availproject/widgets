@@ -124,6 +124,7 @@ export function App({ address }: { address?: `0x${string}` }) {
 | `onStart` | `() => void` | Called when the user starts execution. |
 | `onError` | `(message: string) => void` | Called when execution fails. |
 | `onClose` | `() => void` | Used by modal mode. The close button is hidden in embedded mode. |
+| `onConnectClick` | `() => void \| Promise<void>` | Called when the internal Connect Wallet CTA is clicked. Use this to open your app/header wallet modal. |
 | `onConnectWallet` | `() => void \| Promise<void>` | Called when the internal Connect Wallet CTA is clicked. Wire this to your app-level wallet flow; it is a no-op when omitted. |
 
 ### Optional Config Fields

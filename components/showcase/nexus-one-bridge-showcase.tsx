@@ -3,9 +3,11 @@ import React from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
 import { NexusWidget } from "@/registry/nexus-elements/nexus-one/nexus-one";
 import { useAccount } from "wagmi";
+import { useModal } from "connectkit";
 
 const NexusWidgetBridgeShowcase = () => {
   const { address } = useAccount();
+  const { setOpen } = useModal();
 
   return (
     <ShowcaseWrapper
@@ -21,6 +23,7 @@ const NexusWidgetBridgeShowcase = () => {
         <NexusWidget
           config={{ mode: "swap" }}
           connectedAddress={address}
+          onConnectClick={() => setOpen(true)}
         />
       </div>
     </ShowcaseWrapper>

@@ -786,9 +786,9 @@ const NexusWidgetDepositShowcase = () => {
             config={{
               mode: "deposit",
               deposit: currentOpportunity as any,
-              onConnectWalletClick: () => setOpen(true),
             }}
             connectedAddress={address}
+            onConnectClick={() => setOpen(true)}
           />
         </div>
       </div>

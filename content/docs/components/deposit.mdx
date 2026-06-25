@@ -131,7 +131,7 @@ Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the des
 | `connectedAddress`                                               | Optional | Wallet address to use. If omitted, the connected wagmi account is used.                           |
 | `embed`                                                          | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                     |
 | `open`, `onOpenChange`, `defaultOpen`                            | Optional | Control the modal when `embed={false}`.                                                           |
-| `onStart`, `onComplete`, `onError`, `onClose`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectWallet` to route the element CTA to your app-level wallet flow. |
+| `onStart`, `onComplete`, `onError`, `onClose`, `onConnectClick`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectClick` to open your app/header wallet modal from the element CTA. |
 
 ### Deposit Config Fields (`config.deposit`)
 

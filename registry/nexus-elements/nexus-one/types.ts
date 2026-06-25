@@ -152,6 +152,7 @@ export interface NexusWidgetProps {
   embed?: boolean;
   onClose?: () => void;
   onComplete?: (explorerUrl?: string) => void;
+  onConnectClick?: () => void | Promise<void>;
   onConnectWallet?: () => void | Promise<void>;
   onError?: (message: string) => void;
   onOpenChange?: (open: boolean) => void;
