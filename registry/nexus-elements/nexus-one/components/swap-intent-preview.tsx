@@ -1,4 +1,4 @@
-// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+// biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 "use client";
 

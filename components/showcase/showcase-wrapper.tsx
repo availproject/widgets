@@ -74,7 +74,7 @@ const ShowcaseWrapper = ({
       : currentNetwork;
   const isTestnetUnsupported =
     disabledTestnet.has(type) && effectiveNetwork === "testnet";
-  const isNexusOneTestnetUnsupported =
+  const isNexusWidgetTestnetUnsupported =
     type === "nexus-one" && isTestnetUnsupported;
 
   return (
@@ -99,7 +99,7 @@ const ShowcaseWrapper = ({
           </Toggle>
         )}
       </div>
-      {isNexusOneTestnetUnsupported && (
+      {isNexusWidgetTestnetUnsupported && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
           Testnet is not supported at the moment.
         </div>
@@ -107,7 +107,7 @@ const ShowcaseWrapper = ({
       <p className="text-sm font-medium">{banner}</p>
       {isTestnetUnsupported ? (
         <div className="w-full h-64 flex flex-col gap-y-2 items-center justify-center">
-          {isNexusOneTestnetUnsupported ? (
+          {isNexusWidgetTestnetUnsupported ? (
             <p className="text-lg font-medium">
               Testnet is not supported at the moment.
             </p>

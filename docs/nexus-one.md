@@ -1,12 +1,12 @@
-# Nexus One — Production Element
+# Nexus Widget — Production Element
 
 Last updated: June 2, 2026
 
 ## 1) Status
 
-**Nexus One is now the production, primary element.** It has been published to the registry and is the only recommended component for all cross-chain flows. All legacy standalone elements have been deprecated and removed.
+**Nexus Widget is now the production, primary element.** It has been published to the registry and is the only recommended component for all cross-chain flows. All legacy standalone elements have been deprecated and removed.
 
-## 2) What Nexus One provides
+## 2) What Nexus Widget provides
 
 A single unified component that handles:
 - **Swap and Bridge** (`config.mode = "swap"`) — cross-chain swaps with exact-in and exact-out. Bridge paths are resolved automatically when tokens match.
@@ -16,13 +16,13 @@ A single unified component that handles:
 ## 3) Install
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ## 4) Registry and docs
 
-- Registry: `@nexus-elements/nexus-one`
-- Docs: `https://elements.nexus.availproject.org/docs/components/nexus-one`
+- Registry: `@avail-widgets/nexus`
+- Docs: `https://elements.nexus.availproject.org/docs/components/nexus`
 - Mode-specific docs:
   - Swap: `/docs/components/swaps`
   - Send: `/docs/components/transfer`
@@ -56,7 +56,7 @@ Use `config.mode` to select `swap`, `send`, or `deposit`. Optional config fields
 ## 9) Architecture
 
 - `NexusProvider` = SDK lifecycle + shared data + hooks (unchanged, still required)
-- `NexusOne` = unified element with internal state management per mode
+- `NexusWidget` = unified element with internal state management per mode
 - Legacy elements (FastBridge, FastTransfer, SwapWidget, Deposit, BridgeDeposit, UnifiedBalance, ViewHistory) = **deprecated and removed**
 
 ## 10) Module layout
@@ -71,10 +71,10 @@ Use `config.mode` to select `swap`, `send`, or `deposit`. Optional config fields
 
 | Legacy element | What it did | Why removed |
 |---|---|---|
-| `FastBridge` | Self-bridge via `sdk.bridge` | Subsumed by Nexus One swap mode |
-| `FastTransfer` | Bridge-to-recipient via `sdk.bridgeAndTransfer` | Subsumed by Nexus One send mode |
-| `SwapWidget` | Cross-chain swap via `sdk.swapWithExactIn`/`Out` | Subsumed by Nexus One swap mode |
-| `Deposit` (NexusDeposit) | Swap+execute deposit via `sdk.swapAndExecute` | Subsumed by Nexus One deposit mode |
-| `BridgeDeposit` | Bridge+execute deposit via `sdk.bridgeAndExecute` | Subsumed by Nexus One deposit mode |
-| `UnifiedBalance` | Balance visualization | Inline in Nexus One |
+| `FastBridge` | Self-bridge via `sdk.bridge` | Subsumed by Nexus Widget swap mode |
+| `FastTransfer` | Bridge-to-recipient via `sdk.bridgeAndTransfer` | Subsumed by Nexus Widget send mode |
+| `SwapWidget` | Cross-chain swap via `sdk.swapWithExactIn`/`Out` | Subsumed by Nexus Widget swap mode |
+| `Deposit` (NexusDeposit) | Swap+execute deposit via `sdk.swapAndExecute` | Subsumed by Nexus Widget deposit mode |
+| `BridgeDeposit` | Bridge+execute deposit via `sdk.bridgeAndExecute` | Subsumed by Nexus Widget deposit mode |
+| `UnifiedBalance` | Balance visualization | Inline in Nexus Widget |
 | `ViewHistory` | Intent history list | Not in V1; use `sdk.getMyIntents()` |

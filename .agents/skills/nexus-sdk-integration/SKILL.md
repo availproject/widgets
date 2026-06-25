@@ -7,7 +7,7 @@ description: End-to-end integration guidance for Avail Nexus SDK in any JS/TS fr
 
 > **These Nexus SDK skills supersede all legacy `nexus-elements-*` skills.**
 > The legacy standalone elements (FastBridge, FastTransfer, SwapWidget, Deposit, BridgeDeposit, UnifiedBalance, ViewHistory) have been **deprecated and removed**.
-> **Nexus One** (`@nexus-elements/nexus-one`) is the single unified UI component for all swap, send, and deposit flows.
+> **Nexus Widget** (`@avail-widgets/nexus`) is the single unified UI component for all swap, send, and deposit flows.
 > Use these `nexus-sdk-*` skills for all SDK integration guidance.
 
 ## Integrate end-to-end

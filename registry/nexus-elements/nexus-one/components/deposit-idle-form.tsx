@@ -1,4 +1,4 @@
-// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+// biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
@@ -15,12 +15,15 @@ interface DepositIdleFormProps {
   amountMode: "token" | "usd";
   calculatingPercent?: number | null;
   fromTokens: SwapTokenOption[];
+  isAmountReadOnly?: boolean;
   isCalculatingMax?: boolean;
   isQuoteRefreshing?: boolean;
   isSourcePickerDisabled?: boolean;
+  isTokenPickerDisabled?: boolean;
   onAmountChange: (val: string) => void;
   onAmountModeToggle: () => void;
   onOpenSourcePicker: () => void;
+  onOpenTokenPicker?: () => void;
   onSetPercent: (pct: number) => void;
   reserveSourceRows?: boolean;
   routeMessage?: string;
@@ -574,11 +577,14 @@ export function DepositIdleForm({
   onSetPercent,
   routeStatus,
   routeMessage,
+  isAmountReadOnly = false,
   isCalculatingMax,
   calculatingPercent,
   isQuoteRefreshing,
   showAutoBadge = true,
   isSourcePickerDisabled = false,
+  isTokenPickerDisabled = false,
+  onOpenTokenPicker,
   reserveSourceRows = false,
 }: DepositIdleFormProps) {
   const [pendingPercent, setPendingPercent] = useState<number | null>(null);
@@ -594,6 +600,7 @@ export function DepositIdleForm({
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAmountReadOnly) return;
     onAmountChange(
       sanitizeAmountInput(
         e.target.value,
@@ -734,6 +741,7 @@ export function DepositIdleForm({
                     </span>
                   )}
                   <input
+                    aria-readonly={isAmountReadOnly}
                     onBlur={() => setIsAmountFocused(false)}
                     onChange={handleInput}
                     onFocus={() => setIsAmountFocused(true)}
@@ -743,6 +751,7 @@ export function DepositIdleForm({
                       border: "none",
                       boxSizing: "border-box",
                       color: amount ? primary : "#9E9E9C",
+                      cursor: isAmountReadOnly ? "default" : "text",
                       fontFamily:
                         '"Delight-Medium", "Delight", system-ui, sans-serif',
                       fontSize: "30px",
@@ -753,6 +762,7 @@ export function DepositIdleForm({
                       padding: 0,
                       width: "100%",
                     }}
+                    readOnly={isAmountReadOnly}
                     type="text"
                     value={amountDisplayValue}
                   />
@@ -774,6 +784,19 @@ export function DepositIdleForm({
             </div>
 
             <div
+              onClick={
+                onOpenTokenPicker && !isTokenPickerDisabled
+                  ? onOpenTokenPicker
+                  : undefined
+              }
+              role={
+                onOpenTokenPicker && !isTokenPickerDisabled
+                  ? "button"
+                  : undefined
+              }
+              tabIndex={
+                onOpenTokenPicker && !isTokenPickerDisabled ? 0 : undefined
+              }
               style={{
                 alignItems: "center",
                 backgroundColor: "#FFFFFE",
@@ -783,6 +806,10 @@ export function DepositIdleForm({
                 borderWidth: "1px",
                 boxShadow: "#1616150A 0px 1px 2px",
                 boxSizing: "border-box",
+                cursor:
+                  onOpenTokenPicker && !isTokenPickerDisabled
+                    ? "pointer"
+                    : "default",
                 display: "inline-flex",
                 flexShrink: 0,
                 gap: "8px",
@@ -831,6 +858,11 @@ export function DepositIdleForm({
               >
                 {toToken?.symbol || "Token"}
               </div>
+              {onOpenTokenPicker && !isTokenPickerDisabled && (
+                <ChevronDown
+                  style={{ color: "#5B5B5A", height: 13, width: 13 }}
+                />
+              )}
             </div>
           </div>
 
@@ -852,12 +884,13 @@ export function DepositIdleForm({
               }}
             >
               <button
+                disabled={isAmountReadOnly}
                 onClick={onAmountModeToggle}
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: muted,
-                  cursor: "pointer",
+                  color: isAmountReadOnly ? "#A8A8A6" : muted,
+                  cursor: isAmountReadOnly ? "default" : "pointer",
                   fontFamily: uiFont,
                   fontSize: "11px",
                   lineHeight: "15px",
@@ -874,12 +907,18 @@ export function DepositIdleForm({
             <div
               style={{
                 alignItems: "center",
-                display: toToken && isAmountFocused ? "flex" : "none",
+                display:
+                  toToken && isAmountFocused && !isAmountReadOnly
+                    ? "flex"
+                    : "none",
                 justifyContent: "center",
-                pointerEvents: toToken && isAmountFocused ? "auto" : "none",
+                pointerEvents:
+                  toToken && isAmountFocused && !isAmountReadOnly
+                    ? "auto"
+                    : "none",
               }}
             >
-              {toToken && (
+              {toToken && !isAmountReadOnly && (
                 <PercentButtons
                   onSelect={handlePercentSelect}
                   visible={Boolean(toToken) && isAmountFocused}

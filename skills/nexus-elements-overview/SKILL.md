@@ -1,28 +1,28 @@
 ---
 name: nexus-elements-overview
-description: End-to-end integration guide for Nexus Elements. Use Nexus One as the single unified component for all swap, send, and deposit flows. Legacy standalone widgets (FastBridge, FastTransfer, SwapWidget, Deposit, BridgeDeposit, UnifiedBalance, ViewHistory) have been deprecated and removed.
+description: End-to-end integration guide for Nexus Elements. Use Nexus Widget as the single unified component for all swap, send, and deposit flows. Legacy standalone widgets (FastBridge, FastTransfer, SwapWidget, Deposit, BridgeDeposit, UnifiedBalance, ViewHistory) have been deprecated and removed.
 ---
 
 # Nexus Elements Overview
 
-## Nexus One is the only element you need
+## Nexus Widget is the only element you need
 
-All legacy standalone widgets have been **deprecated and removed**. **Nexus One** is the single unified component that handles swap, send (transfer), and deposit flows.
+All legacy standalone widgets have been **deprecated and removed**. **Nexus Widget** is the single unified component that handles swap, send (transfer), and deposit flows.
 
-| Legacy element | Status | Nexus One replacement |
+| Legacy element | Status | Nexus Widget replacement |
 |---|---|---|
-| `FastBridge` | ❌ Removed | `NexusOne` with `config.mode = "swap"` |
-| `FastTransfer` | ❌ Removed | `NexusOne` with `config.mode = "send"` |
-| `SwapWidget` | ❌ Removed | `NexusOne` with `config.mode = "swap"` |
-| `Deposit` | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `config.deposit` |
-| `BridgeDeposit` | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `config.deposit` |
-| `UnifiedBalance` | ❌ Removed | Inline balance view in Nexus One |
+| `FastBridge` | ❌ Removed | `NexusWidget` with `config.mode = "swap"` |
+| `FastTransfer` | ❌ Removed | `NexusWidget` with `config.mode = "send"` |
+| `SwapWidget` | ❌ Removed | `NexusWidget` with `config.mode = "swap"` |
+| `Deposit` | ❌ Removed | `NexusWidget` with `config.mode = "deposit"` + `config.deposit` |
+| `BridgeDeposit` | ❌ Removed | `NexusWidget` with `config.mode = "deposit"` + `config.deposit` |
+| `UnifiedBalance` | ❌ Removed | Inline balance view in Nexus Widget |
 | `ViewHistory` | ❌ Removed | Use `sdk.getMyIntents()` directly |
 
-## Install Nexus One
+## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ## Integrate end-to-end in any TS/React app
@@ -41,7 +41,7 @@ Add this mapping in `components.json`:
 ```
 
 ### 3. Set up NexusProvider
-Install and wire `nexus-provider` before Nexus One:
+Install and wire `nexus-provider` before Nexus Widget:
 ```bash
 npx shadcn@latest add @nexus-elements/nexus-provider
 ```
@@ -89,18 +89,18 @@ export function InitNexusOnConnect() {
 }
 ```
 
-### 5. Render Nexus One
+### 5. Render Nexus Widget
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 // Swap mode (also handles bridges)
-<NexusOne config={{ mode: "swap" }} connectedAddress={address} />
+<NexusWidget config={{ mode: "swap" }} connectedAddress={address} />
 
 // Send mode
-<NexusOne config={{ mode: "send" }} connectedAddress={address} />
+<NexusWidget config={{ mode: "send" }} connectedAddress={address} />
 
 // Deposit mode
-<NexusOne
+<NexusWidget
   config={{
     mode: "deposit",
     deposit: { /* ... */ },
@@ -123,14 +123,14 @@ For detailed SDK integration guidance, use the **Nexus SDK agent skills** (`.age
 ## E2E readiness checklist
 - Confirm wallet connects and `handleInit` runs once per session.
 - Confirm `useNexus().nexusSDK` is non-null after connect.
-- Confirm Nexus One renders and responds to mode/prefill config.
+- Confirm Nexus Widget renders and responds to mode/prefill config.
 - Confirm every flow (swap, send, deposit) can reach success.
 - Confirm disconnect clears SDK state (`deinitializeNexus`).
 
 ## Common integration failures
 - Invalid provider object:
   - Ensure provider has `request()`.
-- Nexus One not rendering:
+- Nexus Widget not rendering:
   - Ensure `NexusProvider` wraps your app and SDK is initialized.
 - Empty balance/sources:
   - Ensure SDK init finished and wallet is connected on a supported network.

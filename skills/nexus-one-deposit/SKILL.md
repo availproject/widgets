@@ -1,18 +1,18 @@
 ---
 name: nexus-one-deposit
-description: Scaffolding, configuration, and integration of the Nexus One component in deposit mode (config.mode = "deposit"). Handles swapping assets and executing custom smart contract calls on the destination chain.
+description: Scaffolding, configuration, and integration of the Nexus Widget component in deposit mode (config.mode = "deposit"). Handles swapping assets and executing custom smart contract calls on the destination chain.
 ---
 
-# Nexus One - Protocol Deposits
+# Nexus Widget - Protocol Deposits
 
-Use the **Nexus One** component with `config.mode = "deposit"` to allow users to pay for a smart contract execution/deposit on a destination chain with assets from any source chain. Nexus One resolves pay-with assets, handles the cross-chain swap, and executes your custom deposit payload in a single flow.
+Use the **Nexus Widget** component with `config.mode = "deposit"` to allow users to pay for a smart contract execution/deposit on a destination chain with assets from any source chain. Nexus Widget resolves pay-with assets, handles the cross-chain swap, and executes your custom deposit payload in a single flow.
 
 ## 1. Installation
 
 Install dependencies and the component via the shadcn CLI:
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 Make sure peer dependencies are installed:
@@ -25,7 +25,7 @@ npm install @avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexu
 Wrap the component with `NexusProvider` (usually in your root layout or app provider stack). In `"deposit"` mode, the `deposit` object is **required** inside the config.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 import { encodeFunctionData } from "viem";
 
 export function DepositWidget({ address }: { address?: `0x${string}` }) {
@@ -82,7 +82,7 @@ export function DepositWidget({ address }: { address?: `0x${string}` }) {
     },
   } as const;
 
-  return <NexusOne config={depositConfig} connectedAddress={address} />;
+  return <NexusWidget config={depositConfig} connectedAddress={address} />;
 }
 ```
 
@@ -112,7 +112,7 @@ const depositConfig = {
 Leverage standard callbacks to manage your app's flow:
 
 ```tsx
-<NexusOne
+<NexusWidget
   config={depositConfig}
   connectedAddress={address}
   onStart={() => console.log("Deposit started")}

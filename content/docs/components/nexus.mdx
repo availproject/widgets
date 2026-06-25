@@ -1,17 +1,17 @@
 ---
-title: Nexus One
+title: Nexus Widget
 description: A unified element for swap, send, and deposit flows powered by Nexus intents.
 component: true
 ---
 
 <ComponentPreview
-  name="nexus-one"
+  name="nexus"
   description="An all-in-one component for swaps, sends, and protocol deposits."
   align="center"
   hideCode
 />
 
-> **Network support:** Nexus One currently supports mainnet only. Testnet is not supported at the moment.
+> **Network support:** Nexus Widget currently supports mainnet only. Testnet is not supported at the moment.
 
 Switch the mode below the element in this preview to see the active `config` update in real time.
 
@@ -22,7 +22,7 @@ Switch the mode below the element in this preview to see the active `config` upd
 Locks the element to the send flow. This preview prefills USDC on Base, an amount, and a recipient; Nexus resolves the sources to pay with.
 
 <ComponentPreview
-  name="nexus-one-transfer"
+  name="nexus-send"
   description="Locked send mode for cross-chain transfers."
   align="center"
   hideCode
@@ -33,7 +33,7 @@ Locks the element to the send flow. This preview prefills USDC on Base, an amoun
 Locks the element to the swap flow. This preview prefills USDC on Arbitrum as the source and USDC on Base as the receive asset.
 
 <ComponentPreview
-  name="nexus-one-swap"
+  name="nexus-swap"
   description="Locked swap mode for multi-chain swaps."
   align="center"
   hideCode
@@ -44,7 +44,7 @@ Locks the element to the swap flow. This preview prefills USDC on Arbitrum as th
 Locks the element to the deposit flow. A single `deposit` config is required.
 
 <ComponentPreview
-  name="nexus-one-deposit"
+  name="nexus-deposit"
   description="Locked deposit mode for a configured protocol or smart-contract action."
   align="center"
   hideCode
@@ -59,7 +59,7 @@ Locks the element to the deposit flow. A single `deposit` config is required.
   </TabsList>
   <TabsContent value="cli">
     ```bash
-    npx shadcn@latest add @nexus-elements/nexus-one
+    npx shadcn@latest add @avail-widgets/nexus
     ```
   </TabsContent>
   <TabsContent value="manual">
@@ -73,7 +73,7 @@ npm install @avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexu
         data-slot="code"
         className="my-4 overflow-hidden **:data-rehype-pretty-code-figure:m-0! **:data-rehype-pretty-code-figure:rounded-t-none **:data-rehype-pretty-code-figure:border-t [&_pre]:max-h-[400px]"
       >
-        <ComponentSource name="nexus-one" showAllFiles />
+        <ComponentSource name="nexus" showAllFiles />
       </div>
       <Step>Update import paths to match your project setup.</Step>
     </Steps>
@@ -83,7 +83,7 @@ npm install @avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexu
 ## Usage
 
 <Step className="font-serif text-lg">
-  Wrap your app with `NexusProvider` before rendering `NexusOne`.
+  Wrap your app with `NexusProvider` before rendering `NexusWidget`.
 </Step>
 <Step className="font-serif text-base">
   View setup instructions{" "}
@@ -94,10 +94,10 @@ npm install @avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexu
 </Step>
 
 ```tsx showLineNumbers
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function App({ address }: { address?: `0x${string}` }) {
-  return <NexusOne config={{ mode: "swap" }} connectedAddress={address} />;
+  return <NexusWidget config={{ mode: "swap" }} connectedAddress={address} />;
 }
 ```
 
@@ -115,8 +115,8 @@ export function App({ address }: { address?: `0x${string}` }) {
 
 | Prop | Type | Notes |
 | --- | --- | --- |
-| `connectedAddress` | `` `0x${string}` `` | Wallet address to use. If omitted, Nexus One falls back to the connected wagmi wallet account. |
-| `embed` | `boolean` | Defaults to `true`. Set `false` when rendering Nexus One as a modal surface. |
+| `connectedAddress` | `` `0x${string}` `` | Wallet address to use. If omitted, Nexus Widget falls back to the connected wagmi wallet account. |
+| `embed` | `boolean` | Defaults to `true`. Set `false` when rendering Nexus Widget as a modal surface. |
 | `open` | `boolean` | Controls the modal when `embed={false}`. |
 | `onOpenChange` | `(open: boolean) => void` | Receives modal state changes when `embed={false}`. |
 | `defaultOpen` | `boolean` | Opens the modal by default in uncontrolled modal mode. |
@@ -138,15 +138,86 @@ export function App({ address }: { address?: `0x${string}` }) {
 | `prefill.destination` | `{ token; chain }` | Prefills the swap receive/destination token and chain. |
 | `allowedSourcePairs` | `{ token; chain }[]` | Restricts selectable source token/chain pairs where supported by your installed element version. |
 | `allowedDestinationPairs` | `{ token; chain }[]` | Restricts selectable destination token/chain pairs where supported by your installed element version. |
+| `amount` | `{ mode?: "user" \| "fixed"; value?: string; min?: string; max?: string }` | Configures amount behavior. Fixed amounts are prefilled and read-only. User amounts can optionally enforce min/max validation. |
+| `appearance` | `{ appName?; widgetHeading?; logoUrl?; themeMode?; primaryColor? }` | Configures app name/logo for deposit receipts, the idle widget heading, theme preference, and CTA primary color. |
+| `destination` | `object` | Configurator destination. Smart-contract destinations render deposit mode. EOA wallet destinations render send mode. |
 | `onConnectWalletClick` | `() => void \| Promise<void>` | Callback triggered when the "Connect Wallet" CTA button is clicked. If omitted, the CTA will instead render as a disabled button reading "Connect your wallet to proceed". |
 
 ### Conditional Config
 
 | Mode | Required | Optional | Behavior |
 | --- | --- | --- | --- |
-| `swap` | `config.mode = "swap"` | `prefill`, `allowedSourcePairs`, `allowedDestinationPairs` | Users choose source and receive assets. Nexus One switches between exact-in and exact-out quoting based on which amount field the user changes. |
+| `swap` | `config.mode = "swap"` | `prefill`, `allowedSourcePairs`, `allowedDestinationPairs` | Users choose source and receive assets. Nexus Widget switches between exact-in and exact-out quoting based on which amount field the user changes. |
 | `send` | `config.mode = "send"` | `prefill.recipient`, `prefill.amount`, source/destination pair filters | Send is exact-out. Users choose the token and amount to send, then Nexus resolves the pay-with sources. |
-| `deposit` | `config.mode = "deposit"` and `deposit` | `prefill.amount`, source filters | Deposit is exact-out. Nexus One opens the deposit form directly for the configured destination and app call. |
+| `deposit` | `config.mode = "deposit"` and `deposit` | `prefill.amount`, source filters | Deposit is exact-out. Nexus Widget opens the deposit form directly for the configured destination and app call. |
+
+### Configurator Destination Config
+
+NexusWidget also accepts the configurator shape directly. Use `destination.type = "smartContract"` for a deposit/smart-contract action, or `destination.type = "wallet"` for an EOA send flow.
+
+#### Smart Contract Deposit
+
+```tsx showLineNumbers
+import { NexusWidget } from "@/components/nexus/nexus";
+
+<NexusWidget
+  config={{
+    mode: "deposit",
+    destination: {
+      type: "smartContract",
+      chainId: 42161,
+      contractAddress: "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+      abi: AAVE_ABI,
+      functionName: "supply",
+      args: ["$tokenAddress", "$amount", "$user", 0],
+      gasLimit: "400000",
+      tokens: [
+        {
+          contractAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          tokenSymbol: "USDC",
+          decimals: 6,
+          logo: "https://raw.githubusercontent.com/availproject/nexus-assets/refs/heads/main/tokens/usdc/logo.png",
+        },
+      ],
+    },
+    amount: { mode: "user", min: "1", max: "1000" },
+    appearance: {
+      appName: "Acme App",
+      widgetHeading: "Deposit on Acme",
+      logoUrl: "https://example.com/logo.svg",
+      themeMode: "auto",
+      primaryColor: "#0A6BEB",
+    },
+  }}
+/>
+```
+
+For smart-contract deposits, the destination chain is fixed and the receive token dropdown is limited to `destination.tokens`. If more than one token is supplied, NexusWidget renders the token as an editable dropdown.
+
+#### EOA Send
+
+```tsx showLineNumbers
+<NexusWidget
+  config={{
+    mode: "deposit",
+    destination: {
+      type: "wallet",
+      recipient: "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E",
+      chainId: 8453,
+      tokens: [
+        {
+          contractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          tokenSymbol: "USDC",
+          decimals: 6,
+        },
+      ],
+    },
+    amount: { mode: "fixed", value: "10" },
+  }}
+/>
+```
+
+EOA destinations render send mode. The recipient is locked when supplied. If `chainId` is omitted, users can change the destination chain. If `tokens` is omitted, all supported destination tokens remain available; if `tokens` is supplied, the selector is limited to that list.
 
 ## Deposit Config
 
@@ -169,11 +240,11 @@ export function App({ address }: { address?: `0x${string}` }) {
 ### Swap
 
 ```tsx showLineNumbers
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SwapExample({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{
         mode: "swap",
         prefill: {
@@ -196,11 +267,11 @@ export function SwapExample({ address }: { address?: `0x${string}` }) {
 ### Send
 
 ```tsx showLineNumbers
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SendExample({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{
         mode: "send",
         prefill: {
@@ -219,7 +290,7 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
 ### Deposit
 
 ```tsx showLineNumbers
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 import { encodeFunctionData } from "viem";
 
 // Configure these for your app.
@@ -283,15 +354,15 @@ const depositConfig = {
   },
 } as const;
 
-<NexusOne config={depositConfig} connectedAddress={address} />;
+<NexusWidget config={depositConfig} connectedAddress={address} />;
 ```
 
 ### Modal Deposit
 
 ```tsx showLineNumbers
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
-<NexusOne
+<NexusWidget
   config={depositConfig}
   connectedAddress={address}
   embed={false}
@@ -301,11 +372,11 @@ import { NexusOne } from "@/components/nexus-one/nexus-one";
 
 ```tsx showLineNumbers
 import { useState } from "react";
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 const [open, setOpen] = useState(false);
 
-<NexusOne
+<NexusWidget
   config={depositConfig}
   connectedAddress={address}
   embed={false}

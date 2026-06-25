@@ -1,22 +1,22 @@
 ---
 name: nexus-elements-swaps
-description: "DEPRECATED — SwapWidget has been removed. Use Nexus One (config.mode = \"swap\") for all cross-chain swap and bridge flows. Refer to the nexus-one-swaps agent skill for current integration guidance."
+description: "DEPRECATED — SwapWidget has been removed. Use Nexus Widget (config.mode = \"swap\") for all cross-chain swap and bridge flows. Refer to the nexus-one-swaps agent skill for current integration guidance."
 ---
 
-# ⚠️ Deprecated — Use Nexus One Swaps
+# ⚠️ Deprecated — Use Nexus Widget Swaps
 
 **SwapWidget has been removed from Nexus Elements.**
 
-All cross-chain swaps (exact-in and exact-out) and bridges are now handled by **Nexus One** with `config.mode = "swap"`.
+All cross-chain swaps (exact-in and exact-out) and bridges are now handled by **Nexus Widget** with `config.mode = "swap"`.
 
 ## Migration
 
-Replace any `SwapWidget` usage with `NexusOne`:
+Replace any `SwapWidget` usage with `NexusWidget`:
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
-<NexusOne
+<NexusWidget
   config={{
     mode: "swap",
     prefill: {
@@ -28,19 +28,19 @@ import { NexusOne } from "@/components/nexus-one/nexus-one";
 />
 ```
 
-## Install Nexus One
+## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ## Recommended skill to use instead
 
-For integration guidance, refer to the **Nexus One Swaps agent skill**:
+For integration guidance, refer to the **Nexus Widget Swaps agent skill**:
 
-- `nexus-one-swaps` — Setup, prefill config, and callbacks for swaps and bridging with Nexus One.
+- `nexus-one-swaps` — Setup, prefill config, and callbacks for swaps and bridging with Nexus Widget.
 
 ## Documentation
 
-- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)
+- [Nexus Widget component docs](https://elements.nexus.availproject.org/docs/components/nexus)
 - [Swap and Bridge docs](https://elements.nexus.availproject.org/docs/components/swaps)

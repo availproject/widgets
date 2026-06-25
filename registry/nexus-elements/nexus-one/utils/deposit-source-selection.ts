@@ -1,4 +1,4 @@
-// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+// biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 import { type Hex, padHex } from "viem";
 import { CHAIN_METADATA } from "../../common";

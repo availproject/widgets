@@ -89,7 +89,26 @@ function toTargetPath(
   // registry/nexus-elements/deposit/deposit.tsx -> components/deposit/deposit.tsx
   const registryPrefix = config.registryPath + "/";
   if (registryPath.startsWith(registryPrefix)) {
-    const relativePath = registryPath.slice(registryPrefix.length);
+    let relativePath = registryPath.slice(registryPrefix.length);
+    const override = config.componentOverrides[component.name];
+    const targetName = override?.targetName;
+
+    if (targetName && targetName !== component.name) {
+      const segments = relativePath.split("/");
+      if (segments[0] === component.name) {
+        segments[0] = targetName;
+
+        const fileName = segments.at(-1);
+        const extension = fileName ? path.extname(fileName) : "";
+        const baseName = fileName ? path.basename(fileName, extension) : "";
+        if (baseName === component.name) {
+          segments[segments.length - 1] = `${targetName}${extension}`;
+        }
+
+        relativePath = segments.join("/");
+      }
+    }
+
     return `${config.targetPrefix}/${relativePath}`;
   }
 

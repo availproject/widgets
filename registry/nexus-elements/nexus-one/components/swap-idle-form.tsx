@@ -1,4 +1,4 @@
-// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+// biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 import Decimal from "decimal.js";
 import React, { useEffect, useRef, useState } from "react";
@@ -18,6 +18,8 @@ interface SwapIdleFormProps {
   amount: string;
   defaultRecipientAddress?: string;
   fromTokens: SwapTokenOption[];
+  isAmountReadOnly?: boolean;
+  isDestinationPickerDisabled?: boolean;
   isReceiveAmountLoading?: boolean;
   isReceiveUsdLoading?: boolean;
   isSourcePickerDisabled?: boolean;
@@ -629,6 +631,8 @@ export function SwapIdleForm({
   defaultRecipientAddress,
   swapType,
   onUpdateTokens,
+  isAmountReadOnly = false,
+  isDestinationPickerDisabled = false,
   isSourcePickerDisabled = false,
 }: SwapIdleFormProps) {
   const [focusedPanel, setFocusedPanel] = useState<"send" | "receive" | null>(
@@ -712,6 +716,7 @@ export function SwapIdleForm({
   };
 
   const handleSendInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAmountReadOnly) return;
     const token = fromTokens.length === 1 ? fromTokens[0] : undefined;
     onAmountChange(
       sanitizeInput(e.target.value, getTokenInputDecimals(token)),
@@ -720,6 +725,7 @@ export function SwapIdleForm({
   };
 
   const handleTokenAmountChange = (index: number, val: string) => {
+    if (isAmountReadOnly) return;
     if (!onUpdateTokens) return;
     const token = fromTokens[index];
     if (!token) return;
@@ -741,6 +747,7 @@ export function SwapIdleForm({
   };
 
   const handleToggleMode = (index: number) => {
+    if (isAmountReadOnly) return;
     if (!onUpdateTokens) return;
     const token = fromTokens[index];
     if (!token) return;
@@ -872,6 +879,7 @@ export function SwapIdleForm({
     pct: number,
     token: SwapTokenOption
   ) => {
+    if (isAmountReadOnly) return;
     if (!token.balance || !onUpdateTokens) return;
     let finalVal = "";
     const isUsdMode = token.userAmountMode === "usd";
@@ -921,6 +929,7 @@ export function SwapIdleForm({
   };
 
   const handleSendPercent = (pct: number) => {
+    if (isAmountReadOnly) return;
     if (!totalBalance) return;
     const bal = parseFloat(totalBalance.replace(/[^0-9.]/g, ""));
     if (isNaN(bal)) return;
@@ -1130,6 +1139,7 @@ export function SwapIdleForm({
                           </span>
                         )}
                         <input
+                          aria-readonly={isAmountReadOnly}
                           onBlur={() => {
                             if (token) handleBlurAmount(index);
                             setFocusedRow(null);
@@ -1153,6 +1163,7 @@ export function SwapIdleForm({
                             )
                               ? "#161615"
                               : "#9E9E9C",
+                            cursor: isAmountReadOnly ? "default" : "text",
                             fontFamily:
                               '"Delight-Medium", "Delight", system-ui, sans-serif',
                             fontSize: "29px",
@@ -1165,6 +1176,7 @@ export function SwapIdleForm({
                             width: "100%",
                             minWidth: 0,
                           }}
+                          readOnly={isAmountReadOnly}
                           type="text"
                           value={
                             token
@@ -1415,7 +1427,10 @@ export function SwapIdleForm({
                               display: "flex",
                               alignItems: "center",
                               gap: "6px",
-                              cursor: price > 0 ? "pointer" : "default",
+                              cursor:
+                                price > 0 && !isAmountReadOnly
+                                  ? "pointer"
+                                  : "default",
                             }}
                           >
                             <div
@@ -1442,13 +1457,18 @@ export function SwapIdleForm({
                   <div
                     style={{
                       alignItems: "center",
-                      display: token && focusedRow === index ? "flex" : "none",
+                      display:
+                        token && focusedRow === index && !isAmountReadOnly
+                          ? "flex"
+                          : "none",
                       justifyContent: "center",
                       pointerEvents:
-                        token && focusedRow === index ? "auto" : "none",
+                        token && focusedRow === index && !isAmountReadOnly
+                          ? "auto"
+                          : "none",
                     }}
                   >
-                    {token && (
+                    {token && !isAmountReadOnly && (
                       <PercentButtons
                         onSelect={(pct) =>
                           token
@@ -1779,6 +1799,7 @@ export function SwapIdleForm({
 
             {/* Destination asset pill */}
             <button
+              disabled={isDestinationPickerDisabled}
               onClick={onOpenDestPicker}
               style={{
                 alignItems: "center",
@@ -1795,7 +1816,7 @@ export function SwapIdleForm({
                 paddingLeft: toToken ? "4px" : "7px",
                 paddingRight: "8px",
                 paddingTop: "3px",
-                cursor: "pointer",
+                cursor: isDestinationPickerDisabled ? "default" : "pointer",
                 flexShrink: 0,
               }}
             >

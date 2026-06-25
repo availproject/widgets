@@ -17,6 +17,7 @@ export type Style = (typeof STYLES)[number];
 
 type RegistryFile = {
   path: string;
+  target?: string;
   content: string;
 };
 
@@ -87,7 +88,12 @@ export async function ComponentSource({
           .replaceAll("/* eslint-disable react/no-children-prop */\n", "");
         const ext = f.path.split(".").pop() ?? "tsx";
         const highlighted = await highlightCode(fileCode, ext);
-        return { path: f.path, code: fileCode, highlighted, language: ext };
+        return {
+          path: f.target ?? f.path,
+          code: fileCode,
+          highlighted,
+          language: ext,
+        };
       })
     );
 
@@ -102,7 +108,12 @@ export async function ComponentSource({
           .replaceAll("/* eslint-disable react/no-children-prop */\n", "");
         const ext = f.path.split(".").pop() ?? "tsx";
         const highlighted = await highlightCode(fileCode, ext);
-        return { path: f.path, code: fileCode, highlighted, language: ext };
+        return {
+          path: f.target ?? f.path,
+          code: fileCode,
+          highlighted,
+          language: ext,
+        };
       })
     );
 

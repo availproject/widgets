@@ -1,23 +1,23 @@
 ---
 name: nexus-elements-fast-bridge
-description: "DEPRECATED — FastBridge has been removed. Use Nexus One (config.mode = \"swap\") for all cross-chain bridge and swap flows. Refer to the nexus-one-swaps agent skill for current integration guidance."
+description: "DEPRECATED — FastBridge has been removed. Use Nexus Widget (config.mode = \"swap\") for all cross-chain bridge and swap flows. Refer to the nexus-one-swaps agent skill for current integration guidance."
 ---
 
-# ⚠️ Deprecated — Use Nexus One Swaps
+# ⚠️ Deprecated — Use Nexus Widget Swaps
 
 **FastBridge has been removed from Nexus Elements.**
 
-All cross-chain bridging is now handled by **Nexus One** with `config.mode = "swap"`. Nexus One automatically resolves the best route — including direct bridge paths — based on source and destination token/chain selection.
+All cross-chain bridging is now handled by **Nexus Widget** with `config.mode = "swap"`. Nexus Widget automatically resolves the best route — including direct bridge paths — based on source and destination token/chain selection.
 
 ## Migration
 
-Replace any `FastBridge` usage with `NexusOne`:
+Replace any `FastBridge` usage with `NexusWidget`:
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
-// Bridge USDC to Base — Nexus One resolves the optimal route automatically
-<NexusOne
+// Bridge USDC to Base — Nexus Widget resolves the optimal route automatically
+<NexusWidget
   config={{
     mode: "swap",
     prefill: {
@@ -29,19 +29,19 @@ import { NexusOne } from "@/components/nexus-one/nexus-one";
 />
 ```
 
-## Install Nexus One
+## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ## Recommended skill to use instead
 
-For integration guidance, refer to the **Nexus One Swaps agent skill**:
+For integration guidance, refer to the **Nexus Widget Swaps agent skill**:
 
-- `nexus-one-swaps` — Setup, prefill config, and callbacks for swaps and bridging with Nexus One.
+- `nexus-one-swaps` — Setup, prefill config, and callbacks for swaps and bridging with Nexus Widget.
 
 ## Documentation
 
-- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)
+- [Nexus Widget component docs](https://elements.nexus.availproject.org/docs/components/nexus)
 - [Swap and Bridge docs](https://elements.nexus.availproject.org/docs/components/swaps)

@@ -1,18 +1,18 @@
 ---
 name: nexus-one-send
-description: Scaffolding, configuration, and integration of the Nexus One component in send mode (config.mode = "send"). Used to send tokens to an external recipient address cross-chain.
+description: Scaffolding, configuration, and integration of the Nexus Widget component in send mode (config.mode = "send"). Used to send tokens to an external recipient address cross-chain.
 ---
 
-# Nexus One - Send / Transfers
+# Nexus Widget - Send / Transfers
 
-Use the **Nexus One** component with `config.mode = "send"` to enable cross-chain transfers directly to a recipient address. The user chooses the asset and amount to send, and Nexus automatically finds and routes from their available balances on different source chains.
+Use the **Nexus Widget** component with `config.mode = "send"` to enable cross-chain transfers directly to a recipient address. The user chooses the asset and amount to send, and Nexus automatically finds and routes from their available balances on different source chains.
 
 ## 1. Installation
 
 Install dependencies and the component via the shadcn CLI:
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 Make sure peer dependencies are installed:
@@ -22,14 +22,14 @@ npm install @avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexu
 
 ## 2. Basic Setup
 
-Wrap the component with `NexusProvider`. Render `NexusOne` with `config.mode = "send"`.
+Wrap the component with `NexusProvider`. Render `NexusWidget` with `config.mode = "send"`.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SendWidget({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{
         mode: "send",
       }}
@@ -55,7 +55,7 @@ const sendConfig = {
   },
 };
 
-<NexusOne config={sendConfig} connectedAddress={address} />;
+<NexusWidget config={sendConfig} connectedAddress={address} />;
 ```
 
 ## 4. Restricting Token Options
@@ -76,7 +76,7 @@ const sendConfig = {
 Wire lifecycle callbacks for notifications or analytics:
 
 ```tsx
-<NexusOne
+<NexusWidget
   config={{ mode: "send" }}
   connectedAddress={address}
   onStart={() => console.log("Transfer started")}

@@ -1,4 +1,4 @@
-// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+// biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";

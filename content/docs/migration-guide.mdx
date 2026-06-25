@@ -1,26 +1,26 @@
 ---
 title: Migration Guide
-description: Learn how to migrate from legacy standalone elements to the unified Nexus One component.
+description: Learn how to migrate from legacy standalone elements to the unified Nexus Widget component.
 ---
 
-This guide outlines the steps to migrate your application from the legacy standalone elements to **Nexus One**—the single, unified component that replaces all swap, send, and deposit widgets.
+This guide outlines the steps to migrate your application from the legacy standalone elements to **Nexus Widget**—the single, unified component that replaces all swap, send, and deposit widgets.
 
 ---
 
 ## What Changed?
 
-Nexus Elements simplifies the architecture by consolidating all standalone cross-chain widgets into `NexusOne`.
+Nexus Elements simplifies the architecture by consolidating all standalone cross-chain widgets into `NexusWidget`.
 
 ### Component Replacements
 
-| Legacy Component | Status     | Nexus One Configuration                                                |
+| Legacy Component | Status     | Nexus Widget Configuration                                                |
 | ---------------- | ---------- | ---------------------------------------------------------------------- |
-| `SwapWidget`     | ❌ Removed | `NexusOne` with `config.mode = "swap"`                                 |
-| `FastBridge`     | ❌ Removed | `NexusOne` with `config.mode = "swap"`                                 |
-| `FastTransfer`   | ❌ Removed | `NexusOne` with `config.mode = "send"`                                 |
-| `NexusDeposit`   | ❌ Removed | `NexusOne` with `config.mode = "deposit"`                              |
-| `BridgeDeposit`  | ❌ Removed | `NexusOne` with `config.mode = "deposit"`                              |
-| `UnifiedBalance` | ❌ Removed | _Removed._ Replaced by the inline balance views inside Nexus One       |
+| `SwapWidget`     | ❌ Removed | `NexusWidget` with `config.mode = "swap"`                                 |
+| `FastBridge`     | ❌ Removed | `NexusWidget` with `config.mode = "swap"`                                 |
+| `FastTransfer`   | ❌ Removed | `NexusWidget` with `config.mode = "send"`                                 |
+| `NexusDeposit`   | ❌ Removed | `NexusWidget` with `config.mode = "deposit"`                              |
+| `BridgeDeposit`  | ❌ Removed | `NexusWidget` with `config.mode = "deposit"`                              |
+| `UnifiedBalance` | ❌ Removed | _Removed._ Replaced by the inline balance views inside Nexus Widget       |
 | `ViewHistory`    | ❌ Removed | _Removed._ For programmatic intent history, query `sdk.getMyIntents()` |
 
 ---
@@ -41,12 +41,12 @@ Update the registry mapping in your project's `components.json` to configure the
 
 ## 2. Component Migration
 
-### Install Nexus One
+### Install Nexus Widget
 
-Remove legacy component files from your project and install `nexus-one`:
+Remove legacy component files from your project and install `@avail-widgets/nexus`:
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ### Swaps & Bridges
@@ -55,14 +55,14 @@ Replace `SwapWidget` or `FastBridge` imports and elements:
 
 ```diff
 -import { SwapWidget } from "@/components/nexus-elements/swaps";
-+import { NexusOne } from "@/components/nexus-one/nexus-one";
++import { NexusWidget } from "@/components/nexus/nexus";
 
 -<SwapWidget
 -  address={address}
 -  prefillSourceToken="0xaf..."
 -  prefillDestToken="0x83..."
 -/>
-+<NexusOne
++<NexusWidget
 +  connectedAddress={address}
 +  config={{
 +    mode: "swap",
@@ -80,14 +80,14 @@ Replace `FastTransfer` imports and elements:
 
 ```diff
 -import { FastTransfer } from "@/components/nexus-elements/transfer";
-+import { NexusOne } from "@/components/nexus-one/nexus-one";
++import { NexusWidget } from "@/components/nexus/nexus";
 
 -<FastTransfer
 -  address={address}
 -  recipient="0xRecipient..."
 -  amount="10"
 -/>
-+<NexusOne
++<NexusWidget
 +  connectedAddress={address}
 +  config={{
 +    mode: "send",
@@ -107,14 +107,14 @@ Replace legacy `NexusDeposit` or `BridgeDeposit` elements:
 
 ```diff
 -import { NexusDeposit } from "@/components/nexus-elements/deposit";
-+import { NexusOne } from "@/components/nexus-one/nexus-one";
++import { NexusWidget } from "@/components/nexus/nexus";
 
 -<NexusDeposit
 -  address={address}
 -  contractAddress="0xContract..."
 -  tokenAddress="0xToken..."
 -/>
-+<NexusOne
++<NexusWidget
 +  connectedAddress={address}
 +  config={{
 +    mode: "deposit",
@@ -197,8 +197,8 @@ If you or your team previously customized the source code of the legacy componen
 
 <Callout type="warning">
   **Modifications May Be Overwritten!** Running the CLI command `npx
-  shadcn@latest add @nexus-elements/nexus-one` installs new files under
-  `components/nexus-one/` and `components/nexus/`. Any custom modifications made
+  shadcn@latest add @avail-widgets/nexus` installs new files under
+  `components/nexus/`. Any custom modifications made
   to `components/nexus-elements/common/` will **not** be automatically
   transferred to the new component. If you delete the legacy folders, those
   local modifications will be lost.
@@ -207,11 +207,11 @@ If you or your team previously customized the source code of the legacy componen
 ### Recommended Migration Workflow for Custom Logic
 
 1. **Create a Backup:** Copy your entire existing `components/nexus-elements/` folder to a backup directory outside of your git workspace.
-2. **Install Nexus One:** Run `npx shadcn@latest add @nexus-elements/nexus-one` to install the new clean codebase.
-3. **Use Component Callbacks first:** Before rewriting custom logic, check if you can use the supported callbacks on `NexusOne`:
+2. **Install Nexus Widget:** Run `npx shadcn@latest add @avail-widgets/nexus` to install the new clean codebase.
+3. **Use Component Callbacks first:** Before rewriting custom logic, check if you can use the supported callbacks on `NexusWidget`:
    - `onStart`: Triggered when the transaction pipeline begins.
    - `onComplete`: Triggered when successful. Receives `explorerUrl`.
    - `onError`: Triggered when failing. Receives the `message`.
    - `onConnectWallet`: Triggered when the user clicks the "Connect Wallet" CTA inside the widget.
-4. **Port Custom UI Styles:** If you customized the design, update `components/nexus-one/nexus-one.tsx` or its child styling files using Tailwind CSS or standard theme classes matching your design system.
+4. **Port Custom UI Styles:** If you customized the design, update `components/nexus/nexus.tsx` or its child styling files using Tailwind CSS or standard theme classes matching your design system.
 5. **Clean Up:** Once the new component is fully verified, delete the old `components/nexus-elements/` directories to keep the workspace clean.

@@ -8,7 +8,7 @@ links:
 ---
 
 <ComponentPreview
-  name="nexus-one-deposit"
+  name="nexus-deposit"
   description="Deposit mode with a single configured destination."
   align="center"
   hideCode
@@ -43,7 +43,7 @@ Recommended skills for this component:
 ## Installation
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ## Usage
@@ -51,7 +51,7 @@ npx shadcn@latest add @nexus-elements/nexus-one
 Wrap your app with the Nexus provider first. See [Get Started](/docs/get-started) for provider setup.
 
 ```tsx showLineNumbers
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 import { encodeFunctionData } from "viem";
 
 // Configure these for your app.
@@ -115,7 +115,7 @@ const depositConfig = {
   },
 } as const;
 
-<NexusOne config={depositConfig} connectedAddress={address} />;
+<NexusWidget config={depositConfig} connectedAddress={address} />;
 ```
 
 ## Configuration
@@ -152,7 +152,7 @@ Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the des
 Render `embed={false}` to invoke Deposit from a button and show the element as a modal.
 
 ```tsx showLineNumbers
-<NexusOne
+<NexusWidget
   config={depositConfig}
   connectedAddress={address}
   embed={false}
@@ -165,7 +165,7 @@ Control the modal from app state when needed.
 ```tsx showLineNumbers
 const [open, setOpen] = useState(false);
 
-<NexusOne
+<NexusWidget
   config={depositConfig}
   connectedAddress={address}
   embed={false}
@@ -176,11 +176,11 @@ const [open, setOpen] = useState(false);
 
 ## Supporting Multiple Opportunities / Selector UI
 
-Since `NexusOne` is optimized to execute a single, targeted deposit flow, it accepts a single `deposit` configuration block. If your application needs to display multiple opportunities (such as choosing between Aave, Compound, or other vaults), you can build a simple selector in your parent component and render `NexusOne` dynamically with the chosen opportunity:
+Since `NexusWidget` is optimized to execute a single, targeted deposit flow, it accepts a single `deposit` configuration block. If your application needs to display multiple opportunities (such as choosing between Aave, Compound, or other vaults), you can build a simple selector in your parent component and render `NexusWidget` dynamically with the chosen opportunity:
 
 ```tsx showLineNumbers
 import { useState } from "react";
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 import { encodeFunctionData } from "viem";
 
 // Define the Aave & Compound pools/ABIs...
@@ -248,7 +248,7 @@ export function MultiDepositShowcase({ address }) {
         </select>
       </div>
 
-      <NexusOne
+      <NexusWidget
         config={{
           mode: "deposit",
           deposit: OPPORTUNITIES[selectedOpt],

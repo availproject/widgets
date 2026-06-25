@@ -1,12 +1,12 @@
 "use client";
 import React from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
-import { NexusOne } from "@/registry/nexus-elements/nexus-one/nexus-one";
+import { NexusWidget } from "@/registry/nexus-elements/nexus-one/nexus-one";
 import { useAccount } from "wagmi";
 
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
-const NexusOneTransferShowcase = () => {
+const NexusWidgetTransferShowcase = () => {
   const { address } = useAccount();
 
   return (
@@ -20,7 +20,7 @@ const NexusOneTransferShowcase = () => {
           alignItems: "flex-start",
         }}
       >
-        <NexusOne
+        <NexusWidget
           config={{
             mode: "send",
             prefill: {
@@ -36,4 +36,4 @@ const NexusOneTransferShowcase = () => {
   );
 };
 
-export default NexusOneTransferShowcase;
+export default NexusWidgetTransferShowcase;

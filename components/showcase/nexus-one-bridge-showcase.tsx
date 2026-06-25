@@ -1,16 +1,16 @@
 "use client";
 import React from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
-import { NexusOne } from "@/registry/nexus-elements/nexus-one/nexus-one";
+import { NexusWidget } from "@/registry/nexus-elements/nexus-one/nexus-one";
 import { useAccount } from "wagmi";
 
-const NexusOneBridgeShowcase = () => {
+const NexusWidgetBridgeShowcase = () => {
   const { address } = useAccount();
 
   return (
     <ShowcaseWrapper
       type="nexus-one"
-      connectLabel="Connect wallet to use Nexus One Bridge"
+      connectLabel="Connect wallet to use Nexus Widget Bridge"
     >
       <div
         className="flex w-full justify-center"
@@ -18,7 +18,7 @@ const NexusOneBridgeShowcase = () => {
           alignItems: "flex-start",
         }}
       >
-        <NexusOne
+        <NexusWidget
           config={{ mode: "swap" }}
           connectedAddress={address}
         />
@@ -27,4 +27,4 @@ const NexusOneBridgeShowcase = () => {
   );
 };
 
-export default NexusOneBridgeShowcase;
+export default NexusWidgetBridgeShowcase;

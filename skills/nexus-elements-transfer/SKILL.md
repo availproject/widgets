@@ -1,22 +1,22 @@
 ---
 name: nexus-elements-transfer
-description: "DEPRECATED — FastTransfer has been removed. Use Nexus One (config.mode = \"send\") for all cross-chain recipient transfer flows. Refer to the nexus-one-send agent skill for current integration guidance."
+description: "DEPRECATED — FastTransfer has been removed. Use Nexus Widget (config.mode = \"send\") for all cross-chain recipient transfer flows. Refer to the nexus-one-send agent skill for current integration guidance."
 ---
 
-# ⚠️ Deprecated — Use Nexus One Send
+# ⚠️ Deprecated — Use Nexus Widget Send
 
 **FastTransfer has been removed from Nexus Elements.**
 
-All cross-chain transfers to a recipient are now handled by **Nexus One** with `config.mode = "send"`.
+All cross-chain transfers to a recipient are now handled by **Nexus Widget** with `config.mode = "send"`.
 
 ## Migration
 
-Replace any `FastTransfer` usage with `NexusOne`:
+Replace any `FastTransfer` usage with `NexusWidget`:
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
-<NexusOne
+<NexusWidget
   config={{
     mode: "send",
     prefill: {
@@ -30,19 +30,19 @@ import { NexusOne } from "@/components/nexus-one/nexus-one";
 />
 ```
 
-## Install Nexus One
+## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ## Recommended skill to use instead
 
-For integration guidance, refer to the **Nexus One Send agent skill**:
+For integration guidance, refer to the **Nexus Widget Send agent skill**:
 
-- `nexus-one-send` — Setup, prefill config, and callbacks for recipient transfers with Nexus One.
+- `nexus-one-send` — Setup, prefill config, and callbacks for recipient transfers with Nexus Widget.
 
 ## Documentation
 
-- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)
+- [Nexus Widget component docs](https://elements.nexus.availproject.org/docs/components/nexus)
 - [Send docs](https://elements.nexus.availproject.org/docs/components/transfer)

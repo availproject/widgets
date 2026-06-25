@@ -1,13 +1,13 @@
 ---
 name: nexus-elements-nexus-provider
-description: Install and configure NexusProvider for Nexus Elements with full SDK lifecycle wiring. NexusProvider is required by Nexus One — the single unified element for all swap, send, and deposit flows. All other standalone widget skills are deprecated.
+description: Install and configure NexusProvider for Nexus Elements with full SDK lifecycle wiring. NexusProvider is required by Nexus Widget — the single unified element for all swap, send, and deposit flows. All other standalone widget skills are deprecated.
 ---
 
 # Nexus Elements - NexusProvider
 
-> **Note:** NexusProvider is the foundation required by **Nexus One** — the single unified element for all flows.
+> **Note:** NexusProvider is the foundation required by **Nexus Widget** — the single unified element for all flows.
 > All legacy standalone widget skills (fast-bridge, transfer, swaps, deposit, bridge-deposit, unified-balance, view-history, common) are **deprecated and removed**.
-> Use `npx shadcn@latest add @nexus-elements/nexus-one` to install the unified element.
+> Use `npx shadcn@latest add @avail-widgets/nexus` to install the unified element.
 > For detailed SDK integration, refer to the Nexus SDK agent skills (`.agents/skills/nexus-sdk-*`).
 
 ## Install and wire provider

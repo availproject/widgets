@@ -1,15 +1,15 @@
-# Nexus One
+# Nexus Widget
 
 A unified component for **swap**, **send**, and **deposit** flows powered by [Avail Nexus](https://www.availproject.org/) intents.
 
-> **Migrating from legacy standalone elements?** If you are already using elements like `Swap`, `FastBridge`, `FastTransfer`, or `Deposit`, refer to the [Migration Guide](https://elements.nexus.availproject.org/docs/migration-guide) to upgrade to Nexus One.
+> **Migrating from legacy standalone elements?** If you are already using elements like `Swap`, `FastBridge`, `FastTransfer`, or `Deposit`, refer to the [Migration Guide](https://elements.nexus.availproject.org/docs/migration-guide) to upgrade to Nexus Widget.
 
-> **Network support:** Nexus One currently supports mainnet only. Testnet is not supported at the moment.
+> **Network support:** Nexus Widget currently supports mainnet only. Testnet is not supported at the moment.
 
 ## Installation
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ### Manual Installation
@@ -25,7 +25,7 @@ npm install @avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexu
 
 ## Setup
 
-Wrap your app with `NexusProvider` before rendering `NexusOne`.
+Wrap your app with `NexusProvider` before rendering `NexusWidget`.
 
 ```tsx
 import { NexusProvider } from "@/components/nexus/NexusProvider";
@@ -35,18 +35,27 @@ export default function RootLayout({ children }) {
 }
 ```
 
+## Configurator Config
+
+NexusWidget accepts configurator output directly:
+
+- `destination.type = "smartContract"` renders deposit mode. `chainId`, `contractAddress`, `tokens`, and either `executeDeposit` or `abi` plus `functionName` are required.
+- `destination.type = "wallet"` renders send mode. A supplied `recipient` is locked. A supplied `chainId` fixes the destination chain; supplied `tokens` limit the destination token dropdown.
+- `amount.mode = "fixed"` pre-fills a read-only amount. `amount.min` and `amount.max` validate user-entered amounts.
+- `appearance.appName`, `widgetHeading`, `logoUrl`, `themeMode`, and `primaryColor` customize deposit receipts and primary CTA styling.
+
 ## Examples
 
 ### Swap
 
-Swap between any supported token pairs across chains. Nexus One switches between exact-in and exact-out quoting based on which amount field the user changes.
+Swap between any supported token pairs across chains. Nexus Widget switches between exact-in and exact-out quoting based on which amount field the user changes.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SwapExample({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{
         mode: "swap",
         prefill: {
@@ -71,11 +80,11 @@ export function SwapExample({ address }: { address?: `0x${string}` }) {
 Cross-chain send flow. Users choose the token and amount to send, then Nexus resolves the pay-with sources.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SendExample({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{
         mode: "send",
         prefill: {
@@ -96,7 +105,7 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
 Deposit into a configured protocol or app action with a single intent. A single `deposit` config is required when `mode` is `"deposit"`.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 import { encodeFunctionData } from "viem";
 
 const APP_DEPOSIT_CONTRACT = "0x...";
@@ -137,7 +146,7 @@ function buildDepositExecuteConfig(
   };
 }
 
-<NexusOne
+<NexusWidget
   config={{
     mode: "deposit",
     deposit: {
@@ -160,11 +169,11 @@ function buildDepositExecuteConfig(
 Use lifecycle callbacks to integrate with your app's toast, analytics, or navigation.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SwapWithCallbacks({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{ mode: "swap" }}
       connectedAddress={address}
       onStart={() => console.log("Transaction started")}
@@ -184,11 +193,11 @@ export function SwapWithCallbacks({ address }: { address?: `0x${string}` }) {
 Limit which source or destination tokens users can select.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{
         mode: "swap",
         allowedSourcePairs: [

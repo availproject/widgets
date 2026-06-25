@@ -1,4 +1,4 @@
-// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+// biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 "use client";
 import { formatTokenBalance } from "@avail-project/nexus-sdk-v2/utils";
@@ -35,6 +35,12 @@ import {
 } from "./swap-asset-selector";
 
 interface ReceiveAssetSelectorProps {
+  allowedChainIds?: number[];
+  allowedPairs?: {
+    chain: number;
+    token: string;
+  }[];
+  additionalTokens?: SwapTokenOption[];
   onBack: () => void;
   onSelect: (token: SwapTokenOption) => void;
 }
@@ -402,6 +408,9 @@ if (typeof window !== "undefined") {
 }
 
 export function ReceiveAssetSelector({
+  allowedChainIds,
+  allowedPairs,
+  additionalTokens,
   onSelect,
   onBack,
 }: ReceiveAssetSelectorProps) {
@@ -453,7 +462,7 @@ export function ReceiveAssetSelector({
   useEffect(() => {
     setPortalRoot(
       selectorRef.current?.closest(
-        "[data-nexus-one-root]"
+        "[data-nexus-widget-root], [data-nexus-one-root]"
       ) as HTMLElement | null
     );
   }, []);
@@ -529,13 +538,29 @@ export function ReceiveAssetSelector({
   }, [swapBalance, swapSupportedChainsAndTokens]);
 
   const tokensWithBalances = useMemo(() => {
-    return apiTokens.map((token) => {
+    const tokensByKey = new Map<string, SwapTokenOption>();
+    for (const token of [...apiTokens, ...(additionalTokens ?? [])]) {
+      const address =
+        token.contractAddress.toLowerCase() ===
+        "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ? "0x0000000000000000000000000000000000000000"
+          : token.contractAddress.toLowerCase();
+      const key = `${token.chainId ?? 0}-${address}`;
+      const existing = tokensByKey.get(key);
+      tokensByKey.set(key, {
+        ...existing,
+        ...token,
+        priceUSD: token.priceUSD ?? existing?.priceUSD,
+      });
+    }
+
+    return Array.from(tokensByKey.values()).map((token) => {
       const balance = balanceMap.get(
         getTokenBalanceKey(token.chainId, token.contractAddress) ?? ""
       );
       return balance ? { ...token, ...balance } : token;
     });
-  }, [apiTokens, balanceMap]);
+  }, [additionalTokens, apiTokens, balanceMap]);
 
   useEffect(() => {
     const handleGlobalClick = () => setTooltipState(null);
@@ -625,15 +650,26 @@ export function ReceiveAssetSelector({
       nextIds.add(CITREA_CHAIN_ID);
     }
 
+    const allowedChainSet = allowedChainIds?.length
+      ? new Set(allowedChainIds)
+      : null;
+
     return sortChainIdsBySwapDisplayOrder(
       Array.from(nextIds).filter((id) =>
-        sdkSwapSupportedChainIds
+        (!allowedChainSet || allowedChainSet.has(id)) &&
+        (sdkSwapSupportedChainIds
           ? sdkSwapSupportedChainIds.has(id)
           : SUPPORTED_RECEIVE_CHAIN_IDS.has(id) &&
-            isSwapSupportedBySdkChainList(id, swapSupportedChainsAndTokens)
+            isSwapSupportedBySdkChainList(id, swapSupportedChainsAndTokens))
       )
     );
-  }, [sdkSwapSupportedChainIds, swapSupportedChainsAndTokens]);
+  }, [allowedChainIds, sdkSwapSupportedChainIds, swapSupportedChainsAndTokens]);
+
+  useEffect(() => {
+    if (selectedChainFilter && !chainFilterIds.includes(selectedChainFilter)) {
+      setSelectedChainFilter(null);
+    }
+  }, [chainFilterIds, selectedChainFilter]);
 
   useEffect(() => {
     let active = true;
@@ -731,8 +767,45 @@ export function ReceiveAssetSelector({
     t.contractAddress.toLowerCase() ===
       "0x0000000000000000000000000000000000000000";
 
+  const allowedPairKeys = useMemo(() => {
+    if (!allowedPairs?.length) return null;
+    const keys = new Set<string>();
+    for (const pair of allowedPairs) {
+      const address = pair.token.toLowerCase();
+      keys.add(`${pair.chain}-${address}`);
+      if (address === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") {
+        keys.add(`${pair.chain}-0x0000000000000000000000000000000000000000`);
+      }
+      if (address === "0x0000000000000000000000000000000000000000") {
+        keys.add(`${pair.chain}-0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee`);
+      }
+    }
+    return keys;
+  }, [allowedPairs]);
+
+  const allowedChainSet = useMemo(
+    () => (allowedChainIds?.length ? new Set(allowedChainIds) : null),
+    [allowedChainIds]
+  );
+
   const filtered = useMemo(() => {
-    let result = tokensWithBalances;
+    let result = tokensWithBalances.filter(
+      (t) =>
+        t.chainId &&
+        (sdkSwapSupportedChainIds
+          ? sdkSwapSupportedChainIds.has(t.chainId)
+          : isSwapSupportedBySdkChainList(t.chainId, swapSupportedChainsAndTokens))
+    );
+    if (allowedChainSet) {
+      result = result.filter((t) => t.chainId && allowedChainSet.has(t.chainId));
+    }
+    if (allowedPairKeys) {
+      result = result.filter((t) =>
+        allowedPairKeys.has(
+          `${t.chainId ?? 0}-${t.contractAddress.toLowerCase()}`
+        )
+      );
+    }
     if (selectedChainFilter)
       result = result.filter((t) => t.chainId === selectedChainFilter);
     if (query.trim()) {
@@ -745,10 +818,14 @@ export function ReceiveAssetSelector({
     return result;
   }, [
     tokensWithBalances,
+    allowedChainSet,
+    allowedPairKeys,
     selectedChainFilter,
     query,
     activeTab,
     dynamicStableSymbols,
+    sdkSwapSupportedChainIds,
+    swapSupportedChainsAndTokens,
   ]);
 
   const sortedFiltered = useMemo(() => {

@@ -3,7 +3,7 @@
   "name": "fast-bridge",
   "type": "registry:component",
   "title": "Fast Bridge",
-  "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain bridging.",
+  "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain bridging.",
   "dependencies": [
     "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
     "lucide-react",
@@ -202,7 +202,7 @@
   ],
   "meta": {
     "deprecated": true,
-    "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+    "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
   },
-  "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+  "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
 }

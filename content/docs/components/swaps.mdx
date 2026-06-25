@@ -8,7 +8,7 @@ links:
 ---
 
 <ComponentPreview
-  name="nexus-one-swap"
+  name="nexus-swap"
   description="Swap mode with USDC on Arbitrum prefilled as source and USDC on Base prefilled as receive."
   align="center"
   hideCode
@@ -43,7 +43,7 @@ Recommended skills for this component:
 ## Installation
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ## Usage
@@ -51,7 +51,7 @@ npx shadcn@latest add @nexus-elements/nexus-one
 Wrap your app with the Nexus provider first. See [Get Started](/docs/get-started) for provider setup.
 
 ```tsx showLineNumbers
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 const USDC_ARBITRUM = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831";
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
@@ -62,7 +62,7 @@ export function SwapAndBridgeExample({
   address?: `0x${string}`;
 }) {
   return (
-    <NexusOne
+    <NexusWidget
       connectedAddress={address}
       config={{
         mode: "swap",

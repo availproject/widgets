@@ -39,6 +39,8 @@ export interface ComponentOverride {
   skip?: boolean;
   /** Override the component name (for folder->name mapping) */
   name?: string;
+  /** Override the installed component folder/file name. */
+  targetName?: string;
 }
 
 /**

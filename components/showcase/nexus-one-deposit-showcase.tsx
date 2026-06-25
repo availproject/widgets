@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
-import { NexusOne } from "@/registry/nexus-elements/nexus-one/nexus-one";
+import { NexusWidget } from "@/registry/nexus-elements/nexus-one/nexus-one";
 import { encodeFunctionData, parseAbi, isAddress, maxUint256 } from "viem";
 import { useAccount } from "wagmi";
 import { useModal } from "connectkit";
@@ -297,7 +297,7 @@ const OPPORTUNITIES = {
   },
 } as const;
 
-const NexusOneDepositShowcase = () => {
+const NexusWidgetDepositShowcase = () => {
   const { address } = useAccount();
   const { setOpen } = useModal();
   const [selectedOpt, setSelectedOpt] = useState<
@@ -781,7 +781,7 @@ const NexusOneDepositShowcase = () => {
             alignItems: "flex-start",
           }}
         >
-          <NexusOne
+          <NexusWidget
             key={selectedOpt}
             config={{
               mode: "deposit",
@@ -810,7 +810,7 @@ const NexusOneDepositShowcase = () => {
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                   Configure a custom vault or deposit function to test with
-                  NexusOne.
+                  NexusWidget.
                 </p>
               </div>
               <button
@@ -1137,4 +1137,4 @@ const NexusOneDepositShowcase = () => {
   );
 };
 
-export default NexusOneDepositShowcase;
+export default NexusWidgetDepositShowcase;

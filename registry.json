@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
-  "name": "nexus-elements",
-  "namespace": "nexus-elements",
+  "name": "avail-widgets",
+  "namespace": "avail-widgets",
   "homepage": "https://elements.nexus.availproject.org",
   "items": [
     {
@@ -28,7 +28,7 @@
       "name": "all",
       "type": "registry:component",
       "title": "All Elements",
-      "description": "Install all Nexus Elements. For new integrations, use @nexus-elements/nexus-one instead — it provides unified swap, send, and deposit in one component.",
+      "description": "Install all Avail widgets. For new integrations, use @avail-widgets/nexus instead - it provides unified swap, send, and deposit in one component.",
       "files": [
         {
           "path": "registry/nexus-elements/all/index.ts",
@@ -84,7 +84,7 @@
       "name": "bridge-deposit",
       "type": "registry:component",
       "title": "Bridge Deposit",
-      "description": "Deprecated: use Nexus One instead. Bridge Deposit has been removed in favor of Nexus One deposit mode.",
+      "description": "Deprecated: use Nexus Widget instead. Bridge Deposit has been removed in favor of Nexus Widget deposit mode.",
       "files": [
         {
           "path": "registry/nexus-elements/bridge-deposit/components/allowance-modal.tsx",
@@ -270,9 +270,9 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
+        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
     },
     {
       "name": "button",
@@ -350,7 +350,7 @@
       "name": "deposit",
       "type": "registry:component",
       "title": "Deposit",
-      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
+      "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable deposits.",
       "files": [
         {
           "path": "registry/nexus-elements/deposit/components/amount-card.tsx",
@@ -630,9 +630,9 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
+        "deprecationMessage": "Deposit is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
     },
     {
       "name": "dialog",
@@ -658,7 +658,7 @@
       "name": "fast-bridge",
       "type": "registry:component",
       "title": "Fast Bridge",
-      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain bridging.",
+      "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain bridging.",
       "files": [
         {
           "path": "registry/nexus-elements/fast-bridge/components/allowance-modal.tsx",
@@ -828,9 +828,9 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
     },
     {
       "name": "input",
@@ -868,99 +868,99 @@
       ]
     },
     {
-      "name": "nexus-one",
+      "name": "nexus",
       "type": "registry:component",
-      "title": "Nexus One",
-      "description": "The unified Nexus element for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
+      "title": "Nexus Widget",
+      "description": "The unified Avail Nexus widget for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
       "files": [
         {
           "path": "registry/nexus-elements/nexus-one/components/amount-input-unified.tsx",
-          "target": "components/nexus-one/components/amount-input-unified.tsx",
+          "target": "components/nexus/components/amount-input-unified.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/deposit-idle-form.tsx",
-          "target": "components/nexus-one/components/deposit-idle-form.tsx",
+          "target": "components/nexus/components/deposit-idle-form.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/nexus-one-progress-screen.tsx",
-          "target": "components/nexus-one/components/nexus-one-progress-screen.tsx",
+          "target": "components/nexus/components/nexus-one-progress-screen.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/pay-using-selector.tsx",
-          "target": "components/nexus-one/components/pay-using-selector.tsx",
+          "target": "components/nexus/components/pay-using-selector.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/pay-with-sources.tsx",
-          "target": "components/nexus-one/components/pay-with-sources.tsx",
+          "target": "components/nexus/components/pay-with-sources.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/receive-asset-selector.tsx",
-          "target": "components/nexus-one/components/receive-asset-selector.tsx",
+          "target": "components/nexus/components/receive-asset-selector.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/recipient-input.tsx",
-          "target": "components/nexus-one/components/recipient-input.tsx",
+          "target": "components/nexus/components/recipient-input.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/send-idle-form.tsx",
-          "target": "components/nexus-one/components/send-idle-form.tsx",
+          "target": "components/nexus/components/send-idle-form.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/status-alerts.tsx",
-          "target": "components/nexus-one/components/status-alerts.tsx",
+          "target": "components/nexus/components/status-alerts.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/swap-asset-selector.tsx",
-          "target": "components/nexus-one/components/swap-asset-selector.tsx",
+          "target": "components/nexus/components/swap-asset-selector.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/swap-idle-form.tsx",
-          "target": "components/nexus-one/components/swap-idle-form.tsx",
+          "target": "components/nexus/components/swap-idle-form.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/components/swap-intent-preview.tsx",
-          "target": "components/nexus-one/components/swap-intent-preview.tsx",
+          "target": "components/nexus/components/swap-intent-preview.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/nexus-one.tsx",
-          "target": "components/nexus-one/nexus-one.tsx",
+          "target": "components/nexus/nexus.tsx",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/sdk-types.ts",
-          "target": "components/nexus-one/sdk-types.ts",
+          "target": "components/nexus/sdk-types.ts",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/theme.ts",
-          "target": "components/nexus-one/theme.ts",
+          "target": "components/nexus/theme.ts",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/types.ts",
-          "target": "components/nexus-one/types.ts",
+          "target": "components/nexus/types.ts",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/utils/citrea-tokens.ts",
-          "target": "components/nexus-one/utils/citrea-tokens.ts",
+          "target": "components/nexus/utils/citrea-tokens.ts",
           "type": "registry:component"
         },
         {
           "path": "registry/nexus-elements/nexus-one/utils/deposit-source-selection.ts",
-          "target": "components/nexus-one/utils/deposit-source-selection.ts",
+          "target": "components/nexus/utils/deposit-source-selection.ts",
           "type": "registry:component"
         },
         {
@@ -1075,7 +1075,7 @@
       "meta": {
         "featured": true
       },
-      "docs": "Nexus One is the single recommended component for all cross-chain flows. Supports config.mode = \"swap\" | \"send\" | \"deposit\"."
+      "docs": "NexusWidget is the single recommended component for all cross-chain flows. Supports config.mode = \"swap\" | \"send\" | \"deposit\" | \"fastBridge\"."
     },
     {
       "name": "nexus-provider",
@@ -1169,7 +1169,7 @@
       "name": "swaps",
       "type": "registry:component",
       "title": "Swaps",
-      "description": "Deprecated: use Nexus One instead. Legacy swap tokens across chains component.",
+      "description": "Deprecated: use Nexus Widget instead. Legacy swap tokens across chains component.",
       "files": [
         {
           "path": "registry/nexus-elements/swaps/components/amount-input.tsx",
@@ -1361,9 +1361,9 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Swaps is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
+        "deprecationMessage": "Swaps is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"swap\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"swap\" for new integrations."
     },
     {
       "name": "tabs",
@@ -1407,7 +1407,7 @@
       "name": "transfer",
       "type": "registry:component",
       "title": "Fast Transfer",
-      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
+      "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain transfer.",
       "files": [
         {
           "path": "registry/nexus-elements/transfer/components/allowance-modal.tsx",
@@ -1577,15 +1577,15 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations."
+        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"send\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"send\" for new integrations."
     },
     {
       "name": "unified-balance",
       "type": "registry:component",
       "title": "Unified Balance",
-      "description": "Deprecated: use Nexus One instead. Unified Balance has been removed in favor of Nexus One's inline balance views.",
+      "description": "Deprecated: use Nexus Widget instead. Unified Balance has been removed in favor of Nexus Widget's inline balance views.",
       "files": [
         {
           "path": "registry/nexus-elements/unified-balance/unified-balance.tsx",
@@ -1607,9 +1607,9 @@
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Nexus One includes inline balance views during swap, send, and deposit flows."
+      "docs": "Deprecated in favor of Nexus Widget. NexusWidget includes inline balance views during swap, send, and deposit flows."
     },
     {
       "name": "utils",
@@ -1632,7 +1632,7 @@
       "name": "view-history",
       "type": "registry:component",
       "title": "View History",
-      "description": "Deprecated: use Nexus One instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
+      "description": "Deprecated: use Nexus Widget instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
       "files": [
         {
           "path": "registry/nexus-elements/view-history/history-events.ts",
@@ -1762,7 +1762,7 @@
         "deprecated": true,
         "deprecationMessage": "View History is deprecated. Use sdk.getMyIntents() for programmatic intent history access."
       },
-      "docs": "Deprecated in favor of Nexus One. Intent history is not included in Nexus One V1. Use sdk.getMyIntents() directly."
+      "docs": "Deprecated in favor of Nexus Widget. Intent history is not included in Nexus Widget V1. Use sdk.getMyIntents() directly."
     }
   ]
 }

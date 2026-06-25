@@ -1,4 +1,4 @@
-// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+// biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 "use client";
 
@@ -1004,7 +1004,7 @@ export function NexusOneProgressScreen({
         <img
           alt=""
           aria-hidden="true"
-          src="https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif"
+          src="https://files.availproject.org/nexus-widgets/nexus/progress-grid.gif"
           style={{
             display: "block",
             height: "148px",

@@ -1,17 +1,17 @@
 ---
 name: nexus-elements-unified-balance
-description: "DEPRECATED — UnifiedBalance has been removed. Nexus One includes an inline balance view. Refer to the nexus-sdk-* agent skills for balance API guidance."
+description: "DEPRECATED — UnifiedBalance has been removed. Nexus Widget includes an inline balance view. Refer to the nexus-sdk-* agent skills for balance API guidance."
 ---
 
-# ⚠️ Deprecated — Use Nexus One
+# ⚠️ Deprecated — Use Nexus Widget
 
 **UnifiedBalance has been removed from Nexus Elements.**
 
-Nexus One includes an **inline balance view** as part of its unified swap, send, and deposit flows. There is no longer a standalone balance widget.
+Nexus Widget includes an **inline balance view** as part of its unified swap, send, and deposit flows. There is no longer a standalone balance widget.
 
 ## Migration
 
-Remove `UnifiedBalance` from your app. If you need to display balances, use Nexus One — it shows relevant balances inline during flow execution.
+Remove `UnifiedBalance` from your app. If you need to display balances, use Nexus Widget — it shows relevant balances inline during flow execution.
 
 For programmatic balance access, use the Nexus SDK directly:
 
@@ -26,10 +26,10 @@ const swapBalances = await sdk.getBalancesForSwap();
 const formatted = sdk.utils.formatTokenBalance(balance);
 ```
 
-## Install Nexus One
+## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ## Current skills to use instead
@@ -42,4 +42,4 @@ For balance and metadata APIs, refer to the **Nexus SDK agent skills** (`.agents
 
 ## Documentation
 
-- [Nexus One component docs](https://elements.nexus.availproject.org/docs/components/nexus-one)
+- [Nexus Widget component docs](https://elements.nexus.availproject.org/docs/components/nexus)

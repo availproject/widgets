@@ -4,7 +4,7 @@ Last updated: June 2, 2026
 
 ## Status
 
-**All legacy standalone elements have been deprecated and removed.** Nexus One is the single unified element for all cross-chain flows.
+**All legacy standalone elements have been deprecated and removed.** Nexus Widget is the single unified element for all cross-chain flows.
 
 ## Element inventory
 
@@ -12,26 +12,26 @@ Last updated: June 2, 2026
 
 | Element | Registry name | Purpose |
 |---|---|---|
-| `NexusOne` | `@nexus-elements/nexus-one` | Unified swap, send, and deposit element |
+| `NexusWidget` | `@avail-widgets/nexus` | Unified swap, send, and deposit element |
 | `NexusProvider` | `@nexus-elements/nexus-provider` | SDK lifecycle, shared state, hooks |
 
 ### Deprecated and removed
 
 | Element | Status | Replaced by |
 |---|---|---|
-| `FastBridge` | ❌ Removed | `NexusOne` with `config.mode = "swap"` |
-| `FastTransfer` | ❌ Removed | `NexusOne` with `config.mode = "send"` |
-| `SwapWidget` | ❌ Removed | `NexusOne` with `config.mode = "swap"` |
-| `Deposit` (NexusDeposit) | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `deposit` |
-| `BridgeDeposit` | ❌ Removed | `NexusOne` with `config.mode = "deposit"` + `deposit` |
-| `UnifiedBalance` | ❌ Removed | Inline balance view in Nexus One |
+| `FastBridge` | ❌ Removed | `NexusWidget` with `config.mode = "swap"` |
+| `FastTransfer` | ❌ Removed | `NexusWidget` with `config.mode = "send"` |
+| `SwapWidget` | ❌ Removed | `NexusWidget` with `config.mode = "swap"` |
+| `Deposit` (NexusDeposit) | ❌ Removed | `NexusWidget` with `config.mode = "deposit"` + `deposit` |
+| `BridgeDeposit` | ❌ Removed | `NexusWidget` with `config.mode = "deposit"` + `deposit` |
+| `UnifiedBalance` | ❌ Removed | Inline balance view in Nexus Widget |
 | `ViewHistory` | ❌ Removed | Use `sdk.getMyIntents()` directly |
 
 ## The brain: `NexusProvider`
 
 File: `registry/nexus-elements/nexus/NexusProvider.tsx`
 
-`NexusProvider` is the shared state and SDK control plane used by Nexus One.
+`NexusProvider` is the shared state and SDK control plane used by Nexus Widget.
 
 ### What it initializes
 
@@ -54,9 +54,9 @@ File: `registry/nexus-elements/nexus/NexusProvider.tsx`
 ### Important behavior
 
 - On wallet disconnect, it deinitializes SDK and clears provider state.
-- `swapBalance` is not fetched during initial setup by default; Nexus One calls `fetchSwapBalance()` when needed.
+- `swapBalance` is not fetched during initial setup by default; Nexus Widget calls `fetchSwapBalance()` when needed.
 
-## Nexus One
+## Nexus Widget
 
 File: `registry/nexus-elements/nexus-one/nexus-one.tsx`
 
@@ -64,7 +64,7 @@ File: `registry/nexus-elements/nexus-one/nexus-one.tsx`
 
 | Mode | SDK operations | Behavior |
 |---|---|---|
-| `swap` | `swapWithExactIn`, `swapWithExactOut` | Users choose source and receive assets. Nexus One switches between exact-in and exact-out quoting. Also handles direct bridge paths automatically. |
+| `swap` | `swapWithExactIn`, `swapWithExactOut` | Users choose source and receive assets. Nexus Widget switches between exact-in and exact-out quoting. Also handles direct bridge paths automatically. |
 | `send` | exact-out transfer path | Exact-out. Users choose the token and amount to send, then Nexus resolves the pay-with sources. |
 | `deposit` | `swapAndExecute` | Exact-out. Users enter amount for one configured deposit target, and Nexus executes the deposit. |
 
@@ -99,4 +99,4 @@ For detailed SDK integration guidance, use the Nexus SDK agent skills (`.agents/
 
 - Export map: `registry/nexus-elements/all/index.ts`
 - Provider brain: `registry/nexus-elements/nexus/NexusProvider.tsx`
-- Nexus One: `registry/nexus-elements/nexus-one/nexus-one.tsx`
+- Nexus Widget: `registry/nexus-elements/nexus-one/nexus-one.tsx`

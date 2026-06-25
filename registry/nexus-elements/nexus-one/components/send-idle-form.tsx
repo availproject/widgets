@@ -1,4 +1,4 @@
-// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+// biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
@@ -13,8 +13,11 @@ interface SendIdleFormProps {
   amount: string;
   calculatingPercent?: number | null;
   fromTokens: SwapTokenOption[];
+  isAmountReadOnly?: boolean;
+  isAssetPickerDisabled?: boolean;
   isCalculatingMax?: boolean;
   isQuoteRefreshing?: boolean;
+  isRecipientLocked?: boolean;
   isSourcePickerDisabled?: boolean;
   onAmountChange: (val: string) => void;
   onOpenAssetPicker: () => void;
@@ -574,9 +577,12 @@ export function SendIdleForm({
   onSetPercent,
   routeStatus,
   routeMessage,
+  isAmountReadOnly = false,
+  isAssetPickerDisabled = false,
   isCalculatingMax,
   calculatingPercent,
   isQuoteRefreshing,
+  isRecipientLocked = false,
   showAutoBadge = true,
   isSourcePickerDisabled = false,
   reserveSourceRows = false,
@@ -594,6 +600,7 @@ export function SendIdleForm({
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAmountReadOnly) return;
     onAmountChange(
       sanitizeAmountInput(e.target.value, getTokenInputDecimals(toToken))
     );
@@ -689,6 +696,7 @@ export function SendIdleForm({
                 : "Select recipient"}
             </div>
             <button
+              disabled={isRecipientLocked}
               onClick={onOpenRecipientPicker}
               style={{
                 alignItems: "center",
@@ -696,7 +704,7 @@ export function SendIdleForm({
                 border: "none",
                 borderRadius: "4px",
                 boxSizing: "border-box",
-                cursor: "pointer",
+                cursor: isRecipientLocked ? "default" : "pointer",
                 display: "flex",
                 gap: "4px",
                 paddingBlock: "5.5px",
@@ -707,14 +715,14 @@ export function SendIdleForm({
               <div
                 style={{
                   boxSizing: "border-box",
-                  color: brand,
+                  color: isRecipientLocked ? "#6C756F" : brand,
                   fontFamily: uiFont,
                   fontSize: "10.5px",
                   fontWeight: 500,
                   lineHeight: "13px",
                 }}
               >
-                Edit
+                {isRecipientLocked ? "Locked" : "Edit"}
               </div>
             </button>
           </div>
@@ -807,6 +815,7 @@ export function SendIdleForm({
               />
             ) : (
               <input
+                aria-readonly={isAmountReadOnly}
                 onBlur={() => setIsAmountFocused(false)}
                 onChange={handleInput}
                 onFocus={() => setIsAmountFocused(true)}
@@ -816,6 +825,7 @@ export function SendIdleForm({
                   border: "none",
                   boxSizing: "border-box",
                   color: amount ? primary : "#9E9E9C",
+                  cursor: isAmountReadOnly ? "default" : "text",
                   flex: "1 1 0%",
                   fontFamily:
                     '"Delight-Medium", "Delight", system-ui, sans-serif',
@@ -826,6 +836,7 @@ export function SendIdleForm({
                   outline: "none",
                   padding: 0,
                 }}
+                readOnly={isAmountReadOnly}
                 type="text"
                 value={amountDisplayValue}
               />
@@ -843,6 +854,7 @@ export function SendIdleForm({
             )}
 
             <button
+              disabled={isAssetPickerDisabled}
               onClick={onOpenAssetPicker}
               style={{
                 alignItems: "center",
@@ -853,7 +865,7 @@ export function SendIdleForm({
                 borderWidth: "1px",
                 boxShadow: "#1616150A 0px 1px 2px",
                 boxSizing: "border-box",
-                cursor: "pointer",
+                cursor: isAssetPickerDisabled ? "default" : "pointer",
                 display: "inline-flex",
                 flexShrink: 0,
                 gap: "8px",
@@ -917,7 +929,11 @@ export function SendIdleForm({
                 {toToken ? toToken.symbol : "Assets"}
               </div>
               <ChevronDown
-                style={{ color: "#5B5B5A", height: 14, width: 14 }}
+                style={{
+                  color: isAssetPickerDisabled ? "#A8A8A6" : "#5B5B5A",
+                  height: 14,
+                  width: 14,
+                }}
               />
             </button>
           </div>
@@ -954,12 +970,18 @@ export function SendIdleForm({
             <div
               style={{
                 alignItems: "center",
-                display: toToken && isAmountFocused ? "flex" : "none",
+                display:
+                  toToken && isAmountFocused && !isAmountReadOnly
+                    ? "flex"
+                    : "none",
                 justifyContent: "center",
-                pointerEvents: toToken && isAmountFocused ? "auto" : "none",
+                pointerEvents:
+                  toToken && isAmountFocused && !isAmountReadOnly
+                    ? "auto"
+                    : "none",
               }}
             >
-              {toToken && (
+              {toToken && !isAmountReadOnly && (
                 <PercentButtons
                   onSelect={handlePercentSelect}
                   visible={Boolean(toToken) && isAmountFocused}

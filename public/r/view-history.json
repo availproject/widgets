@@ -3,7 +3,7 @@
   "name": "view-history",
   "type": "registry:component",
   "title": "View History",
-  "description": "Deprecated: use Nexus One instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
+  "description": "Deprecated: use Nexus Widget instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
   "dependencies": [
     "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
     "lucide-react"
@@ -155,5 +155,5 @@
     "deprecated": true,
     "deprecationMessage": "View History is deprecated. Use sdk.getMyIntents() for programmatic intent history access."
   },
-  "docs": "Deprecated in favor of Nexus One. Intent history is not included in Nexus One V1. Use sdk.getMyIntents() directly."
+  "docs": "Deprecated in favor of Nexus Widget. Intent history is not included in Nexus Widget V1. Use sdk.getMyIntents() directly."
 }

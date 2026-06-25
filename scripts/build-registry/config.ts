@@ -24,34 +24,34 @@ const DEFAULT_CONFIG: RegistryConfig = {
     "fast-bridge": {
       title: "Fast Bridge",
       description:
-        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain bridging.",
-      docs: "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
+        "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain bridging.",
+      docs: "Deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus for new integrations.",
       meta: {
         deprecated: true,
         deprecationMessage:
-          "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
+          "Fast Bridge is deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus for new integrations.",
       },
     },
     "fast-transfer": {
       title: "Fast Transfer",
       description:
-        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
-      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+        "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain transfer.",
+      docs: 'Deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus with config.mode = "send" for new integrations.',
       meta: {
         deprecated: true,
         deprecationMessage:
-          'Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+          'Fast Transfer is deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus with config.mode = "send" for new integrations.',
       },
     },
     transfer: {
       title: "Fast Transfer",
       description:
-        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
-      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+        "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain transfer.",
+      docs: 'Deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus with config.mode = "send" for new integrations.',
       meta: {
         deprecated: true,
         deprecationMessage:
-          'Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+          'Fast Transfer is deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus with config.mode = "send" for new integrations.',
       },
     },
     "nexus-provider": {
@@ -61,23 +61,23 @@ const DEFAULT_CONFIG: RegistryConfig = {
     deposit: {
       title: "Deposit",
       description:
-        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
-      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and opportunities for new integrations.',
+        "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable deposits.",
+      docs: 'Deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus with config.mode = "deposit" and opportunities for new integrations.',
       meta: {
         deprecated: true,
         deprecationMessage:
-          'Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and opportunities for new integrations.',
+          'Deposit is deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus with config.mode = "deposit" and opportunities for new integrations.',
       },
     },
     swaps: {
       title: "Swaps",
       description:
-        "Deprecated: use Nexus One instead. Legacy swap tokens across chains component.",
-      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "swap" for new integrations.',
+        "Deprecated: use Nexus Widget instead. Legacy swap tokens across chains component.",
+      docs: 'Deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus with config.mode = "swap" for new integrations.',
       meta: {
         deprecated: true,
         deprecationMessage:
-          'Swaps is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "swap" for new integrations.',
+          'Swaps is deprecated in favor of Nexus Widget. Use @nexus-widgets/nexus with config.mode = "swap" for new integrations.',
       },
     },
     "unified-balance": {

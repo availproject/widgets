@@ -1,4 +1,4 @@
-// biome-ignore-all lint: NexusOne registry component from shadcn registry.
+// biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 "use client";
 
 import {
@@ -77,6 +77,14 @@ import {
 } from "./components/swap-intent-preview";
 import { nexusOneTheme } from "./theme";
 import {
+  type NexusWidgetAmountInput,
+  type NexusWidgetAppearance,
+  type NexusWidgetConfig,
+  type NexusWidgetDestination,
+  type NexusWidgetDestinationToken,
+  type NexusWidgetProps,
+  type NexusWidgetSmartContractDestination,
+  type NexusWidgetWalletDestination,
   type NexusOneDepositConfig,
   type NexusOneDepositMetadata,
   type NexusOneMode,
@@ -160,7 +168,7 @@ type SwapQuoteIssue = {
 type ReceiveAmountIssue = {
   ctaLabel: string;
   message: string;
-  type: "receiveLimitExceeded" | "unpricedReceiveToken";
+  type: "configuredAmountLimit" | "receiveLimitExceeded" | "unpricedReceiveToken";
 };
 
 type CachedMaxSwapQuote = {
@@ -310,7 +318,518 @@ const isSameDepositConfig = (
 
 const getConfiguredDeposit = (
   config: NexusOneProps["config"]
-): NexusOneDepositConfig | undefined => config.deposit;
+): NexusOneDepositConfig | undefined => config.deposit ?? config.deposits?.[0];
+
+type RuntimeNexusWidgetConfig = Omit<NexusWidgetConfig, "mode"> & {
+  mode: NexusOneMode;
+};
+
+type RuntimeNexusWidgetAmountInput = {
+  max?: string;
+  min?: string;
+  mode: "fixed" | "user";
+  value?: string;
+};
+
+type NormalizedNexusWidgetConfig = {
+  activeMode: NexusOneMode;
+  amountInput?: RuntimeNexusWidgetAmountInput;
+  appearance?: NexusWidgetAppearance;
+  config: RuntimeNexusWidgetConfig;
+  depositOptions: NexusOneDepositConfig[];
+  isAmountFixed: boolean;
+  isRecipientLocked: boolean;
+};
+
+const normalizeConfiguredString = (value: unknown) => {
+  if (value === null || value === undefined) return undefined;
+  const text = String(value).trim();
+  return text || undefined;
+};
+
+const normalizeConfiguredAddress = (value: unknown) => {
+  const text = normalizeConfiguredString(value);
+  return text && isAddress(text) ? text : undefined;
+};
+
+const normalizeConfiguredGasLimit = (value: unknown) => {
+  const text = normalizeConfiguredString(value);
+  if (!text) return undefined;
+  try {
+    return BigInt(text);
+  } catch {
+    return undefined;
+  }
+};
+
+const normalizeNexusWidgetPrimaryColor = (value?: string) => {
+  const text = value?.trim();
+  if (!text) return undefined;
+  if (/^#[0-9a-fA-F]{6}$/.test(text)) return text;
+  if (/^#[0-9a-fA-F]{3}$/.test(text)) {
+    const [r, g, b] = text.slice(1);
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return undefined;
+};
+
+const getReadableTextColor = (background: string) => {
+  const hex = normalizeNexusWidgetPrimaryColor(background);
+  if (!hex) return "#FFFFFE";
+  const r = Number.parseInt(hex.slice(1, 3), 16) / 255;
+  const g = Number.parseInt(hex.slice(3, 5), 16) / 255;
+  const b = Number.parseInt(hex.slice(5, 7), 16) / 255;
+  const linear = [r, g, b].map((channel) =>
+    channel <= 0.03928
+      ? channel / 12.92
+      : Math.pow((channel + 0.055) / 1.055, 2.4)
+  );
+  const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  return luminance > 0.54 ? "#161615" : "#FFFFFE";
+};
+
+const normalizeNexusWidgetAmountInput = (
+  input?: NexusWidgetAmountInput
+): RuntimeNexusWidgetAmountInput | undefined => {
+  if (!input) return undefined;
+  const modeValue = input.mode ?? input.type;
+  const mode =
+    modeValue === "fixed"
+      ? "fixed"
+      : modeValue === "user" || modeValue === "userSpecified"
+        ? "user"
+        : "user";
+  const value = normalizeConfiguredString(input.value ?? input.fixedAmount);
+  const min = normalizeConfiguredString(input.min);
+  const max = normalizeConfiguredString(input.max);
+  return { mode, value, min, max };
+};
+
+const getDestinationType = (destination?: NexusWidgetDestination) =>
+  String(destination?.type ?? "").toLowerCase();
+
+const isWalletDestination = (
+  destination?: NexusWidgetDestination
+): destination is NexusWidgetWalletDestination => {
+  const type = getDestinationType(destination);
+  return type === "wallet" || type === "eoa";
+};
+
+const isSmartContractDestination = (
+  destination?: NexusWidgetDestination
+): destination is NexusWidgetSmartContractDestination => {
+  const type = getDestinationType(destination);
+  return (
+    type === "smartcontract" ||
+    type === "smart-contract" ||
+    type === "contract"
+  );
+};
+
+const getConfiguredDestinationChainId = (
+  token: NexusWidgetDestinationToken,
+  fallbackChainId?: number
+) => {
+  const tokenChainId = Number((token as any).chainId ?? (token as any).chain);
+  if (Number.isFinite(tokenChainId) && tokenChainId > 0) return tokenChainId;
+  return fallbackChainId;
+};
+
+const getConfiguredDestinationTokenSymbol = (
+  token: NexusWidgetDestinationToken
+) => normalizeConfiguredString(token.tokenSymbol ?? (token as any).symbol);
+
+const getConfiguredDestinationTokenAddress = (
+  token: NexusWidgetDestinationToken
+) =>
+  normalizeConfiguredAddress(
+    token.contractAddress ?? (token as any).address ?? (token as any).token
+  );
+
+const toSwapTokenOptionFromConfiguredDestinationToken = (
+  token: NexusWidgetDestinationToken,
+  fallbackChainId?: number
+): SwapTokenOption | undefined => {
+  const chainId = getConfiguredDestinationChainId(token, fallbackChainId);
+  const contractAddress = getConfiguredDestinationTokenAddress(token);
+  const symbol = getConfiguredDestinationTokenSymbol(token);
+  if (!chainId || !contractAddress || !symbol) return undefined;
+  const chainMeta = CHAIN_METADATA[chainId];
+  return {
+    balance: "0",
+    balanceInFiat: "$0.00",
+    chainId,
+    chainLogo: chainMeta?.logo,
+    chainName: getShortChainName(chainId, chainMeta?.name ?? `Chain ${chainId}`),
+    contractAddress,
+    decimals: token.decimals ?? 18,
+    logo: token.logo ?? "",
+    name: token.name ?? symbol,
+    symbol,
+  };
+};
+
+const toSwapTokenOptionFromDepositConfig = (
+  deposit: NexusOneDepositConfig
+): SwapTokenOption => {
+  const chainMeta = CHAIN_METADATA[deposit.chainId];
+  return {
+    balance: "0",
+    balanceInFiat: "$0.00",
+    chainId: deposit.chainId,
+    chainLogo: chainMeta?.logo,
+    chainName: getShortChainName(
+      deposit.chainId,
+      chainMeta?.name ?? `Chain ${deposit.chainId}`
+    ),
+    contractAddress: deposit.tokenAddress,
+    decimals: deposit.tokenDecimals,
+    logo: deposit.tokenLogo || deposit.logo || "",
+    name: deposit.tokenSymbol,
+    symbol: deposit.tokenSymbol,
+  };
+};
+
+const applyNexusWidgetAppearanceToDeposit = (
+  deposit: NexusOneDepositConfig,
+  appearance?: NexusWidgetAppearance
+): NexusOneDepositConfig => {
+  const appName = normalizeConfiguredString(appearance?.appName);
+  const logoUrl = normalizeConfiguredString(appearance?.logoUrl);
+  if (!appName && !logoUrl) return deposit;
+  return {
+    ...deposit,
+    depositTargetLogo: logoUrl ?? deposit.depositTargetLogo,
+    logo: logoUrl ?? deposit.logo,
+    protocol: appName ?? deposit.protocol,
+    title: appName ?? deposit.title,
+  };
+};
+
+const getConfiguredDestinationPairs = (
+  tokens: NexusWidgetDestinationToken[] | undefined,
+  fallbackChainId?: number
+) => {
+  const pairs: RuntimeNexusWidgetConfig["allowedDestinationPairs"] = [];
+  for (const token of tokens ?? []) {
+    const chain = getConfiguredDestinationChainId(token, fallbackChainId);
+    const address = getConfiguredDestinationTokenAddress(token);
+    if (!chain || !address) continue;
+    pairs.push({ chain, token: address });
+  }
+  return pairs;
+};
+
+const getConfiguredDestinationChainIds = (
+  tokens: NexusWidgetDestinationToken[] | undefined,
+  fallbackChainId?: number
+) => {
+  const ids = new Set<number>();
+  if (fallbackChainId) ids.add(fallbackChainId);
+  for (const token of tokens ?? []) {
+    const chain = getConfiguredDestinationChainId(token, fallbackChainId);
+    if (chain) ids.add(chain);
+  }
+  return Array.from(ids);
+};
+
+const resolveNexusWidgetFunctionArg = (
+  value: unknown,
+  params: {
+    amount: bigint;
+    chainId: number;
+    tokenAddress: string;
+    tokenSymbol: string;
+    user: string;
+  }
+) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (
+      normalized === "$token" ||
+      normalized === "$tokenaddress" ||
+      normalized === "{{tokenaddress}}"
+    ) {
+      return params.tokenAddress;
+    }
+    if (normalized === "$amount" || normalized === "{{amount}}") {
+      return params.amount;
+    }
+    if (normalized === "$chainid" || normalized === "{{chainid}}") {
+      return params.chainId;
+    }
+    if (
+      normalized === "$user" ||
+      normalized === "$sender" ||
+      normalized === "{{user}}"
+    ) {
+      return params.user;
+    }
+    if (normalized === "$tokensymbol" || normalized === "{{tokensymbol}}") {
+      return params.tokenSymbol;
+    }
+  }
+
+  if (value && typeof value === "object" && "nexusValue" in value) {
+    return resolveNexusWidgetFunctionArg((value as any).nexusValue, params);
+  }
+
+  return value;
+};
+
+const buildNexusWidgetExecuteDeposit = (
+  destination: NexusWidgetDestination
+): NexusOneDepositConfig["executeDeposit"] | undefined => {
+  if (!isSmartContractDestination(destination)) return undefined;
+  if ("executeDeposit" in destination && destination.executeDeposit) {
+    return destination.executeDeposit;
+  }
+  if (!destination.abi || !destination.functionName) return undefined;
+
+  const gasLimit = normalizeConfiguredGasLimit(destination.gasLimit);
+  const args =
+    destination.functionArgs ?? destination.args ?? destination.arguments ?? [];
+
+  return (tokenSymbol, tokenAddress, amount, chainId, user) => ({
+    to: destination.contractAddress,
+    data: encodeFunctionData({
+      abi: destination.abi as any,
+      args: args.map((arg) =>
+        resolveNexusWidgetFunctionArg(arg, {
+          amount,
+          chainId,
+          tokenAddress,
+          tokenSymbol,
+          user,
+        })
+      ) as any,
+      functionName: destination.functionName,
+    }),
+    ...(gasLimit ? { gas: gasLimit } : {}),
+    tokenApproval: {
+      amount,
+      spender: destination.contractAddress,
+      toTokenAddress: tokenAddress,
+    },
+  });
+};
+
+const toDepositConfigFromDestination = (
+  config: NexusWidgetConfig,
+  destination: NexusWidgetDestination,
+  token: NexusWidgetDestinationToken,
+  fallbackDeposit?: NexusOneDepositConfig
+): NexusOneDepositConfig | undefined => {
+  if (!isSmartContractDestination(destination)) return undefined;
+  const chainId = getConfiguredDestinationChainId(token, destination.chainId);
+  const tokenAddress = getConfiguredDestinationTokenAddress(token);
+  const tokenSymbol = getConfiguredDestinationTokenSymbol(token);
+  if (!chainId || !tokenAddress || !tokenSymbol) return undefined;
+
+  const chainMeta = CHAIN_METADATA[chainId];
+  const executeDeposit =
+    buildNexusWidgetExecuteDeposit(destination) ??
+    fallbackDeposit?.executeDeposit ??
+    (() => {
+      throw new Error(
+        "NexusWidget deposit destination requires executeDeposit or abi plus functionName."
+      );
+    });
+
+  return {
+    apy: fallbackDeposit?.apy,
+    chainId,
+    depositTargetLogo:
+      config.appearance?.logoUrl ?? fallbackDeposit?.depositTargetLogo,
+    description: fallbackDeposit?.description,
+    estimatedTime: fallbackDeposit?.estimatedTime,
+    executeDeposit,
+    explorerUrl: fallbackDeposit?.explorerUrl,
+    gasTokenSymbol: fallbackDeposit?.gasTokenSymbol,
+    label: fallbackDeposit?.label,
+    logo:
+      config.appearance?.logoUrl ??
+      fallbackDeposit?.logo ??
+      token.logo ??
+      undefined,
+    protocol:
+      destination.protocol ??
+      fallbackDeposit?.protocol ??
+      config.appearance?.appName,
+    subtitle:
+      fallbackDeposit?.subtitle ??
+      (chainMeta?.name ? `on ${getShortChainName(chainId, chainMeta.name)}` : undefined),
+    title:
+      destination.title ??
+      fallbackDeposit?.title ??
+      config.appearance?.appName ??
+      "Deposit",
+    tokenAddress,
+    tokenDecimals: token.decimals ?? fallbackDeposit?.tokenDecimals ?? 18,
+    tokenLogo: token.logo ?? fallbackDeposit?.tokenLogo,
+    tokenSymbol,
+  };
+};
+
+const getNexusWidgetDepositOptions = (config: NexusWidgetConfig) => {
+  const fallbackDeposits = [
+    ...(config.deposit ? [config.deposit] : []),
+    ...(config.deposits ?? []),
+  ].map((deposit) =>
+    applyNexusWidgetAppearanceToDeposit(deposit, config.appearance)
+  );
+  const destination = config.destination;
+  if (!isSmartContractDestination(destination)) {
+    return fallbackDeposits;
+  }
+
+  const executeDeposit = buildNexusWidgetExecuteDeposit(destination);
+  const options = (destination.tokens ?? [])
+    .map((token, index) => {
+      const tokenAddress = getConfiguredDestinationTokenAddress(token);
+      const tokenSymbol = getConfiguredDestinationTokenSymbol(token);
+      const tokenChainId = getConfiguredDestinationChainId(
+        token,
+        destination.chainId
+      );
+      const fallback =
+        fallbackDeposits.find(
+          (deposit) =>
+            tokenAddress &&
+            deposit.tokenAddress.toLowerCase() === tokenAddress.toLowerCase() &&
+            deposit.chainId === tokenChainId
+        ) ??
+        fallbackDeposits[index] ??
+        fallbackDeposits[0];
+
+      return toDepositConfigFromDestination(
+        {
+          ...config,
+          deposit: fallback
+            ? {
+                ...fallback,
+                executeDeposit: executeDeposit ?? fallback.executeDeposit,
+              }
+            : config.deposit,
+        },
+        destination,
+        token,
+        fallback
+      );
+    })
+    .filter((deposit): deposit is NexusOneDepositConfig => Boolean(deposit));
+
+  return options.length > 0 ? options : fallbackDeposits;
+};
+
+const normalizeNexusWidgetConfig = (
+  rawConfig: NexusWidgetConfig
+): NormalizedNexusWidgetConfig => {
+  const amountInput = normalizeNexusWidgetAmountInput(rawConfig.amount);
+  const destination = rawConfig.destination;
+  const prefill = { ...(rawConfig.prefill ?? {}) };
+  let activeMode: NexusOneMode =
+    rawConfig.mode === "fastBridge"
+      ? "swap"
+      : rawConfig.mode === "deposit" ||
+          rawConfig.mode === "send" ||
+          rawConfig.mode === "swap"
+        ? rawConfig.mode
+        : "swap";
+  let isRecipientLocked = false;
+  let depositOptions = getNexusWidgetDepositOptions(rawConfig);
+  let allowedDestinationPairs = rawConfig.allowedDestinationPairs;
+  let allowedDestinationChains = rawConfig.allowedDestinationChains;
+
+  if (amountInput?.mode === "fixed" && amountInput.value) {
+    prefill.amount = amountInput.value;
+  }
+
+  if (isWalletDestination(destination)) {
+    activeMode = "send";
+    const recipient = normalizeConfiguredAddress(destination.recipient);
+    if (recipient) {
+      prefill.recipient = recipient;
+      isRecipientLocked = true;
+    }
+
+    const pairs = getConfiguredDestinationPairs(
+      destination.tokens,
+      destination.chainId
+    );
+    if (pairs.length > 0) {
+      allowedDestinationPairs = pairs;
+      prefill.destination ??= pairs[0];
+    }
+
+    const chainIds = getConfiguredDestinationChainIds(
+      destination.tokens,
+      destination.chainId
+    );
+    if (chainIds.length > 0) {
+      allowedDestinationChains = chainIds;
+    }
+  } else if (isSmartContractDestination(destination)) {
+    activeMode = "deposit";
+    depositOptions = getNexusWidgetDepositOptions(rawConfig);
+    const pairs = getConfiguredDestinationPairs(
+      destination.tokens,
+      destination.chainId
+    );
+    if (pairs.length > 0) {
+      allowedDestinationPairs = pairs;
+      prefill.destination = pairs[0];
+    }
+    allowedDestinationChains = [destination.chainId];
+  } else if (activeMode === "deposit" && depositOptions.length > 0) {
+    const firstDeposit = depositOptions[0];
+    allowedDestinationPairs ??= depositOptions.map((deposit) => ({
+      chain: deposit.chainId,
+      token: deposit.tokenAddress,
+    }));
+    allowedDestinationChains ??= [firstDeposit.chainId];
+    prefill.destination ??= {
+      chain: firstDeposit.chainId,
+      token: firstDeposit.tokenAddress,
+    };
+  }
+
+  const runtimeConfig: RuntimeNexusWidgetConfig = {
+    ...rawConfig,
+    allowedDestinationChains,
+    allowedDestinationPairs,
+    deposit:
+      activeMode === "deposit"
+        ? depositOptions[0] ?? rawConfig.deposit
+        : rawConfig.deposit,
+    deposits: depositOptions,
+    mode: activeMode,
+    prefill,
+  };
+
+  return {
+    activeMode,
+    amountInput,
+    appearance: rawConfig.appearance,
+    config: runtimeConfig,
+    depositOptions,
+    isAmountFixed: amountInput?.mode === "fixed" && Boolean(amountInput.value),
+    isRecipientLocked,
+  };
+};
+
+const getDepositForTokenSelection = (
+  deposits: NexusOneDepositConfig[],
+  token?: SwapTokenOption | null
+) => {
+  if (!token) return undefined;
+  return deposits.find(
+    (deposit) =>
+      deposit.chainId === token.chainId &&
+      deposit.tokenAddress.toLowerCase() ===
+        token.contractAddress.toLowerCase()
+  );
+};
 
 const sanitizeOpportunityForHistory = (
   opportunity?: NexusOneDepositMetadata
@@ -1398,7 +1917,7 @@ const logSdkSwapEvent = (
   event: any,
   meta?: Record<string, unknown>
 ) => {
-  console.log(`[NexusOne SDK][swap] ${label}`, {
+  console.log(`[NexusWidget SDK][swap] ${label}`, {
     event,
     eventType: getSdkEventType(event),
     ...meta,
@@ -1410,7 +1929,7 @@ const logSdkIntentEvent = (
   data: any,
   meta?: Record<string, unknown>
 ) => {
-  console.log(`[NexusOne SDK][intent] ${label}`, {
+  console.log(`[NexusWidget SDK][intent] ${label}`, {
     hasAllow: typeof data?.allow === "function",
     hasDeny: typeof data?.deny === "function",
     hasRefresh: typeof data?.refresh === "function",
@@ -1425,7 +1944,7 @@ const logSwapPlanSteps = (
   stepList: Array<SwapStepType | BridgeStepType>,
   rawSteps: unknown
 ) => {
-  console.log(`[NexusOne SDK][swap] ${eventType} step list`, {
+  console.log(`[NexusWidget SDK][swap] ${eventType} step list`, {
     count: stepList.length,
     eventType,
     rawSteps,
@@ -1439,7 +1958,7 @@ const logSwapPlanProgress = (
   eventName: string,
   completed: boolean
 ) => {
-  console.log("[NexusOne SDK][swap] plan_progress", {
+  console.log("[NexusWidget SDK][swap] plan_progress", {
     completed,
     eventName,
     eventType: getSdkEventType(event),
@@ -2479,10 +2998,10 @@ function SwapHistoryPanel({
 }
 
 // ---------------------------------------------------------------------------
-// NexusOne
+// NexusWidget
 // ---------------------------------------------------------------------------
 
-export function NexusOne(props: NexusOneProps) {
+export function NexusWidget(props: NexusWidgetProps) {
   return (
     <ErrorBoundary
       fallback={
@@ -2542,8 +3061,12 @@ export function NexusOne(props: NexusOneProps) {
   );
 }
 
+export function NexusOne(props: NexusOneProps) {
+  return <NexusWidget {...props} />;
+}
+
 function NexusOneInner({
-  config,
+  config: rawConfig,
   embed = true,
   className,
   connectedAddress,
@@ -2556,7 +3079,7 @@ function NexusOneInner({
   onReceiveAssetChange,
   onClose,
   onConnectWallet,
-}: NexusOneProps) {
+}: NexusWidgetProps) {
   const {
     nexusSDK,
     bridgableBalance,
@@ -2579,12 +3102,63 @@ function NexusOneInner({
     [network]
   );
 
-  // Mode is a single value, not an array
-  const activeMode = config.mode;
+  const normalizedWidgetConfig = useMemo(
+    () => normalizeNexusWidgetConfig(rawConfig),
+    [rawConfig]
+  );
+  const config = normalizedWidgetConfig.config;
+  const activeMode = normalizedWidgetConfig.activeMode;
+  const amountInputConfig = normalizedWidgetConfig.amountInput;
+  const appearanceConfig = normalizedWidgetConfig.appearance;
+  const configuredDepositOptions = normalizedWidgetConfig.depositOptions;
+  const isConfiguredAmountFixed = normalizedWidgetConfig.isAmountFixed;
+  const isConfiguredRecipientLocked =
+    normalizedWidgetConfig.isRecipientLocked;
+  const primaryColor = normalizeNexusWidgetPrimaryColor(
+    appearanceConfig?.primaryColor
+  );
+  const primaryButtonBackground = primaryColor ?? nexusOneTheme.colors.text;
+  const primaryButtonForeground = getReadableTextColor(
+    primaryButtonBackground
+  );
+  const theme = useMemo(
+    () => ({
+      ...nexusOneTheme,
+      colors: {
+        ...nexusOneTheme.colors,
+        primary: primaryColor ?? nexusOneTheme.colors.primary,
+        primaryText: primaryColor ?? nexusOneTheme.colors.primaryText,
+      },
+    }),
+    [primaryColor]
+  );
   const configuredDeposit = getConfiguredDeposit(config);
   const configuredDepositIdentity = getDepositConfigIdentity(configuredDeposit);
+  const configuredDestinationTokenOptions = useMemo(() => {
+    const destination = rawConfig.destination;
+    const destinationTokens = isSmartContractDestination(destination)
+      ? configuredDepositOptions.map(toSwapTokenOptionFromDepositConfig)
+      : destination?.tokens
+        ? destination.tokens
+            .map((token) =>
+              toSwapTokenOptionFromConfiguredDestinationToken(
+                token,
+                destination.chainId
+              )
+            )
+            .filter((token): token is SwapTokenOption => Boolean(token))
+        : [];
+
+    const tokensByKey = new Map<string, SwapTokenOption>();
+    for (const token of destinationTokens) {
+      tokensByKey.set(getTokenSelectionKey(token), token);
+    }
+    return Array.from(tokensByKey.values());
+  }, [configuredDepositOptions, rawConfig.destination]);
   if (activeMode === "deposit" && !configuredDeposit) {
-    throw new Error("NexusOne deposit mode requires config.deposit.");
+    throw new Error(
+      "NexusWidget deposit mode requires config.deposit or a smart contract destination with at least one token."
+    );
   }
   const showCloseButton = !embed && Boolean(onClose);
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
@@ -2595,7 +3169,7 @@ function NexusOneInner({
   useEffect(() => {
     if (nexusSDK) {
       console.log(
-        "[preloadReceiveTokens] Calling preloadReceiveTokens from NexusOne useEffect (nexusSDK available)"
+        "[preloadReceiveTokens] Calling preloadReceiveTokens from NexusWidget useEffect (nexusSDK available)"
       );
       preloadReceiveTokens();
     }
@@ -5485,7 +6059,7 @@ function NexusOneInner({
     let cancelled = false;
     void resolveTokenUsdRate(toToken.symbol).catch((error) => {
       if (!cancelled) {
-        console.warn("Unable to resolve Nexus One token USD rate", {
+        console.warn("Unable to resolve Nexus Widget token USD rate", {
           symbol: toToken.symbol,
           error,
         });
@@ -6112,30 +6686,117 @@ function NexusOneInner({
   // Handlers
   // ---------------------------------------------------------------------------
 
+  const applyConfiguredPrefillsAfterReset = () => {
+    const prefillAmount = config.prefill?.amount ?? "";
+    const prefillRecipient = config.prefill?.recipient ?? "";
+
+    appliedTokenPrefillRef.current = null;
+    syncingIntentSourcesRef.current = false;
+    maxPercentRunRef.current += 1;
+    setAmount(prefillAmount);
+    setRecipientAddress(prefillRecipient);
+    setTxError(null);
+    setSwapQuoteIssue(null);
+    setIntentToAmount(undefined);
+    setIntentFeeUsd(undefined);
+    setIntentData(null);
+    setPredictiveQuote(null);
+    setQuoteRefreshing(false);
+    setReceiveMaxCalculating(false);
+    setPreviewQuoteRefreshing(false);
+    setMaxCalculationPercent(null);
+    setSourceSelectionTouched(false);
+    setDepositSourceFilter("all");
+    setExactOutQuoteSourceModeValue("all");
+    setSourceSelectionRevision((current) => current + 1);
+    setDepositAmountMode("token");
+
+    if (activeMode === "swap") {
+      const sourcePrefill = config.prefill?.source;
+      const destinationPrefill = config.prefill?.destination;
+      const sourceToken = resolvePrefillToken(sourcePrefill);
+      const destinationToken = resolvePrefillToken(destinationPrefill);
+
+      setFromTokens(
+        sourceToken
+          ? [
+              {
+                ...sourceToken,
+                userAmount: prefillAmount,
+              },
+            ]
+          : []
+      );
+      setSourceSelectionTouched(Boolean(sourceToken));
+      setToToken(destinationToken);
+      setSelectedOpportunity(undefined);
+      setSwapType("exactIn");
+
+      if (
+        (!sourcePrefill || sourceToken) &&
+        (!destinationPrefill || destinationToken) &&
+        (sourcePrefill || destinationPrefill)
+      ) {
+        appliedTokenPrefillRef.current = [
+          sourcePrefill
+            ? `source:${sourcePrefill.chain}:${sourcePrefill.token.toLowerCase()}`
+            : "",
+          destinationPrefill
+            ? `destination:${destinationPrefill.chain}:${destinationPrefill.token.toLowerCase()}`
+            : "",
+          config.prefill?.amount ? `amount:${config.prefill.amount}` : "",
+        ].join("|");
+      }
+      return;
+    }
+
+    if (activeMode === "send") {
+      const sendPrefill =
+        config.prefill?.token && config.prefill?.chain
+          ? {
+              token: config.prefill.token,
+              chain: config.prefill.chain,
+            }
+          : config.prefill?.destination;
+      const token = resolvePrefillToken(sendPrefill);
+
+      setFromTokens([]);
+      setSelectedOpportunity(undefined);
+      setToToken(token);
+      setSwapType("exactOut");
+
+      if (sendPrefill && token) {
+        appliedTokenPrefillRef.current = `send:${sendPrefill.chain}:${sendPrefill.token.toLowerCase()}`;
+      }
+      return;
+    }
+
+    const destinationPrefill = config.prefill?.destination;
+    const configuredPrefillDeposit = destinationPrefill
+      ? configuredDepositOptions.find(
+          (deposit) =>
+            deposit.chainId === destinationPrefill.chain &&
+            deposit.tokenAddress.toLowerCase() ===
+              destinationPrefill.token.toLowerCase()
+        )
+      : undefined;
+    const nextDeposit = configuredPrefillDeposit ?? configuredDeposit;
+
+    setFromTokens([]);
+    setSelectedOpportunity(nextDeposit);
+    setToToken(nextDeposit ? toTokenFromOpportunity(nextDeposit) : undefined);
+    setSwapType("exactOut");
+  };
+
   const handleReset = () => {
     clearPendingSwapIntent();
-    setAmount("");
-    setRecipientAddress("");
-    setTxError(null);
     setSwapStep("idle");
     setCurrentSwapId(null);
     currentSwapIdRef.current = null;
     currentSwapStartedAtRef.current = 0;
-    clearSelectedSources();
-    setDepositAmountMode("token");
-    if (activeMode === "deposit") {
-      setSelectedOpportunity(configuredDeposit);
-      setToToken(
-        configuredDeposit
-          ? toTokenFromOpportunity(configuredDeposit)
-          : undefined
-      );
-      amountEnteredLastValueRef.current = "";
-      rotateAttempt();
-    } else {
-      setToToken(undefined);
-      setSelectedOpportunity(undefined);
-    }
+    amountEnteredLastValueRef.current = config.prefill?.amount ?? "";
+    applyConfiguredPrefillsAfterReset();
+    rotateAttempt();
   };
 
   const handleFailureBack = () => {
@@ -6948,7 +7609,7 @@ function NexusOneInner({
             data: executeParams.data,
             gasPrice: executeParams.gasPrice,
             tokenApproval: executeParams.tokenApproval,
-            gas: BigInt(400_000),
+            gas: executeParams.gas ?? BigInt(400_000),
           };
         } else if (
           (activeMode === "send" || hasCustomSwapRecipient) &&
@@ -7691,6 +8352,9 @@ function NexusOneInner({
   // Header title
   // ---------------------------------------------------------------------------
   const getTitle = () => {
+    const configuredWidgetHeading = normalizeConfiguredString(
+      appearanceConfig?.widgetHeading
+    );
     if (swapStep === "history") return "Transaction History";
     // Drawer panels overlay the main page,
     // so the header should still show the main page title.
@@ -7710,7 +8374,7 @@ function NexusOneInner({
         return TIMEOUT_LABEL;
       }
       if (swapStep === "failed") return "Swap Failed";
-      return "Swap and Bridge";
+      return configuredWidgetHeading ?? "Swap and Bridge";
     }
     if (activeMode === "deposit") {
       if (swapStep === "progress") return "Depositing…";
@@ -7719,7 +8383,7 @@ function NexusOneInner({
         return TIMEOUT_LABEL;
       }
       if (swapStep === "failed") return "Deposit Failed";
-      return "Deposit";
+      return configuredWidgetHeading ?? "Deposit";
     }
     if (activeMode === "send") {
       if (swapStep === "progress") return "Sending…";
@@ -7728,9 +8392,9 @@ function NexusOneInner({
         return TIMEOUT_LABEL;
       }
       if (swapStep === "failed") return "Send Failed";
-      return "Send";
+      return configuredWidgetHeading ?? "Send";
     }
-    return "Nexus One";
+    return configuredWidgetHeading ?? "Nexus Widget";
   };
 
   // Titles that should be center-aligned (main screens / confirm screens)
@@ -7792,6 +8456,7 @@ function NexusOneInner({
   };
 
   const handleSwapAmountChange = (val: string, panel: "send" | "receive") => {
+    if (isConfiguredAmountFixed) return;
     syncingIntentSourcesRef.current = false;
     setSwapQuoteIssue(null);
     setTxError(null);
@@ -7820,7 +8485,7 @@ function NexusOneInner({
         prev.map((token) => ({ ...token, userAmount: "" }))
       );
     }
-    // Nexus One swaps are exact-in only. Exact-out is reserved for Deposit and Send.
+    // Nexus Widget swaps are exact-in only. Exact-out is reserved for Deposit and Send.
     if (swapType !== "exactIn") {
       setSwapType("exactIn");
     }
@@ -7834,6 +8499,7 @@ function NexusOneInner({
   };
 
   const handleDepositAmountChange = (val: string) => {
+    if (isConfiguredAmountFixed) return;
     syncingIntentSourcesRef.current = false;
     resetExactOutSourcesToAuto();
     maxPercentRunRef.current += 1;
@@ -7862,6 +8528,7 @@ function NexusOneInner({
   };
 
   const handleSendAmountChange = (val: string) => {
+    if (isConfiguredAmountFixed) return;
     syncingIntentSourcesRef.current = false;
     resetExactOutSourcesToAuto();
     maxPercentRunRef.current += 1;
@@ -7890,6 +8557,7 @@ function NexusOneInner({
   };
 
   const handleDepositAmountModeToggle = () => {
+    if (isConfiguredAmountFixed) return;
     syncingIntentSourcesRef.current = false;
     resetExactOutSourcesToAuto();
     const rate = getDepositTokenUsdRate();
@@ -7906,6 +8574,7 @@ function NexusOneInner({
   };
 
   const handleDepositPercentSelect = async (pct: number) => {
+    if (isConfiguredAmountFixed) return;
     if (!toToken) return;
 
     syncingIntentSourcesRef.current = false;
@@ -8015,6 +8684,7 @@ function NexusOneInner({
   };
 
   const handleSendPercentSelect = async (pct: number) => {
+    if (isConfiguredAmountFixed) return;
     if (!toToken) return;
 
     syncingIntentSourcesRef.current = false;
@@ -8111,7 +8781,33 @@ function NexusOneInner({
   // ---------------------------------------------------------------------------
   const insufficientSourceIssue =
     swapQuoteIssue?.type === "insufficientSources" ? swapQuoteIssue : null;
-  const blockingQuoteIssue = insufficientSourceIssue ?? receiveAmountIssue;
+  const configuredAmountIssue = useMemo<ReceiveAmountIssue | null>(() => {
+    if (!amountInputConfig || !amount) return null;
+    const parsedAmount = parseFiatNumber(amount);
+    if (!parsedAmount || parsedAmount.lte(0)) return null;
+
+    const minAmount = parseFiatNumber(amountInputConfig.min);
+    if (minAmount && parsedAmount.lt(minAmount)) {
+      return {
+        ctaLabel: "Below minimum",
+        message: `Minimum amount is ${minAmount.toFixed()}.`,
+        type: "configuredAmountLimit",
+      };
+    }
+
+    const maxAmount = parseFiatNumber(amountInputConfig.max);
+    if (maxAmount && parsedAmount.gt(maxAmount)) {
+      return {
+        ctaLabel: "Above maximum",
+        message: `Maximum amount is ${maxAmount.toFixed()}.`,
+        type: "configuredAmountLimit",
+      };
+    }
+
+    return null;
+  }, [amount, amountInputConfig, parseFiatNumber]);
+  const blockingQuoteIssue =
+    insufficientSourceIssue ?? receiveAmountIssue ?? configuredAmountIssue;
   const hasCurrentRunnableIntent = hasCurrentQuoteIntent;
   const hasIntentSources = Boolean((intentData?.sources ?? []).length > 0);
   const hasCurrentIntentSources = hasCurrentRunnableIntent && hasIntentSources;
@@ -8182,6 +8878,7 @@ function NexusOneInner({
     if (needsWalletConnection) return walletCtaLabel;
     if (insufficientSourceIssue) return "Insufficient balance";
     if (receiveAmountIssue) return receiveAmountIssue.ctaLabel;
+    if (configuredAmountIssue) return configuredAmountIssue.ctaLabel;
     if (receiveMaxCalculating) return "Calculating...";
     if (!hasCurrentIntentSources && (quoteRefreshing || intentLoading)) {
       return "Fetching quotes...";
@@ -8194,6 +8891,7 @@ function NexusOneInner({
     if (needsWalletConnection) return walletCtaLabel;
     if (insufficientSourceIssue) return "Insufficient balance";
     if (receiveAmountIssue) return receiveAmountIssue.ctaLabel;
+    if (configuredAmountIssue) return configuredAmountIssue.ctaLabel;
     if (!hasPositiveRootAmount) return "Enter amount";
     if (!toToken) return "Select token";
     if (hasSameOwnerSendRecipient) return "Change recipient";
@@ -8375,6 +9073,10 @@ function NexusOneInner({
   const isSwapAssetDrawerClosing = closingDrawerStep === "choose-swap-asset";
   const isReceiveAssetDrawerClosing =
     closingDrawerStep === "choose-receive-asset";
+  const isReceiveAssetPickerLocked =
+    activeMode === "deposit"
+      ? configuredDepositOptions.length <= 1
+      : (config.allowedDestinationPairs?.length ?? 0) === 1;
   const isDrawerOverlayActive =
     swapStep === "choose-swap-asset" ||
     swapStep === "choose-receive-asset" ||
@@ -8385,7 +9087,12 @@ function NexusOneInner({
     <div
       className={className}
       data-nexus-one-root
+      data-nexus-widget-root
       style={{
+        ["--nexus-widget-primary" as any]:
+          primaryColor ?? nexusOneTheme.colors.primary,
+        ["--nexus-widget-primary-foreground" as any]:
+          primaryButtonForeground,
         backgroundColor: theme.colors.surface,
         backgroundImage: "none",
         backgroundPosition: "center",
@@ -8395,6 +9102,12 @@ function NexusOneInner({
         borderRadius: theme.radius.modal,
         boxShadow: appConfig.boxShadow || theme.shadows.root,
         boxSizing: "border-box",
+        colorScheme:
+          appearanceConfig?.themeMode === "dark"
+            ? "dark"
+            : appearanceConfig?.themeMode === "light"
+              ? "light"
+              : undefined,
         display: "flex",
         flexDirection: "column",
         fontFeatureSettings: '"tnum"',
@@ -8749,6 +9462,8 @@ function NexusOneInner({
                   fromTokens={fromTokens}
                   isReceiveAmountLoading={isReceiveAmountLoading}
                   isReceiveUsdLoading={isReceiveUsdLoading}
+                  isAmountReadOnly={isConfiguredAmountFixed}
+                  isDestinationPickerDisabled={isReceiveAssetPickerLocked}
                   onAmountChange={(val, panel) => {
                     handleSwapAmountChange(val, panel);
                   }}
@@ -8791,6 +9506,13 @@ function NexusOneInner({
                   />
                 )}
 
+                {configuredAmountIssue && (
+                  <StatusAlert
+                    message={configuredAmountIssue.message}
+                    type="error"
+                  />
+                )}
+
                 {txError && !blockingQuoteIssue && (
                   <StatusAlert message={txError} type="error" />
                 )}
@@ -8818,7 +9540,7 @@ function NexusOneInner({
                         ? "#FCEEED"
                         : isSwapCtaDisabled
                           ? theme.colors.surfaceCool
-                          : theme.colors.text,
+                          : primaryButtonBackground,
                       border: blockingQuoteIssue ? "1px solid #F7C4C1" : "none",
                       borderRadius: theme.radius.primaryButton,
                       boxShadow:
@@ -8853,7 +9575,7 @@ function NexusOneInner({
                         style={{
                           color: isSwapCtaDisabled
                             ? theme.colors.muted
-                            : theme.colors.surface,
+                            : primaryButtonForeground,
                           height: "14px",
                           width: "14px",
                         }}
@@ -8866,7 +9588,7 @@ function NexusOneInner({
                           ? "#D32F2F"
                           : isSwapCtaDisabled
                             ? theme.colors.muted
-                            : theme.colors.surface,
+                            : primaryButtonForeground,
                         fontFamily: theme.fonts.sans,
                         fontSize: blockingQuoteIssue ? "13px" : "14px",
                         fontWeight: 500,
@@ -8903,6 +9625,7 @@ function NexusOneInner({
                       amountMode={depositAmountMode}
                       calculatingPercent={maxCalculationPercent}
                       fromTokens={displayFromTokens}
+                      isAmountReadOnly={isConfiguredAmountFixed}
                       isCalculatingMax={receiveMaxCalculating}
                       isQuoteRefreshing={
                         !hasCurrentIntentSources &&
@@ -8917,6 +9640,9 @@ function NexusOneInner({
                         }
                         openDrawerStep("choose-swap-asset");
                       }}
+                      onOpenTokenPicker={() =>
+                        openDrawerStep("choose-receive-asset")
+                      }
                       onSetPercent={handleDepositPercentSelect}
                       routeMessage={insufficientSourceIssue?.message}
                       routeStatus={
@@ -8927,6 +9653,7 @@ function NexusOneInner({
                             : undefined
                       }
                       showAutoBadge={!sourceSelectionTouched}
+                      isTokenPickerDisabled={isReceiveAssetPickerLocked}
                       tokenValue={depositTokenDisplay}
                       toToken={toTokenWithFetchedBalance}
                       totalBalance={totalSwapBalanceUsd}
@@ -8936,6 +9663,13 @@ function NexusOneInner({
                     {receiveAmountIssue && (
                       <StatusAlert
                         message={receiveAmountIssue.message}
+                        type="error"
+                      />
+                    )}
+
+                    {configuredAmountIssue && (
+                      <StatusAlert
+                        message={configuredAmountIssue.message}
                         type="error"
                       />
                     )}
@@ -8966,7 +9700,7 @@ function NexusOneInner({
                             ? "#FCEEED"
                             : isDepositCtaDisabled
                               ? theme.colors.surfaceCool
-                              : theme.colors.text,
+                              : primaryButtonBackground,
                           border: blockingQuoteIssue
                             ? "1px solid #F7C4C1"
                             : "none",
@@ -9005,7 +9739,7 @@ function NexusOneInner({
                             style={{
                               color: isDepositCtaDisabled
                                 ? theme.colors.muted
-                                : theme.colors.surface,
+                                : primaryButtonForeground,
                               height: "14px",
                               width: "14px",
                             }}
@@ -9018,7 +9752,7 @@ function NexusOneInner({
                               ? "#D32F2F"
                               : isDepositCtaDisabled
                                 ? theme.colors.muted
-                                : theme.colors.surface,
+                                : primaryButtonForeground,
                             fontFamily: theme.fonts.sans,
                             fontSize: blockingQuoteIssue ? "13px" : "14px",
                             fontWeight: 500,
@@ -9049,6 +9783,8 @@ function NexusOneInner({
                   amount={amount}
                   calculatingPercent={maxCalculationPercent}
                   fromTokens={displayFromTokens}
+                  isAmountReadOnly={isConfiguredAmountFixed}
+                  isAssetPickerDisabled={isReceiveAssetPickerLocked}
                   isCalculatingMax={receiveMaxCalculating}
                   isQuoteRefreshing={
                     !hasCurrentIntentSources &&
@@ -9058,7 +9794,12 @@ function NexusOneInner({
                   onOpenAssetPicker={() =>
                     openDrawerStep("choose-receive-asset")
                   }
-                  onOpenRecipientPicker={handleOpenRecipientEditor}
+                  isRecipientLocked={isConfiguredRecipientLocked}
+                  onOpenRecipientPicker={
+                    isConfiguredRecipientLocked
+                      ? () => undefined
+                      : handleOpenRecipientEditor
+                  }
                   onOpenSourcePicker={() => {
                     if (needsWalletConnection) {
                       void handleConnectWallet();
@@ -9088,6 +9829,13 @@ function NexusOneInner({
                 {receiveAmountIssue && (
                   <StatusAlert
                     message={receiveAmountIssue.message}
+                    type="error"
+                  />
+                )}
+
+                {configuredAmountIssue && (
+                  <StatusAlert
+                    message={configuredAmountIssue.message}
                     type="error"
                   />
                 )}
@@ -9122,7 +9870,7 @@ function NexusOneInner({
                         ? "#FCEEED"
                         : isSendCtaDisabled
                           ? theme.colors.surfaceCool
-                          : theme.colors.text,
+                          : primaryButtonBackground,
                       border: blockingQuoteIssue ? "1px solid #F7C4C1" : "none",
                       borderRadius: blockingQuoteIssue
                         ? "4px"
@@ -9160,7 +9908,7 @@ function NexusOneInner({
                         style={{
                           color: isSendCtaDisabled
                             ? theme.colors.muted
-                            : theme.colors.surface,
+                            : primaryButtonForeground,
                           height: "14px",
                           width: "14px",
                         }}
@@ -9173,7 +9921,7 @@ function NexusOneInner({
                           ? "#D32F2F"
                           : isSendCtaDisabled
                             ? theme.colors.muted
-                            : theme.colors.surface,
+                            : primaryButtonForeground,
                         fontFamily: theme.fonts.sans,
                         fontSize: blockingQuoteIssue ? "13px" : "14px",
                         fontWeight: 500,
@@ -9865,6 +10613,9 @@ function NexusOneInner({
               }}
             >
               <ReceiveAssetSelector
+                additionalTokens={configuredDestinationTokenOptions}
+                allowedChainIds={config.allowedDestinationChains}
+                allowedPairs={config.allowedDestinationPairs}
                 onBack={closeDrawerToIdle}
                 onSelect={(token) => {
                   const tokenChanged = !isSameTokenSelection(toToken, token);
@@ -9880,9 +10631,20 @@ function NexusOneInner({
                     setExactOutQuoteSourceModeValue("all");
                     if (tokenChanged) {
                       clearPendingSwapIntent();
-                      setAmount("");
+                      if (!isConfiguredAmountFixed) {
+                        setAmount("");
+                      }
                     }
                     setSwapType("exactOut");
+                    if (activeMode === "deposit") {
+                      const nextDeposit = getDepositForTokenSelection(
+                        configuredDepositOptions,
+                        token
+                      );
+                      if (nextDeposit) {
+                        setSelectedOpportunity(nextDeposit);
+                      }
+                    }
                     setToToken(token);
                     closeDrawerToIdle();
                     return;
@@ -9927,4 +10689,4 @@ function NexusOneInner({
   );
 }
 
-export default NexusOne;
+export default NexusWidget;

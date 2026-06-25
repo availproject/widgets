@@ -7,13 +7,13 @@ deprecationMessage: View History is deprecated and removed. Use sdk.getMyIntents
 ---
 
 <Callout>
-  **⚠️ Deprecated — Use Nexus One**
+  **⚠️ Deprecated — Use Nexus Widget**
 
-  View History has been **removed** from Nexus Elements. Intent history is not included in Nexus One V1.
+  View History has been **removed** from Nexus Elements. Intent history is not included in Nexus Widget V1.
 
   For programmatic access to intent history, use the Nexus SDK directly.
 
-  [**→ View Nexus One documentation**](/docs/components/nexus-one)
+  [**→ View Nexus Widget documentation**](/docs/components/nexus)
 </Callout>
 
 ## Migration
@@ -24,10 +24,10 @@ Remove `ViewHistory` from your app. For programmatic intent history access:
 const intents = await sdk.getMyIntents();
 ```
 
-## Install Nexus One
+## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
-See the [Nexus One](/docs/components/nexus-one) page for the unified element documentation.
+See the [Nexus Widget](/docs/components/nexus) page for the unified element documentation.
