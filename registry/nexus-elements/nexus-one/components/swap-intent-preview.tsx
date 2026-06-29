@@ -1355,7 +1355,7 @@ export function SwapIntentPreview({
               <span
                 key={index}
                 style={{
-                  background: index === 2 ? "#006BF4" : "#9FC4FF",
+                  background: index === 2 ? brand : "#9FC4FF",
                   borderRadius: "2px",
                   display: "block",
                   height: "4px",

@@ -9,7 +9,7 @@ const uiFont = '"Geist", system-ui, sans-serif';
 const primary = "#161615";
 const muted = "#848483";
 const border = "#E8E8E7";
-const brand = "#006BF4";
+const brand = "var(--foreground-brand, #006BF4)";
 
 const parseDecimal = (value: unknown) => {
   if (value === null || value === undefined || value === "") return undefined;

@@ -3,7 +3,7 @@
 import React from "react";
 
 const identiconPalette = [
-  "#006BF4",
+  "var(--foreground-brand, #006BF4)",
   "#16A34A",
   "#B7791F",
   "#7C3AED",

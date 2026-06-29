@@ -29,7 +29,7 @@ export function RecipientInput({
         borderRadius: "7px",
         borderWidth: "1px",
         borderStyle: "solid",
-        borderColor: hasError ? "#E35454" : "#006BF4",
+        borderColor: hasError ? "#E35454" : "var(--foreground-brand, #006BF4)",
         gap: "8px",
         paddingTop: "8px",
         paddingBottom: "8px",
@@ -65,7 +65,7 @@ export function RecipientInput({
         placeholder={placeholder}
         style={{
           color: "#161615",
-          caretColor: "#006BF4",
+          caretColor: "var(--foreground-brand, #006BF4)",
           fontSize: "14px",
           fontWeight: 500,
           WebkitTextFillColor: "#161615",

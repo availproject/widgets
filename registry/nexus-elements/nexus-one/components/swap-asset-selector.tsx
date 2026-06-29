@@ -37,6 +37,8 @@ const tabularNums: React.CSSProperties = {
   fontVariantNumeric: "tabular-nums",
 };
 
+const brand = "var(--foreground-brand, #006BF4)";
+
 export interface SwapTokenOption {
   balance: string;
   balanceInFiat: string;
@@ -131,7 +133,7 @@ export const RadioDot = ({ selected }: { selected: boolean }) => (
       borderRadius: "999px",
       boxSizing: "border-box",
       border: selected ? "none" : "2px solid #E8E8E7",
-      backgroundColor: selected ? "#006BF4" : "#FFFFFE",
+      backgroundColor: selected ? brand : "#FFFFFE",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -168,7 +170,7 @@ const SelectionControl = ({
     <div
       style={{
         alignItems: "center",
-        backgroundColor: isActive ? "#006BF4" : "#FFFFFE",
+        backgroundColor: isActive ? brand : "#FFFFFE",
         border: isActive ? "none" : "1.5px solid #E0E0DE",
         borderRadius: "5px",
         boxSizing: "border-box",
@@ -1552,7 +1554,7 @@ export function SwapAssetSelector({
                   width: 40,
                   height: 40,
                   borderRadius: "999px",
-                  backgroundColor: "#006BF4",
+                  backgroundColor: brand,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1781,7 +1783,7 @@ export function SwapAssetSelector({
                       width: 40,
                       height: 40,
                       borderRadius: "999px",
-                      backgroundColor: "#006BF4",
+                      backgroundColor: brand,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1817,7 +1819,7 @@ export function SwapAssetSelector({
                       fontFamily: '"Geist", system-ui, sans-serif',
                       fontSize: 11,
                       fontWeight: 600,
-                      color: "#006BF4",
+                      color: brand,
                       backgroundColor: "#E8F0FF",
                       borderRadius: 4,
                       padding: "2px 8px",
@@ -2126,7 +2128,7 @@ export function SwapAssetSelector({
               style={{
                 backgroundColor: "transparent",
                 border: "none",
-                color: "#006BF4",
+                color: brand,
                 cursor: "pointer",
                 flexShrink: 0,
                 fontFamily: '"Geist", system-ui, sans-serif',
@@ -2691,7 +2693,7 @@ export function SwapAssetSelector({
               >
                 <div
                   style={{
-                    backgroundColor: "#006BF4",
+                    backgroundColor: brand,
                     borderRadius: "999px",
                     height: "100%",
                     transition: "width 240ms ease",

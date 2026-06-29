@@ -1261,7 +1261,7 @@ export function ReceiveAssetSelector({
                                 style={{
                                   width: 12,
                                   height: 12,
-                                  color: "#006BF4",
+                                  color: "var(--foreground-brand, #006BF4)",
                                 }}
                               />
                             ) : (
@@ -1813,7 +1813,7 @@ export function ReceiveAssetSelector({
                     style={{
                       fontFamily: '"Geist", system-ui, sans-serif',
                       fontSize: 11,
-                      color: "#006BF4",
+                      color: "var(--foreground-brand, #006BF4)",
                       wordBreak: "break-all",
                       textDecoration: "underline",
                       outline: "none",

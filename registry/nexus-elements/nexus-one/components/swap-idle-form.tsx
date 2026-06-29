@@ -14,6 +14,8 @@ const tabularNums: React.CSSProperties = {
   fontVariantNumeric: "tabular-nums",
 };
 
+const brand = "var(--foreground-brand, #006BF4)";
+
 interface SwapIdleFormProps {
   amount: string;
   defaultRecipientAddress?: string;
@@ -221,7 +223,7 @@ function UnifiedTokenLogoBadge({
         <div
           style={{
             alignItems: "center",
-            backgroundColor: "#006BF4",
+            backgroundColor: brand,
             border: "1px solid #FFFFFE",
             borderRadius: "999px",
             bottom: -3,
@@ -454,7 +456,7 @@ function PercentHoverButton({
       <div
         style={{
           boxSizing: "border-box",
-          color: isHighlighted ? "#006BF4" : "#363635",
+          color: isHighlighted ? brand : "#363635",
           fontFamily: '"Geist", system-ui, sans-serif',
           fontSize: "11px",
           fontWeight: 500,
@@ -547,7 +549,7 @@ function LogoCircle({
         alignItems: "center",
         backgroundColor: "#E8F0FF",
         borderRadius: "999px",
-        color: "#006BF4",
+        color: brand,
         display: "flex",
         fontFamily: '"Geist", system-ui, sans-serif',
         fontSize: `${fontSize}px`,
@@ -870,7 +872,7 @@ export function SwapIdleForm({
   );
   const recipientColor = recipientAddress
     ? isDefaultRecipient
-      ? "#006BF4"
+      ? brand
       : "#B7791F"
     : "#848483";
   const getTokenAmountTotal = (tokens: SwapTokenOption[]) =>
@@ -1024,7 +1026,7 @@ export function SwapIdleForm({
               padding: "2px 0",
               color:
                 fromTokens.length > 0 && !isSourcePickerDisabled
-                  ? "#006BF4"
+                  ? brand
                   : "#A8A8A6",
               cursor:
                 fromTokens.length > 0 && !isSourcePickerDisabled
@@ -1652,7 +1654,7 @@ export function SwapIdleForm({
             style={{
               alignSelf: "stretch",
               color:
-                sourceRouteStatus === "insufficient" ? "#D32F2F" : "#006BF4",
+                sourceRouteStatus === "insufficient" ? "#D32F2F" : brand,
               fontFamily: '"Geist", system-ui, sans-serif',
               fontSize: "13px",
               fontWeight: 500,
@@ -2086,7 +2088,7 @@ export function SwapIdleForm({
                   <div
                     style={{
                       boxSizing: "border-box",
-                      color: "#006BF4",
+                      color: brand,
                       fontFamily: '"Geist", system-ui, sans-serif',
                       fontSize: "13px",
                       fontWeight: 500,

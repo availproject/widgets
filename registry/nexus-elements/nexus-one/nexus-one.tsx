@@ -208,6 +208,8 @@ const DESTINATION_RECEIVE_LIMIT_USD_BY_CHAIN_ID: Record<number, number> = {
   [SUPPORTED_CHAINS.SCROLL]: 500,
 };
 
+const SCIENTIFIC_DECIMAL_REGEX = /^-?(?:\d+\.?\d*|\.\d+)e[+-]?\d+$/i;
+
 const QUOTE_REFRESH_INTERVAL_MS = 30000;
 const EXACT_OUT_INPUT_DEBOUNCE_MS = 1300;
 const DRAWER_CLOSE_MS = 220;
@@ -1110,7 +1112,7 @@ function QuoteRefreshCountdown({
           cx="9"
           cy="9"
           r={radius}
-          stroke="#006BF4"
+          stroke="var(--foreground-brand, #006BF4)"
           strokeDasharray={circumference}
           strokeDashoffset={circumference * (1 - clampedProgress)}
           strokeLinecap="round"
@@ -1122,10 +1124,17 @@ function QuoteRefreshCountdown({
   );
 }
 
+const normalizeDecimalInputText = (value: unknown) => {
+  const raw = String(value).trim();
+  if (!raw) return "";
+  if (SCIENTIFIC_DECIMAL_REGEX.test(raw)) return raw;
+  return raw.replace(/[^0-9.-]/g, "");
+};
+
 const parseDecimalLoose = (value: unknown) => {
   if (value === null || value === undefined || value === "") return undefined;
   if (Decimal.isDecimal(value)) return value;
-  const cleaned = String(value).replace(/[^0-9.-]/g, "");
+  const cleaned = normalizeDecimalInputText(value);
   if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
     return undefined;
   }
@@ -1135,6 +1144,14 @@ const parseDecimalLoose = (value: unknown) => {
   } catch {
     return undefined;
   }
+};
+
+const toViemDecimalString = (value: unknown, decimals: number) => {
+  const parsed = parseDecimalLoose(value);
+  if (!parsed || parsed.lte(0)) return "0";
+  return parsed
+    .toDecimalPlaces(Math.max(0, decimals), Decimal.ROUND_DOWN)
+    .toFixed();
 };
 
 const formatDecimalDisplay = (
@@ -1507,7 +1524,7 @@ function MiniLogo({
         alignItems: "center",
         background: "#E8F0FF",
         borderRadius: "999px",
-        color: "#006BF4",
+        color: "var(--foreground-brand, #006BF4)",
         display: "flex",
         fontFamily: uiFont,
         fontSize,
@@ -1629,7 +1646,7 @@ function SourceLogoStack({
 
 function TruncatedAddress({
   address,
-  color = "#006BF4",
+  color = "var(--foreground-brand, #006BF4)",
 }: {
   address: string;
   color?: string;
@@ -2552,7 +2569,7 @@ function SwapReceiptPanel({
                 ? "#E92C2C"
                 : isTimeout
                   ? "#B7791F"
-                  : "#006BF4",
+                  : "var(--foreground-brand, #006BF4)",
               border: "2px solid #FFFFFE",
               borderRadius: "999px",
               bottom: -2,
@@ -2681,7 +2698,7 @@ function SwapReceiptPanel({
                 alignItems: "center",
                 background: "transparent",
                 border: "none",
-                color: "#006BF4",
+                color: "var(--foreground-brand, #006BF4)",
                 cursor: "pointer",
                 display: "inline-flex",
                 fontFamily: uiFont,
@@ -2763,7 +2780,11 @@ function SwapReceiptPanel({
             <a
               href={entry.intentExplorerUrl ?? undefined}
               rel="noopener noreferrer"
-              style={{ color: "#006BF4", fontFamily: uiFont, fontSize: "13px" }}
+              style={{
+                color: "var(--foreground-brand, #006BF4)",
+                fontFamily: uiFont,
+                fontSize: "13px",
+              }}
               target="_blank"
             >
               {intentLabel} ↗
@@ -2788,7 +2809,11 @@ function SwapReceiptPanel({
             <a
               href={entry.finalExplorerUrl}
               rel="noopener noreferrer"
-              style={{ color: "#006BF4", fontFamily: uiFont, fontSize: "13px" }}
+              style={{
+                color: "var(--foreground-brand, #006BF4)",
+                fontFamily: uiFont,
+                fontSize: "13px",
+              }}
               target="_blank"
             >
               View Explorer ↗
@@ -3150,7 +3175,7 @@ function SwapHistoryPanel({
                   style={{
                     alignItems: "center",
                     boxSizing: "border-box",
-                    color: "#006BF4",
+                    color: "var(--foreground-brand, #006BF4)",
                     display: "inline-flex",
                     fontSize: "12px",
                     fontSynthesis: "none",
@@ -3164,7 +3189,7 @@ function SwapHistoryPanel({
                   <span
                     style={{
                       boxSizing: "border-box",
-                      color: "#006BF4",
+                      color: "var(--foreground-brand, #006BF4)",
                       fontFamily: uiFont,
                       fontSize: "12px",
                       fontWeight: 500,
@@ -3188,7 +3213,7 @@ function SwapHistoryPanel({
                     <path
                       d="M5 5H9V9"
                       fill="none"
-                      stroke="#006BF4"
+                      stroke="var(--foreground-brand, #006BF4)"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth="1.4"
@@ -3196,7 +3221,7 @@ function SwapHistoryPanel({
                     <path
                       d="M5 9L9 5"
                       fill="none"
-                      stroke="#006BF4"
+                      stroke="var(--foreground-brand, #006BF4)"
                       strokeLinecap="round"
                       strokeWidth="1.4"
                     />
@@ -3253,7 +3278,7 @@ export function NexusWidget(props: NexusWidgetProps) {
           <button
             onClick={() => window.location.reload()}
             style={{
-              backgroundColor: "#006BF4",
+              backgroundColor: "var(--foreground-brand, #006BF4)",
               border: "none",
               borderRadius: "8px",
               color: "#FFFFFE",
@@ -4040,7 +4065,7 @@ function NexusOneInner({
   const parseFiatNumber = (value: unknown) => {
     if (value === null || value === undefined || value === "") return undefined;
     if (Decimal.isDecimal(value)) return value;
-    const cleaned = String(value).replace(/[^0-9.-]/g, "");
+    const cleaned = normalizeDecimalInputText(value);
     if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
       return undefined;
     }
@@ -4640,6 +4665,44 @@ function NexusOneInner({
     return null;
   };
 
+  const buildConfiguredAmountIssue = (
+    inputAmount = amount
+  ): ReceiveAmountIssue | null => {
+    if (!amountInputConfig || !inputAmount) return null;
+    const parsedAmount = parseFiatNumber(inputAmount);
+    if (!parsedAmount || parsedAmount.lte(0)) return null;
+
+    const minAmount = parseFiatNumber(amountInputConfig.min);
+    if (minAmount && parsedAmount.lt(minAmount)) {
+      return {
+        ctaLabel: "Below minimum",
+        message: `Minimum amount is ${minAmount.toFixed()}.`,
+        type: "configuredAmountLimit",
+      };
+    }
+
+    const maxAmount = parseFiatNumber(amountInputConfig.max);
+    if (maxAmount && parsedAmount.gt(maxAmount)) {
+      return {
+        ctaLabel: "Above maximum",
+        message: `Maximum amount is ${maxAmount.toFixed()}.`,
+        type: "configuredAmountLimit",
+      };
+    }
+
+    return null;
+  };
+
+  const clearPreviewForBlockingAmountIssue = () => {
+    clearPendingSwapIntent(true);
+    setQuoteRefreshing(false);
+    setIntentLoading(false);
+    setReceiveMaxCalculating(false);
+    setPreviewQuoteRefreshing(false);
+    setTxError(null);
+    setSwapQuoteIssue(null);
+  };
+
   const applyReceiveAmountIssue = (issue: ReceiveAmountIssue | null) => {
     const key = issue ? `${issue.type}:${issue.message}` : "";
     receiveAmountIssueRef.current = issue;
@@ -5129,6 +5192,9 @@ function NexusOneInner({
     );
   };
 
+  const isViemInvalidDecimalError = (error: unknown) =>
+    getErrorText(error).toLowerCase().includes("not a valid decimal number");
+
   const parseLabeledErrorDecimal = (text: string, label: string) => {
     const match = text.match(
       new RegExp(`${label}\\s*:\\s*\\$?\\s*([0-9][0-9,]*(?:\\.[0-9]+)?)`, "i")
@@ -5257,6 +5323,27 @@ function NexusOneInner({
     return {
       type: "insufficientSources",
       message: "Add more source balance across your assets",
+    };
+  };
+
+  const buildExactOutSourceBalanceIssue = (): SwapQuoteIssue | null => {
+    if (activeMode !== "deposit" && activeMode !== "send") return null;
+    const requestedUsd = getExactOutRequestedUsd();
+    const availableUsd = getExactOutAvailableSourceUsd();
+    if (!requestedUsd || requestedUsd.lte(0) || !availableUsd) return null;
+
+    const missingUsd = requestedUsd.minus(availableUsd);
+    if (missingUsd.lte(0.01)) return null;
+
+    const formattedMissing =
+      missingUsd.gt(0) && missingUsd.lt(0.01)
+        ? "<$0.01"
+        : formatUsdDisplay(missingUsd);
+
+    return {
+      type: "insufficientSources",
+      missingUsd: missingUsd.toDecimalPlaces(2).toFixed(),
+      message: `Need ${formattedMissing} more across your assets`,
     };
   };
 
@@ -6551,10 +6638,23 @@ function NexusOneInner({
     immediateQuoteAfterSourceEditRef.current = true;
     const receiveIssue = buildReceiveAmountIssue();
     applyReceiveAmountIssue(receiveIssue);
+    const configuredIssue = buildConfiguredAmountIssue();
+    if (configuredIssue) {
+      clearPreviewForBlockingAmountIssue();
+    }
+    const sourceBalanceIssue = buildExactOutSourceBalanceIssue();
+    if (sourceBalanceIssue) {
+      clearPreviewForBlockingAmountIssue();
+      setSwapQuoteIssue(sourceBalanceIssue);
+    }
     const shouldLoadQuote = Boolean(
-      !receiveIssue && nexusSDK && canRefreshExactOutQuote()
+      !receiveIssue &&
+        !configuredIssue &&
+        !sourceBalanceIssue &&
+        nexusSDK &&
+        canRefreshExactOutQuote()
     );
-    if (!receiveIssue) {
+    if (!receiveIssue && !configuredIssue && !sourceBalanceIssue) {
       clearPendingSwapIntent(true, { keepQuoteRefreshing: shouldLoadQuote });
     }
     if (shouldLoadQuote) {
@@ -7286,6 +7386,29 @@ function NexusOneInner({
       return;
     }
 
+    const configuredIssue = buildConfiguredAmountIssue();
+    if (configuredIssue) {
+      clearPreviewForBlockingAmountIssue();
+      if (!background && swapStepRef.current !== "idle") {
+        swapStepRef.current = "idle";
+        setSwapStep("idle");
+      }
+      return;
+    }
+
+    const sourceBalanceIssue = isExactOutFlow
+      ? buildExactOutSourceBalanceIssue()
+      : null;
+    if (sourceBalanceIssue) {
+      clearPreviewForBlockingAmountIssue();
+      setSwapQuoteIssue(sourceBalanceIssue);
+      if (!background && swapStepRef.current !== "idle") {
+        swapStepRef.current = "idle";
+        setSwapStep("idle");
+      }
+      return;
+    }
+
     if (!background && activeMode === "deposit") {
       trackDeposit("deposit_confirm_clicked", {
         amountToken: depositTokenDisplay,
@@ -7684,12 +7807,10 @@ function NexusOneInner({
 
           if (cleanAmount.lte(0)) continue;
 
-          const safeTokenAmountStr = cleanAmount
-            .toDecimalPlaces(
-              Math.max(0, token.decimals || 18),
-              Decimal.ROUND_DOWN
-            )
-            .toFixed();
+          const safeTokenAmountStr = toViemDecimalString(
+            cleanAmount,
+            token.decimals || 18
+          );
 
           fromPayload.push({
             chainId: token.chainId!,
@@ -7795,7 +7916,7 @@ function NexusOneInner({
             }
 
             const transferAmountBigInt = parseUnits(
-              transferAmount,
+              toViemDecimalString(transferAmount, toToken.decimals || 18),
               toToken.decimals || 18
             );
             finalExplorerUrl =
@@ -7881,7 +8002,7 @@ function NexusOneInner({
           return;
         }
         const amountBigInt = parseUnits(
-          exactOutAmountString,
+          toViemDecimalString(exactOutAmountString, toToken.decimals || 18),
           toToken.decimals || 18
         );
 
@@ -8233,6 +8354,18 @@ function NexusOneInner({
         setSwapQuoteIssue(issue);
         onError?.(issue.message);
         return;
+      }
+      if (isExactOutFlow && isViemInvalidDecimalError(err) && !hasActiveExecution) {
+        const issue = buildExactOutSourceBalanceIssue();
+        if (issue) {
+          if (!background || swapStepRef.current === "preview-intent") {
+            setSwapStep("idle");
+          }
+          setTxError(null);
+          setSwapQuoteIssue(issue);
+          onError?.(issue.message);
+          return;
+        }
       }
       const errorMessage =
         err?.message ||
@@ -9118,31 +9251,7 @@ function NexusOneInner({
   // ---------------------------------------------------------------------------
   const insufficientSourceIssue =
     swapQuoteIssue?.type === "insufficientSources" ? swapQuoteIssue : null;
-  const configuredAmountIssue = useMemo<ReceiveAmountIssue | null>(() => {
-    if (!amountInputConfig || !amount) return null;
-    const parsedAmount = parseFiatNumber(amount);
-    if (!parsedAmount || parsedAmount.lte(0)) return null;
-
-    const minAmount = parseFiatNumber(amountInputConfig.min);
-    if (minAmount && parsedAmount.lt(minAmount)) {
-      return {
-        ctaLabel: "Below minimum",
-        message: `Minimum amount is ${minAmount.toFixed()}.`,
-        type: "configuredAmountLimit",
-      };
-    }
-
-    const maxAmount = parseFiatNumber(amountInputConfig.max);
-    if (maxAmount && parsedAmount.gt(maxAmount)) {
-      return {
-        ctaLabel: "Above maximum",
-        message: `Maximum amount is ${maxAmount.toFixed()}.`,
-        type: "configuredAmountLimit",
-      };
-    }
-
-    return null;
-  }, [amount, amountInputConfig, parseFiatNumber]);
+  const configuredAmountIssue = buildConfiguredAmountIssue();
   const blockingQuoteIssue =
     insufficientSourceIssue ?? receiveAmountIssue ?? configuredAmountIssue;
   const isExactOutPaymentFlow =
@@ -9468,6 +9577,12 @@ function NexusOneInner({
         ["--nexus-widget-primary" as any]:
           primaryColor ?? nexusOneTheme.colors.primary,
         ["--nexus-widget-primary-foreground" as any]:
+          primaryButtonForeground,
+        ["--foreground-brand" as any]:
+          primaryColor ?? nexusOneTheme.colors.primary,
+        ["--interactive-button-primary-background" as any]:
+          primaryColor ?? nexusOneTheme.colors.primary,
+        ["--interactive-button-primary-foreground" as any]:
           primaryButtonForeground,
         backgroundColor: theme.colors.surface,
         backgroundImage: "none",

@@ -138,7 +138,7 @@ export const nexusOneTheme = {
     iconButton: "#3C28640F 0px 1px 2px, #3C28640A 0px 2px 4px",
     inset: "#3C28640F 0px 1px 2px inset",
     primaryButton:
-      "#FFFFFF14 0px 1px 0px inset, #00000033 0px 1px 2px, #14141E40 0px 7px 18px",
+      "#FFFFFF12 0px 1px 0px inset, #0000001F 0px 1px 2px, #14141E24 0px 4px 10px",
     root: "#FFFFFFE6 0px 1px 0px inset, #FFFFFF8C 0px 0px 0px 9px, #11346A0A 0px 2px 4px, #0078F721 0px 9px 18px, #1571FE1F 0px 22px 42px",
     segmentedActive:
       "#FFFFFFE6 0px 1px 0px inset, #3C286414 0px 1px 2px, #3C28640F 0px 2px 6px",
