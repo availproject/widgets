@@ -15,7 +15,7 @@ importers:
     dependencies:
       '@avail-project/nexus-sdk-v2':
         specifier: git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.5
-        version: git+ssh://git@github.com/availproject/nexus-sdk-v2.git#64bf04066c3ad70a0715504f810a99b0c01f77a0(@opentelemetry/api@1.9.0)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+        version: git+https://github.com/availproject/nexus-sdk-v2.git#64bf04066c3ad70a0715504f810a99b0c01f77a0(@opentelemetry/api@1.9.0)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.1.2(@types/react@19.1.2))(@types/react@19.1.2)(react-dom@19.2.2(react@19.2.2))(react@19.2.2)
@@ -204,8 +204,8 @@ packages:
     resolution: {integrity: sha512-C90iyzm/jLV7Lomv2UzwWUzRv9WZr1oRsFRKsX5HjQL4EXrbi9H/RtBkjCP+NF+ABZXUKpAa4F1dkoTaea4zHg==}
     hasBin: true
 
-  '@avail-project/nexus-sdk-v2@git+ssh://git@github.com/availproject/nexus-sdk-v2.git#64bf04066c3ad70a0715504f810a99b0c01f77a0':
-    resolution: {commit: 64bf04066c3ad70a0715504f810a99b0c01f77a0, repo: git@github.com:availproject/nexus-sdk-v2.git, type: git}
+  '@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#64bf04066c3ad70a0715504f810a99b0c01f77a0':
+    resolution: {commit: 64bf04066c3ad70a0715504f810a99b0c01f77a0, repo: https://github.com/availproject/nexus-sdk-v2.git, type: git}
     version: 0.0.1
     engines: {node: '>=18.0.0'}
 
@@ -6789,7 +6789,7 @@ snapshots:
 
   '@antfu/ni@23.3.1': {}
 
-  '@avail-project/nexus-sdk-v2@git+ssh://git@github.com/availproject/nexus-sdk-v2.git#64bf04066c3ad70a0715504f810a99b0c01f77a0(@opentelemetry/api@1.9.0)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)':
+  '@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#64bf04066c3ad70a0715504f810a99b0c01f77a0(@opentelemetry/api@1.9.0)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)':
     dependencies:
       '@avail-project/nexus-types': 0.1.21(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@opentelemetry/api-logs': 0.219.0
