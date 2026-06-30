@@ -5107,13 +5107,7 @@ function NexusOneInner({
     return getGasCapableBalanceSourceTokens();
   };
 
-  const buildFromSourcesPayload = (tokens: SwapTokenOption[]) => {
-    if (activeMode === "deposit") {
-      return {
-        sources: getResolvedDepositSourceSelection().fromSources,
-      };
-    }
-
+  const buildExplicitSourcesPayload = (tokens: SwapTokenOption[]) => {
     const eligibleTokens = filterMinimumSourceUsdTokens(tokens).filter(
       (token) => token.chainId && token.contractAddress
     );
@@ -5123,6 +5117,140 @@ function NexusOneInner({
         tokenAddress: token.contractAddress as `0x${string}`,
       })),
     };
+  };
+
+  const getSdkSourceKey = (source: {
+    chainId: number;
+    tokenAddress: `0x${string}`;
+  }) => {
+    const normalizedAddress = isNativeTokenAddress(source.tokenAddress)
+      ? zeroAddress
+      : source.tokenAddress.toLowerCase();
+    return `${source.chainId}:${normalizedAddress}`;
+  };
+
+  const dedupeSdkSources = (
+    sources: Array<
+      | {
+          chainId: number;
+          tokenAddress: `0x${string}`;
+        }
+      | undefined
+    >
+  ) => {
+    const seen = new Set<string>();
+    return sources.filter(
+      (
+        source
+      ): source is {
+        chainId: number;
+        tokenAddress: `0x${string}`;
+      } => {
+        if (!source) return false;
+        const key = getSdkSourceKey(source);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }
+    );
+  };
+
+  const getHeldNativeGasSourceForChain = (chainId?: number) => {
+    if (!chainId) return undefined;
+
+    const nativeSymbol =
+      CHAIN_METADATA[chainId]?.nativeCurrency?.symbol?.toUpperCase();
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        if (breakdown.chain?.id !== chainId) continue;
+
+        const breakdownSymbol = (
+          breakdown.symbol ??
+          asset.symbol ??
+          ""
+        ).toUpperCase();
+        const assetSymbol = (asset.symbol ?? "").toUpperCase();
+        const isNativeBalance =
+          isNativeTokenAddress(breakdown.contractAddress) ||
+          Boolean(
+            nativeSymbol &&
+              (breakdownSymbol === nativeSymbol || assetSymbol === nativeSymbol)
+          );
+        const balance = parseFiatNumber(breakdown.balance) ?? new Decimal(0);
+
+        if (!isNativeBalance || balance.lte(0)) continue;
+        return {
+          chainId,
+          tokenAddress: (breakdown.contractAddress ||
+            zeroAddress) as `0x${string}`,
+        };
+      }
+    }
+
+    return undefined;
+  };
+
+  const getHeldDestinationTokenSource = () => {
+    if (!toToken?.chainId || !toToken.contractAddress) return undefined;
+
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        const chainId = breakdown.chain?.id;
+        if (chainId !== toToken.chainId) continue;
+
+        const breakdownAddress = breakdown.contractAddress;
+        const addressMatches =
+          breakdownAddress &&
+          (breakdownAddress.toLowerCase() ===
+            toToken.contractAddress.toLowerCase() ||
+            (isNativeTokenAddress(breakdownAddress) &&
+              isNativeTokenAddress(toToken.contractAddress)));
+        const symbolMatches =
+          (breakdown.symbol ?? asset.symbol ?? "").toUpperCase() ===
+          toToken.symbol.toUpperCase();
+        const balance = parseFiatNumber(breakdown.balance) ?? new Decimal(0);
+
+        if ((!addressMatches && !symbolMatches) || balance.lte(0)) continue;
+        return {
+          chainId,
+          tokenAddress: (breakdown.contractAddress ||
+            toToken.contractAddress) as `0x${string}`,
+        };
+      }
+    }
+
+    return undefined;
+  };
+
+  const shouldSendExactOutSourceAllowlist = () => {
+    if (activeMode === "deposit") {
+      return sourceSelectionTouched || depositSourceFilter !== "all";
+    }
+
+    if (activeMode === "send") {
+      return exactOutQuoteSourceModeRef.current === "selected";
+    }
+
+    return true;
+  };
+
+  const buildExactOutSourcesPayload = (tokens: SwapTokenOption[]) => {
+    if (activeMode !== "deposit" && activeMode !== "send") {
+      return buildExplicitSourcesPayload(tokens);
+    }
+
+    if (!shouldSendExactOutSourceAllowlist()) {
+      return {};
+    }
+
+    const explicitSources = buildExplicitSourcesPayload(tokens).sources;
+    const sources = dedupeSdkSources([
+      ...explicitSources,
+      getHeldDestinationTokenSource(),
+      getHeldNativeGasSourceForChain(toToken?.chainId),
+    ]);
+
+    return sources.length > 0 ? { sources } : {};
   };
 
   const buildPredictiveExactOutSources = async (requiredSourceUsd: Decimal) => {
@@ -8012,7 +8140,7 @@ function NexusOneInner({
 
         resetExplorerUrls();
 
-        const fromSourcesPayload = buildFromSourcesPayload(
+        const fromSourcesPayload = buildExactOutSourcesPayload(
           getExactOutSourceTokens()
         );
 
