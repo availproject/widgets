@@ -11,7 +11,7 @@ type ElementType =
   | "unified-balance"
   | "fast-transfer"
   | "view-history"
-  | "nexus-one"
+  | "nexus-widget"
   | "swap-deposit";
 
 type ToggleControlProps = Omit<
@@ -75,7 +75,7 @@ const ShowcaseWrapper = ({
       {banner ? <p className="text-sm font-medium">{banner}</p> : null}
       <PreviewPanel
         connectLabel={connectLabel}
-        renderWhenDisconnected={type === "nexus-one"}
+        renderWhenDisconnected={type === "nexus-widget"}
       >
         {children}
       </PreviewPanel>

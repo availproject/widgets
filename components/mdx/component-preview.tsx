@@ -25,21 +25,21 @@ const SHOWCASE_MAP: Record<
     import("@/components/showcase/unified-balance-showcase"),
   "fast-transfer": () => import("@/components/showcase/transfer-showcase"),
   "view-history": () => import("@/components/showcase/view-history-showcase"),
-  nexus: () => import("@/components/showcase/nexus-one-showcase"),
+  nexus: () => import("@/components/showcase/nexus-widget-showcase"),
   "nexus-send": () =>
-    import("@/components/showcase/nexus-one-transfer-showcase"),
+    import("@/components/showcase/nexus-widget-transfer-showcase"),
   "nexus-transfer": () =>
-    import("@/components/showcase/nexus-one-transfer-showcase"),
-  "nexus-swap": () => import("@/components/showcase/nexus-one-swap-showcase"),
+    import("@/components/showcase/nexus-widget-transfer-showcase"),
+  "nexus-swap": () => import("@/components/showcase/nexus-widget-swap-showcase"),
   "nexus-deposit": () =>
-    import("@/components/showcase/nexus-one-deposit-showcase"),
-  "nexus-one": () => import("@/components/showcase/nexus-one-showcase"),
-  "nexus-one-transfer": () =>
-    import("@/components/showcase/nexus-one-transfer-showcase"),
-  "nexus-one-swap": () =>
-    import("@/components/showcase/nexus-one-swap-showcase"),
-  "nexus-one-deposit": () =>
-    import("@/components/showcase/nexus-one-deposit-showcase"),
+    import("@/components/showcase/nexus-widget-deposit-showcase"),
+  "nexus-widget": () => import("@/components/showcase/nexus-widget-showcase"),
+  "nexus-widget-transfer": () =>
+    import("@/components/showcase/nexus-widget-transfer-showcase"),
+  "nexus-widget-swap": () =>
+    import("@/components/showcase/nexus-widget-swap-showcase"),
+  "nexus-widget-deposit": () =>
+    import("@/components/showcase/nexus-widget-deposit-showcase"),
 };
 
 export function ComponentPreview({
@@ -55,9 +55,9 @@ export function ComponentPreview({
   const showcaseLoader = SHOWCASE_MAP[name];
   const isNexusWidgetPreview =
     name === "nexus" ||
-    name === "nexus-one" ||
+    name === "nexus-widget" ||
     name.startsWith("nexus-") ||
-    name.startsWith("nexus-one-");
+    name.startsWith("nexus-widget-");
   const Showcase = dynamic(showcaseLoader, {
     loading: () => <Skeleton className="w-full h-full" />,
   });

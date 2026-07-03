@@ -4,7 +4,7 @@ import { ConnectKitButton } from "connectkit";
 import { truncateAddress } from "@avail-project/nexus-core/utils";
 import { Loader2 } from "lucide-react";
 import { useConnectWalletClick } from "./use-connect-wallet-click";
-import { AddressIdenticon } from "@/registry/avail-widgets/nexus-one/components/address-identicon";
+import { AddressIdenticon } from "@/registry/avail-widgets/nexus-widget/components/address-identicon";
 
 const ConnectWalletButton = () => {
   const openConnectWallet = useConnectWalletClick();

@@ -1,5 +1,8 @@
 blockExoticSubdeps: false
 
+packages:
+  - "packages/*"
+
 allowBuilds:
   "@avail-project/ca-common": true
   "@avail-project/nexus-core": true

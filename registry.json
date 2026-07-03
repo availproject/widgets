@@ -874,97 +874,97 @@
       "description": "The unified Avail Nexus widget for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
       "files": [
         {
-          "path": "registry/avail-widgets/nexus-one/components/address-identicon.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/address-identicon.tsx",
           "target": "components/nexus/components/address-identicon.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/amount-input-unified.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/amount-input-unified.tsx",
           "target": "components/nexus/components/amount-input-unified.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/deposit-idle-form.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-idle-form.tsx",
           "target": "components/nexus/components/deposit-idle-form.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/nexus-one-progress-screen.tsx",
-          "target": "components/nexus/components/nexus-one-progress-screen.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/nexus-widget-progress-screen.tsx",
+          "target": "components/nexus/components/nexus-widget-progress-screen.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/pay-using-selector.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/pay-using-selector.tsx",
           "target": "components/nexus/components/pay-using-selector.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/pay-with-sources.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/pay-with-sources.tsx",
           "target": "components/nexus/components/pay-with-sources.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/receive-asset-selector.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/receive-asset-selector.tsx",
           "target": "components/nexus/components/receive-asset-selector.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/recipient-input.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/recipient-input.tsx",
           "target": "components/nexus/components/recipient-input.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/send-idle-form.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/send-idle-form.tsx",
           "target": "components/nexus/components/send-idle-form.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/status-alerts.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/status-alerts.tsx",
           "target": "components/nexus/components/status-alerts.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/swap-asset-selector.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/swap-asset-selector.tsx",
           "target": "components/nexus/components/swap-asset-selector.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/swap-idle-form.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/swap-idle-form.tsx",
           "target": "components/nexus/components/swap-idle-form.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/components/swap-intent-preview.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/swap-intent-preview.tsx",
           "target": "components/nexus/components/swap-intent-preview.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/nexus-one.tsx",
+          "path": "registry/avail-widgets/nexus-widget/nexus-widget.tsx",
           "target": "components/nexus/nexus.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/sdk-types.ts",
+          "path": "registry/avail-widgets/nexus-widget/sdk-types.ts",
           "target": "components/nexus/sdk-types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/theme.ts",
+          "path": "registry/avail-widgets/nexus-widget/theme.ts",
           "target": "components/nexus/theme.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/types.ts",
+          "path": "registry/avail-widgets/nexus-widget/types.ts",
           "target": "components/nexus/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/utils/citrea-tokens.ts",
+          "path": "registry/avail-widgets/nexus-widget/utils/citrea-tokens.ts",
           "target": "components/nexus/utils/citrea-tokens.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/avail-widgets/nexus-one/utils/deposit-source-selection.ts",
+          "path": "registry/avail-widgets/nexus-widget/utils/deposit-source-selection.ts",
           "target": "components/nexus/utils/deposit-source-selection.ts",
           "type": "registry:component"
         },

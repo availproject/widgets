@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/packages/*/node_modules/
 /.pnpm-store
 /.pnp
 .pnp.*
@@ -20,6 +21,8 @@
 
 # production
 /build
+/packages/widgets/.build-src/
+/packages/widgets/dist/
 
 # misc
 .DS_Store

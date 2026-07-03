@@ -58,7 +58,7 @@ File: `registry/avail-widgets/nexus/NexusProvider.tsx`
 
 ## Nexus Widget
 
-File: `registry/avail-widgets/nexus-one/nexus-one.tsx`
+File: `registry/avail-widgets/nexus-widget/nexus-widget.tsx`
 
 ### Modes
 
@@ -99,4 +99,4 @@ For detailed SDK integration guidance, use the Nexus SDK agent skills (`.agents/
 
 - Export map: `registry/avail-widgets/all/index.ts`
 - Provider brain: `registry/avail-widgets/nexus/NexusProvider.tsx`
-- Nexus Widget: `registry/avail-widgets/nexus-one/nexus-one.tsx`
+- Nexus Widget: `registry/avail-widgets/nexus-widget/nexus-widget.tsx`

@@ -17,7 +17,7 @@
   "targetPrefix": "components",
   "libTarget": "lib",
   "componentOverrides": {
-    "nexus-one": {
+    "nexus-widget": {
       "name": "nexus",
       "targetName": "nexus",
       "title": "Nexus Widget",
