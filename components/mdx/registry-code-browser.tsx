@@ -6,7 +6,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-} from "@/registry/nexus-elements/ui/tabs";
+} from "@/registry/avail-widgets/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -15,7 +15,7 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@/registry/nexus-elements/ui/select";
+} from "@/registry/avail-widgets/ui/select";
 import { CopyButton } from "@/components/helpers/copy-button";
 import { Code, File, FileText, Terminal } from "lucide-react";
 
@@ -56,7 +56,7 @@ export function RegistryCodeBrowser({
   const currentComponent = componentFiles[idx] ?? componentFiles[0];
   const currentProvider = providerFiles?.[idx] ?? providerFiles?.[0];
   const displayPath = (p?: string) =>
-    (p || "").replace(/^registry\/nexus-elements\//, "components/");
+    (p || "").replace(/^registry\/avail-widgets\//, "components/");
 
   return (
     <Tabs

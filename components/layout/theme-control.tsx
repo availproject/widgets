@@ -7,14 +7,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/registry/nexus-elements/ui/select";
+} from "@/registry/avail-widgets/ui/select";
 
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/registry/nexus-elements/ui/popover";
-import { Button } from "@/registry/nexus-elements/ui/button";
+} from "@/registry/avail-widgets/ui/popover";
+import { Button } from "@/registry/avail-widgets/ui/button";
 
 type ThemeControlProps = {
   theme: string;

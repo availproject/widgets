@@ -3,20 +3,20 @@
   "name": "all",
   "type": "registry:component",
   "title": "All Elements",
-  "description": "Install all Nexus Elements. For new integrations, use @nexus-elements/nexus-one instead — it provides unified swap, send, and deposit in one component.",
+  "description": "Install all Avail widgets. For new integrations, use @avail-widgets/nexus instead - it provides unified swap, send, and deposit in one component.",
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/bridge-deposit.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/deposit.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/fast-bridge.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/swaps.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/transfer.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/unified-balance.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/view-history.json"
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/bridge-deposit.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/deposit.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/fast-bridge.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/swaps.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/transfer.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/unified-balance.json",
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
   ],
   "files": [
     {
-      "path": "registry/nexus-elements/all/index.ts",
+      "path": "registry/avail-widgets/all/index.ts",
       "content": "export { default as NexusProvider } from \"../nexus/NexusProvider\";\nexport { default as FastBridge } from \"../fast-bridge/fast-bridge\";\nexport { default as FastTransfer } from \"../transfer/transfer\";\nexport { default as Deposit } from \"../deposit/nexus-deposit\";\nexport { default as BridgeDeposit } from \"../bridge-deposit/deposit\";\nexport { default as SwapWidget } from \"../swaps/swap-widget\";\nexport { default as UnifiedBalance } from \"../unified-balance/unified-balance\";\nexport { default as ViewHistory } from \"../view-history/view-history\";\n",
       "type": "registry:component",
       "target": "components/all/index.ts"

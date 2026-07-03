@@ -11,12 +11,13 @@ import {
   type RegistryProcessedFile,
 } from "./registry-code-browser";
 export const STYLES = [
-  { name: "nexus-elements" as const, title: "Nexus Elements" },
+  { name: "avail-widgets" as const, title: "Avail Widgets" },
 ] as const;
 export type Style = (typeof STYLES)[number];
 
 type RegistryFile = {
   path: string;
+  target?: string;
   content: string;
 };
 
@@ -48,7 +49,7 @@ export async function ComponentSource({
   language,
   collapsible = true,
   className,
-  styleName = "nexus-elements",
+  styleName = "avail-widgets",
   showAllFiles = false,
 }: React.ComponentProps<"div"> & {
   name?: string;
@@ -87,7 +88,12 @@ export async function ComponentSource({
           .replaceAll("/* eslint-disable react/no-children-prop */\n", "");
         const ext = f.path.split(".").pop() ?? "tsx";
         const highlighted = await highlightCode(fileCode, ext);
-        return { path: f.path, code: fileCode, highlighted, language: ext };
+        return {
+          path: f.target ?? f.path,
+          code: fileCode,
+          highlighted,
+          language: ext,
+        };
       })
     );
 
@@ -102,7 +108,12 @@ export async function ComponentSource({
           .replaceAll("/* eslint-disable react/no-children-prop */\n", "");
         const ext = f.path.split(".").pop() ?? "tsx";
         const highlighted = await highlightCode(fileCode, ext);
-        return { path: f.path, code: fileCode, highlighted, language: ext };
+        return {
+          path: f.target ?? f.path,
+          code: fileCode,
+          highlighted,
+          language: ext,
+        };
       })
     );
 

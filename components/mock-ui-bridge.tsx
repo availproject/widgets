@@ -1,29 +1,29 @@
 "use client";
 
 import { Edit } from "lucide-react";
-import { Card } from "@/registry/nexus-elements/ui/card";
-import { Label } from "@/registry/nexus-elements/ui/label";
+import { Card } from "@/registry/avail-widgets/ui/card";
+import { Label } from "@/registry/avail-widgets/ui/label";
 import {
   Select,
   SelectTrigger,
   SelectValue,
-} from "@/registry/nexus-elements/ui/select";
+} from "@/registry/avail-widgets/ui/select";
 import {
   CHAIN_METADATA,
   SUPPORTED_CHAINS,
   TOKEN_METADATA,
-} from "@/registry/nexus-elements/common/utils/constant";
+} from "@/registry/avail-widgets/common/utils/constant";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/registry/nexus-elements/ui/accordion";
+} from "@/registry/avail-widgets/ui/accordion";
 import { Fragment } from "react";
-import { SHORT_CHAIN_NAME } from "@/registry/nexus-elements/common/utils/constant";
-import { Input } from "@/registry/nexus-elements/ui/input";
+import { SHORT_CHAIN_NAME } from "@/registry/avail-widgets/common/utils/constant";
+import { Input } from "@/registry/avail-widgets/ui/input";
 import Link from "next/link";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 
 const MOCK_BALANCE = {
   abstracted: true,

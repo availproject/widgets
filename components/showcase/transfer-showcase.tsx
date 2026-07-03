@@ -1,6 +1,6 @@
 import React from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
-import FastTransfer from "@/registry/nexus-elements/transfer/transfer";
+import FastTransfer from "@/registry/avail-widgets/transfer/transfer";
 
 const TransferShowcase = () => {
   return (

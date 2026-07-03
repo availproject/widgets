@@ -1,8 +1,0 @@
-{
-  "files": [
-    {
-      "path": "nexus-one-swap-showcase.tsx",
-      "content": "\"use client\";\nimport React from \"react\";\nimport ShowcaseWrapper from \"./showcase-wrapper\";\nimport { NexusOne } from \"@/registry/nexus-elements/nexus-one/nexus-one\";\nimport { useAccount } from \"wagmi\";\n\nconst USDC_ARBITRUM = \"0xaf88d065e77c8cC2239327C5EDb3A432268e5831\";\nconst USDC_BASE = \"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\";\n\nconst NexusOneSwapShowcase = () => {\n  const { address } = useAccount();\n\n  return (\n    <ShowcaseWrapper\n      type=\"nexus-one\"\n      connectLabel=\"Connect wallet to use Swap and Bridge\"\n    >\n      <div\n        className=\"flex w-full justify-center\"\n        style={{\n          alignItems: \"flex-start\",\n        }}\n      >\n        <NexusOne\n          config={{\n            mode: \"swap\",\n            prefill: {\n              source: {\n                token: USDC_ARBITRUM,\n                chain: 42161,\n              },\n              destination: {\n                token: USDC_BASE,\n                chain: 8453,\n              },\n            },\n          }}\n          connectedAddress={address}\n        />\n      </div>\n    </ShowcaseWrapper>\n  );\n};\n\nexport default NexusOneSwapShowcase;\n"
-    }
-  ]
-}

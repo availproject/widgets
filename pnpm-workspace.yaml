@@ -1,8 +1,11 @@
 blockExoticSubdeps: false
 
+packages:
+  - "packages/*"
+
 allowBuilds:
   "@avail-project/ca-common": true
-  "@avail-project/nexus-sdk-v2": true
+  "@avail-project/nexus-core": true
   "@avail-project/nexus-types": true
   bufferutil: true
   core-js: true
@@ -23,7 +26,7 @@ overrides:
 
 minimumReleaseAgeExclude:
   - "@avail-project/ca-common@2.3.0"
-  - "@avail-project/nexus-core@1.5.0"
-  - '@posthog/core@1.30.6'
-  - '@posthog/types@1.379.3'
+  - "@avail-project/nexus-core@2.0.0"
+  - "@posthog/core@1.30.6"
+  - "@posthog/types@1.379.3"
   - posthog-js@1.379.3

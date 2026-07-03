@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
-  "name": "nexus-elements",
-  "namespace": "nexus-elements",
+  "name": "avail-widgets",
+  "namespace": "avail-widgets",
   "homepage": "https://elements.nexus.availproject.org",
   "items": [
     {
@@ -11,7 +11,7 @@
       "description": "UI primitive: Accordion",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/accordion.tsx",
+          "path": "registry/avail-widgets/ui/accordion.tsx",
           "target": "components/ui/accordion.tsx",
           "type": "registry:component"
         }
@@ -21,30 +21,30 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
       "name": "all",
       "type": "registry:component",
       "title": "All Elements",
-      "description": "Install all Nexus Elements. For new integrations, use @nexus-elements/nexus-one instead — it provides unified swap, send, and deposit in one component.",
+      "description": "Install all Avail widgets. For new integrations, use @avail-widgets/nexus instead - it provides unified swap, send, and deposit in one component.",
       "files": [
         {
-          "path": "registry/nexus-elements/all/index.ts",
+          "path": "registry/avail-widgets/all/index.ts",
           "target": "components/all/index.ts",
           "type": "registry:component"
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/bridge-deposit.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/deposit.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/fast-bridge.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/swaps.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/transfer.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/unified-balance.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/view-history.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/bridge-deposit.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/deposit.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/fast-bridge.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/swaps.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/transfer.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/unified-balance.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
       ]
     },
     {
@@ -54,7 +54,7 @@
       "description": "UI primitive: Animated Spinner",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/animated-spinner.tsx",
+          "path": "registry/avail-widgets/ui/animated-spinner.tsx",
           "target": "components/ui/animated-spinner.tsx",
           "type": "registry:component"
         }
@@ -67,7 +67,7 @@
       "description": "UI primitive: Badge",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/badge.tsx",
+          "path": "registry/avail-widgets/ui/badge.tsx",
           "target": "components/ui/badge.tsx",
           "type": "registry:component"
         }
@@ -77,202 +77,202 @@
         "class-variance-authority"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
       "name": "bridge-deposit",
       "type": "registry:component",
       "title": "Bridge Deposit",
-      "description": "Deprecated: use Nexus One instead. Bridge Deposit has been removed in favor of Nexus One deposit mode.",
+      "description": "Deprecated: use Nexus Widget instead. Bridge Deposit has been removed in favor of Nexus Widget deposit mode.",
       "files": [
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/allowance-modal.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/allowance-modal.tsx",
           "target": "components/bridge-deposit/components/allowance-modal.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/amount-input.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/amount-input.tsx",
           "target": "components/bridge-deposit/components/amount-input.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/container.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/container.tsx",
           "target": "components/bridge-deposit/components/container.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/deposit-modal.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/deposit-modal.tsx",
           "target": "components/bridge-deposit/components/deposit-modal.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/fee-breakdown.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/fee-breakdown.tsx",
           "target": "components/bridge-deposit/components/fee-breakdown.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/info.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/info.tsx",
           "target": "components/bridge-deposit/components/info.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/simple-deposit.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/simple-deposit.tsx",
           "target": "components/bridge-deposit/components/simple-deposit.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/source-breakdown.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/source-breakdown.tsx",
           "target": "components/bridge-deposit/components/source-breakdown.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/source-select.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/source-select.tsx",
           "target": "components/bridge-deposit/components/source-select.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/step-indicator.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/step-indicator.tsx",
           "target": "components/bridge-deposit/components/step-indicator.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/components/transaction-status-step.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/components/transaction-status-step.tsx",
           "target": "components/bridge-deposit/components/transaction-status-step.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/deposit.tsx",
+          "path": "registry/avail-widgets/bridge-deposit/deposit.tsx",
           "target": "components/bridge-deposit/deposit.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/bridge-deposit/hooks/useDeposit.ts",
+          "path": "registry/avail-widgets/bridge-deposit/hooks/useDeposit.ts",
           "target": "components/bridge-deposit/hooks/useDeposit.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/components/ErrorBoundary.tsx",
+          "path": "registry/avail-widgets/common/components/ErrorBoundary.tsx",
           "target": "components/common/components/ErrorBoundary.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedCallback.ts",
           "target": "components/common/hooks/useDebouncedCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedValue.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedValue.ts",
           "target": "components/common/hooks/useDebouncedValue.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useInterval.ts",
+          "path": "registry/avail-widgets/common/hooks/useInterval.ts",
           "target": "components/common/hooks/useInterval.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useLatest.ts",
+          "path": "registry/avail-widgets/common/hooks/useLatest.ts",
           "target": "components/common/hooks/useLatest.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useNexusError.ts",
+          "path": "registry/avail-widgets/common/hooks/useNexusError.ts",
           "target": "components/common/hooks/useNexusError.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/usePolling.ts",
+          "path": "registry/avail-widgets/common/hooks/usePolling.ts",
           "target": "components/common/hooks/usePolling.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStableCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useStableCallback.ts",
           "target": "components/common/hooks/useStableCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStopwatch.ts",
+          "path": "registry/avail-widgets/common/hooks/useStopwatch.ts",
           "target": "components/common/hooks/useStopwatch.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionExecution.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionExecution.ts",
           "target": "components/common/hooks/useTransactionExecution.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionFlow.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionFlow.ts",
           "target": "components/common/hooks/useTransactionFlow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/index.ts",
+          "path": "registry/avail-widgets/common/index.ts",
           "target": "components/common/index.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/steps.ts",
+          "path": "registry/avail-widgets/common/tx/steps.ts",
           "target": "components/common/tx/steps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/types.ts",
+          "path": "registry/avail-widgets/common/tx/types.ts",
           "target": "components/common/tx/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/useTransactionSteps.ts",
+          "path": "registry/avail-widgets/common/tx/useTransactionSteps.ts",
           "target": "components/common/tx/useTransactionSteps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/types/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/types/transaction-flow.ts",
           "target": "components/common/types/transaction-flow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/constant.ts",
+          "path": "registry/avail-widgets/common/utils/constant.ts",
           "target": "components/common/utils/constant.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/token-pricing.ts",
+          "path": "registry/avail-widgets/common/utils/token-pricing.ts",
           "target": "components/common/utils/token-pricing.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/utils/transaction-flow.ts",
           "target": "components/common/utils/transaction-flow.ts",
           "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+        "@avail-project/nexus-core@2.0.0",
         "lucide-react",
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/collapsible.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/popover.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/collapsible.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/input.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/popover.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
+        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
     },
     {
       "name": "button",
@@ -281,7 +281,7 @@
       "description": "UI primitive: Button",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/button.tsx",
+          "path": "registry/avail-widgets/ui/button.tsx",
           "target": "components/ui/button.tsx",
           "type": "registry:component"
         }
@@ -291,7 +291,7 @@
         "class-variance-authority"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -301,13 +301,13 @@
       "description": "UI primitive: Card",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/card.tsx",
+          "path": "registry/avail-widgets/ui/card.tsx",
           "target": "components/ui/card.tsx",
           "type": "registry:component"
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -317,7 +317,7 @@
       "description": "UI primitive: Checkbox",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/checkbox.tsx",
+          "path": "registry/avail-widgets/ui/checkbox.tsx",
           "target": "components/ui/checkbox.tsx",
           "type": "registry:component"
         }
@@ -327,7 +327,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -337,7 +337,7 @@
       "description": "UI primitive: Collapsible",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/collapsible.tsx",
+          "path": "registry/avail-widgets/ui/collapsible.tsx",
           "target": "components/ui/collapsible.tsx",
           "type": "registry:component"
         }
@@ -350,266 +350,266 @@
       "name": "deposit",
       "type": "registry:component",
       "title": "Deposit",
-      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
+      "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable deposits.",
       "files": [
         {
-          "path": "registry/nexus-elements/deposit/components/amount-card.tsx",
+          "path": "registry/avail-widgets/deposit/components/amount-card.tsx",
           "target": "components/deposit/components/amount-card.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/amount-container.tsx",
+          "path": "registry/avail-widgets/deposit/components/amount-container.tsx",
           "target": "components/deposit/components/amount-container.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/amount-display.tsx",
+          "path": "registry/avail-widgets/deposit/components/amount-display.tsx",
           "target": "components/deposit/components/amount-display.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/animated-amount.tsx",
+          "path": "registry/avail-widgets/deposit/components/animated-amount.tsx",
           "target": "components/deposit/components/animated-amount.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/asset-selection-container.tsx",
+          "path": "registry/avail-widgets/deposit/components/asset-selection-container.tsx",
           "target": "components/deposit/components/asset-selection-container.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/button-card.tsx",
+          "path": "registry/avail-widgets/deposit/components/button-card.tsx",
           "target": "components/deposit/components/button-card.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/confirmation-container.tsx",
+          "path": "registry/avail-widgets/deposit/components/confirmation-container.tsx",
           "target": "components/deposit/components/confirmation-container.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/confirmation-loading.tsx",
+          "path": "registry/avail-widgets/deposit/components/confirmation-loading.tsx",
           "target": "components/deposit/components/confirmation-loading.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/empty-balance-state.tsx",
+          "path": "registry/avail-widgets/deposit/components/empty-balance-state.tsx",
           "target": "components/deposit/components/empty-balance-state.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/error-banner.tsx",
+          "path": "registry/avail-widgets/deposit/components/error-banner.tsx",
           "target": "components/deposit/components/error-banner.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/icons.tsx",
+          "path": "registry/avail-widgets/deposit/components/icons.tsx",
           "target": "components/deposit/components/icons.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/index.ts",
+          "path": "registry/avail-widgets/deposit/components/index.ts",
           "target": "components/deposit/components/index.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/pay-using.tsx",
+          "path": "registry/avail-widgets/deposit/components/pay-using.tsx",
           "target": "components/deposit/components/pay-using.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/percentage-selector.tsx",
+          "path": "registry/avail-widgets/deposit/components/percentage-selector.tsx",
           "target": "components/deposit/components/percentage-selector.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/receive-amount-display.tsx",
+          "path": "registry/avail-widgets/deposit/components/receive-amount-display.tsx",
           "target": "components/deposit/components/receive-amount-display.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/summary-card.tsx",
+          "path": "registry/avail-widgets/deposit/components/summary-card.tsx",
           "target": "components/deposit/components/summary-card.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/token-icon.tsx",
+          "path": "registry/avail-widgets/deposit/components/token-icon.tsx",
           "target": "components/deposit/components/token-icon.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/token-row.tsx",
+          "path": "registry/avail-widgets/deposit/components/token-row.tsx",
           "target": "components/deposit/components/token-row.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/transaction-complete-container.tsx",
+          "path": "registry/avail-widgets/deposit/components/transaction-complete-container.tsx",
           "target": "components/deposit/components/transaction-complete-container.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/transaction-failed-container.tsx",
+          "path": "registry/avail-widgets/deposit/components/transaction-failed-container.tsx",
           "target": "components/deposit/components/transaction-failed-container.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/transaction-status-container.tsx",
+          "path": "registry/avail-widgets/deposit/components/transaction-status-container.tsx",
           "target": "components/deposit/components/transaction-status-container.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/transaction-steps.tsx",
+          "path": "registry/avail-widgets/deposit/components/transaction-steps.tsx",
           "target": "components/deposit/components/transaction-steps.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/components/widget-header.tsx",
+          "path": "registry/avail-widgets/deposit/components/widget-header.tsx",
           "target": "components/deposit/components/widget-header.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/constants/assets.ts",
+          "path": "registry/avail-widgets/deposit/constants/assets.ts",
           "target": "components/deposit/constants/assets.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/constants/widget.ts",
+          "path": "registry/avail-widgets/deposit/constants/widget.ts",
           "target": "components/deposit/constants/widget.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/hooks/use-asset-selection.ts",
+          "path": "registry/avail-widgets/deposit/hooks/use-asset-selection.ts",
           "target": "components/deposit/hooks/use-asset-selection.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/hooks/use-deposit-computed.ts",
+          "path": "registry/avail-widgets/deposit/hooks/use-deposit-computed.ts",
           "target": "components/deposit/hooks/use-deposit-computed.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/hooks/use-deposit-state.ts",
+          "path": "registry/avail-widgets/deposit/hooks/use-deposit-state.ts",
           "target": "components/deposit/hooks/use-deposit-state.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/hooks/use-deposit-widget.ts",
+          "path": "registry/avail-widgets/deposit/hooks/use-deposit-widget.ts",
           "target": "components/deposit/hooks/use-deposit-widget.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/nexus-deposit.tsx",
+          "path": "registry/avail-widgets/deposit/nexus-deposit.tsx",
           "target": "components/deposit/nexus-deposit.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/types.ts",
+          "path": "registry/avail-widgets/deposit/types.ts",
           "target": "components/deposit/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/deposit/utils.ts",
+          "path": "registry/avail-widgets/deposit/utils.ts",
           "target": "components/deposit/utils.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/components/ErrorBoundary.tsx",
+          "path": "registry/avail-widgets/common/components/ErrorBoundary.tsx",
           "target": "components/common/components/ErrorBoundary.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedCallback.ts",
           "target": "components/common/hooks/useDebouncedCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedValue.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedValue.ts",
           "target": "components/common/hooks/useDebouncedValue.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useInterval.ts",
+          "path": "registry/avail-widgets/common/hooks/useInterval.ts",
           "target": "components/common/hooks/useInterval.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useLatest.ts",
+          "path": "registry/avail-widgets/common/hooks/useLatest.ts",
           "target": "components/common/hooks/useLatest.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useNexusError.ts",
+          "path": "registry/avail-widgets/common/hooks/useNexusError.ts",
           "target": "components/common/hooks/useNexusError.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/usePolling.ts",
+          "path": "registry/avail-widgets/common/hooks/usePolling.ts",
           "target": "components/common/hooks/usePolling.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStableCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useStableCallback.ts",
           "target": "components/common/hooks/useStableCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStopwatch.ts",
+          "path": "registry/avail-widgets/common/hooks/useStopwatch.ts",
           "target": "components/common/hooks/useStopwatch.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionExecution.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionExecution.ts",
           "target": "components/common/hooks/useTransactionExecution.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionFlow.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionFlow.ts",
           "target": "components/common/hooks/useTransactionFlow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/index.ts",
+          "path": "registry/avail-widgets/common/index.ts",
           "target": "components/common/index.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/steps.ts",
+          "path": "registry/avail-widgets/common/tx/steps.ts",
           "target": "components/common/tx/steps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/types.ts",
+          "path": "registry/avail-widgets/common/tx/types.ts",
           "target": "components/common/tx/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/useTransactionSteps.ts",
+          "path": "registry/avail-widgets/common/tx/useTransactionSteps.ts",
           "target": "components/common/tx/useTransactionSteps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/types/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/types/transaction-flow.ts",
           "target": "components/common/types/transaction-flow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/constant.ts",
+          "path": "registry/avail-widgets/common/utils/constant.ts",
           "target": "components/common/utils/constant.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/token-pricing.ts",
+          "path": "registry/avail-widgets/common/utils/token-pricing.ts",
           "target": "components/common/utils/token-pricing.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/utils/transaction-flow.ts",
           "target": "components/common/utils/transaction-flow.ts",
           "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+        "@avail-project/nexus-core@2.0.0",
         "clsx",
         "lucide-react",
         "tailwind-merge",
@@ -617,22 +617,22 @@
         "wagmi"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/animated-spinner.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/animated-spinner.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
+        "deprecationMessage": "Deposit is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and config.deposit for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
     },
     {
       "name": "dialog",
@@ -641,7 +641,7 @@
       "description": "UI primitive: Dialog",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/dialog.tsx",
+          "path": "registry/avail-widgets/ui/dialog.tsx",
           "target": "components/ui/dialog.tsx",
           "type": "registry:component"
         }
@@ -651,186 +651,186 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
       "name": "fast-bridge",
       "type": "registry:component",
       "title": "Fast Bridge",
-      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain bridging.",
+      "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain bridging.",
       "files": [
         {
-          "path": "registry/nexus-elements/fast-bridge/components/allowance-modal.tsx",
+          "path": "registry/avail-widgets/fast-bridge/components/allowance-modal.tsx",
           "target": "components/fast-bridge/components/allowance-modal.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/fast-bridge/components/amount-input.tsx",
+          "path": "registry/avail-widgets/fast-bridge/components/amount-input.tsx",
           "target": "components/fast-bridge/components/amount-input.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/fast-bridge/components/chain-select.tsx",
+          "path": "registry/avail-widgets/fast-bridge/components/chain-select.tsx",
           "target": "components/fast-bridge/components/chain-select.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/fast-bridge/components/fee-breakdown.tsx",
+          "path": "registry/avail-widgets/fast-bridge/components/fee-breakdown.tsx",
           "target": "components/fast-bridge/components/fee-breakdown.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/fast-bridge/components/recipient-address.tsx",
+          "path": "registry/avail-widgets/fast-bridge/components/recipient-address.tsx",
           "target": "components/fast-bridge/components/recipient-address.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/fast-bridge/components/source-breakdown.tsx",
+          "path": "registry/avail-widgets/fast-bridge/components/source-breakdown.tsx",
           "target": "components/fast-bridge/components/source-breakdown.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/fast-bridge/components/token-select.tsx",
+          "path": "registry/avail-widgets/fast-bridge/components/token-select.tsx",
           "target": "components/fast-bridge/components/token-select.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/fast-bridge/components/transaction-progress.tsx",
+          "path": "registry/avail-widgets/fast-bridge/components/transaction-progress.tsx",
           "target": "components/fast-bridge/components/transaction-progress.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/fast-bridge/fast-bridge.tsx",
+          "path": "registry/avail-widgets/fast-bridge/fast-bridge.tsx",
           "target": "components/fast-bridge/fast-bridge.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/fast-bridge/hooks/useBridge.ts",
+          "path": "registry/avail-widgets/fast-bridge/hooks/useBridge.ts",
           "target": "components/fast-bridge/hooks/useBridge.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/components/ErrorBoundary.tsx",
+          "path": "registry/avail-widgets/common/components/ErrorBoundary.tsx",
           "target": "components/common/components/ErrorBoundary.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedCallback.ts",
           "target": "components/common/hooks/useDebouncedCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedValue.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedValue.ts",
           "target": "components/common/hooks/useDebouncedValue.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useInterval.ts",
+          "path": "registry/avail-widgets/common/hooks/useInterval.ts",
           "target": "components/common/hooks/useInterval.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useLatest.ts",
+          "path": "registry/avail-widgets/common/hooks/useLatest.ts",
           "target": "components/common/hooks/useLatest.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useNexusError.ts",
+          "path": "registry/avail-widgets/common/hooks/useNexusError.ts",
           "target": "components/common/hooks/useNexusError.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/usePolling.ts",
+          "path": "registry/avail-widgets/common/hooks/usePolling.ts",
           "target": "components/common/hooks/usePolling.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStableCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useStableCallback.ts",
           "target": "components/common/hooks/useStableCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStopwatch.ts",
+          "path": "registry/avail-widgets/common/hooks/useStopwatch.ts",
           "target": "components/common/hooks/useStopwatch.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionExecution.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionExecution.ts",
           "target": "components/common/hooks/useTransactionExecution.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionFlow.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionFlow.ts",
           "target": "components/common/hooks/useTransactionFlow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/index.ts",
+          "path": "registry/avail-widgets/common/index.ts",
           "target": "components/common/index.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/steps.ts",
+          "path": "registry/avail-widgets/common/tx/steps.ts",
           "target": "components/common/tx/steps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/types.ts",
+          "path": "registry/avail-widgets/common/tx/types.ts",
           "target": "components/common/tx/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/useTransactionSteps.ts",
+          "path": "registry/avail-widgets/common/tx/useTransactionSteps.ts",
           "target": "components/common/tx/useTransactionSteps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/types/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/types/transaction-flow.ts",
           "target": "components/common/types/transaction-flow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/constant.ts",
+          "path": "registry/avail-widgets/common/utils/constant.ts",
           "target": "components/common/utils/constant.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/token-pricing.ts",
+          "path": "registry/avail-widgets/common/utils/token-pricing.ts",
           "target": "components/common/utils/token-pricing.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/utils/transaction-flow.ts",
           "target": "components/common/utils/transaction-flow.ts",
           "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+        "@avail-project/nexus-core@2.0.0",
         "lucide-react",
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/view-history.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/input.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
     },
     {
       "name": "input",
@@ -839,13 +839,13 @@
       "description": "UI primitive: Input",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/input.tsx",
+          "path": "registry/avail-widgets/ui/input.tsx",
           "target": "components/ui/input.tsx",
           "type": "registry:component"
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -855,7 +855,7 @@
       "description": "UI primitive: Label",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/label.tsx",
+          "path": "registry/avail-widgets/ui/label.tsx",
           "target": "components/ui/label.tsx",
           "type": "registry:component"
         }
@@ -864,233 +864,238 @@
         "@radix-ui/react-label"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
-      "name": "nexus-one",
+      "name": "nexus",
       "type": "registry:component",
-      "title": "Nexus One",
-      "description": "The unified Nexus element for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
+      "title": "Nexus Widget",
+      "description": "The unified Avail Nexus widget for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
       "files": [
         {
-          "path": "registry/nexus-elements/nexus-one/components/amount-input-unified.tsx",
-          "target": "components/nexus-one/components/amount-input-unified.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/address-identicon.tsx",
+          "target": "components/nexus/components/address-identicon.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/deposit-idle-form.tsx",
-          "target": "components/nexus-one/components/deposit-idle-form.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/amount-input-unified.tsx",
+          "target": "components/nexus/components/amount-input-unified.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/nexus-one-progress-screen.tsx",
-          "target": "components/nexus-one/components/nexus-one-progress-screen.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-idle-form.tsx",
+          "target": "components/nexus/components/deposit-idle-form.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/pay-using-selector.tsx",
-          "target": "components/nexus-one/components/pay-using-selector.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/nexus-widget-progress-screen.tsx",
+          "target": "components/nexus/components/nexus-widget-progress-screen.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/pay-with-sources.tsx",
-          "target": "components/nexus-one/components/pay-with-sources.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/pay-using-selector.tsx",
+          "target": "components/nexus/components/pay-using-selector.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/receive-asset-selector.tsx",
-          "target": "components/nexus-one/components/receive-asset-selector.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/pay-with-sources.tsx",
+          "target": "components/nexus/components/pay-with-sources.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/recipient-input.tsx",
-          "target": "components/nexus-one/components/recipient-input.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/receive-asset-selector.tsx",
+          "target": "components/nexus/components/receive-asset-selector.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/send-idle-form.tsx",
-          "target": "components/nexus-one/components/send-idle-form.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/recipient-input.tsx",
+          "target": "components/nexus/components/recipient-input.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/status-alerts.tsx",
-          "target": "components/nexus-one/components/status-alerts.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/send-idle-form.tsx",
+          "target": "components/nexus/components/send-idle-form.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/swap-asset-selector.tsx",
-          "target": "components/nexus-one/components/swap-asset-selector.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/status-alerts.tsx",
+          "target": "components/nexus/components/status-alerts.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/swap-idle-form.tsx",
-          "target": "components/nexus-one/components/swap-idle-form.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/swap-asset-selector.tsx",
+          "target": "components/nexus/components/swap-asset-selector.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/components/swap-intent-preview.tsx",
-          "target": "components/nexus-one/components/swap-intent-preview.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/swap-idle-form.tsx",
+          "target": "components/nexus/components/swap-idle-form.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/nexus-one.tsx",
-          "target": "components/nexus-one/nexus-one.tsx",
+          "path": "registry/avail-widgets/nexus-widget/components/swap-intent-preview.tsx",
+          "target": "components/nexus/components/swap-intent-preview.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/sdk-types.ts",
-          "target": "components/nexus-one/sdk-types.ts",
+          "path": "registry/avail-widgets/nexus-widget/nexus-widget.tsx",
+          "target": "components/nexus/nexus.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/theme.ts",
-          "target": "components/nexus-one/theme.ts",
+          "path": "registry/avail-widgets/nexus-widget/sdk-types.ts",
+          "target": "components/nexus/sdk-types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/types.ts",
-          "target": "components/nexus-one/types.ts",
+          "path": "registry/avail-widgets/nexus-widget/theme.ts",
+          "target": "components/nexus/theme.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/utils/citrea-tokens.ts",
-          "target": "components/nexus-one/utils/citrea-tokens.ts",
+          "path": "registry/avail-widgets/nexus-widget/types.ts",
+          "target": "components/nexus/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/nexus-one/utils/deposit-source-selection.ts",
-          "target": "components/nexus-one/utils/deposit-source-selection.ts",
+          "path": "registry/avail-widgets/nexus-widget/utils/citrea-tokens.ts",
+          "target": "components/nexus/utils/citrea-tokens.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/components/ErrorBoundary.tsx",
+          "path": "registry/avail-widgets/nexus-widget/utils/deposit-source-selection.ts",
+          "target": "components/nexus/utils/deposit-source-selection.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/common/components/ErrorBoundary.tsx",
           "target": "components/common/components/ErrorBoundary.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedCallback.ts",
           "target": "components/common/hooks/useDebouncedCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedValue.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedValue.ts",
           "target": "components/common/hooks/useDebouncedValue.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useInterval.ts",
+          "path": "registry/avail-widgets/common/hooks/useInterval.ts",
           "target": "components/common/hooks/useInterval.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useLatest.ts",
+          "path": "registry/avail-widgets/common/hooks/useLatest.ts",
           "target": "components/common/hooks/useLatest.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useNexusError.ts",
+          "path": "registry/avail-widgets/common/hooks/useNexusError.ts",
           "target": "components/common/hooks/useNexusError.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/usePolling.ts",
+          "path": "registry/avail-widgets/common/hooks/usePolling.ts",
           "target": "components/common/hooks/usePolling.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStableCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useStableCallback.ts",
           "target": "components/common/hooks/useStableCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStopwatch.ts",
+          "path": "registry/avail-widgets/common/hooks/useStopwatch.ts",
           "target": "components/common/hooks/useStopwatch.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionExecution.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionExecution.ts",
           "target": "components/common/hooks/useTransactionExecution.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionFlow.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionFlow.ts",
           "target": "components/common/hooks/useTransactionFlow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/index.ts",
+          "path": "registry/avail-widgets/common/index.ts",
           "target": "components/common/index.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/steps.ts",
+          "path": "registry/avail-widgets/common/tx/steps.ts",
           "target": "components/common/tx/steps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/types.ts",
+          "path": "registry/avail-widgets/common/tx/types.ts",
           "target": "components/common/tx/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/useTransactionSteps.ts",
+          "path": "registry/avail-widgets/common/tx/useTransactionSteps.ts",
           "target": "components/common/tx/useTransactionSteps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/types/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/types/transaction-flow.ts",
           "target": "components/common/types/transaction-flow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/constant.ts",
+          "path": "registry/avail-widgets/common/utils/constant.ts",
           "target": "components/common/utils/constant.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/token-pricing.ts",
+          "path": "registry/avail-widgets/common/utils/token-pricing.ts",
           "target": "components/common/utils/token-pricing.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/utils/transaction-flow.ts",
           "target": "components/common/utils/transaction-flow.ts",
           "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+        "@avail-project/nexus-core@2.0.0",
         "decimal.js",
         "lucide-react",
         "viem",
         "wagmi"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/swaps.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/swaps.json"
       ],
       "meta": {
         "featured": true
       },
-      "docs": "Nexus One is the single recommended component for all cross-chain flows. Supports config.mode = \"swap\" | \"send\" | \"deposit\"."
+      "docs": "NexusWidget is the single recommended component for all cross-chain flows. Supports config.mode = \"swap\" | \"send\" | \"deposit\" | \"fastBridge\"."
     },
     {
       "name": "nexus-provider",
       "type": "registry:component",
       "title": "Nexus Provider",
-      "description": "Shared Nexus SDK provider and types for Nexus Elements",
+      "description": "Shared Nexus SDK provider and types for Avail Widgets",
       "files": [
         {
-          "path": "registry/nexus-elements/nexus/NexusProvider.tsx",
+          "path": "registry/avail-widgets/nexus/NexusProvider.tsx",
           "target": "components/nexus/NexusProvider.tsx",
           "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+        "@avail-project/nexus-core@2.0.0",
         "wagmi"
       ]
     },
@@ -1101,7 +1106,7 @@
       "description": "UI primitive: Popover",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/popover.tsx",
+          "path": "registry/avail-widgets/ui/popover.tsx",
           "target": "components/ui/popover.tsx",
           "type": "registry:component"
         }
@@ -1110,7 +1115,7 @@
         "@radix-ui/react-popover"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1120,7 +1125,7 @@
       "description": "UI primitive: Select",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/select.tsx",
+          "path": "registry/avail-widgets/ui/select.tsx",
           "target": "components/ui/select.tsx",
           "type": "registry:component"
         }
@@ -1130,7 +1135,7 @@
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1140,13 +1145,13 @@
       "description": "UI primitive: Separator",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/separator.tsx",
+          "path": "registry/avail-widgets/ui/separator.tsx",
           "target": "components/ui/separator.tsx",
           "type": "registry:component"
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1156,214 +1161,214 @@
       "description": "UI primitive: Skeleton",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/skeleton.tsx",
+          "path": "registry/avail-widgets/ui/skeleton.tsx",
           "target": "components/ui/skeleton.tsx",
           "type": "registry:component"
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
       "name": "swaps",
       "type": "registry:component",
       "title": "Swaps",
-      "description": "Deprecated: use Nexus One instead. Legacy swap tokens across chains component.",
+      "description": "Deprecated: use Nexus Widget instead. Legacy swap tokens across chains component.",
       "files": [
         {
-          "path": "registry/nexus-elements/swaps/components/amount-input.tsx",
+          "path": "registry/avail-widgets/swaps/components/amount-input.tsx",
           "target": "components/swaps/components/amount-input.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/components/destination-asset-select.tsx",
+          "path": "registry/avail-widgets/swaps/components/destination-asset-select.tsx",
           "target": "components/swaps/components/destination-asset-select.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/components/destination-container.tsx",
+          "path": "registry/avail-widgets/swaps/components/destination-container.tsx",
           "target": "components/swaps/components/destination-container.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/components/source-asset-select.tsx",
+          "path": "registry/avail-widgets/swaps/components/source-asset-select.tsx",
           "target": "components/swaps/components/source-asset-select.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/components/source-container.tsx",
+          "path": "registry/avail-widgets/swaps/components/source-container.tsx",
           "target": "components/swaps/components/source-container.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/components/stacked-token-icons.tsx",
+          "path": "registry/avail-widgets/swaps/components/stacked-token-icons.tsx",
           "target": "components/swaps/components/stacked-token-icons.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/components/step-flow.tsx",
+          "path": "registry/avail-widgets/swaps/components/step-flow.tsx",
           "target": "components/swaps/components/step-flow.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/components/token-icon.tsx",
+          "path": "registry/avail-widgets/swaps/components/token-icon.tsx",
           "target": "components/swaps/components/token-icon.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/components/transaction-progress.tsx",
+          "path": "registry/avail-widgets/swaps/components/transaction-progress.tsx",
           "target": "components/swaps/components/transaction-progress.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/components/view-transaction.tsx",
+          "path": "registry/avail-widgets/swaps/components/view-transaction.tsx",
           "target": "components/swaps/components/view-transaction.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/config/destination.ts",
+          "path": "registry/avail-widgets/swaps/config/destination.ts",
           "target": "components/swaps/config/destination.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/hooks/useHover.ts",
+          "path": "registry/avail-widgets/swaps/hooks/useHover.ts",
           "target": "components/swaps/hooks/useHover.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/hooks/useSwaps.ts",
+          "path": "registry/avail-widgets/swaps/hooks/useSwaps.ts",
           "target": "components/swaps/hooks/useSwaps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/swap-widget.tsx",
+          "path": "registry/avail-widgets/swaps/swap-widget.tsx",
           "target": "components/swaps/swap-widget.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/swaps/utils/source-matching.ts",
+          "path": "registry/avail-widgets/swaps/utils/source-matching.ts",
           "target": "components/swaps/utils/source-matching.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/components/ErrorBoundary.tsx",
+          "path": "registry/avail-widgets/common/components/ErrorBoundary.tsx",
           "target": "components/common/components/ErrorBoundary.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedCallback.ts",
           "target": "components/common/hooks/useDebouncedCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedValue.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedValue.ts",
           "target": "components/common/hooks/useDebouncedValue.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useInterval.ts",
+          "path": "registry/avail-widgets/common/hooks/useInterval.ts",
           "target": "components/common/hooks/useInterval.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useLatest.ts",
+          "path": "registry/avail-widgets/common/hooks/useLatest.ts",
           "target": "components/common/hooks/useLatest.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useNexusError.ts",
+          "path": "registry/avail-widgets/common/hooks/useNexusError.ts",
           "target": "components/common/hooks/useNexusError.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/usePolling.ts",
+          "path": "registry/avail-widgets/common/hooks/usePolling.ts",
           "target": "components/common/hooks/usePolling.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStableCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useStableCallback.ts",
           "target": "components/common/hooks/useStableCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStopwatch.ts",
+          "path": "registry/avail-widgets/common/hooks/useStopwatch.ts",
           "target": "components/common/hooks/useStopwatch.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionExecution.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionExecution.ts",
           "target": "components/common/hooks/useTransactionExecution.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionFlow.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionFlow.ts",
           "target": "components/common/hooks/useTransactionFlow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/index.ts",
+          "path": "registry/avail-widgets/common/index.ts",
           "target": "components/common/index.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/steps.ts",
+          "path": "registry/avail-widgets/common/tx/steps.ts",
           "target": "components/common/tx/steps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/types.ts",
+          "path": "registry/avail-widgets/common/tx/types.ts",
           "target": "components/common/tx/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/useTransactionSteps.ts",
+          "path": "registry/avail-widgets/common/tx/useTransactionSteps.ts",
           "target": "components/common/tx/useTransactionSteps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/types/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/types/transaction-flow.ts",
           "target": "components/common/types/transaction-flow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/constant.ts",
+          "path": "registry/avail-widgets/common/utils/constant.ts",
           "target": "components/common/utils/constant.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/token-pricing.ts",
+          "path": "registry/avail-widgets/common/utils/token-pricing.ts",
           "target": "components/common/utils/token-pricing.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/utils/transaction-flow.ts",
           "target": "components/common/utils/transaction-flow.ts",
           "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+        "@avail-project/nexus-core@2.0.0",
         "lucide-react",
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Swaps is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
+        "deprecationMessage": "Swaps is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"swap\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"swap\" for new integrations."
     },
     {
       "name": "tabs",
@@ -1372,7 +1377,7 @@
       "description": "UI primitive: Tabs",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/tabs.tsx",
+          "path": "registry/avail-widgets/ui/tabs.tsx",
           "target": "components/ui/tabs.tsx",
           "type": "registry:component"
         }
@@ -1381,7 +1386,7 @@
         "@radix-ui/react-tabs"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
@@ -1391,7 +1396,7 @@
       "description": "UI primitive: Tooltip",
       "files": [
         {
-          "path": "registry/nexus-elements/ui/tooltip.tsx",
+          "path": "registry/avail-widgets/ui/tooltip.tsx",
           "target": "components/ui/tooltip.tsx",
           "type": "registry:component"
         }
@@ -1400,216 +1405,216 @@
         "@radix-ui/react-tooltip"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
     },
     {
       "name": "transfer",
       "type": "registry:component",
       "title": "Fast Transfer",
-      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
+      "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain transfer.",
       "files": [
         {
-          "path": "registry/nexus-elements/transfer/components/allowance-modal.tsx",
+          "path": "registry/avail-widgets/transfer/components/allowance-modal.tsx",
           "target": "components/transfer/components/allowance-modal.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/transfer/components/amount-input.tsx",
+          "path": "registry/avail-widgets/transfer/components/amount-input.tsx",
           "target": "components/transfer/components/amount-input.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/transfer/components/chain-select.tsx",
+          "path": "registry/avail-widgets/transfer/components/chain-select.tsx",
           "target": "components/transfer/components/chain-select.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/transfer/components/fee-breakdown.tsx",
+          "path": "registry/avail-widgets/transfer/components/fee-breakdown.tsx",
           "target": "components/transfer/components/fee-breakdown.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/transfer/components/recipient-address.tsx",
+          "path": "registry/avail-widgets/transfer/components/recipient-address.tsx",
           "target": "components/transfer/components/recipient-address.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/transfer/components/source-breakdown.tsx",
+          "path": "registry/avail-widgets/transfer/components/source-breakdown.tsx",
           "target": "components/transfer/components/source-breakdown.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/transfer/components/token-select.tsx",
+          "path": "registry/avail-widgets/transfer/components/token-select.tsx",
           "target": "components/transfer/components/token-select.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/transfer/components/transaction-progress.tsx",
+          "path": "registry/avail-widgets/transfer/components/transaction-progress.tsx",
           "target": "components/transfer/components/transaction-progress.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/transfer/hooks/useTransfer.ts",
+          "path": "registry/avail-widgets/transfer/hooks/useTransfer.ts",
           "target": "components/transfer/hooks/useTransfer.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/transfer/transfer.tsx",
+          "path": "registry/avail-widgets/transfer/transfer.tsx",
           "target": "components/transfer/transfer.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/components/ErrorBoundary.tsx",
+          "path": "registry/avail-widgets/common/components/ErrorBoundary.tsx",
           "target": "components/common/components/ErrorBoundary.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedCallback.ts",
           "target": "components/common/hooks/useDebouncedCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedValue.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedValue.ts",
           "target": "components/common/hooks/useDebouncedValue.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useInterval.ts",
+          "path": "registry/avail-widgets/common/hooks/useInterval.ts",
           "target": "components/common/hooks/useInterval.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useLatest.ts",
+          "path": "registry/avail-widgets/common/hooks/useLatest.ts",
           "target": "components/common/hooks/useLatest.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useNexusError.ts",
+          "path": "registry/avail-widgets/common/hooks/useNexusError.ts",
           "target": "components/common/hooks/useNexusError.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/usePolling.ts",
+          "path": "registry/avail-widgets/common/hooks/usePolling.ts",
           "target": "components/common/hooks/usePolling.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStableCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useStableCallback.ts",
           "target": "components/common/hooks/useStableCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStopwatch.ts",
+          "path": "registry/avail-widgets/common/hooks/useStopwatch.ts",
           "target": "components/common/hooks/useStopwatch.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionExecution.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionExecution.ts",
           "target": "components/common/hooks/useTransactionExecution.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionFlow.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionFlow.ts",
           "target": "components/common/hooks/useTransactionFlow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/index.ts",
+          "path": "registry/avail-widgets/common/index.ts",
           "target": "components/common/index.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/steps.ts",
+          "path": "registry/avail-widgets/common/tx/steps.ts",
           "target": "components/common/tx/steps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/types.ts",
+          "path": "registry/avail-widgets/common/tx/types.ts",
           "target": "components/common/tx/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/useTransactionSteps.ts",
+          "path": "registry/avail-widgets/common/tx/useTransactionSteps.ts",
           "target": "components/common/tx/useTransactionSteps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/types/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/types/transaction-flow.ts",
           "target": "components/common/types/transaction-flow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/constant.ts",
+          "path": "registry/avail-widgets/common/utils/constant.ts",
           "target": "components/common/utils/constant.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/token-pricing.ts",
+          "path": "registry/avail-widgets/common/utils/token-pricing.ts",
           "target": "components/common/utils/token-pricing.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/utils/transaction-flow.ts",
           "target": "components/common/utils/transaction-flow.ts",
           "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+        "@avail-project/nexus-core@2.0.0",
         "lucide-react",
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/view-history.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/input.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations."
+        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"send\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"send\" for new integrations."
     },
     {
       "name": "unified-balance",
       "type": "registry:component",
       "title": "Unified Balance",
-      "description": "Deprecated: use Nexus One instead. Unified Balance has been removed in favor of Nexus One's inline balance views.",
+      "description": "Deprecated: use Nexus Widget instead. Unified Balance has been removed in favor of Nexus Widget's inline balance views.",
       "files": [
         {
-          "path": "registry/nexus-elements/unified-balance/unified-balance.tsx",
+          "path": "registry/avail-widgets/unified-balance/unified-balance.tsx",
           "target": "components/unified-balance/unified-balance.tsx",
           "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+        "@avail-project/nexus-core@2.0.0",
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus One. Nexus One includes inline balance views during swap, send, and deposit flows."
+      "docs": "Deprecated in favor of Nexus Widget. NexusWidget includes inline balance views during swap, send, and deposit flows."
     },
     {
       "name": "utils",
@@ -1632,137 +1637,137 @@
       "name": "view-history",
       "type": "registry:component",
       "title": "View History",
-      "description": "Deprecated: use Nexus One instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
+      "description": "Deprecated: use Nexus Widget instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
       "files": [
         {
-          "path": "registry/nexus-elements/view-history/history-events.ts",
+          "path": "registry/avail-widgets/view-history/history-events.ts",
           "target": "components/view-history/history-events.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/view-history/hooks/useViewHistory.ts",
+          "path": "registry/avail-widgets/view-history/hooks/useViewHistory.ts",
           "target": "components/view-history/hooks/useViewHistory.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/view-history/view-history.tsx",
+          "path": "registry/avail-widgets/view-history/view-history.tsx",
           "target": "components/view-history/view-history.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/components/ErrorBoundary.tsx",
+          "path": "registry/avail-widgets/common/components/ErrorBoundary.tsx",
           "target": "components/common/components/ErrorBoundary.tsx",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedCallback.ts",
           "target": "components/common/hooks/useDebouncedCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useDebouncedValue.ts",
+          "path": "registry/avail-widgets/common/hooks/useDebouncedValue.ts",
           "target": "components/common/hooks/useDebouncedValue.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useInterval.ts",
+          "path": "registry/avail-widgets/common/hooks/useInterval.ts",
           "target": "components/common/hooks/useInterval.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useLatest.ts",
+          "path": "registry/avail-widgets/common/hooks/useLatest.ts",
           "target": "components/common/hooks/useLatest.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useNexusError.ts",
+          "path": "registry/avail-widgets/common/hooks/useNexusError.ts",
           "target": "components/common/hooks/useNexusError.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/usePolling.ts",
+          "path": "registry/avail-widgets/common/hooks/usePolling.ts",
           "target": "components/common/hooks/usePolling.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStableCallback.ts",
+          "path": "registry/avail-widgets/common/hooks/useStableCallback.ts",
           "target": "components/common/hooks/useStableCallback.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useStopwatch.ts",
+          "path": "registry/avail-widgets/common/hooks/useStopwatch.ts",
           "target": "components/common/hooks/useStopwatch.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionExecution.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionExecution.ts",
           "target": "components/common/hooks/useTransactionExecution.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/hooks/useTransactionFlow.ts",
+          "path": "registry/avail-widgets/common/hooks/useTransactionFlow.ts",
           "target": "components/common/hooks/useTransactionFlow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/index.ts",
+          "path": "registry/avail-widgets/common/index.ts",
           "target": "components/common/index.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/steps.ts",
+          "path": "registry/avail-widgets/common/tx/steps.ts",
           "target": "components/common/tx/steps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/types.ts",
+          "path": "registry/avail-widgets/common/tx/types.ts",
           "target": "components/common/tx/types.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/tx/useTransactionSteps.ts",
+          "path": "registry/avail-widgets/common/tx/useTransactionSteps.ts",
           "target": "components/common/tx/useTransactionSteps.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/types/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/types/transaction-flow.ts",
           "target": "components/common/types/transaction-flow.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/constant.ts",
+          "path": "registry/avail-widgets/common/utils/constant.ts",
           "target": "components/common/utils/constant.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/token-pricing.ts",
+          "path": "registry/avail-widgets/common/utils/token-pricing.ts",
           "target": "components/common/utils/token-pricing.ts",
           "type": "registry:component"
         },
         {
-          "path": "registry/nexus-elements/common/utils/transaction-flow.ts",
+          "path": "registry/avail-widgets/common/utils/transaction-flow.ts",
           "target": "components/common/utils/transaction-flow.ts",
           "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-sdk-v2@git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+        "@avail-project/nexus-core@2.0.0",
         "lucide-react"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/badge.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/feat/upgrade-elements-to-v2/public/r/utils.json"
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/badge.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
+        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ],
       "meta": {
         "deprecated": true,
         "deprecationMessage": "View History is deprecated. Use sdk.getMyIntents() for programmatic intent history access."
       },
-      "docs": "Deprecated in favor of Nexus One. Intent history is not included in Nexus One V1. Use sdk.getMyIntents() directly."
+      "docs": "Deprecated in favor of Nexus Widget. Intent history is not included in Nexus Widget V1. Use sdk.getMyIntents() directly."
     }
   ]
 }

@@ -1,28 +1,28 @@
 ---
 title: Unified Balance
-description: "Deprecated: Unified Balance has been removed. Nexus One includes inline balance views."
+description: "Deprecated: Unified Balance has been removed. Nexus Widget includes inline balance views."
 component: true
 deprecated: true
-deprecationMessage: Unified Balance is deprecated and removed. Nexus One includes inline balance views during swap, send, and deposit flows.
+deprecationMessage: Unified Balance is deprecated and removed. Nexus Widget includes inline balance views during swap, send, and deposit flows.
 links:
   doc: https://docs.availproject.org/nexus/avail-nexus-sdk/bridge-methods/fetch-bridge-balances
   api: https://docs.availproject.org/nexus/avail-nexus-sdk/api-reference#unified-balances
 ---
 
 <Callout>
-  **⚠️ Deprecated — Use Nexus One**
+  **⚠️ Deprecated — Use Nexus Widget**
 
-  Unified Balance has been **removed** from Nexus Elements. **Nexus One** includes inline balance views as part of its swap, send, and deposit flows.
+  Unified Balance has been **removed** from Avail Widgets. **Nexus Widget** includes inline balance views as part of its swap, send, and deposit flows.
 
-  [**→ View Nexus One documentation**](/docs/components/nexus-one)
+  [**→ View Nexus Widget documentation**](/docs/components/nexus)
 </Callout>
 
 ## Migration
 
-Remove `UnifiedBalance` from your app. Nexus One shows relevant balances inline during flow execution.
+Remove `UnifiedBalance` from your app. Nexus Widget shows relevant balances inline during flow execution.
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 For programmatic balance access, use the Nexus SDK directly:
@@ -38,4 +38,4 @@ const swapBalances = await sdk.getBalancesForSwap();
 const formatted = sdk.utils.formatTokenBalance(balance);
 ```
 
-See the [Nexus One](/docs/components/nexus-one) page for the unified element documentation.
+See the [Nexus Widget](/docs/components/nexus) page for the unified element documentation.

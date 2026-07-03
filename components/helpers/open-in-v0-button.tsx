@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 
 export function OpenInV0Button({
   name,

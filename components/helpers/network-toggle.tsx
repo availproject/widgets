@@ -1,14 +1,14 @@
 "use client";
-import { type NexusNetwork } from "@avail-project/nexus-sdk-v2";
+import { type NexusNetwork } from "@avail-project/nexus-core";
 import React, { useState, useEffect } from "react";
-import { useNexus } from "@/registry/nexus-elements/nexus/NexusProvider";
+import { useNexus } from "@/registry/avail-widgets/nexus/NexusProvider";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/registry/nexus-elements/ui/select";
+} from "@/registry/avail-widgets/ui/select";
 import { getItem, setItem } from "@/lib/local-storage";
 import { NETWORK_KEY } from "@/providers/Web3Provider";
 

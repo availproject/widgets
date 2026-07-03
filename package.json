@@ -1,6 +1,6 @@
 {
-  "name": "nexus-elements",
-  "version": "0.0.1",
+  "name": "avail-widgets",
+  "version": "2.0.0",
   "description": "A modern component registry built with Next.js and shadcn/ui for Avail Nexus",
   "author": "decocereus<amartya@availproject.org>",
   "private": true,
@@ -13,10 +13,11 @@
     "build:registry": "shadcn build",
     "build:registry:json": "npx tsx scripts/build-registry/index.ts",
     "build:registry:branch": "sh -c 'BRANCH=${1:-$(git branch --show-current)}; pnpm build:registry:json -- --base-url \"https://raw.githubusercontent.com/availproject/nexus-elements/${BRANCH}/public/r\" && pnpm build:registry' --",
+    "build:widgets-package": "pnpm --filter @avail-project/widgets build",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
-    "@avail-project/nexus-sdk-v2": "git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2",
+    "@avail-project/nexus-core": "2.0.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-collapsible": "^1.1.12",

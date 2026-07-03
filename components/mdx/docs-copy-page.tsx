@@ -7,7 +7,7 @@ import {
   PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
-} from "@/registry/nexus-elements/ui/popover";
+} from "@/registry/avail-widgets/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,11 +15,11 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Separator } from "../ui/separator";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 
 function getPromptUrl(baseURL: string, url: string) {
   return `${baseURL}?q=${encodeURIComponent(
-    `I’m looking at this Avail Nexus Elements documentation: ${url}.
+    `I’m looking at this Avail Avail Widgets documentation: ${url}.
 Help me understand how to use it. Be ready to explain concepts, give examples, or help debug based on it.
   `
   )}`;

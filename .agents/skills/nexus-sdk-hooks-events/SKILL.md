@@ -99,7 +99,7 @@ sdk.setOnSwapIntentHook((data) => {
 ### Normalize errors
 - The SDK throws `NexusError` for known failures.
 - Import from SDK:
-  - `import { NexusError, ERROR_CODES } from '@avail-project/nexus-sdk-v2'`
+  - `import { NexusError, ERROR_CODES } from '@avail-project/nexus-core'`
 
 ### Map common error codes to UX responses
 - `USER_DENIED_INTENT` / `USER_DENIED_ALLOWANCE` / `USER_DENIED_INTENT_SIGNATURE`:
@@ -127,7 +127,7 @@ sdk.setOnSwapIntentHook((data) => {
 
 ### Use a helper pattern
 ```ts
-import { NexusError, ERROR_CODES } from '@avail-project/nexus-sdk-v2';
+import { NexusError, ERROR_CODES } from '@avail-project/nexus-core';
 
 export function getReadableNexusError(err: unknown): string {
   if (err instanceof NexusError) {

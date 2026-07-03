@@ -1,4 +1,4 @@
-import ViewHistory from "@/registry/nexus-elements/view-history/view-history";
+import ViewHistory from "@/registry/avail-widgets/view-history/view-history";
 import React from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
 

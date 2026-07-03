@@ -20,10 +20,10 @@ import {
 } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { Chain, defineChain } from "viem";
-import NexusProvider from "@/registry/nexus-elements/nexus/NexusProvider";
-import { type NexusNetwork } from "@avail-project/nexus-sdk-v2";
+import NexusProvider from "@/registry/avail-widgets/nexus/NexusProvider";
+import { type NexusNetwork } from "@avail-project/nexus-core";
 import { Suspense, useMemo, useState, useEffect } from "react";
-import { Skeleton } from "@/registry/nexus-elements/ui/skeleton";
+import { Skeleton } from "@/registry/avail-widgets/ui/skeleton";
 import { getItem, setItem } from "@/lib/local-storage";
 
 const hyperEVM = defineChain({
@@ -101,7 +101,7 @@ const WALLET_CONNECT_ID = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID!;
 const createWagmiConfig = () =>
   createConfig(
     getDefaultConfig({
-      appName: "Nexus Elements",
+      appName: "Avail Widgets",
       appDescription: "Prebuilt React components powered by Avail Nexus",
       appIcon: "https://elements.nexus.availproject.org/avail-fav.svg",
       walletConnectProjectId: WALLET_CONNECT_ID,

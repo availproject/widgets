@@ -15,7 +15,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-} from "@/registry/nexus-elements/ui/tabs";
+} from "@/registry/avail-widgets/ui/tabs";
 import { Code } from "lucide-react";
 import { DepsInstall } from "../helpers/deps-install";
 import { Callout } from "./callout";

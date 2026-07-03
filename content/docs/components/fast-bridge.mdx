@@ -1,35 +1,35 @@
 ---
 title: Fast Bridge
-description: "Deprecated: Fast Bridge has been removed. Use Nexus One for all cross-chain bridge and swap flows."
+description: "Deprecated: Fast Bridge has been removed. Use Nexus Widget for all cross-chain bridge and swap flows."
 component: true
 deprecated: true
-deprecationMessage: Fast Bridge is deprecated and removed. Use Nexus One for the unified swap, send, and deposit experience.
+deprecationMessage: Fast Bridge is deprecated and removed. Use Nexus Widget for the unified swap, send, and deposit experience.
 links:
   doc: https://docs.availproject.org/nexus/avail-nexus-sdk/bridge-methods/bridge
   api: https://docs.availproject.org/nexus/avail-nexus-sdk/api-reference#bridge-operations
 ---
 
 <Callout>
-  **⚠️ Deprecated — Use Nexus One**
+  **⚠️ Deprecated — Use Nexus Widget**
 
-  Fast Bridge has been **removed** from Nexus Elements. All cross-chain bridging is now handled by **Nexus One** with `config.mode = "swap"`. Nexus One automatically resolves the best route — including direct bridge paths — based on your source and destination selection.
+  Fast Bridge has been **removed** from Avail Widgets. All cross-chain bridging is now handled by **Nexus Widget** with `config.mode = "swap"`. Nexus Widget automatically resolves the best route — including direct bridge paths — based on your source and destination selection.
 
-  [**→ View Nexus One documentation**](/docs/components/nexus-one)
+  [**→ View Nexus Widget documentation**](/docs/components/nexus)
 </Callout>
 
 ## Migration
 
-Replace any `FastBridge` usage with `NexusOne`:
+Replace any `FastBridge` usage with `NexusWidget`:
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ```tsx showLineNumbers
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
-// Bridge USDC from Arbitrum to Base — Nexus One resolves the optimal route
-<NexusOne
+// Bridge USDC from Arbitrum to Base — Nexus Widget resolves the optimal route
+<NexusWidget
   config={{
     mode: "swap",
     prefill: {

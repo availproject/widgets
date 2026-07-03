@@ -1,10 +1,10 @@
 ---
 title: Get Started
-description: Install and configure Nexus Elements in your React project. Nexus One is the single unified component for all swap, send, and deposit flows.
+description: Install and configure Avail Widgets in your React project. Nexus Widget is the single unified component for all swap, send, and deposit flows.
 ---
 
 import Link from "next/link";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 import { SquareArrowUpRight } from "lucide-react";
 import {
   Card,
@@ -12,7 +12,7 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-} from "@/registry/nexus-elements/ui/card";
+} from "@/registry/avail-widgets/ui/card";
 
 ## Important Note
 
@@ -22,7 +22,7 @@ import {
   [Migration Guide](/docs/migration-guide) first.
 </Callout>
 
-Nexus Elements internally uses shadcn/ui components as its foundation. While you can copy and paste components without shadcn, we strongly recommend using shadcn/ui for the best experience, optimal performance, and seamless integration.
+Avail Widgets internally uses shadcn/ui components as its foundation. While you can copy and paste components without shadcn, we strongly recommend using shadcn/ui for the best experience, optimal performance, and seamless integration.
 
 ## Install shadcn/ui
 
@@ -47,22 +47,22 @@ Nexus Elements internally uses shadcn/ui components as its foundation. While you
       <SquareArrowUpRight className="size-4" />
     </a>
   </Button>
-  <p>Once installed, come back to continue with Nexus Elements.</p>
+  <p>Once installed, come back to continue with Avail Widgets.</p>
 </Steps>
 
-## Install Nexus One
+## Install Nexus Widget
 
 <p className="font-serif">
-  **Nexus One** is the single unified component for all swap, send, and deposit
+  **Nexus Widget** is the single unified component for all swap, send, and deposit
   flows. Install it with one command:
 </p>
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 <p className="mt-3! font-serif">
-  The command will add all required files and dependencies for Nexus One.
+  The command will add all required files and dependencies for Nexus Widget.
 </p>
 
 <span id="usage" className="block -mt-24 pt-24" />
@@ -88,7 +88,7 @@ export default function RootLayout({
 "use client";
 import { useEffect } from "react";
 import { useAccount } from "wagmi";
-import type { EthereumProvider } from "@avail-project/nexus-sdk-v2";
+import type { EthereumProvider } from "@avail-project/nexus-core";
 import { useNexus } from "@/components/nexus/NexusProvider";
 
 export function InitNexusOnConnect() {

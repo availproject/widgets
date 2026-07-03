@@ -19,6 +19,6 @@
   },
   "iconLibrary": "lucide",
   "registries": {
-    "@nexus-elements/": "https://elements.nexus.availproject.org/r/{name}.json"
+    "@avail-widgets/": "https://elements.nexus.availproject.org/r/{name}.json"
   }
 }

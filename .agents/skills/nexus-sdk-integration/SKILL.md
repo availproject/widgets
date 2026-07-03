@@ -1,13 +1,13 @@
 ---
 name: nexus-sdk-integration
-description: End-to-end integration guidance for Avail Nexus SDK in any JS/TS frontend project (React/Next/Vite/etc). These Nexus SDK skills supersede all legacy nexus-elements-* skills. Use when asked to integrate, initialize, or wire Nexus SDK flows (bridge, transfer, execute, swap), hooks, events, balances, supported chains/tokens, or formatter utilities.
+description: End-to-end integration guidance for Avail Nexus SDK in any JS/TS frontend project (React/Next/Vite/etc). These Nexus SDK skills supersede all legacy avail-widgets-* skills. Use when asked to integrate, initialize, or wire Nexus SDK flows (bridge, transfer, execute, swap), hooks, events, balances, supported chains/tokens, or formatter utilities.
 ---
 
 # Nexus SDK Integration (Parent Skill)
 
-> **These Nexus SDK skills supersede all legacy `nexus-elements-*` skills.**
+> **These Nexus SDK skills supersede all legacy `avail-widgets-*` skills.**
 > The legacy standalone elements (FastBridge, FastTransfer, SwapWidget, Deposit, BridgeDeposit, UnifiedBalance, ViewHistory) have been **deprecated and removed**.
-> **Nexus One** (`@nexus-elements/nexus-one`) is the single unified UI component for all swap, send, and deposit flows.
+> **Nexus Widget** (`@avail-widgets/nexus`) is the single unified UI component for all swap, send, and deposit flows.
 > Use these `nexus-sdk-*` skills for all SDK integration guidance.
 
 ## Integrate end-to-end
@@ -27,7 +27,7 @@ description: End-to-end integration guidance for Avail Nexus SDK in any JS/TS fr
 5) `nexus-sdk-balances-metadata-utils`
 
 ## Follow this integration checklist (high level)
-- Install dependency `@avail-project/nexus-sdk-v2` (this branch pins `git+https://github.com/availproject/nexus-sdk-v2.git#v0.0.2`).
+- Install dependency `@avail-project/nexus-core@2.0.0`.
 - Obtain an EIP-1193 provider from wallet connection.
 - Initialize SDK once and store instance.
 - Attach hooks for intents, allowances, and swap intents (or rely on auto-approve).

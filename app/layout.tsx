@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 import Topbar from "@/components/layout/top-bar";
-import { Skeleton } from "@/registry/nexus-elements/ui/skeleton";
+import { Skeleton } from "@/registry/avail-widgets/ui/skeleton";
 const Web3Provider = dynamic(() => import("@/providers/Web3Provider"), {
   loading: () => <Skeleton className="w-full h-full" />,
 });
@@ -24,7 +24,7 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || "https://elements.nexus.availproject.org";
 
 export const metadata: Metadata = {
-  title: "Nexus Elements",
+  title: "Avail Widgets",
   description: "Prebuilt React components powered by Avail Nexus",
   authors: [{ name: "decocereus", url: "https://github.com/decocereus" }],
   metadataBase: new URL(APP_URL),
@@ -38,15 +38,15 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: APP_URL,
-    siteName: "Nexus Elements",
-    title: "Nexus Elements",
+    siteName: "Avail Widgets",
+    title: "Avail Widgets",
     description: "Prebuilt React components powered by Avail Nexus",
     images: [
       {
         url: "/1200x630.png",
         width: 1200,
         height: 630,
-        alt: "Nexus Elements",
+        alt: "Avail Widgets",
         type: "image/png",
       },
     ],
@@ -55,12 +55,12 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     creator: "@decocereus",
     site: APP_URL,
-    title: "Nexus Elements",
+    title: "Avail Widgets",
     description: "Prebuilt React components powered by Avail Nexus",
     images: [
       {
         url: "/1200x630.png",
-        alt: "Nexus Elements",
+        alt: "Avail Widgets",
         type: "image/png",
       },
     ],
