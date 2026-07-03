@@ -4,11 +4,7 @@
   "type": "registry:component",
   "title": "Fast Transfer",
   "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain transfer.",
-  "dependencies": [
-    "@avail-project/nexus-core@2.0.0",
-    "lucide-react",
-    "viem"
-  ],
+  "dependencies": ["@avail-project/nexus-core@2.0.0", "lucide-react", "viem"],
   "registryDependencies": [
     "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
     "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",

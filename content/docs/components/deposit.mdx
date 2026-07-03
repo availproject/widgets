@@ -119,21 +119,21 @@ const depositConfig = {
 
 Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the destination deposit amount, pay-with sources are selected, and the flow submits through `swapAndExecute`.
 
-| Prop | Required | Description |
-| --- | --- | --- |
-| `config.mode` | Yes | Must be `"deposit"`. |
-| `config.destination.chain` | Yes | Chain ID of the fixed destination network. Deposit destination chain cannot be changed by the user. |
-| `config.destination.tokens` | Yes | One or more accepted destination tokens. The token dropdown is limited to this list and is editable only when multiple tokens are supplied. |
-| `config.depositAddress` | Yes | Smart contract address for the deposit target. |
-| `config.executeDeposit` | Yes | Callback builder returning `{ to, data?, value?, gas?, tokenApproval? }` for the final app transaction. |
-| `config.prefill.amount` | Optional | Prefills the exact output deposit amount. Must be greater than `0`. |
-| `config.validation.minAmount` | Optional | Minimum deposit amount. Must be `0` or greater. |
-| `config.validation.maxAmount` | Optional | Maximum deposit amount. Must be greater than `0`. |
-| `config.appearance` | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`. |
-| `connectedAddress` | Optional | Wallet address to use. If omitted, the connected wagmi account is used. |
-| `embed` | Optional | Defaults to `true`. Set `false` to render as a modal surface. |
-| `open`, `onOpenChange`, `defaultOpen` | Optional | Control the modal when `embed={false}`. |
-| `onStart`, `onComplete`, `onError`, `onClose`, `onConnectClick`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectClick` to open your app/header wallet modal from the element CTA. |
+| Prop                                                                               | Required | Description                                                                                                                                 |
+| ---------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config.mode`                                                                      | Yes      | Must be `"deposit"`.                                                                                                                        |
+| `config.destination.chain`                                                         | Yes      | Chain ID of the fixed destination network. Deposit destination chain cannot be changed by the user.                                         |
+| `config.destination.tokens`                                                        | Yes      | One or more accepted destination tokens. The token dropdown is limited to this list and is editable only when multiple tokens are supplied. |
+| `config.depositAddress`                                                            | Yes      | Smart contract address for the deposit target.                                                                                              |
+| `config.executeDeposit`                                                            | Yes      | Callback builder returning `{ to, data?, value?, gas?, tokenApproval? }` for the final app transaction.                                     |
+| `config.prefill.amount`                                                            | Optional | Prefills the exact output deposit amount. Must be greater than `0`.                                                                         |
+| `config.validation.minAmount`                                                      | Optional | Minimum deposit amount. Must be `0` or greater.                                                                                             |
+| `config.validation.maxAmount`                                                      | Optional | Maximum deposit amount. Must be greater than `0`.                                                                                           |
+| `config.appearance`                                                                | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`.                                                                    |
+| `connectedAddress`                                                                 | Optional | Wallet address to use. If omitted, the connected wagmi account is used.                                                                     |
+| `embed`                                                                            | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                                                               |
+| `open`, `onOpenChange`, `defaultOpen`                                              | Optional | Control the modal when `embed={false}`.                                                                                                     |
+| `onStart`, `onComplete`, `onError`, `onClose`, `onConnectClick`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectClick` to open your app/header wallet modal from the element CTA.                                         |
 
 ### `executeDeposit`
 

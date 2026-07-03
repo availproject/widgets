@@ -19,14 +19,14 @@ const MAX_PRIORITY_RANK = Number.MAX_SAFE_INTEGER;
 
 const sortSourcesByPriority = (
   swapBalance: UserAsset[],
-  _destination: DepositSourceDestination
+  _destination: DepositSourceDestination,
 ) =>
   swapBalance
     .flatMap((asset) => asset.breakdown ?? [])
     .sort(
       (a, b) =>
         parseNonNegativeNumber(b.balanceInFiat) -
-        parseNonNegativeNumber(a.balanceInFiat)
+        parseNonNegativeNumber(a.balanceInFiat),
     )
     .map((breakdown) => ({
       chainID: breakdown.chain.id,
@@ -55,11 +55,11 @@ const toComparableSdkAddress = (address: string): string => {
 
 export const getDepositSourceId = (
   tokenAddress: string,
-  chainId: number
+  chainId: number,
 ): string => `${tokenAddress}-${chainId}`;
 
 export const parseDepositSourceId = (
-  sourceId: string
+  sourceId: string,
 ): { tokenAddress: Hex; chainId: number } | null => {
   const separatorIndex = sourceId.lastIndexOf("-");
   if (separatorIndex <= 0) return null;
@@ -73,14 +73,14 @@ export const parseDepositSourceId = (
 
 const isStablecoin = (symbol?: string): boolean =>
   STABLECOIN_SYMBOLS.includes(
-    (symbol ?? "").toUpperCase() as (typeof STABLECOIN_SYMBOLS)[number]
+    (symbol ?? "").toUpperCase() as (typeof STABLECOIN_SYMBOLS)[number],
   );
 
 const isNative = (symbol?: string): boolean => {
   const normalized = (symbol ?? "").toUpperCase();
   if (!normalized) return false;
   return Object.values(CHAIN_METADATA).some(
-    (chain) => chain.nativeCurrency.symbol.toUpperCase() === normalized
+    (chain) => chain.nativeCurrency.symbol.toUpperCase() === normalized,
   );
 };
 
@@ -91,7 +91,7 @@ const getPriorityLookupKey = (tokenAddress: string, chainId: number): string =>
   `${toComparableSdkAddress(tokenAddress)}-${chainId}`;
 
 const buildSourceFiatByKeyMap = (
-  swapBalance: UserAsset[] | null
+  swapBalance: UserAsset[] | null,
 ): Map<string, number> => {
   const map = new Map<string, number>();
   if (!swapBalance) return map;
@@ -104,7 +104,7 @@ const buildSourceFiatByKeyMap = (
 
       map.set(
         getFiatLookupKey(tokenAddress, chainId),
-        parseNonNegativeNumber(breakdown.balanceInFiat)
+        parseNonNegativeNumber(breakdown.balanceInFiat),
       );
     }
   }
@@ -114,7 +114,7 @@ const buildSourceFiatByKeyMap = (
 
 const buildPriorityRankMap = (
   swapBalance: UserAsset[] | null,
-  destination: DepositSourceDestination
+  destination: DepositSourceDestination,
 ): Map<string, number> => {
   const map = new Map<string, number>();
   if (!swapBalance?.length) return map;
@@ -149,7 +149,7 @@ const buildSortedSourceCandidates = (params: {
       const fiatKey = getFiatLookupKey(parsed.tokenAddress, parsed.chainId);
       const priorityKey = getPriorityLookupKey(
         parsed.tokenAddress,
-        parsed.chainId
+        parsed.chainId,
       );
 
       return {
@@ -270,7 +270,7 @@ export const buildPrioritySelectedSourceIds = (params: {
     selectedSourceIds.push(sourceId);
     runningTotalUsd +=
       sourceFiatByKeyMap.get(
-        getFiatLookupKey(parsed.tokenAddress, parsed.chainId)
+        getFiatLookupKey(parsed.tokenAddress, parsed.chainId),
       ) ?? 0;
 
     if (runningTotalUsd >= normalizedTargetAmountUsd) break;

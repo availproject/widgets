@@ -66,6 +66,7 @@ const DepositShowcase = () => {
         "ETH is native and not supported for this execute builder",
       );
     }
+
     const encoded = encodeFunctionData({
       abi: abi,
       functionName: "supply",

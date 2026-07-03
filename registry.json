@@ -16,10 +16,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-accordion",
-        "lucide-react"
-      ],
+      "dependencies": ["@radix-ui/react-accordion", "lucide-react"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -72,10 +69,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-slot",
-        "class-variance-authority"
-      ],
+      "dependencies": ["@radix-ui/react-slot", "class-variance-authority"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -286,10 +280,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-slot",
-        "class-variance-authority"
-      ],
+      "dependencies": ["@radix-ui/react-slot", "class-variance-authority"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -322,10 +313,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-checkbox",
-        "lucide-react"
-      ],
+      "dependencies": ["@radix-ui/react-checkbox", "lucide-react"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -342,9 +330,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-collapsible"
-      ]
+      "dependencies": ["@radix-ui/react-collapsible"]
     },
     {
       "name": "deposit",
@@ -646,10 +632,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-dialog",
-        "lucide-react"
-      ],
+      "dependencies": ["@radix-ui/react-dialog", "lucide-react"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -860,9 +843,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-label"
-      ],
+      "dependencies": ["@radix-ui/react-label"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -1094,10 +1075,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
-        "wagmi"
-      ]
+      "dependencies": ["@avail-project/nexus-core@2.0.0", "wagmi"]
     },
     {
       "name": "popover",
@@ -1111,9 +1089,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-popover"
-      ],
+      "dependencies": ["@radix-ui/react-popover"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -1130,10 +1106,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-select",
-        "lucide-react"
-      ],
+      "dependencies": ["@radix-ui/react-select", "lucide-react"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -1382,9 +1355,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-tabs"
-      ],
+      "dependencies": ["@radix-ui/react-tabs"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -1401,9 +1372,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-tooltip"
-      ],
+      "dependencies": ["@radix-ui/react-tooltip"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
       ]
@@ -1598,10 +1567,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
-        "lucide-react"
-      ],
+      "dependencies": ["@avail-project/nexus-core@2.0.0", "lucide-react"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
@@ -1628,10 +1594,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "clsx",
-        "tailwind-merge"
-      ]
+      "dependencies": ["clsx", "tailwind-merge"]
     },
     {
       "name": "view-history",
@@ -1750,10 +1713,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
-        "lucide-react"
-      ],
+      "dependencies": ["@avail-project/nexus-core@2.0.0", "lucide-react"],
       "registryDependencies": [
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/badge.json",
         "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",

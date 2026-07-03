@@ -4,10 +4,7 @@
   "type": "registry:component",
   "title": "Unified Balance",
   "description": "Deprecated: use Nexus Widget instead. Unified Balance has been removed in favor of Nexus Widget's inline balance views.",
-  "dependencies": [
-    "@avail-project/nexus-core@2.0.0",
-    "lucide-react"
-  ],
+  "dependencies": ["@avail-project/nexus-core@2.0.0", "lucide-react"],
   "registryDependencies": [
     "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
     "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",

@@ -10,7 +10,10 @@ import type {
   SwapStepType,
 } from "../../common/types/transaction-flow";
 import { getShortChainName } from "../../common/utils/constant";
-import { type NexusWidgetDepositOpportunityMetadata, type NexusWidgetMode } from "../types";
+import {
+  type NexusWidgetDepositOpportunityMetadata,
+  type NexusWidgetMode,
+} from "../types";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
 
@@ -147,7 +150,7 @@ const BRIDGE_FILL_RECEIVE_TYPES = ["BRIDGE_FILL"];
 const getStatusForStep = (
   step: ProgressSdkStep | undefined,
   mode: NexusWidgetMode,
-  hasTransferAction = false
+  hasTransferAction = false,
 ): ProgressStatusId | null => {
   const type = getStepType(step);
 
@@ -195,10 +198,10 @@ const stepMatches = (step: ProgressSdkStep | undefined, tokens: string[]) => {
 const hasCompletedType = (
   events: NexusWidgetProgressEvent[],
   steps: ProgressStep[],
-  tokens: string[]
+  tokens: string[],
 ) => {
   const completedEvent = events.some(
-    (event) => event.completed && stepMatches(event.step, tokens)
+    (event) => event.completed && stepMatches(event.step, tokens),
   );
   if (completedEvent) return true;
 
@@ -208,40 +211,40 @@ const hasCompletedType = (
 const hasStepType = (
   events: NexusWidgetProgressEvent[],
   steps: ProgressStep[],
-  tokens: string[]
+  tokens: string[],
 ) =>
   events.some(
     (event) =>
       stepMatches(event.step, tokens) ||
-      (event.steps ?? []).some((step) => stepMatches(step, tokens))
+      (event.steps ?? []).some((step) => stepMatches(step, tokens)),
   ) || steps.some((item) => stepMatches(item.step, tokens));
 
 const hasEventType = (events: NexusWidgetProgressEvent[], tokens: string[]) =>
   events.some(
     (event) =>
       stepMatches(event.step, tokens) ||
-      (event.steps ?? []).some((step) => stepMatches(step, tokens))
+      (event.steps ?? []).some((step) => stepMatches(step, tokens)),
   );
 
 const hasProgressEventType = (
   events: NexusWidgetProgressEvent[],
-  tokens: string[]
+  tokens: string[],
 ) =>
   events.some(
     (event) =>
       (event.name === PROGRESS_EVENT_NAMES.BRIDGE_PLAN_PROGRESS ||
         event.name === PROGRESS_EVENT_NAMES.SWAP_PLAN_PROGRESS) &&
-      stepMatches(event.step, tokens)
+      stepMatches(event.step, tokens),
   );
 
 const getListedSteps = (
   events: NexusWidgetProgressEvent[],
-  eventName: ProgressListEventName
+  eventName: ProgressListEventName,
 ) => {
   const listEvent = [...events]
     .reverse()
     .find(
-      (event) => event.name === eventName && (event.steps?.length ?? 0) > 0
+      (event) => event.name === eventName && (event.steps?.length ?? 0) > 0,
     );
   return listEvent?.steps ?? [];
 };
@@ -287,7 +290,7 @@ const countApprovalUnits = (steps: ProgressSdkStep[]) =>
   steps.reduce((sum, step) => sum + getApprovalUnitsForStep(step).length, 0);
 
 const countCompletedApprovalUnitsFromEvents = (
-  events: NexusWidgetProgressEvent[]
+  events: NexusWidgetProgressEvent[],
 ) =>
   events.reduce((sum, event) => {
     if (
@@ -303,7 +306,7 @@ const countCompletedApprovalUnitsFromSteps = (steps: ProgressStep[]) =>
   steps.reduce(
     (sum, item) =>
       item.completed ? sum + getApprovalUnitsForStep(item.step).length : sum,
-    0
+    0,
   );
 
 const getApprovalUnitSymbols = (steps: ProgressSdkStep[]) =>
@@ -343,7 +346,7 @@ const getApprovalIndexFromEvent = (event?: NexusWidgetProgressEvent) => {
     rawStep?.data?.approvalIndex,
     rawStep?.data?.swapIndex,
     rawStep?.data?.currentIndex,
-    rawStep?.data?.index
+    rawStep?.data?.index,
   );
 };
 
@@ -354,10 +357,12 @@ const getActiveApprovalProgressEvent = (events: NexusWidgetProgressEvent[]) =>
       (event) =>
         event.name === PROGRESS_EVENT_NAMES.SWAP_PLAN_PROGRESS &&
         !event.completed &&
-        getApprovalUnitsForStep(event.step).length > 0
+        getApprovalUnitsForStep(event.step).length > 0,
     );
 
-const getApprovalSymbolFromProgressEvent = (event?: NexusWidgetProgressEvent) => {
+const getApprovalSymbolFromProgressEvent = (
+  event?: NexusWidgetProgressEvent,
+) => {
   const units = getApprovalUnitsForStep(event?.step);
   if (units.length === 0) return undefined;
   if (units.length === 1) return units[0]?.symbol;
@@ -367,19 +372,21 @@ const getApprovalSymbolFromProgressEvent = (event?: NexusWidgetProgressEvent) =>
   return units[index]?.symbol;
 };
 
-const getApprovalTotalFromSwapStepsList = (events: NexusWidgetProgressEvent[]) =>
+const getApprovalTotalFromSwapStepsList = (
+  events: NexusWidgetProgressEvent[],
+) =>
   countApprovalUnits(
-    getListedSteps(events, PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST)
+    getListedSteps(events, PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST),
   );
 
 const hasStartedStatus = (
   events: NexusWidgetProgressEvent[],
   id: ProgressStatusId,
   mode: NexusWidgetMode,
-  hasTransferAction = false
+  hasTransferAction = false,
 ) =>
   events.some(
-    (event) => getStatusForStep(event.step, mode, hasTransferAction) === id
+    (event) => getStatusForStep(event.step, mode, hasTransferAction) === id,
   );
 
 const buildStatusRows = ({
@@ -409,7 +416,7 @@ const buildStatusRows = ({
     : null;
   const swapListSteps = getListedSteps(
     events,
-    PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST
+    PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST,
   );
   const fallbackSteps = steps.map((item) => item.step);
   const destinationSymbol = context.destinationSymbol || "token";
@@ -420,7 +427,7 @@ const buildStatusRows = ({
     Math.max(
       countApprovalUnits(swapListSteps),
       countApprovalUnits(fallbackSteps),
-      countCompletedApprovalUnitsFromEvents(events)
+      countCompletedApprovalUnitsFromEvents(events),
     );
   const refundEligibleFailure =
     failedStep !== null &&
@@ -430,14 +437,14 @@ const buildStatusRows = ({
     immutableApprovalTotal || Number.MAX_SAFE_INTEGER,
     Math.max(
       countCompletedApprovalUnitsFromEvents(events),
-      countCompletedApprovalUnitsFromSteps(steps)
-    )
+      countCompletedApprovalUnitsFromSteps(steps),
+    ),
   );
   const approvalSymbols = getApprovalUnitSymbols(
-    swapListSteps.length > 0 ? swapListSteps : fallbackSteps
+    swapListSteps.length > 0 ? swapListSteps : fallbackSteps,
   );
   const activeApprovalSymbol = getApprovalSymbolFromProgressEvent(
-    getActiveApprovalProgressEvent(events)
+    getActiveApprovalProgressEvent(events),
   );
   const hasSwapList =
     swapListSteps.length > 0 ||
@@ -495,7 +502,7 @@ const buildStatusRows = ({
   if (immutableApprovalTotal > 0) {
     const approvalCurrent = Math.min(
       immutableApprovalTotal,
-      Math.max(1, approvalCompletedCount + 1)
+      Math.max(1, approvalCompletedCount + 1),
     );
     const approvalSymbol =
       activeApprovalSymbol ??
@@ -516,6 +523,14 @@ const buildStatusRows = ({
     ) {
       state = "preapproval";
     }
+
+    const approvalSteps = (
+      swapListSteps.length > 0 ? swapListSteps : fallbackSteps
+    ).filter((step) => stepMatches(step, SWAP_APPROVAL_TYPES));
+    const currentApprovalStep = approvalSteps[approvalCompletedCount];
+    const activeSymbol = currentApprovalStep
+      ? (currentApprovalStep as any).symbol
+      : undefined;
 
     pushRow({
       id: "approveTokens",
@@ -637,12 +652,12 @@ const buildStatusRows = ({
   }
 
   const orderedRows = rows.sort(
-    (a, b) => STATUS_ORDER.indexOf(a.id) - STATUS_ORDER.indexOf(b.id)
+    (a, b) => STATUS_ORDER.indexOf(a.id) - STATUS_ORDER.indexOf(b.id),
   );
 
   if (
     orderedRows.some(
-      (row) => row.state === "preapproval" || row.state === "inProgress"
+      (row) => row.state === "preapproval" || row.state === "inProgress",
     ) ||
     orderedRows.some((row) => row.state === "error")
   ) {
@@ -650,7 +665,7 @@ const buildStatusRows = ({
   }
 
   const nextActiveIndex = orderedRows.findIndex(
-    (row) => row.state === "default"
+    (row) => row.state === "default",
   );
   if (nextActiveIndex === -1) return orderedRows;
 
@@ -816,7 +831,7 @@ export function NexusWidgetProgressScreen({
     intentSources.length > 0
       ? intentSources.reduce(
           (sum, source) => sum.plus(parseDecimal(source.value) ?? 0),
-          new Decimal(0)
+          new Decimal(0),
         )
       : parseDecimal(fromAmountUsd);
   const requestedDestinationAmount = parseDecimal(toAmount);
@@ -833,7 +848,7 @@ export function NexusWidgetProgressScreen({
           quotedDestinationAmount.gt(0) &&
           intentDestination?.value
         ? (parseDecimal(intentDestination.value) ?? new Decimal(0)).div(
-            quotedDestinationAmount
+            quotedDestinationAmount,
           )
         : undefined;
   const destinationCoverageUsd =
@@ -848,7 +863,7 @@ export function NexusWidgetProgressScreen({
     destinationUsdRate.gt(0)
       ? Decimal.min(
           requestedDestinationAmount.minus(quotedDestinationAmount),
-          destinationBalanceAmount
+          destinationBalanceAmount,
         ).mul(destinationUsdRate)
       : undefined;
   const quotedDestinationUsd = parseDecimal(intentDestination?.value);
@@ -867,7 +882,7 @@ export function NexusWidgetProgressScreen({
           quotedDestinationUsd &&
           quotedDestinationUsd.gt(0)
             ? requestedDestinationUsd.plus(
-                Decimal.max(intentSourceUsd.minus(quotedDestinationUsd), 0)
+                Decimal.max(intentSourceUsd.minus(quotedDestinationUsd), 0),
               )
             : undefined,
           requestedDestinationUsd &&
@@ -880,7 +895,7 @@ export function NexusWidgetProgressScreen({
           .filter((value): value is Decimal => Boolean(value && value.gt(0)))
           .reduce<Decimal | undefined>(
             (max, value) => (!max || value.gt(max) ? value : max),
-            undefined
+            undefined,
           )
       : intentSourceUsd;
   const destinationAmount =
@@ -894,24 +909,24 @@ export function NexusWidgetProgressScreen({
     "";
   const destinationChainName = getShortChainName(
     intentDestination?.chain.id ?? toToken?.chainId,
-    intentDestination?.chain.name || toToken?.chainName || ""
+    intentDestination?.chain.name || toToken?.chainName || "",
   );
   const destinationChain =
     mode === "deposit"
       ? opportunity?.title || opportunity?.protocol || destinationChainName
       : destinationChainName;
   const seededApprovalTotal = countApprovalUnits(
-    (steps ?? []).map((item) => item.step)
+    (steps ?? []).map((item) => item.step),
   );
   const completedApprovalEventTotal =
     countCompletedApprovalUnitsFromEvents(progressEvents);
   const computedApprovalTotal = Math.max(
     getApprovalTotalFromSwapStepsList(progressEvents),
     seededApprovalTotal,
-    completedApprovalEventTotal
+    completedApprovalEventTotal,
   );
   const [lockedApprovalTotal, setLockedApprovalTotal] = useState<number | null>(
-    null
+    null,
   );
   const approvalTotalCount =
     lockedApprovalTotal ??
@@ -942,7 +957,7 @@ export function NexusWidgetProgressScreen({
   const [stepsExpanded, setStepsExpanded] = useState(true);
   const activeRow =
     statusRows.find(
-      (row) => row.state === "preapproval" || row.state === "inProgress"
+      (row) => row.state === "preapproval" || row.state === "inProgress",
     ) ??
     statusRows.find((row) => row.state === "error") ??
     statusRows.find((row) => row.state === "default") ??
@@ -953,7 +968,7 @@ export function NexusWidgetProgressScreen({
   const collapsedStatusHeight = activeRow ? getRowHeight(activeRow) : 40;
   const expandedStatusHeight = statusRows.reduce(
     (sum, row) => sum + getRowHeight(row),
-    0
+    0,
   );
 
   return (

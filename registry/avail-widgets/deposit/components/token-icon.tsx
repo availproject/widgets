@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "../utils";
 
 type TokenIconSize = "sm" | "md" | "lg";
@@ -26,16 +27,27 @@ export function TokenIcon({
   className,
 }: TokenIconProps) {
   const dimensions = SIZE_MAP[size];
+  const [tokenError, setTokenError] = useState(false);
 
   return (
     <div className={cn("relative inline-flex", className)}>
-      <img
-        src={tokenSrc}
-        alt={tokenAlt}
-        width={dimensions.token}
-        height={dimensions.token}
-        className="rounded-full object-cover"
-      />
+      {!tokenError ? (
+        <img
+          src={tokenSrc}
+          alt={tokenAlt}
+          width={dimensions.token}
+          height={dimensions.token}
+          className="rounded-full object-cover"
+          onError={() => setTokenError(true)}
+        />
+      ) : (
+        <div
+          className="rounded-full bg-muted flex items-center justify-center border font-sans font-medium text-muted-foreground uppercase"
+          style={{ width: dimensions.token, height: dimensions.token, fontSize: dimensions.token / 2.5 }}
+        >
+          {tokenAlt.slice(0, 2)}
+        </div>
+      )}
       {protocolSrc && (
         <img
           src={protocolSrc}

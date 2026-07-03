@@ -589,7 +589,7 @@ export function SendIdleForm({
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isAmountReadOnly) return;
     onAmountChange(
-      sanitizeAmountInput(e.target.value, getTokenInputDecimals(toToken))
+      sanitizeAmountInput(e.target.value, getTokenInputDecimals(toToken)),
     );
   };
   const amountDisplayValue = isAmountFocused
@@ -598,7 +598,7 @@ export function SendIdleForm({
   const activePendingPercent =
     calculatingPercent ?? (isCalculatingMax ? pendingPercent : null);
   const isMaxCalculating = Boolean(
-    isCalculatingMax && activePendingPercent === 100
+    isCalculatingMax && activePendingPercent === 100,
   );
 
   const destinationBalanceLabel =

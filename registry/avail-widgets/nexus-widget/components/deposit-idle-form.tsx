@@ -591,8 +591,10 @@ export function DepositIdleForm({
     onAmountChange(
       sanitizeAmountInput(
         e.target.value,
-        isUsdMode ? MAX_AMOUNT_DISPLAY_DECIMALS : getTokenInputDecimals(toToken)
-      )
+        isUsdMode
+          ? MAX_AMOUNT_DISPLAY_DECIMALS
+          : getTokenInputDecimals(toToken),
+      ),
     );
   };
   const isUsdMode = amountMode === "usd";
@@ -606,7 +608,7 @@ export function DepositIdleForm({
   const activePendingPercent =
     calculatingPercent ?? (isCalculatingMax ? pendingPercent : null);
   const isMaxCalculating = Boolean(
-    isCalculatingMax && activePendingPercent === 100
+    isCalculatingMax && activePendingPercent === 100,
   );
   const destinationBalanceLabel = isUsdMode
     ? formatUsdBalanceLabel(toToken?.balanceInFiat)

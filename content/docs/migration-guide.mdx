@@ -13,14 +13,14 @@ Avail Widgets simplifies the architecture by consolidating all standalone cross-
 
 ### Component Replacements
 
-| Legacy Component | Status     | Nexus Widget Configuration                                                |
+| Legacy Component | Status     | Nexus Widget Configuration                                             |
 | ---------------- | ---------- | ---------------------------------------------------------------------- |
-| `SwapWidget`     | ❌ Removed | `NexusWidget` with `config.mode = "swap"`                                 |
-| `FastBridge`     | ❌ Removed | `NexusWidget` with `config.mode = "swap"`                                 |
-| `FastTransfer`   | ❌ Removed | `NexusWidget` with `config.mode = "send"`                                 |
-| `NexusDeposit`   | ❌ Removed | `NexusWidget` with `config.mode = "deposit"`                              |
-| `BridgeDeposit`  | ❌ Removed | `NexusWidget` with `config.mode = "deposit"`                              |
-| `UnifiedBalance` | ❌ Removed | _Removed._ Replaced by the inline balance views inside Nexus Widget       |
+| `SwapWidget`     | ❌ Removed | `NexusWidget` with `config.mode = "swap"`                              |
+| `FastBridge`     | ❌ Removed | `NexusWidget` with `config.mode = "swap"`                              |
+| `FastTransfer`   | ❌ Removed | `NexusWidget` with `config.mode = "send"`                              |
+| `NexusDeposit`   | ❌ Removed | `NexusWidget` with `config.mode = "deposit"`                           |
+| `BridgeDeposit`  | ❌ Removed | `NexusWidget` with `config.mode = "deposit"`                           |
+| `UnifiedBalance` | ❌ Removed | _Removed._ Replaced by the inline balance views inside Nexus Widget    |
 | `ViewHistory`    | ❌ Removed | _Removed._ For programmatic intent history, query `sdk.getMyIntents()` |
 
 ---
@@ -198,10 +198,10 @@ If you or your team previously customized the source code of the legacy componen
 <Callout type="warning">
   **Modifications May Be Overwritten!** Running the CLI command `npx
   shadcn@latest add @avail-widgets/nexus` installs new files under
-  `components/nexus/`. Any custom modifications made
-  to `components/avail-widgets/common/` will **not** be automatically
-  transferred to the new component. If you delete the legacy folders, those
-  local modifications will be lost.
+  `components/nexus/`. Any custom modifications made to
+  `components/avail-widgets/common/` will **not** be automatically transferred
+  to the new component. If you delete the legacy folders, those local
+  modifications will be lost.
 </Callout>
 
 ### Recommended Migration Workflow for Custom Logic

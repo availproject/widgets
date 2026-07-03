@@ -304,20 +304,64 @@ export function PayWithSources({
                 }}
               >
                 <div
+                  key={`${token.contractAddress}-${token.chainId ?? "unified"}-${index}`}
                   style={{
                     alignItems: "center",
+                    borderTop: index === 0 ? "none" : "1px solid #F0F0EF",
                     display: "flex",
                     gap: "14px",
                     minWidth: 0,
                   }}
                 >
-                  <SourceLogoPair token={token} />
+                  <div
+                    style={{
+                      alignItems: "center",
+                      display: "flex",
+                      gap: "10px",
+                      minWidth: 0,
+                    }}
+                  >
+                    <SourceLogoPair token={token} />
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "3px",
+                        minWidth: 0,
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: primary,
+                          fontFamily: uiFont,
+                          fontSize: "14px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {token.symbol}
+                      </span>
+                      <span
+                        style={{
+                          color: muted,
+                          fontFamily: uiFont,
+                          fontSize: "12px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {token.isUnified
+                          ? "Unified balance"
+                          : `on ${token.chainName || "Unknown chain"}`}
+                      </span>
+                    </div>
+                  </div>
                   <div
                     style={{
                       display: "flex",
                       flexDirection: "column",
                       gap: "3px",
-                      minWidth: 0,
+                      textAlign: "right",
                     }}
                   >
                     <span
@@ -329,6 +373,7 @@ export function PayWithSources({
                         lineHeight: "24px",
                       }}
                     >
+                      {formatToken(token.userAmount || token.balance)}{" "}
                       {token.symbol}
                     </span>
                     <span
@@ -342,9 +387,7 @@ export function PayWithSources({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {token.isUnified
-                        ? "Unified balance"
-                        : `on ${token.chainName || "Unknown chain"}`}
+                      {formatUsd(token.userAmountUsd || token.balanceInFiat)}
                     </span>
                   </div>
                 </div>

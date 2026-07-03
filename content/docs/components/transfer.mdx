@@ -17,6 +17,30 @@ links:
 
 <span className="block mt-6" />
 
+Nexus Elements ships with agent skills that help you set up providers, integrate components, and ship faster.
+
+Install the skill pack once in your environment:
+
+```bash
+npx skills add availproject/nexus-elements
+```
+
+<span className="block mt-6" />
+
+For more information, view [skills.sh/availproject/nexus-elements](https://skills.sh/availproject/nexus-elements).
+
+<span className="block mt-6" />
+
+Recommended skills for this component:
+
+- `nexus-elements-overview`
+- `nexus-elements-nexus-provider`
+- `nexus-one-send`
+
+## Build with Agent Skills
+
+<span className="block mt-6" />
+
 Avail Widgets ships with agent skills that help you set up providers, integrate components, and ship faster.
 
 Install the skill pack once in your environment:
@@ -83,20 +107,20 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
 
 Send uses only `mode: "send"`. This mode is exact-out: users enter the token amount to send, pay-with sources are selected, and the flow submits through the v2 transfer execution path.
 
-| Prop | Required | Description |
-| --- | --- | --- |
-| `config.mode` | Yes | Must be `"send"`. |
-| `config.destination.chain` | Optional | Restricts the destination chain when supplied. If omitted, users can change chains. |
-| `config.destination.tokens` | Optional | Restricts destination tokens when supplied with `destination.chain`. Each token needs `address`, `symbol`, and `decimals`. |
-| `config.recipientAddress` | Optional | Prefills and locks the recipient address. A recipient is required before users can submit. |
-| `config.prefill.amount` | Optional | Prefills the exact output send amount. Must be greater than `0`. |
-| `config.prefill.token` | Optional | Sets the initial destination token without restricting later choices. Ignored when `config.destination.tokens` is supplied. |
-| `config.validation.minAmount` | Optional | Minimum amount. Must be `0` or greater. |
-| `config.validation.maxAmount` | Optional | Maximum amount. Must be greater than `0`. |
-| `config.appearance` | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`. |
-| `connectedAddress` | Optional | Wallet address to use. If omitted, the connected wagmi account is used. |
-| `embed` | Optional | Defaults to `true`. Set `false` to render as a modal surface. |
-| `onStart`, `onComplete`, `onError`, `onClose` | Optional | Lifecycle callbacks for host apps. |
+| Prop                                          | Required | Description                                                                                                                 |
+| --------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `config.mode`                                 | Yes      | Must be `"send"`.                                                                                                           |
+| `config.destination.chain`                    | Optional | Restricts the destination chain when supplied. If omitted, users can change chains.                                         |
+| `config.destination.tokens`                   | Optional | Restricts destination tokens when supplied with `destination.chain`. Each token needs `address`, `symbol`, and `decimals`.  |
+| `config.recipientAddress`                     | Optional | Prefills and locks the recipient address. A recipient is required before users can submit.                                  |
+| `config.prefill.amount`                       | Optional | Prefills the exact output send amount. Must be greater than `0`.                                                            |
+| `config.prefill.token`                        | Optional | Sets the initial destination token without restricting later choices. Ignored when `config.destination.tokens` is supplied. |
+| `config.validation.minAmount`                 | Optional | Minimum amount. Must be `0` or greater.                                                                                     |
+| `config.validation.maxAmount`                 | Optional | Maximum amount. Must be greater than `0`.                                                                                   |
+| `config.appearance`                           | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`.                                                    |
+| `connectedAddress`                            | Optional | Wallet address to use. If omitted, the connected wagmi account is used.                                                     |
+| `embed`                                       | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                                               |
+| `onStart`, `onComplete`, `onError`, `onClose` | Optional | Lifecycle callbacks for host apps.                                                                                          |
 
 <CodeCollapsibleWrapper className="mt-4">
 

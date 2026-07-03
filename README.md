@@ -249,34 +249,34 @@ export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
 
 ## Configuration
 
-| Prop                                  | Type                             | Required | Notes                                                                                            |
-| ------------------------------------- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `config`                              | `object`                         | Yes      | Selects the workflow and any mode-specific behavior.                                             |
-| `connectedAddress`                    | `` `0x${string}` ``              |          | Wallet address. Falls back to connected wagmi account.                                           |
-| `embed`                               | `boolean`                        |          | Defaults to `true`. Set `false` for modal rendering.                                             |
-| `open`, `onOpenChange`, `defaultOpen` | modal controls                   |          | Control modal rendering when `embed={false}`.                                                    |
-| `onComplete`                          | `(explorerUrl?: string) => void` |          | Called on success.                                                                               |
-| `onStart`                             | `() => void`                     |          | Called when execution begins.                                                                    |
-| `onError`                             | `(message: string) => void`      |          | Called on failure.                                                                               |
-| `onClose`                             | `() => void`                     |          | Close button handler (modal mode only).                                                          |
+| Prop                                  | Type                             | Required | Notes                                                                                                  |
+| ------------------------------------- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `config`                              | `object`                         | Yes      | Selects the workflow and any mode-specific behavior.                                                   |
+| `connectedAddress`                    | `` `0x${string}` ``              |          | Wallet address. Falls back to connected wagmi account.                                                 |
+| `embed`                               | `boolean`                        |          | Defaults to `true`. Set `false` for modal rendering.                                                   |
+| `open`, `onOpenChange`, `defaultOpen` | modal controls                   |          | Control modal rendering when `embed={false}`.                                                          |
+| `onComplete`                          | `(explorerUrl?: string) => void` |          | Called on success.                                                                                     |
+| `onStart`                             | `() => void`                     |          | Called when execution begins.                                                                          |
+| `onError`                             | `(message: string) => void`      |          | Called on failure.                                                                                     |
+| `onClose`                             | `() => void`                     |          | Close button handler (modal mode only).                                                                |
 | `onConnectClick`                      | `() => void \| Promise<void>`    |          | Called when the internal Connect Wallet CTA is clicked. Use this to open your app/header wallet modal. |
-| `onConnectWallet`                     | `() => void \| Promise<void>`    |          | Called when the internal Connect Wallet CTA is clicked. Wire this to your app-level wallet flow. |
+| `onConnectWallet`                     | `() => void \| Promise<void>`    |          | Called when the internal Connect Wallet CTA is clicked. Wire this to your app-level wallet flow.       |
 
 ### Config Options
 
-| Field | Modes | Notes |
-| --- | --- | --- |
-| `mode` | all | Required. `"swap"`, `"send"`, or `"deposit"`. |
-| `destination.chain` | all | Required for deposit. Optional for send/swap; when supplied, destination chain selection is restricted. |
-| `destination.tokens` | all | Required for deposit with at least one token. Optional for send/swap; when supplied with `destination.chain`, destination token selection is restricted. |
-| `recipientAddress` | send/swap | Prefills the recipient. In send mode, a supplied recipient is locked. |
-| `depositAddress` | deposit | Required smart contract address for the deposit target. |
-| `executeDeposit` | deposit | Required transaction builder: `(tokenSymbol, tokenAddress, amount, chainId, user) => { to, data?, value?, gas?, tokenApproval? }`. |
-| `prefill.amount` | deposit/send | Optional amount prefill. Must be greater than `0`. |
-| `prefill.token` | send/swap | Optional initial destination/receive token: `{ chain, address, symbol, decimals, logo? }`. Ignored when `destination.tokens` is supplied. |
-| `validation.minAmount` | deposit/send | Optional minimum amount. Must be `0` or greater. |
-| `validation.maxAmount` | deposit/send | Optional maximum amount. Must be greater than `0`. |
-| `appearance` | all | Optional app display config: `heading`, `appName`, `appLogoURL`, `mode`, `primaryColor`. |
+| Field                  | Modes        | Notes                                                                                                                                                    |
+| ---------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`                 | all          | Required. `"swap"`, `"send"`, or `"deposit"`.                                                                                                            |
+| `destination.chain`    | all          | Required for deposit. Optional for send/swap; when supplied, destination chain selection is restricted.                                                  |
+| `destination.tokens`   | all          | Required for deposit with at least one token. Optional for send/swap; when supplied with `destination.chain`, destination token selection is restricted. |
+| `recipientAddress`     | send/swap    | Prefills the recipient. In send mode, a supplied recipient is locked.                                                                                    |
+| `depositAddress`       | deposit      | Required smart contract address for the deposit target.                                                                                                  |
+| `executeDeposit`       | deposit      | Required transaction builder: `(tokenSymbol, tokenAddress, amount, chainId, user) => { to, data?, value?, gas?, tokenApproval? }`.                       |
+| `prefill.amount`       | deposit/send | Optional amount prefill. Must be greater than `0`.                                                                                                       |
+| `prefill.token`        | send/swap    | Optional initial destination/receive token: `{ chain, address, symbol, decimals, logo? }`. Ignored when `destination.tokens` is supplied.                |
+| `validation.minAmount` | deposit/send | Optional minimum amount. Must be `0` or greater.                                                                                                         |
+| `validation.maxAmount` | deposit/send | Optional maximum amount. Must be greater than `0`.                                                                                                       |
+| `appearance`           | all          | Optional app display config: `heading`, `appName`, `appLogoURL`, `mode`, `primaryColor`.                                                                 |
 
 Use `destination.tokens` when you want to restrict selectable destination tokens. Use `prefill.token` when you only want an initial token selected and still want users to choose from the full supported list. If both are supplied, `destination.tokens[0]` is honored and `prefill.token` is ignored.
 

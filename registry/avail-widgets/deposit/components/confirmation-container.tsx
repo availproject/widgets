@@ -15,6 +15,7 @@ import { useNexus } from "../../nexus/NexusProvider";
 import { BadgePercent, ShieldCheck } from "lucide-react";
 import { formatFeeUsd, formatImpactPercent, formatSignedUsd } from "../utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
+import { TOKEN_IMAGES } from "../constants/assets";
 
 interface ConfirmationContainerProps {
   widget: DepositWidgetContextValue;
@@ -120,7 +121,12 @@ const ConfirmationContainer = ({
               amount={receiveAmount}
               timeLabel={timeLabel}
               loading={isLoading}
-              destinationTokenLogo={widget?.destination?.tokenLogo}
+              destinationTokenLogo={
+                widget?.destination?.tokenLogo ||
+                (widget?.destination?.tokenSymbol
+                  ? TOKEN_IMAGES[widget.destination.tokenSymbol]
+                  : undefined)
+              }
               depositTargetLogo={widget?.destination?.depositTargetLogo}
             />
             <div className="max-h-100 overflow-y-auto no-scrollbar">

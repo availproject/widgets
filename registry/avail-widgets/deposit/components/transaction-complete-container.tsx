@@ -71,8 +71,10 @@ const TransactionCompleteContainer = ({
               amount={receiveAmountUsd}
               timeLabel={completionTime}
               destinationTokenLogo={
+                widget.destination.tokenLogo ||
                 TOKEN_IMAGES[widget.destination.tokenSymbol]
               }
+              depositTargetLogo={widget.destination?.depositTargetLogo}
             />
             <span className="font-sans text-sm w-full text-center leading-4.5 text-muted-foreground">
               Transaction successful

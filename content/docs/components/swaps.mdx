@@ -52,11 +52,7 @@ import { NexusWidget } from "@/components/nexus/nexus";
 
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 
-export function SwapAndBridgeExample({
-  address,
-}: {
-  address?: `0x${string}`;
-}) {
+export function SwapAndBridgeExample({ address }: { address?: `0x${string}` }) {
   return (
     <NexusWidget
       connectedAddress={address}
@@ -82,17 +78,17 @@ export function SwapAndBridgeExample({
 
 Swap and Bridge uses only `mode: "swap"`. This mode is exact-in: users enter the source amount, the quote determines the receive amount, and the flow submits through `swapWithExactIn`.
 
-| Prop | Required | Description |
-| --- | --- | --- |
-| `config.mode` | Yes | Must be `"swap"`. |
-| `config.destination.chain` | Optional | Restricts the receive chain when supplied. |
-| `config.destination.tokens` | Optional | Restricts receive tokens when supplied with `destination.chain`. Each token needs `address`, `symbol`, and `decimals`. |
-| `config.prefill.token` | Optional | Sets the initial receive token without restricting later choices. Ignored when `config.destination.tokens` is supplied. |
-| `config.recipientAddress` | Optional | Prefills the recipient address for custom-recipient swaps. |
-| `config.appearance` | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`. |
-| `connectedAddress` | Optional | Wallet address to use. If omitted, the connected wagmi account is used. |
-| `embed` | Optional | Defaults to `true`. Set `false` to render as a modal surface. |
-| `onStart`, `onComplete`, `onError`, `onClose` | Optional | Lifecycle callbacks for host apps. |
+| Prop                                          | Required | Description                                                                                                             |
+| --------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `config.mode`                                 | Yes      | Must be `"swap"`.                                                                                                       |
+| `config.destination.chain`                    | Optional | Restricts the receive chain when supplied.                                                                              |
+| `config.destination.tokens`                   | Optional | Restricts receive tokens when supplied with `destination.chain`. Each token needs `address`, `symbol`, and `decimals`.  |
+| `config.prefill.token`                        | Optional | Sets the initial receive token without restricting later choices. Ignored when `config.destination.tokens` is supplied. |
+| `config.recipientAddress`                     | Optional | Prefills the recipient address for custom-recipient swaps.                                                              |
+| `config.appearance`                           | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`.                                                |
+| `connectedAddress`                            | Optional | Wallet address to use. If omitted, the connected wagmi account is used.                                                 |
+| `embed`                                       | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                                           |
+| `onStart`, `onComplete`, `onError`, `onClose` | Optional | Lifecycle callbacks for host apps.                                                                                      |
 
 Swap supports `prefill.token` only. It does not support `prefill.amount` or validation yet.
 

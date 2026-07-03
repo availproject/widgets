@@ -302,7 +302,7 @@ function AmountCard({
         </div>
       </div>
 
-      {/* USD Equivalent - animated height reveal */}
+      {/* Token equivalent - animated height reveal */}
       <div
         className={`grid transition-all duration-300 ease-out ${
           numericAmount > 0
@@ -322,7 +322,22 @@ function AmountCard({
                     isShining ? "animate-glare-shine" : ""
                   }`}
                 >
-                  ~ {usdFormatter.format(numericAmount)}
+                  {(() => {
+                    const rate = getFiatValue(1, destinationConfig.tokenSymbol);
+                    if (rate > 0 && numericAmount > 0) {
+                      const tokenAmount = numericAmount / rate;
+                      const formatted =
+                        tokenAmount < 0.000001
+                          ? tokenAmount.toExponential(2)
+                          : tokenAmount < 1
+                            ? tokenAmount.toPrecision(4)
+                            : tokenAmount.toLocaleString(undefined, {
+                                maximumFractionDigits: 6,
+                              });
+                      return `≈ ${formatted} ${destinationConfig.tokenSymbol}`;
+                    }
+                    return `~ ${usdFormatter.format(numericAmount)}`;
+                  })()}
                 </span>
                 <UpDownArrows className="w-4 h-4" />
               </>

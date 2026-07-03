@@ -178,7 +178,7 @@ function UnifiedTokenLogoBadge({
     new Set(
       sources
         .map((source) => source.chainId ?? source.chainName)
-        .filter(Boolean)
+        .filter(Boolean),
     ).size || sources.length;
 
   const showPopover = () => {
@@ -189,7 +189,7 @@ function UnifiedTokenLogoBadge({
     const viewportPadding = 8;
     const left = Math.min(
       Math.max(viewportPadding, rect.right - width),
-      window.innerWidth - width - viewportPadding
+      window.innerWidth - width - viewportPadding,
     );
     const belowTop = rect.bottom + 8;
     const top =
@@ -363,7 +363,7 @@ function UnifiedTokenLogoBadge({
               ))}
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );
@@ -382,7 +382,7 @@ function PercentHoverButton({
   const [active, setActive] = useState(false);
   const handledPointerDownRef = useRef(false);
   const pointerResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
+    null,
   );
 
   useEffect(() => {
@@ -640,17 +640,42 @@ export function SwapIdleForm({
   isSourcePickerDisabled = false,
 }: SwapIdleFormProps) {
   const [focusedPanel, setFocusedPanel] = useState<"send" | "receive" | null>(
-    null
+    null,
   );
   const [focusedRow, setFocusedRow] = useState<number | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
   const [tooltipTriggerRect, setTooltipTriggerRect] = useState<DOMRect | null>(
-    null
+    null,
   );
   const sourceListRef = useRef<HTMLDivElement | null>(null);
   const sourceRowRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const sourceInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const previousSourceCountRef = useRef(fromTokens.length);
+  const prevTokensRef = useRef<SwapTokenOption[]>(fromTokens);
+  const [autofocusIndex, setAutofocusIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const prev = prevTokensRef.current;
+    if (fromTokens.length > prev.length) {
+      setAutofocusIndex(fromTokens.length - 1);
+    } else if (fromTokens.length === prev.length) {
+      for (let i = 0; i < fromTokens.length; i++) {
+        const p = prev[i];
+        const c = fromTokens[i];
+        if (
+          p &&
+          c &&
+          (p.contractAddress !== c.contractAddress ||
+            p.chainId !== c.chainId) &&
+          !c.userAmount
+        ) {
+          setAutofocusIndex(i);
+          break;
+        }
+      }
+    }
+    prevTokensRef.current = fromTokens;
+  }, [fromTokens]);
 
   useEffect(() => {
     const previousSourceCount = previousSourceCountRef.current;
@@ -724,7 +749,7 @@ export function SwapIdleForm({
     const token = fromTokens.length === 1 ? fromTokens[0] : undefined;
     onAmountChange(
       sanitizeInput(e.target.value, getTokenInputDecimals(token)),
-      "send"
+      "send",
     );
   };
 
@@ -738,7 +763,7 @@ export function SwapIdleForm({
       val,
       token.userAmountMode === "usd"
         ? MAX_AMOUNT_DISPLAY_DECIMALS
-        : getTokenInputDecimals(token)
+        : getTokenInputDecimals(token),
     );
 
     const next = [...fromTokens];
@@ -868,7 +893,7 @@ export function SwapIdleForm({
   }`;
   const isDefaultRecipient = sameAddress(
     recipientAddress,
-    defaultRecipientAddress
+    defaultRecipientAddress,
   );
   const recipientColor = recipientAddress
     ? isDefaultRecipient
@@ -881,7 +906,7 @@ export function SwapIdleForm({
   const handleSendPercentForToken = (
     index: number,
     pct: number,
-    token: SwapTokenOption
+    token: SwapTokenOption,
   ) => {
     if (isAmountReadOnly) return;
     if (!token.balance || !onUpdateTokens) return;
@@ -1187,7 +1212,7 @@ export function SwapIdleForm({
                               ? focusedRow === index
                                 ? token.userAmount || ""
                                 : formatAmountInputDisplay(
-                                    token.userAmount || ""
+                                    token.userAmount || "",
                                   )
                               : isExactIn
                                 ? focusedRow === index
@@ -1326,7 +1351,7 @@ export function SwapIdleForm({
                           const total = getTokenAmountTotal(next);
                           onAmountChange(
                             total > 0 ? String(total) : "",
-                            "send"
+                            "send",
                           );
                         }}
                         style={{
@@ -1401,11 +1426,11 @@ export function SwapIdleForm({
                           );
                         const tokenBalance =
                           Number(
-                            String(token.balance).replace(/[^0-9.]/g, "")
+                            String(token.balance).replace(/[^0-9.]/g, ""),
                           ) || 0;
                         const fiatBalance =
                           Number(
-                            String(token.balanceInFiat).replace(/[^0-9.]/g, "")
+                            String(token.balanceInFiat).replace(/[^0-9.]/g, ""),
                           ) || 0;
                         const price =
                           tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
@@ -1499,7 +1524,7 @@ export function SwapIdleForm({
                         onMouseEnter={(e) => {
                           setTooltip(`asset-send-${index}`);
                           setTooltipTriggerRect(
-                            e.currentTarget.getBoundingClientRect()
+                            e.currentTarget.getBoundingClientRect(),
                           );
                         }}
                         onMouseLeave={() => {
@@ -1598,7 +1623,7 @@ export function SwapIdleForm({
                                 chain.
                               </div>
                             </div>,
-                            document.body
+                            document.body,
                           )}
                       </div>
                     ) : null}
@@ -1653,8 +1678,7 @@ export function SwapIdleForm({
           <div
             style={{
               alignSelf: "stretch",
-              color:
-                sourceRouteStatus === "insufficient" ? "#D32F2F" : brand,
+              color: sourceRouteStatus === "insufficient" ? "#D32F2F" : brand,
               fontFamily: '"Geist", system-ui, sans-serif',
               fontSize: "13px",
               fontWeight: 500,

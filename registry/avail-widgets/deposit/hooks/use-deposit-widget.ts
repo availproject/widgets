@@ -30,6 +30,7 @@ import {
   MIN_SELECTABLE_SOURCE_BALANCE_USD,
   SIMULATION_POLL_INTERVAL_MS,
 } from "../constants/widget";
+import { TokenPricingError } from "../../common/utils/token-pricing";
 
 // Import extracted hooks
 import {
@@ -231,10 +232,14 @@ export function useDepositWidget(
         ...inputs,
         sources: fromSources,
       };
+      let transactionSucceeded = false;
       nexusSDK
         .swapAndExecute(inputsWithSources, {
           onEvent: (event) => {
-            if (event.type === "plan_preview" || event.type === "plan_confirmed") {
+            if (
+              event.type === "plan_preview" ||
+              event.type === "plan_confirmed"
+            ) {
               const list = event.plan.steps.map((step) => ({
                 ...step,
                 type: step.type.toUpperCase(),
@@ -272,8 +277,10 @@ export function useDepositWidget(
                     payload: {
                       chainId: (event as any).step.chainId,
                       chainName:
-                        CHAIN_METADATA[(event as any).step.chainId as keyof typeof CHAIN_METADATA]?.name ??
-                        `Chain ${(event as any).step.chainId}`,
+                        CHAIN_METADATA[
+                          (event as any).step
+                            .chainId as keyof typeof CHAIN_METADATA
+                        ]?.name ?? `Chain ${(event as any).step.chainId}`,
                       explorerUrl: (event as any).explorerUrl,
                     },
                   });
@@ -288,15 +295,19 @@ export function useDepositWidget(
             }
           },
           onIntent: (data) => {
-            const swapIntentData = data.intent.swapRequired ? {
-              allow: data.allow,
-              deny: data.deny,
-              intent: data.intent.swap,
-              refresh: async (sources?: any) => {
-                const refreshed = await data.refresh(sources);
-                return refreshed.swapRequired ? refreshed.swap : refreshed as any;
-              }
-            } : null;
+            const swapIntentData = data.intent.swapRequired
+              ? {
+                  allow: data.allow,
+                  deny: data.deny,
+                  intent: data.intent.swap,
+                  refresh: async (sources?: any) => {
+                    const refreshed = await data.refresh(sources);
+                    return refreshed.swapRequired
+                      ? refreshed.swap
+                      : (refreshed as any);
+                  },
+                }
+              : null;
             swapIntent.current = swapIntentData as any;
             dispatch({ type: "setIntentReady", payload: true });
           },
@@ -328,7 +339,7 @@ export function useDepositWidget(
             const firstSourceSwap = sourceSwapsFromResult[0];
             const chainMeta =
               CHAIN_METADATA[
-              firstSourceSwap.chainId as keyof typeof CHAIN_METADATA
+                firstSourceSwap.chainId as keyof typeof CHAIN_METADATA
               ];
             const baseUrl = chainMeta?.blockExplorerUrls?.[0] ?? "";
             const sourceExplorerUrl = baseUrl
@@ -388,12 +399,14 @@ export function useDepositWidget(
           });
           onSuccess?.();
           dispatch({ type: "setStatus", payload: "success" });
+          transactionSucceeded = true;
           dispatch({
             type: "setStep",
             payload: { step: "transaction-complete", direction: "forward" },
           });
         })
         .catch((error) => {
+          console.log("ERROR IN SWAP AND EXECUTE", error);
           const { code, message } = handleNexusError(error);
           const isUserRejectedError =
             code === ERROR_CODES.USER_INTENT_HOOK_DENIED ||
@@ -473,19 +486,18 @@ export function useDepositWidget(
         dispatch({ type: "setStatus", payload: "error" });
         return false;
       }
-      const destinationRate = await resolveTokenUsdRate(
-        destination.tokenSymbol,
-      );
-      if (
-        !destinationRate ||
-        !Number.isFinite(destinationRate) ||
-        destinationRate <= 0
-      ) {
-        dispatch({
-          type: "setError",
-          payload: `Unable to fetch pricing for ${destination.tokenSymbol}. Please try again.`,
-        });
+      let destinationRate: number;
+      try {
+        destinationRate =
+          (await resolveTokenUsdRate(destination.tokenSymbol)) || 0;
+      } catch (error) {
+        const message =
+          error instanceof TokenPricingError
+            ? error.message
+            : "Price failure: Cannot value this token at the moment";
+        dispatch({ type: "setError", payload: message });
         dispatch({ type: "setStatus", payload: "error" });
+        onError?.(message);
         return false;
       }
 
@@ -496,7 +508,8 @@ export function useDepositWidget(
       determiningSwapComplete.current = false;
       denyActiveSwapIntent();
 
-      const tokenAmount = totalAmountUsd / destinationRate;
+      const tokenAmount =
+        destinationRate > 0 ? totalAmountUsd / destinationRate : totalAmountUsd;
       const tokenAmountStr = tokenAmount.toFixed(destination.tokenDecimals);
       const parsed = parseUnits(tokenAmountStr, destination.tokenDecimals);
 
@@ -549,6 +562,7 @@ export function useDepositWidget(
       start,
       denyActiveSwapIntent,
       dispatch,
+      onError,
     ],
   );
 
@@ -731,9 +745,9 @@ export function useDepositWidget(
   // Polling for simulation refresh
   usePolling(
     pollingEnabled &&
-    state.status === "previewing" &&
-    Boolean(swapIntent.current) &&
-    !state.simulationLoading,
+      state.status === "previewing" &&
+      Boolean(swapIntent.current) &&
+      !state.simulationLoading,
     async () => {
       await refreshSimulation();
     },

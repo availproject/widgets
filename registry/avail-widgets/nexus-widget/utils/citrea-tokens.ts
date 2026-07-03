@@ -114,7 +114,7 @@ export const getCitreaChainMeta = () => ({
   logo: CHAIN_METADATA[CITREA_CHAIN_ID]?.logo ?? CITREA_CHAIN_FALLBACK.logo,
   name: getShortChainName(
     CITREA_CHAIN_ID,
-    CHAIN_METADATA[CITREA_CHAIN_ID]?.name ?? CITREA_CHAIN_FALLBACK.name
+    CHAIN_METADATA[CITREA_CHAIN_ID]?.name ?? CITREA_CHAIN_FALLBACK.name,
   ),
 });
 

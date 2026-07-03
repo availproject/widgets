@@ -9,7 +9,10 @@ import type { SwapStepType } from "../../common/types/transaction-flow";
 import { CHAIN_METADATA, getShortChainName } from "../../common/utils/constant";
 import TransactionProgress from "../../swaps/components/transaction-progress";
 import { Button } from "../../ui/button";
-import { type NexusWidgetDepositOpportunityMetadata, type NexusWidgetMode } from "../types";
+import {
+  type NexusWidgetDepositOpportunityMetadata,
+  type NexusWidgetMode,
+} from "../types";
 import { type SwapTokenOption } from "./swap-asset-selector";
 
 export interface SwapIntentSource {
@@ -113,7 +116,7 @@ const toDecimal = (value: unknown) => parseDecimal(value) ?? new Decimal(0);
 
 const formatAmount = (
   value: unknown,
-  options: { min?: number; max?: number } = {}
+  options: { min?: number; max?: number } = {},
 ) => {
   const amount = toDecimal(value);
   const max = options.max ?? 2;
@@ -181,7 +184,7 @@ const normalizeIntentToken = <
   T extends { contractAddress?: string; decimals?: number; symbol?: string },
 >(
   token: T | undefined,
-  chainId?: number
+  chainId?: number,
 ) => {
   const chainMeta = chainId ? CHAIN_METADATA[chainId] : undefined;
   const shouldUseNative =
@@ -217,7 +220,7 @@ const formatSymbolSummary = (symbols: string[]) => {
 const sortSourceDetailRowsByUsdDesc = <
   T extends { symbol?: string; usdAmount?: string },
 >(
-  rows: T[]
+  rows: T[],
 ) =>
   [...rows].sort((a, b) => {
     const usdDelta = toDecimal(b.usdAmount).cmp(toDecimal(a.usdAmount));
@@ -721,7 +724,7 @@ export function SwapIntentPreview({
           ...intentDest.gas,
           token: normalizeIntentToken(
             intentDest.gas?.token,
-            intentDest.chain.id
+            intentDest.chain.id,
           ),
         },
       }
@@ -743,7 +746,7 @@ export function SwapIntentPreview({
     baseSourceSymbols.length;
   const hasResolvedQuote = Boolean(
     normalizedIntentDest &&
-      (normalizedIntentSources.length > 0 || isExactOutDisplayFlow)
+    (normalizedIntentSources.length > 0 || isExactOutDisplayFlow),
   );
   const quoteUnavailable = !isLoading && !hasResolvedQuote;
 
@@ -757,7 +760,7 @@ export function SwapIntentPreview({
       ? opportunity?.title || opportunity?.protocol || "App"
       : getShortChainName(
           normalizedIntentDest?.chain.id ?? toToken?.chainId,
-          normalizedIntentDest?.chain.name || toToken?.chainName || ""
+          normalizedIntentDest?.chain.name || toToken?.chainName || "",
         );
 
   const requestedDestinationAmount = isExactOutDisplayFlow
@@ -784,11 +787,11 @@ export function SwapIntentPreview({
         : new Decimal(0);
     const destinationBalanceAmountNeeded = Decimal.max(
       requestedDestinationAmount.minus(externallyProducedAmount),
-      0
+      0,
     );
     const coveredAmount = Decimal.min(
       destinationBalanceAmountNeeded,
-      destinationBalanceAmount
+      destinationBalanceAmount,
     );
     return coveredAmount.gt(0) ? coveredAmount : undefined;
   })();
@@ -804,7 +807,7 @@ export function SwapIntentPreview({
           quotedDestinationAmount.gt(0) &&
           normalizedIntentDest?.value
         ? (parseDecimal(normalizedIntentDest.value) ?? new Decimal(0)).div(
-            quotedDestinationAmount
+            quotedDestinationAmount,
           )
         : undefined;
   const displayOnlyDestinationCoverageUsd =
@@ -823,21 +826,21 @@ export function SwapIntentPreview({
       : undefined;
 
   const intentSourceUsdValues = normalizedIntentSources.map((source) =>
-    parseDecimal(source.value)
+    parseDecimal(source.value),
   );
   const intentSourceUsdNumber =
     normalizedIntentSources.length > 0
       ? intentSourceUsdValues.every((value) => value !== undefined)
         ? intentSourceUsdValues.reduce(
             (sum, value) => sum.plus(value ?? 0),
-            new Decimal(0)
+            new Decimal(0),
           )
         : parseDecimal(fromAmountUsd)
       : parseDecimal(fromAmountUsd);
   const effectiveSourceUsdNumber =
     displayOnlyDestinationCoverageUsd !== undefined
       ? (intentSourceUsdNumber ?? new Decimal(0)).plus(
-          displayOnlyDestinationCoverageUsd
+          displayOnlyDestinationCoverageUsd,
         )
       : intentSourceUsdNumber;
 
@@ -865,7 +868,7 @@ export function SwapIntentPreview({
     parseDecimal(bridgeFeeData?.caGas) ??
     (collectionFeeNumber !== undefined || fulfilmentFeeNumber !== undefined
       ? (collectionFeeNumber ?? new Decimal(0)).plus(
-          fulfilmentFeeNumber ?? new Decimal(0)
+          fulfilmentFeeNumber ?? new Decimal(0),
         )
       : undefined);
   const protocolFeeNumber = parseDecimal(bridgeFeeData?.protocol);
@@ -880,7 +883,7 @@ export function SwapIntentPreview({
         gasSuppliedNumber,
       ].reduce<Decimal>(
         (sum, value) => sum.plus(value ?? new Decimal(0)),
-        new Decimal(0)
+        new Decimal(0),
       )
     : undefined;
   const explicitFeeNumber =
@@ -912,14 +915,14 @@ export function SwapIntentPreview({
           requestedDestinationUsd.plus(
             Decimal.max(
               intentSourceUsdNumber.minus(quotedDestinationUsdNumber),
-              0
-            )
-          )
+              0,
+            ),
+          ),
         );
       }
 
       const knownOverhead = (feeNumber ?? new Decimal(0)).plus(
-        swapBufferNumber ?? new Decimal(0)
+        swapBufferNumber ?? new Decimal(0),
       );
       if (knownOverhead.gt(0)) {
         candidates.push(requestedDestinationUsd.plus(knownOverhead));
@@ -928,7 +931,7 @@ export function SwapIntentPreview({
 
     return candidates.reduce<Decimal | undefined>(
       (max, value) => (!max || value.gt(max) ? value : max),
-      undefined
+      undefined,
     );
   })();
   const quoteImpactUsd =
@@ -938,7 +941,7 @@ export function SwapIntentPreview({
             .minus(destinationUsdNumber)
             .minus(feeNumber)
             .minus(swapBufferNumber ?? new Decimal(0)),
-          0
+          0,
         )
       : undefined;
   const priceImpactUsd =
@@ -1021,21 +1024,21 @@ export function SwapIntentPreview({
   ].join("-");
   const hasDestinationSourceRow = Boolean(
     destinationSourceKey !== "-" &&
-      (normalizedIntentSources.length > 0
-        ? normalizedIntentSources.some((source) => {
-            const sourceKey = [
-              source.chain.id,
-              source.token.contractAddress.toLowerCase(),
-            ].join("-");
-            return sourceKey === destinationSourceKey;
-          })
-        : fallbackSources.some((source) => {
-            const sourceKey = [
-              source.chainId ?? "",
-              source.contractAddress.toLowerCase(),
-            ].join("-");
-            return sourceKey === destinationSourceKey;
-          }))
+    (normalizedIntentSources.length > 0
+      ? normalizedIntentSources.some((source) => {
+          const sourceKey = [
+            source.chain.id,
+            source.token.contractAddress.toLowerCase(),
+          ].join("-");
+          return sourceKey === destinationSourceKey;
+        })
+      : fallbackSources.some((source) => {
+          const sourceKey = [
+            source.chainId ?? "",
+            source.contractAddress.toLowerCase(),
+          ].join("-");
+          return sourceKey === destinationSourceKey;
+        })),
   );
   const swapBufferDisplay =
     swapBufferNumber !== undefined
@@ -1049,7 +1052,7 @@ export function SwapIntentPreview({
               token.chainId === source.chain.id &&
               (token.contractAddress?.toLowerCase() ===
                 source.token.contractAddress?.toLowerCase() ||
-                token.symbol === source.token.symbol)
+                token.symbol === source.token.symbol),
           );
 
           const sourceKey = [
@@ -1063,14 +1066,14 @@ export function SwapIntentPreview({
           const displaySourceAmount =
             isDestinationSource && displayOnlyDestinationSourceAmount
               ? (sourceAmountNumber ?? new Decimal(0)).plus(
-                  displayOnlyDestinationSourceAmount
+                  displayOnlyDestinationSourceAmount,
                 )
               : sourceAmountNumber;
           const sourceValueNumber = parseDecimal(source.value);
           const displaySourceUsd =
             isDestinationSource && displayOnlyDestinationSourceUsd
               ? (sourceValueNumber ?? new Decimal(0)).plus(
-                  displayOnlyDestinationSourceUsd
+                  displayOnlyDestinationSourceUsd,
                 )
               : sourceValueNumber;
           const tokenAmountValue =
@@ -1108,21 +1111,21 @@ export function SwapIntentPreview({
           const displaySourceAmount =
             isDestinationSource && displayOnlyDestinationSourceAmount
               ? (sourceAmountNumber ?? new Decimal(0)).plus(
-                  displayOnlyDestinationSourceAmount
+                  displayOnlyDestinationSourceAmount,
                 )
               : sourceAmountNumber;
           const sourceUsdNumber =
             source.balanceInFiat && source.balance
               ? toDecimal(source.userAmount || 0).mul(
                   toDecimal(source.balanceInFiat).div(
-                    Decimal.max(toDecimal(source.balance), 1)
-                  )
+                    Decimal.max(toDecimal(source.balance), 1),
+                  ),
                 )
               : undefined;
           const displaySourceUsd =
             isDestinationSource && displayOnlyDestinationSourceUsd
               ? (sourceUsdNumber ?? new Decimal(0)).plus(
-                  displayOnlyDestinationSourceUsd
+                  displayOnlyDestinationSourceUsd,
                 )
               : sourceUsdNumber;
           const tokenAmountValue =
@@ -1159,11 +1162,11 @@ export function SwapIntentPreview({
           symbol: destTokenSymbol,
           chainName: getShortChainName(
             normalizedIntentDest?.chain.id ?? toToken?.chainId,
-            normalizedIntentDest?.chain.name || toToken?.chainName || ""
+            normalizedIntentDest?.chain.name || toToken?.chainName || "",
           ),
           tokenAmount: `${formatTokenAmount(displayOnlyDestinationSourceAmount)} ${destTokenSymbol}`,
           tokenAmountValue: formatTokenAmount(
-            displayOnlyDestinationSourceAmount
+            displayOnlyDestinationSourceAmount,
           ),
           usdAmount:
             displayOnlyDestinationSourceUsd !== undefined
@@ -1175,7 +1178,7 @@ export function SwapIntentPreview({
   const sourceDetailRows = sortSourceDetailRowsByUsdDesc(
     displayOnlyDestinationSourceRow
       ? [...baseSourceDetailRows, displayOnlyDestinationSourceRow]
-      : baseSourceDetailRows
+      : baseSourceDetailRows,
   );
   const sourceSymbols = (() => {
     const symbols =
