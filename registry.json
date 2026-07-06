@@ -16,16 +16,19 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-accordion", "lucide-react"],
+      "dependencies": [
+        "@radix-ui/react-accordion",
+        "lucide-react"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
       "name": "all",
       "type": "registry:component",
       "title": "All Elements",
-      "description": "Install all Avail widgets. For new integrations, use @avail-widgets/nexus instead - it provides unified swap, send, and deposit in one component.",
+      "description": "Install all Avail widgets. For new integrations, use availproject/widgets/nexus instead - it provides unified swap, send, and deposit in one component.",
       "files": [
         {
           "path": "registry/avail-widgets/all/index.ts",
@@ -34,14 +37,14 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/bridge-deposit.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/deposit.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/fast-bridge.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/swaps.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/transfer.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/unified-balance.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
+        "availproject/widgets/bridge-deposit",
+        "availproject/widgets/deposit",
+        "availproject/widgets/fast-bridge",
+        "availproject/widgets/nexus-provider",
+        "availproject/widgets/swaps",
+        "availproject/widgets/transfer",
+        "availproject/widgets/unified-balance",
+        "availproject/widgets/view-history"
       ]
     },
     {
@@ -69,9 +72,12 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-slot", "class-variance-authority"],
+      "dependencies": [
+        "@radix-ui/react-slot",
+        "class-variance-authority"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -247,26 +253,26 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/collapsible.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/popover.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/accordion",
+        "availproject/widgets/button",
+        "availproject/widgets/card",
+        "availproject/widgets/checkbox",
+        "availproject/widgets/collapsible",
+        "availproject/widgets/dialog",
+        "availproject/widgets/input",
+        "availproject/widgets/label",
+        "availproject/widgets/nexus-provider",
+        "availproject/widgets/popover",
+        "availproject/widgets/skeleton",
+        "availproject/widgets/tabs",
+        "availproject/widgets/tooltip",
+        "availproject/widgets/utils"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
+        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus Widget. Use availproject/widgets/nexus with config.mode = \"deposit\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use availproject/widgets/nexus with config.mode = \"deposit\" for new integrations."
     },
     {
       "name": "button",
@@ -280,9 +286,12 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-slot", "class-variance-authority"],
+      "dependencies": [
+        "@radix-ui/react-slot",
+        "class-variance-authority"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -298,7 +307,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -313,9 +322,12 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-checkbox", "lucide-react"],
+      "dependencies": [
+        "@radix-ui/react-checkbox",
+        "lucide-react"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -330,7 +342,9 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-collapsible"]
+      "dependencies": [
+        "@radix-ui/react-collapsible"
+      ]
     },
     {
       "name": "deposit",
@@ -603,22 +617,22 @@
         "wagmi"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/animated-spinner.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/animated-spinner",
+        "availproject/widgets/button",
+        "availproject/widgets/card",
+        "availproject/widgets/checkbox",
+        "availproject/widgets/dialog",
+        "availproject/widgets/nexus-provider",
+        "availproject/widgets/skeleton",
+        "availproject/widgets/tabs",
+        "availproject/widgets/tooltip",
+        "availproject/widgets/utils"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Deposit is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
+        "deprecationMessage": "Deposit is deprecated in favor of Nexus Widget. Use availproject/widgets/nexus with config.mode = \"deposit\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use availproject/widgets/nexus with config.mode = \"deposit\" for new integrations."
     },
     {
       "name": "dialog",
@@ -632,9 +646,12 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-dialog", "lucide-react"],
+      "dependencies": [
+        "@radix-ui/react-dialog",
+        "lucide-react"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -795,25 +812,25 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
+        "availproject/widgets/accordion",
+        "availproject/widgets/button",
+        "availproject/widgets/card",
+        "availproject/widgets/checkbox",
+        "availproject/widgets/dialog",
+        "availproject/widgets/input",
+        "availproject/widgets/label",
+        "availproject/widgets/nexus-provider",
+        "availproject/widgets/select",
+        "availproject/widgets/skeleton",
+        "availproject/widgets/tooltip",
+        "availproject/widgets/utils",
+        "availproject/widgets/view-history"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
+        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus Widget. Use availproject/widgets/nexus for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use availproject/widgets/nexus for new integrations."
     },
     {
       "name": "input",
@@ -828,7 +845,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -843,9 +860,11 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-label"],
+      "dependencies": [
+        "@radix-ui/react-label"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -1053,10 +1072,10 @@
         "wagmi"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/swaps.json"
+        "availproject/widgets/button",
+        "availproject/widgets/dialog",
+        "availproject/widgets/nexus-provider",
+        "availproject/widgets/swaps"
       ],
       "meta": {
         "featured": true
@@ -1075,7 +1094,10 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@avail-project/nexus-core@2.0.0", "wagmi"]
+      "dependencies": [
+        "@avail-project/nexus-core@2.0.0",
+        "wagmi"
+      ]
     },
     {
       "name": "popover",
@@ -1089,9 +1111,11 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-popover"],
+      "dependencies": [
+        "@radix-ui/react-popover"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -1106,9 +1130,12 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-select", "lucide-react"],
+      "dependencies": [
+        "@radix-ui/react-select",
+        "lucide-react"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -1124,7 +1151,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -1140,7 +1167,7 @@
         }
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -1326,22 +1353,22 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/accordion",
+        "availproject/widgets/button",
+        "availproject/widgets/checkbox",
+        "availproject/widgets/dialog",
+        "availproject/widgets/label",
+        "availproject/widgets/nexus-provider",
+        "availproject/widgets/select",
+        "availproject/widgets/separator",
+        "availproject/widgets/tooltip",
+        "availproject/widgets/utils"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Swaps is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"swap\" for new integrations."
+        "deprecationMessage": "Swaps is deprecated in favor of Nexus Widget. Use availproject/widgets/nexus with config.mode = \"swap\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"swap\" for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use availproject/widgets/nexus with config.mode = \"swap\" for new integrations."
     },
     {
       "name": "tabs",
@@ -1355,9 +1382,11 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-tabs"],
+      "dependencies": [
+        "@radix-ui/react-tabs"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -1372,9 +1401,11 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@radix-ui/react-tooltip"],
+      "dependencies": [
+        "@radix-ui/react-tooltip"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/utils"
       ]
     },
     {
@@ -1535,25 +1566,25 @@
         "viem"
       ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/checkbox.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/input.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/select.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/skeleton.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tooltip.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/view-history.json"
+        "availproject/widgets/accordion",
+        "availproject/widgets/button",
+        "availproject/widgets/card",
+        "availproject/widgets/checkbox",
+        "availproject/widgets/dialog",
+        "availproject/widgets/input",
+        "availproject/widgets/label",
+        "availproject/widgets/nexus-provider",
+        "availproject/widgets/select",
+        "availproject/widgets/skeleton",
+        "availproject/widgets/tooltip",
+        "availproject/widgets/utils",
+        "availproject/widgets/view-history"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"send\" for new integrations."
+        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus Widget. Use availproject/widgets/nexus with config.mode = \"send\" for new integrations."
       },
-      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"send\" for new integrations."
+      "docs": "Deprecated in favor of Nexus Widget. Use availproject/widgets/nexus with config.mode = \"send\" for new integrations."
     },
     {
       "name": "unified-balance",
@@ -1567,18 +1598,21 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@avail-project/nexus-core@2.0.0", "lucide-react"],
+      "dependencies": [
+        "@avail-project/nexus-core@2.0.0",
+        "lucide-react"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/accordion",
+        "availproject/widgets/label",
+        "availproject/widgets/nexus-provider",
+        "availproject/widgets/separator",
+        "availproject/widgets/tabs",
+        "availproject/widgets/utils"
       ],
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
+        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus Widget. Use availproject/widgets/nexus for new integrations."
       },
       "docs": "Deprecated in favor of Nexus Widget. NexusWidget includes inline balance views during swap, send, and deposit flows."
     },
@@ -1594,7 +1628,10 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["clsx", "tailwind-merge"]
+      "dependencies": [
+        "clsx",
+        "tailwind-merge"
+      ]
     },
     {
       "name": "view-history",
@@ -1713,15 +1750,18 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": ["@avail-project/nexus-core@2.0.0", "lucide-react"],
+      "dependencies": [
+        "@avail-project/nexus-core@2.0.0",
+        "lucide-react"
+      ],
       "registryDependencies": [
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/badge.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/button.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/card.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/dialog.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
-        "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+        "availproject/widgets/badge",
+        "availproject/widgets/button",
+        "availproject/widgets/card",
+        "availproject/widgets/dialog",
+        "availproject/widgets/nexus-provider",
+        "availproject/widgets/separator",
+        "availproject/widgets/utils"
       ],
       "meta": {
         "deprecated": true,

@@ -14,7 +14,7 @@ The shadcn MCP Server lets Cursor (and other MCP-compatible IDEs) talk directly 
 **Nexus Widget** is the single unified component for all swap, send, and deposit flows. Install it with one command:
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 <span className="block mt-6" />
@@ -23,14 +23,13 @@ All legacy standalone elements (FastBridge, FastTransfer, SwapWidget, Deposit, B
 
 ## Nexus Registry Setup
 
-Add the Avail Widgets registry to your local `components.json`. This gives any MCP client access to the published components.
+For now, install Avail Widgets from the public GitHub registry. No
+`components.json` namespace setup is required for `availproject/widgets/nexus`.
+The `@avail-widgets/nexus` namespace will be documented after it is listed in
+shadcn.
 
-```json title="components.json" showLineNumbers
-{
-  "registries": {
-    "@avail-widgets": "https://elements.nexus.availproject.org/r/{name}.json"
-  }
-}
+```bash
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ---
@@ -202,12 +201,13 @@ Restart Codex so it reloads the config.
 
 ## Configuring Registries
 
-You can mix public, third-party, and internal registries by extending `components.json`.
+You can mix third-party and internal namespaced registries by extending
+`components.json`. Avail Widgets does not require this while it is installed
+from the public GitHub registry path.
 
 ```json title="components.json" showLineNumbers
 {
   "registries": {
-    "@avail-widgets": "https://elements.nexus.availproject.org/r/{name}.json",
     "@acme": "https://registry.acme.com/{name}.json",
     "@internal": {
       "url": "https://internal.company.com/{name}.json",

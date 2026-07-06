@@ -10,10 +10,10 @@ Last updated: June 2, 2026
 
 ### Active
 
-| Element | Registry name | Purpose |
+| Element | Current shadcn install address | Purpose |
 |---|---|---|
-| `NexusWidget` | `@avail-widgets/nexus` | Unified swap, send, and deposit element |
-| `NexusProvider` | `@avail-widgets/nexus-provider` | SDK lifecycle, shared state, hooks |
+| `NexusWidget` | `availproject/widgets/nexus` | Unified swap, send, and deposit element |
+| `NexusProvider` | `availproject/widgets/nexus-provider` | SDK lifecycle, shared state, hooks |
 
 ### Deprecated and removed
 

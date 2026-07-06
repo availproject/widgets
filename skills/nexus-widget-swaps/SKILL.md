@@ -10,7 +10,7 @@ Use `NexusWidget` with `config.mode = "swap"` for the unified swap and bridge fl
 ## Installation
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ```bash

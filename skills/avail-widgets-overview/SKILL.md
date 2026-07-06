@@ -22,7 +22,7 @@ All legacy standalone widgets have been **deprecated and removed**. **Nexus Widg
 ## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ## Integrate end-to-end in any TS/React app
@@ -32,18 +32,15 @@ npx shadcn@latest add @avail-widgets/nexus
 pnpm add @avail-project/nexus-core@2.0.0 wagmi viem lucide-react @tanstack/react-query
 ```
 
-### 2. Configure registry
-Add this mapping in `components.json`:
-```json
-"registries": {
-  "@avail-widgets/": "https://elements.nexus.availproject.org/r/{name}.json"
-}
-```
+### 2. Use the GitHub shadcn registry
+For now, install from the public GitHub registry at
+`https://github.com/availproject/widgets`. Do not require an
+`@avail-widgets` namespace mapping unless the user's project has configured one.
 
 ### 3. Set up NexusProvider
 Install and wire `nexus-provider` before Nexus Widget:
 ```bash
-npx shadcn@latest add @avail-widgets/nexus-provider
+npx shadcn@latest add availproject/widgets/nexus-provider
 ```
 
 Wrap your app with `NexusProvider`:
