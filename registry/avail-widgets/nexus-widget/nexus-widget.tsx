@@ -9656,14 +9656,6 @@ function NexusWidgetInner({
   })();
   const displayExactOutRouteLoading =
     isExactOutRouteLoading && !shouldShowPredictiveExactOutDisplay;
-  const exactOutRequiredUsdDisplay =
-    activeMode === "deposit"
-      ? previewDestinationUsdNumber?.gt(0)
-        ? previewDestinationUsdNumber.toDecimalPlaces(2).toFixed()
-        : depositUsdDisplay
-      : activeMode === "send" && sendAmountUsd > 0
-        ? sendAmountUsd.toFixed(2)
-        : undefined;
   const totalSwapBalanceUsd = getSwapBalanceTotalUsd()
     .toDecimalPlaces(2)
     .toFixed();
@@ -9678,6 +9670,14 @@ function NexusWidgetInner({
           amount
         ).toNumber()
       : 0;
+  const exactOutRequiredUsdDisplay =
+    activeMode === "deposit"
+      ? previewDestinationUsdNumber?.gt(0)
+        ? previewDestinationUsdNumber.toDecimalPlaces(2).toFixed()
+        : depositUsdDisplay
+      : activeMode === "send" && sendAmountUsd > 0
+        ? sendAmountUsd.toFixed(2)
+        : undefined;
   const isIdleSwapQuoteLoading =
     activeMode === "swap" &&
     swapStep === "idle" &&
