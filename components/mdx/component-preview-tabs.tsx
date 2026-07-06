@@ -19,7 +19,7 @@ export function ComponentPreviewTabs({
   chromeLessOnMobile?: boolean;
   component: React.ReactNode;
   previewClassName?: string;
-  source: React.ReactNode;
+  source?: React.ReactNode;
 }) {
   return (
     <div
@@ -40,14 +40,14 @@ export function ComponentPreviewTabs({
         >
           {component}
         </div>
-        {!hideCode && (
+        {!hideCode && source ? (
           <div
             data-slot="code"
             className="overflow-y-hidden overflow-x-scroll **:data-rehype-pretty-code-figure:m-0! **:data-rehype-pretty-code-figure:rounded-t-none **:data-rehype-pretty-code-figure:border-t [&_pre]:max-h-[400px]"
           >
             {source}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

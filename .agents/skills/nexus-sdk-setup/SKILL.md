@@ -7,9 +7,9 @@ description: Set up and initialize Nexus SDK in any JS/TS frontend project. Use 
 
 ## Install dependency
 - Install the SDK package:
-  - `npm install @avail-project/nexus-core`
-  - or `pnpm add @avail-project/nexus-core`
-  - or `yarn add @avail-project/nexus-core`
+  - `npm install @avail-project/nexus-core@2.0.0`
+  - or `pnpm add @avail-project/nexus-core@2.0.0`
+  - or `yarn add @avail-project/nexus-core@2.0.0`
 
 ## Obtain an EIP-1193 provider
 - Use any wallet connection stack to get a provider.
@@ -17,8 +17,8 @@ description: Set up and initialize Nexus SDK in any JS/TS frontend project. Use 
 - Use a browser fallback only when appropriate:
   - `const provider = (window as any).ethereum`
 
-## Construct the SDK instance
-- Create `new NexusSDK({ network, debug, siweChain })`.
+## Construct the SDK client
+- Create `createNexusClient({ network, debug, siweChain })`.
 - Provide `network`:
   - `'mainnet'` or `'testnet'` to use default endpoints.
   - `NetworkConfig` to use custom endpoints.
@@ -26,15 +26,15 @@ description: Set up and initialize Nexus SDK in any JS/TS frontend project. Use 
 - Provide `siweChain?: number` to set the SIWE chain id (if you use SIWE).
 
 ## Initialize once
-- Create a single instance and reuse it.
-- Store the instance in a module singleton or a React ref.
+- Create a single client and reuse it.
+- Store the client in a module singleton or a React ref.
 - Guard with `sdk.isInitialized()` to avoid re-init.
 
 ### Minimal example
 ```ts
-import { NexusSDK, type EthereumProvider } from '@avail-project/nexus-core';
+import { createNexusClient, type EthereumProvider } from '@avail-project/nexus-core';
 
-const sdk = new NexusSDK({ network: 'mainnet' });
+const sdk = createNexusClient({ network: 'mainnet' });
 
 export async function initNexus(provider: EthereumProvider) {
   if (sdk.isInitialized()) return sdk;
@@ -48,13 +48,13 @@ export async function initNexus(provider: EthereumProvider) {
 
 ## Initialize when a wallet kit is already integrated (FamilyKit / wagmi-based)
 - If your kit exposes a wagmi connector, derive an EIP-1193 provider from it.
-- Use the same pattern as Nexus Elements: prefer `connector.getProvider()` on desktop and a `walletClient.request` wrapper on mobile.
+- Use the same pattern as Avail Widgets: prefer `connector.getProvider()` on desktop and a `walletClient.request` wrapper on mobile.
 - Example (adapt to your hooks and UI state):
 ```ts
-import { NexusSDK, type EthereumProvider } from '@avail-project/nexus-core';
+import { createNexusClient, type EthereumProvider } from '@avail-project/nexus-core';
 import { useAccount, useConnectorClient } from 'wagmi';
 
-const sdk = new NexusSDK({ network: 'mainnet', debug: false });
+const sdk = createNexusClient({ network: 'mainnet', debug: false });
 
 async function initFromWalletKit(isMobile: boolean) {
   const { connector } = useAccount();

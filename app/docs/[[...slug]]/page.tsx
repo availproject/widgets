@@ -3,14 +3,15 @@ import { notFound } from "next/navigation";
 import { findNeighbour } from "fumadocs-core/page-tree";
 import { source } from "@/lib/source";
 import { mdxComponents } from "@/components/mdx/mdx-components";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
 import { OnThisPage } from "@/components/helpers/on-this-page";
 import fm from "front-matter";
 import { z } from "zod";
-import { Badge } from "@/registry/nexus-elements/ui/badge";
+import { Badge } from "@/registry/avail-widgets/ui/badge";
 import { DocsCopyPage } from "@/components/mdx/docs-copy-page";
 import { absoluteUrl } from "@/lib/utils";
+import { ComponentPreview } from "@/components/mdx/component-preview";
 
 export const revalidate = false;
 export const dynamic = "force-static";
@@ -68,7 +69,7 @@ export default async function Page(props: {
   const neighbours = findNeighbour(source.pageTree, page.url);
   const raw = await page.data.getText("raw");
   const { attributes } = fm(raw);
-  const { links, deprecated, deprecationMessage } = z
+  const { links, deprecated, deprecationMessage, preview } = z
     .object({
       links: z
         .object({
@@ -78,6 +79,16 @@ export default async function Page(props: {
         .optional(),
       deprecated: z.boolean().optional(),
       deprecationMessage: z.string().optional(),
+      preview: z
+        .object({
+          name: z.string(),
+          align: z.enum(["center", "start", "end"]).optional(),
+          hideCode: z.boolean().optional(),
+          chromeLessOnMobile: z.boolean().optional(),
+          showAllFiles: z.boolean().optional(),
+          styleName: z.literal("avail-widgets").optional(),
+        })
+        .optional(),
     })
     .parse(attributes);
 
@@ -85,7 +96,18 @@ export default async function Page(props: {
     <div className="flex items-stretch text-[1.05rem] sm:text-[15px] xl:w-full no-scrollbar">
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="h-(--top-spacing) shrink-0" />
-        <div className="mx-auto flex w-full max-w-2xl min-w-0 flex-1 flex-col gap-8 px-4 py-6 text-neutral-800 md:px-0 lg:py-8 dark:text-neutral-300">
+        <div className="mx-auto flex w-full max-w-2xl min-w-0 flex-1 flex-col gap-8 px-4 py-4 text-neutral-800 md:px-0 dark:text-neutral-300">
+          {preview ? (
+            <ComponentPreview
+              name={preview.name}
+              align={preview.align}
+              hideCode={preview.hideCode}
+              chromeLessOnMobile={preview.chromeLessOnMobile}
+              showAllFiles={preview.showAllFiles}
+              styleName={preview.styleName}
+              className="mt-0 mb-0"
+            />
+          ) : null}
           <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-2">
               <div className="flex items-start justify-between gap-4">

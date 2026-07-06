@@ -3,12 +3,12 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { TOC_BY_PATH } from "@/lib/toc";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/registry/nexus-elements/ui/popover";
+} from "@/registry/avail-widgets/ui/popover";
 import { Menu } from "lucide-react";
 
 type TocEntry = {

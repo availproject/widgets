@@ -1,19 +1,9 @@
 "use client";
 import dynamic from "next/dynamic";
-import React, { useEffect, useRef, useState } from "react";
-import { useTheme } from "next-themes";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { Skeleton } from "@/registry/nexus-elements/ui/skeleton";
-
-const ThemeControl = dynamic(
-  () => import("./theme-control").then((m) => m.default),
-  {
-    loading: () => <Skeleton className="w-24 h-9" />,
-  }
-);
+import { Skeleton } from "@/registry/avail-widgets/ui/skeleton";
 
 const MobileNav = dynamic(() => import("./mobile-nav").then((m) => m.default), {
   loading: () => <Skeleton className="w-24 h-9" />,
@@ -79,41 +69,6 @@ const NAV_ITEMS = [
 ];
 
 export default function Topbar() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
-  const [palette, setPalette] = useState<string>("default");
-  const prevPaletteClass = useRef<string | null>(null);
-  const isMobile = useIsMobile();
-
-  useEffect(() => {
-    try {
-      const saved = (localStorage.getItem("palette") as string) || "default";
-      setPalette(saved);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("palette", palette);
-    } catch {}
-  }, [palette]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (prevPaletteClass.current) {
-      root.classList.remove(prevPaletteClass.current);
-      prevPaletteClass.current = null;
-    }
-
-    if (
-      palette !== "default" &&
-      (resolvedTheme === "light" || resolvedTheme === "dark")
-    ) {
-      const cls = `${resolvedTheme}-${palette}`;
-      root.classList.add(cls);
-      prevPaletteClass.current = cls;
-    }
-  }, [palette, resolvedTheme]);
-
   const componentsGroup = NAV_ITEMS.find((g) => g.sectionId === "components");
   const componentItems =
     componentsGroup?.children?.map((c) => ({ href: c.href, label: c.label })) ??
@@ -130,14 +85,14 @@ export default function Topbar() {
           <Link href={"/"} className={cn("cursor-pointer hidden sm:block")}>
             <Image
               src="/avail-logo-dark.svg"
-              alt="Nexus Elements"
+              alt="Avail Widgets"
               width={100}
               height={100}
               className="w-[100px] h-[100px] dark:hidden block"
             />
             <Image
               src="/avail-logo-light.svg"
-              alt="Nexus Elements"
+              alt="Avail Widgets"
               width={100}
               height={100}
               className="w-[100px] h-[100px] hidden dark:block"
@@ -180,13 +135,6 @@ export default function Topbar() {
 
         {/* Right side controls */}
         <div className="flex items-center gap-3">
-          <ThemeControl
-            theme={theme ?? ""}
-            setTheme={setTheme}
-            palette={palette}
-            setPalette={setPalette}
-            isMobile={isMobile}
-          />
           <div className="hidden sm:block">
             <ConnectWalletButton />
           </div>

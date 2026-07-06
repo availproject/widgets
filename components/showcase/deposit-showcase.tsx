@@ -1,14 +1,14 @@
 "use client";
 import React from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
-import NexusDeposit from "@/registry/nexus-elements/deposit/nexus-deposit";
+import NexusDeposit from "@/registry/avail-widgets/deposit/nexus-deposit";
 import { Abi, Address, encodeFunctionData } from "viem";
 import {
   CHAIN_METADATA,
   SUPPORTED_CHAINS,
   TOKEN_CONTRACT_ADDRESSES,
   TOKEN_METADATA,
-} from "@avail-project/nexus-core";
+} from "@/registry/avail-widgets/common/utils/constant";
 
 const AAVE_POOL_BY_CHAIN: Partial<Record<number, Address>> = {
   [SUPPORTED_CHAINS.BASE]: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
@@ -80,7 +80,7 @@ const DepositShowcase = () => {
       data: encoded,
       gasPriceSelector: "medium",
       tokenApproval: {
-        token: tokenAddress,
+        toTokenSymbol: tokenSymbol,
         amount,
         spender: contractAddress,
       },
@@ -104,7 +104,7 @@ const DepositShowcase = () => {
           tokenAddress: TOKEN_CONTRACT_ADDRESSES["USDC"][SUPPORTED_CHAINS.BASE],
           tokenSymbol: "USDC",
           tokenDecimals: 6,
-          tokenLogo: TOKEN_METADATA["USDC"]?.icon,
+          tokenLogo: TOKEN_METADATA["USDC"]?.logo,
           label: "Deposit USDC on Aave's Base Market",
           gasTokenSymbol:
             CHAIN_METADATA[SUPPORTED_CHAINS.BASE].nativeCurrency.symbol,

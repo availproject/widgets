@@ -5,15 +5,15 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/registry/nexus-elements/ui/tooltip";
+} from "@/registry/avail-widgets/ui/tooltip";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@/registry/nexus-elements/ui/tabs";
+} from "@/registry/avail-widgets/ui/tabs";
 import { Check, Copy, Terminal } from "lucide-react";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 
 export function CodeBlockCommand({
   __npm__,

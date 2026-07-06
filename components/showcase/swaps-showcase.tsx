@@ -1,6 +1,6 @@
 import React from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
-import SwapWidget from "@/registry/nexus-elements/swaps/swap-widget";
+import SwapWidget from "@/registry/avail-widgets/swaps/swap-widget";
 
 const SwapsShowcase = () => {
   return (

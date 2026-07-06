@@ -20,10 +20,10 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/registry/nexus-elements/ui/tooltip";
-import { Button } from "@/registry/nexus-elements/ui/button";
-import { Input } from "@/registry/nexus-elements/ui/input";
-import { Skeleton } from "@/registry/nexus-elements/ui/skeleton";
+} from "@/registry/avail-widgets/ui/tooltip";
+import { Button } from "@/registry/avail-widgets/ui/button";
+import { Input } from "@/registry/avail-widgets/ui/input";
+import { Skeleton } from "@/registry/avail-widgets/ui/skeleton";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;

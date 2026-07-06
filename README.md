@@ -1,15 +1,15 @@
-# Nexus One
+# Nexus Widget
 
 A unified component for **swap**, **send**, and **deposit** flows powered by [Avail Nexus](https://www.availproject.org/) intents.
 
-> 💡 **Migrating from legacy standalone elements?** If you are already using elements like `Swap`, `FastBridge`, `FastTransfer`, or `Deposit`, refer to the [Migration Guide](https://elements.nexus.availproject.org/docs/migration-guide) to upgrade to Nexus One.
+> **Migrating from legacy standalone elements?** If you are already using elements like `Swap`, `FastBridge`, `FastTransfer`, or `Deposit`, refer to the [Migration Guide](https://elements.nexus.availproject.org/docs/migration-guide) to upgrade to Nexus Widget.
 
-> **Network support:** Nexus One currently supports mainnet only. Testnet is not supported at the moment.
+> **Network support:** Nexus Widget currently supports mainnet only. Testnet is not supported at the moment.
 
 ## Installation
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ### Manual Installation
@@ -17,7 +17,7 @@ npx shadcn@latest add @nexus-elements/nexus-one
 1. Install dependencies:
 
 ```bash
-npm install @avail-project/nexus-core@1.6.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
+npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
 ```
 
 2. Copy the component source code into your project.
@@ -25,7 +25,7 @@ npm install @avail-project/nexus-core@1.6.0 decimal.js lucide-react viem wagmi c
 
 ## Setup
 
-Wrap your app with `NexusProvider` before rendering `NexusOne`.
+Wrap your app with `NexusProvider` before rendering `NexusWidget`.
 
 ```tsx
 import { NexusProvider } from "@/components/nexus/NexusProvider";
@@ -35,29 +35,39 @@ export default function RootLayout({ children }) {
 }
 ```
 
+## Config
+
+NexusWidget supports three public modes: `swap`, `send`, and `deposit`.
+
+- `deposit` requires `destination.chain`, at least one `destination.tokens[]` entry, `depositAddress`, and `executeDeposit`.
+- `send` accepts optional `destination`, optional locked `recipientAddress`, optional `prefill.amount`, optional `prefill.token`, and optional `validation`.
+- `swap` accepts optional `destination`, optional `prefill.token`, optional `recipientAddress`, and optional `appearance`. Swap amount prefill and validation are intentionally not supported.
+- `appearance` supports `heading`, `appName`, `appLogoURL`, `mode: "system" | "light" | "dark"`, and any browser-supported CSS `primaryColor`.
+- `onConnectClick` is a component prop, not a config field. Use it to open your app/header wallet modal from the widget CTA.
+
 ## Examples
 
 ### Swap
 
-Swap between any supported token pairs across chains. Nexus One switches between exact-in and exact-out quoting based on which amount field the user changes.
+Swap between any supported token pairs across chains. Nexus Widget switches between exact-in and exact-out quoting based on which amount field the user changes.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SwapExample({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{
         mode: "swap",
-        prefill: {
-          source: {
-            token: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-            chain: 42161, // USDC on Arbitrum
-          },
-          destination: {
-            token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-            chain: 8453, // USDC on Base
-          },
+        destination: {
+          chain: 8453,
+          tokens: [
+            {
+              address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              symbol: "USDC",
+              decimals: 6,
+            },
+          ],
         },
       }}
       connectedAddress={address}
@@ -71,18 +81,30 @@ export function SwapExample({ address }: { address?: `0x${string}` }) {
 Cross-chain send flow. Users choose the token and amount to send, then Nexus resolves the pay-with sources.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SendExample({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{
         mode: "send",
+        destination: {
+          chain: 8453,
+          tokens: [
+            {
+              address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              symbol: "USDC",
+              decimals: 6,
+            },
+          ],
+        },
+        recipientAddress: "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E",
         prefill: {
-          token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-          chain: 8453, // USDC on Base
           amount: "0.1",
-          recipient: "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E",
+        },
+        validation: {
+          minAmount: "0.01",
+          maxAmount: "1000",
         },
       }}
       connectedAddress={address}
@@ -96,7 +118,7 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
 Deposit into a configured protocol or app action with a single intent. A single `deposit` config is required when `mode` is `"deposit"`.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 import { encodeFunctionData } from "viem";
 
 const APP_DEPOSIT_CONTRACT = "0x...";
@@ -130,25 +152,42 @@ function buildDepositExecuteConfig(
       // Aave reference: supply(asset, amount, onBehalfOf, referralCode)
     }),
     tokenApproval: {
-      token: tokenAddress,
+      toTokenAddress: tokenAddress,
       amount,
       spender: APP_DEPOSIT_CONTRACT,
     },
   };
 }
 
-<NexusOne
+<NexusWidget
   config={{
     mode: "deposit",
-    deposit: {
-      chainId: 42161,
-      tokenSymbol: "USDT",
-      tokenDecimals: 6,
-      tokenAddress: DESTINATION_TOKEN,
-      title: "Your App",
-      protocol: "Your App",
-      executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) =>
-        buildDepositExecuteConfig(tokenAddress, amount, user),
+    destination: {
+      chain: 42161,
+      tokens: [
+        {
+          address: DESTINATION_TOKEN,
+          symbol: "USDT",
+          decimals: 6,
+        },
+      ],
+    },
+    depositAddress: APP_DEPOSIT_CONTRACT,
+    executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) =>
+      buildDepositExecuteConfig(tokenAddress, amount, user),
+    prefill: {
+      amount: "10",
+    },
+    validation: {
+      minAmount: "1",
+      maxAmount: "1000",
+    },
+    appearance: {
+      appName: "Your App",
+      heading: "Deposit",
+      appLogoURL: "https://example.com/logo.svg",
+      mode: "system",
+      primaryColor: "#0A6BEB",
     },
   }}
   connectedAddress={address}
@@ -160,11 +199,11 @@ function buildDepositExecuteConfig(
 Use lifecycle callbacks to integrate with your app's toast, analytics, or navigation.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SwapWithCallbacks({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{ mode: "swap" }}
       connectedAddress={address}
       onStart={() => console.log("Transaction started")}
@@ -179,25 +218,28 @@ export function SwapWithCallbacks({ address }: { address?: `0x${string}` }) {
 }
 ```
 
-### Restricted Token Pairs
+### Destination Restrictions
 
-Limit which source or destination tokens users can select.
+Limit which destination chain and token users can select.
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
 export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       config={{
         mode: "swap",
-        allowedSourcePairs: [
-          { token: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", chain: 42161 }, // USDC on Arbitrum
-          { token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", chain: 8453 }, // USDC on Base
-        ],
-        allowedDestinationPairs: [
-          { token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", chain: 42161 }, // USDT on Arbitrum
-        ],
+        destination: {
+          chain: 42161,
+          tokens: [
+            {
+              address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+              symbol: "USDT",
+              decimals: 6,
+            },
+          ],
+        },
       }}
       connectedAddress={address}
     />
@@ -207,33 +249,36 @@ export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
 
 ## Configuration
 
-| Prop                                  | Type                             | Required | Notes                                                                                            |
-| ------------------------------------- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `config`                              | `object`                         | ✅       | Selects the workflow and any mode-specific behavior.                                             |
-| `connectedAddress`                    | `` `0x${string}` ``              |          | Wallet address. Falls back to connected wagmi account.                                           |
-| `embed`                               | `boolean`                        |          | Defaults to `true`. Set `false` for modal rendering.                                             |
-| `open`, `onOpenChange`, `defaultOpen` | modal controls                   |          | Control modal rendering when `embed={false}`.                                                    |
-| `onComplete`                          | `(explorerUrl?: string) => void` |          | Called on success.                                                                               |
-| `onStart`                             | `() => void`                     |          | Called when execution begins.                                                                    |
-| `onError`                             | `(message: string) => void`      |          | Called on failure.                                                                               |
-| `onClose`                             | `() => void`                     |          | Close button handler (modal mode only).                                                          |
-| `onConnectWallet`                     | `() => void \| Promise<void>`    |          | Called when the internal Connect Wallet CTA is clicked. Wire this to your app-level wallet flow. |
+| Prop                                  | Type                             | Required | Notes                                                                                                  |
+| ------------------------------------- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `config`                              | `object`                         | Yes      | Selects the workflow and any mode-specific behavior.                                                   |
+| `connectedAddress`                    | `` `0x${string}` ``              |          | Wallet address. Falls back to connected wagmi account.                                                 |
+| `embed`                               | `boolean`                        |          | Defaults to `true`. Set `false` for modal rendering.                                                   |
+| `open`, `onOpenChange`, `defaultOpen` | modal controls                   |          | Control modal rendering when `embed={false}`.                                                          |
+| `onComplete`                          | `(explorerUrl?: string) => void` |          | Called on success.                                                                                     |
+| `onStart`                             | `() => void`                     |          | Called when execution begins.                                                                          |
+| `onError`                             | `(message: string) => void`      |          | Called on failure.                                                                                     |
+| `onClose`                             | `() => void`                     |          | Close button handler (modal mode only).                                                                |
+| `onConnectClick`                      | `() => void \| Promise<void>`    |          | Called when the internal Connect Wallet CTA is clicked. Use this to open your app/header wallet modal. |
+| `onConnectWallet`                     | `() => void \| Promise<void>`    |          | Called when the internal Connect Wallet CTA is clicked. Wire this to your app-level wallet flow.       |
 
 ### Config Options
 
-| Field                     | Type                            | Notes                                                                                                                                                                      |
-| ------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mode`                    | `"swap" \| "send" \| "deposit"` | **Required.** Selects the active flow.                                                                                                                                     |
-| `prefill.amount`          | `string`                        | Prefills the amount input.                                                                                                                                                 |
-| `prefill.recipient`       | `` `0x${string}` ``             | Prefills recipient (send mode).                                                                                                                                            |
-| `prefill.token`           | `` `0x${string}` ``             | Prefills token address.                                                                                                                                                    |
-| `prefill.chain`           | `number`                        | Prefills chain id.                                                                                                                                                         |
-| `prefill.source`          | `{ token; chain }`              | Prefills source token and chain.                                                                                                                                           |
-| `prefill.destination`     | `{ token; chain }`              | Prefills destination token and chain.                                                                                                                                      |
-| `allowedSourcePairs`      | `{ token; chain }[]`            | Restricts selectable source pairs.                                                                                                                                         |
-| `allowedDestinationPairs` | `{ token; chain }[]`            | Restricts selectable destination pairs.                                                                                                                                    |
-| `deposit`                 | `object`                        | Required for deposit mode.                                                                                                                                                 |
-| `onConnectWalletClick`    | `() => void \| Promise<void>`   | Callback triggered when the "Connect Wallet" CTA button is clicked. If omitted, the CTA will instead render as a disabled button reading "Connect your wallet to proceed". |
+| Field                  | Modes        | Notes                                                                                                                                                    |
+| ---------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`                 | all          | Required. `"swap"`, `"send"`, or `"deposit"`.                                                                                                            |
+| `destination.chain`    | all          | Required for deposit. Optional for send/swap; when supplied, destination chain selection is restricted.                                                  |
+| `destination.tokens`   | all          | Required for deposit with at least one token. Optional for send/swap; when supplied with `destination.chain`, destination token selection is restricted. |
+| `recipientAddress`     | send/swap    | Prefills the recipient. In send mode, a supplied recipient is locked.                                                                                    |
+| `depositAddress`       | deposit      | Required smart contract address for the deposit target.                                                                                                  |
+| `executeDeposit`       | deposit      | Required transaction builder: `(tokenSymbol, tokenAddress, amount, chainId, user) => { to, data?, value?, gas?, tokenApproval? }`.                       |
+| `prefill.amount`       | deposit/send | Optional amount prefill. Must be greater than `0`.                                                                                                       |
+| `prefill.token`        | send/swap    | Optional initial destination/receive token: `{ chain, address, symbol, decimals, logo? }`. Ignored when `destination.tokens` is supplied.                |
+| `validation.minAmount` | deposit/send | Optional minimum amount. Must be `0` or greater.                                                                                                         |
+| `validation.maxAmount` | deposit/send | Optional maximum amount. Must be greater than `0`.                                                                                                       |
+| `appearance`           | all          | Optional app display config: `heading`, `appName`, `appLogoURL`, `mode`, `primaryColor`.                                                                 |
+
+Use `destination.tokens` when you want to restrict selectable destination tokens. Use `prefill.token` when you only want an initial token selected and still want users to choose from the full supported list. If both are supplied, `destination.tokens[0]` is honored and `prefill.token` is ignored.
 
 ## References
 

@@ -10,48 +10,46 @@ description: Implement bridge, bridgeAndTransfer, bridgeAndExecute, and execute 
 - Signature:
   - `sdk.bridge(params, { onEvent? })`
 - Params (`BridgeParams`):
-  - `token: string` — token symbol (e.g., "ETH", "USDC")
-  - `amount: bigint` — smallest units
+  - `toTokenSymbol: string` — token symbol (e.g., "ETH", "USDC")
+  - `toAmountRaw: bigint` — smallest units
   - `toChainId: number` — destination chain id
   - `recipient?: Hex` — defaults to connected user address
-  - `gas?: bigint` — optional native gas to deliver on destination
-  - `sourceChains?: number[]` — restrict source chains
+  - `toNativeAmountRaw?: bigint` — optional native token output
+  - `sources?: number[]` — restrict source chains
 - Result (`BridgeResult`):
-  - `explorerUrl: string`
-  - `sourceTxs: { chain, hash, explorerUrl }[]`
-  - `intent: ReadableIntent`
+  - `intentExplorerUrl: string`
+  - `sourceTxs: { chain, txHash, txExplorerUrl }[]`
+  - `intent: BridgeIntent`
 
 ## Call bridgeAndTransfer(params, options?)
 - Use to bridge and transfer to a recipient address.
 - Signature:
   - `sdk.bridgeAndTransfer(params, { onEvent? })`
 - Params (`TransferParams`):
-  - `token: string`
-  - `amount: bigint`
+  - `toTokenSymbol: string`
+  - `toAmountRaw: bigint`
   - `toChainId: number`
   - `recipient: Hex`
-  - `sourceChains?: number[]`
+  - `sources?: number[]`
 - Result (`TransferResult`):
-  - `transactionHash: string`
-  - `explorerUrl: string`
+  - Transfer result follows `BridgeAndExecuteResult`.
 
 ## Call bridgeAndExecute(params, options?)
 - Use to bridge (if needed) and then execute a contract call.
 - Signature:
   - `sdk.bridgeAndExecute(params, { onEvent?, beforeExecute? })`
 - Params (`BridgeAndExecuteParams`):
-  - `token: string`, `amount: bigint`, `toChainId: number`
+  - `toTokenSymbol: string`, `toAmountRaw: bigint`, `toChainId: number`
   - `execute: Omit<ExecuteParams, "toChainId">`
   - Optional: `waitForReceipt`, `requiredConfirmations`, timeouts
 - `beforeExecute` hook (optional):
   - `beforeExecute?: () => Promise<{ value?: bigint; data?: Hex; gas?: bigint }>`
   - Use to dynamically override execute payload before sending.
 - Result (`BridgeAndExecuteResult`):
-  - `executeTransactionHash: string`
-  - `executeExplorerUrl: string`
-  - `bridgeExplorerUrl?: string` (undefined if bridge skipped)
+  - `execute` transaction result and optional `approval` transaction result
+  - bridge result fields when a bridge was required
   - `bridgeSkipped: boolean`
-  - `intent?: ReadableIntent`
+  - `intent?: BridgeIntent`
 
 ## Call execute(params, options?)
 - Use for a standalone contract call on a chain.
@@ -65,9 +63,9 @@ description: Implement bridge, bridgeAndTransfer, bridgeAndExecute, and execute 
   - `gas?: bigint` (optional but recommended for deterministic behavior)
   - `gasPrice?: 'low' | 'medium' | 'high'`
   - Optional receipt config: `waitForReceipt`, `receiptTimeout`, `requiredConfirmations`
-  - Optional `tokenApproval?: { token: string; amount: bigint; spender: Hex }`
+  - Optional `tokenApproval?: { toTokenSymbol: string; amount: bigint; spender: Hex }`
 - Result (`ExecuteResult`):
-  - `transactionHash`, `explorerUrl`, `chainId`
+  - `execute`, optional `approval`, and `chainId`
   - optional receipt fields
 
 ## Use simulation helpers
@@ -78,7 +76,7 @@ description: Implement bridge, bridgeAndTransfer, bridgeAndExecute, and execute 
 - Expect `BridgeAndExecuteSimulationResult.bridgeSimulation` to be `null` if bridge is skipped.
 
 ## Compute max bridgeable amount
-- Call `sdk.calculateMaxForBridge({ token, toChainId, recipient?, sourceChains? })`.
+- Call `sdk.calculateMaxForBridge({ toTokenSymbol, toChainId, recipient?, sources? })`.
 - Use `BridgeMaxResult` to set “max” or validate input.
 
 ## Convert amounts to bigint

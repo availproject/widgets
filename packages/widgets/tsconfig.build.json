@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "lib": ["DOM", "DOM.Iterable", "ES2021"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "outDir": "dist",
+    "rootDir": ".build-src",
+    "baseUrl": ".build-src",
+    "paths": {
+      "@/*": ["*"]
+    },
+    "verbatimModuleSyntax": true
+  },
+  "include": [".build-src/**/*.ts", ".build-src/**/*.tsx"],
+  "exclude": ["dist", "node_modules"]
+}

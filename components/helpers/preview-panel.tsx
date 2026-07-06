@@ -3,9 +3,9 @@ import React, { ReactNode, useCallback, useEffect, useState } from "react";
 import { LoaderPinwheel } from "lucide-react";
 import { type EthereumProvider } from "@avail-project/nexus-core";
 import { useAccount, useConnectorClient } from "wagmi";
-import { useNexus } from "@/registry/nexus-elements/nexus/NexusProvider";
+import { useNexus } from "@/registry/avail-widgets/nexus/NexusProvider";
 import { toast } from "sonner";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 interface PreviewPanelProps {
   children: ReactNode;
   connectLabel: string;

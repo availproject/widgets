@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import registry from "@/registry.json";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Copy } from "lucide-react";
 import { cn } from "@/lib/utils";

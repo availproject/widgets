@@ -1,5 +1,5 @@
 import fs from 'fs';
-let content = fs.readFileSync('registry/nexus-elements/nexus-one/nexus-one.tsx', 'utf8');
+let content = fs.readFileSync('registry/avail-widgets/nexus-widget/nexus-widget.tsx', 'utf8');
 
 // 1. replace state
 content = content.replace(
@@ -276,4 +276,4 @@ content = content.replace(/\{\/\* Exact Out — only "Receive" chip first, then 
                   `);
 
 
-fs.writeFileSync('registry/nexus-elements/nexus-one/nexus-one.tsx', content);
+fs.writeFileSync('registry/avail-widgets/nexus-widget/nexus-widget.tsx', content);

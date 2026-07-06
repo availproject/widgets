@@ -2,11 +2,11 @@ import React from "react";
 import dynamic from "next/dynamic";
 import { ComponentSource } from "./component-source";
 import { ComponentPreviewTabs } from "./component-preview-tabs";
-import { Skeleton } from "@/registry/nexus-elements/ui/skeleton";
+import { Skeleton } from "@/registry/avail-widgets/ui/skeleton";
 
 type ComponentPreviewProps = React.ComponentProps<"div"> & {
   name: string;
-  styleName?: "nexus-elements";
+  styleName?: "avail-widgets";
   align?: "center" | "start" | "end";
   hideCode?: boolean;
   chromeLessOnMobile?: boolean;
@@ -25,25 +25,39 @@ const SHOWCASE_MAP: Record<
     import("@/components/showcase/unified-balance-showcase"),
   "fast-transfer": () => import("@/components/showcase/transfer-showcase"),
   "view-history": () => import("@/components/showcase/view-history-showcase"),
-  "nexus-one": () => import("@/components/showcase/nexus-one-showcase"),
-  "nexus-one-transfer": () => import("@/components/showcase/nexus-one-transfer-showcase"),
-  "nexus-one-swap": () => import("@/components/showcase/nexus-one-swap-showcase"),
-  "nexus-one-deposit": () => import("@/components/showcase/nexus-one-deposit-showcase"),
+  nexus: () => import("@/components/showcase/nexus-widget-showcase"),
+  "nexus-send": () =>
+    import("@/components/showcase/nexus-widget-transfer-showcase"),
+  "nexus-transfer": () =>
+    import("@/components/showcase/nexus-widget-transfer-showcase"),
+  "nexus-swap": () => import("@/components/showcase/nexus-widget-swap-showcase"),
+  "nexus-deposit": () =>
+    import("@/components/showcase/nexus-widget-deposit-showcase"),
+  "nexus-widget": () => import("@/components/showcase/nexus-widget-showcase"),
+  "nexus-widget-transfer": () =>
+    import("@/components/showcase/nexus-widget-transfer-showcase"),
+  "nexus-widget-swap": () =>
+    import("@/components/showcase/nexus-widget-swap-showcase"),
+  "nexus-widget-deposit": () =>
+    import("@/components/showcase/nexus-widget-deposit-showcase"),
 };
 
 export function ComponentPreview({
   name,
-  styleName = "nexus-elements",
+  styleName = "avail-widgets",
   className,
   align = "center",
   hideCode = false,
   chromeLessOnMobile = false,
-  showAllFiles = true,
+  showAllFiles = false,
   ...props
 }: ComponentPreviewProps) {
   const showcaseLoader = SHOWCASE_MAP[name];
-  const isNexusOnePreview =
-    name === "nexus-one" || name.startsWith("nexus-one-");
+  const isNexusWidgetPreview =
+    name === "nexus" ||
+    name === "nexus-widget" ||
+    name.startsWith("nexus-") ||
+    name.startsWith("nexus-widget-");
   const Showcase = dynamic(showcaseLoader, {
     loading: () => <Skeleton className="w-full h-full" />,
   });
@@ -63,7 +77,7 @@ export function ComponentPreview({
   return (
     <ComponentPreviewTabs
       className={className}
-      align={isNexusOnePreview ? "start" : align}
+      align={isNexusWidgetPreview ? "start" : align}
       hideCode={hideCode}
       component={<Showcase />}
       source={

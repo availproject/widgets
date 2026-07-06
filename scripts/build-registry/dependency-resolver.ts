@@ -93,8 +93,8 @@ function getRegistryComponentFromPath(
   }
 
   // Extract component name from path
-  // registry/nexus-elements/ui/button.tsx -> button
-  // registry/nexus-elements/deposit/components/... -> deposit
+  // registry/avail-widgets/ui/button.tsx -> button
+  // registry/avail-widgets/deposit/components/... -> deposit
   const registryPrefix = config.registryPath + "/";
   const relativePath = normalizedPath.includes(registryPrefix)
     ? normalizedPath.split(registryPrefix)[1]
@@ -103,7 +103,7 @@ function getRegistryComponentFromPath(
   const parts = relativePath.split("/");
 
   if (parts[0] === "ui") {
-    // UI component: registry/nexus-elements/ui/button.tsx -> button
+    // UI component: registry/avail-widgets/ui/button.tsx -> button
     const fileName = parts[1];
     if (fileName) {
       return fileName.replace(/\.(tsx?|jsx?)$/, "");
@@ -115,7 +115,7 @@ function getRegistryComponentFromPath(
     // Common utilities are typically bundled with components, not separate
     return undefined;
   } else {
-    // Complex widget: registry/nexus-elements/deposit/... -> deposit
+    // Complex widget: registry/avail-widgets/deposit/... -> deposit
     return parts[0];
   }
 

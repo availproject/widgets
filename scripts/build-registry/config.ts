@@ -3,20 +3,20 @@ import * as path from "path";
 import type { RegistryConfig } from "./types";
 
 const DEFAULT_CONFIG: RegistryConfig = {
-  name: "nexus-elements",
-  namespace: "nexus-elements",
+  name: "avail-widgets",
+  namespace: "avail-widgets",
   homepage: "https://elements.nexus.availproject.org",
   baseUrl: "https://develop.elements.nexus.availproject.org/r",
-  registryPath: "registry/nexus-elements",
+  registryPath: "registry/avail-widgets",
   outputPath: "registry.json",
   peerDependencies: ["react", "react-dom"],
   pinnedDependencies: {
-    "@avail-project/nexus-core": "1.2.0",
+    "@avail-project/nexus-core": "2.0.0",
   },
   aliases: {
     "@/lib/utils": "lib/utils.ts",
-    "@/components/ui": "registry/nexus-elements/ui",
-    "@/components": "registry/nexus-elements",
+    "@/components/ui": "registry/avail-widgets/ui",
+    "@/components": "registry/avail-widgets",
   },
   targetPrefix: "components",
   libTarget: "lib",
@@ -24,55 +24,61 @@ const DEFAULT_CONFIG: RegistryConfig = {
     "fast-bridge": {
       title: "Fast Bridge",
       description:
-        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain bridging.",
-      docs: "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
+        "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain bridging.",
+      docs: "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations.",
       meta: {
         deprecated: true,
         deprecationMessage:
-          "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
+          "Fast Bridge is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations.",
       },
     },
     "fast-transfer": {
       title: "Fast Transfer",
       description:
-        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
-      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+        "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain transfer.",
+      docs: 'Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = "send" for new integrations.',
       meta: {
         deprecated: true,
         deprecationMessage:
-          'Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+          'Fast Transfer is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = "send" for new integrations.',
       },
     },
     transfer: {
       title: "Fast Transfer",
       description:
-        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
-      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+        "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain transfer.",
+      docs: 'Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = "send" for new integrations.',
       meta: {
         deprecated: true,
         deprecationMessage:
-          'Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "send" for new integrations.',
+          'Fast Transfer is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = "send" for new integrations.',
       },
     },
     "nexus-provider": {
       title: "Nexus Provider",
-      description: "Shared Nexus SDK provider and types for Nexus Elements",
+      description: "Shared Nexus SDK provider and types for Avail Widgets",
     },
     deposit: {
       title: "Deposit",
       description:
-        "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
-      docs: 'Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and a deposit config for new integrations.',
+        "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable deposits.",
+      docs: 'Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = "deposit" and opportunities for new integrations.',
       meta: {
         deprecated: true,
         deprecationMessage:
-          'Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = "deposit" and a deposit config for new integrations.',
+          'Deposit is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = "deposit" and opportunities for new integrations.',
       },
     },
     swaps: {
       title: "Swaps",
-      description: "Legacy swap tokens across chains component.",
-      docs: 'Use @nexus-elements/nexus-one with config.mode = "swap" for new integrations.',
+      description:
+        "Deprecated: use Nexus Widget instead. Legacy swap tokens across chains component.",
+      docs: 'Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = "swap" for new integrations.',
+      meta: {
+        deprecated: true,
+        deprecationMessage:
+          'Swaps is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = "swap" for new integrations.',
+      },
     },
     "unified-balance": {
       title: "Unified Balance",
@@ -85,8 +91,9 @@ const DEFAULT_CONFIG: RegistryConfig = {
         "A simple component built with Nexus to display view history",
     },
     all: {
-      title: "All Elements",
-      description: "Install all Nexus Elements in one command",
+      title: "All Widgets",
+      description:
+        "Install all Avail widgets. For new integrations, use @avail-widgets/nexus instead - it provides unified swap, send, and deposit in one component.",
     },
     utils: {
       title: "Utils (cn)",

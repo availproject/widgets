@@ -5,11 +5,11 @@
   "title": "Separator",
   "description": "UI primitive: Separator",
   "registryDependencies": [
-    "https://elements.nexus.availproject.org/r/utils.json"
+    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
   ],
   "files": [
     {
-      "path": "registry/nexus-elements/ui/separator.tsx",
+      "path": "registry/avail-widgets/ui/separator.tsx",
       "content": "\"use client\";\n\nimport * as React from \"react\";\n\nimport { cn } from \"@/lib/utils\";\n\nfunction Separator({ className, ...props }: React.ComponentProps<\"div\">) {\n  return (\n    <div\n      data-slot=\"separator\"\n      role=\"separator\"\n      className={cn(\"bg-border my-2 h-px w-full\", className)}\n      {...props}\n    />\n  );\n}\n\nexport { Separator };\n",
       "type": "registry:component",
       "target": "components/ui/separator.tsx"

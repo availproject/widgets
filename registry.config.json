@@ -1,80 +1,86 @@
 {
-  "name": "nexus-elements",
-  "namespace": "nexus-elements",
+  "name": "avail-widgets",
+  "namespace": "avail-widgets",
   "homepage": "https://elements.nexus.availproject.org",
   "baseUrl": "https://elements.nexus.availproject.org/r",
-  "registryPath": "registry/nexus-elements",
+  "registryPath": "registry/avail-widgets",
   "outputPath": "registry.json",
   "peerDependencies": ["react", "react-dom"],
   "pinnedDependencies": {
-    "@avail-project/nexus-core": "1.6.0"
+    "@avail-project/nexus-core": "2.0.0"
   },
   "aliases": {
     "@/lib/utils": "lib/utils.ts",
-    "@/components/ui": "registry/nexus-elements/ui",
-    "@/components": "registry/nexus-elements"
+    "@/components/ui": "registry/avail-widgets/ui",
+    "@/components": "registry/avail-widgets"
   },
   "targetPrefix": "components",
   "libTarget": "lib",
   "componentOverrides": {
-    "nexus-one": {
-      "title": "Nexus One",
-      "description": "The unified Nexus element for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
-      "docs": "Nexus One is the single recommended component for all cross-chain flows. Supports config.mode = \"swap\" | \"send\" | \"deposit\".",
+    "nexus-widget": {
+      "name": "nexus",
+      "targetName": "nexus",
+      "title": "Nexus Widget",
+      "description": "The unified Avail Nexus widget for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
+      "docs": "NexusWidget is the single recommended component for all cross-chain flows. Supports config.mode = \"swap\" | \"send\" | \"deposit\" | \"fastBridge\".",
       "meta": {
         "featured": true
       }
     },
     "fast-bridge": {
       "title": "Fast Bridge",
-      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain bridging.",
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations.",
+      "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain bridging.",
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+        "deprecationMessage": "Fast Bridge is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
       }
     },
     "transfer": {
       "title": "Fast Transfer",
-      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable cross chain transfer.",
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations.",
+      "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain transfer.",
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"send\" for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"send\" for new integrations."
+        "deprecationMessage": "Fast Transfer is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"send\" for new integrations."
       }
     },
     "nexus": {
       "name": "nexus-provider",
       "title": "Nexus Provider",
-      "description": "Shared Nexus SDK provider and types for Nexus Elements"
+      "description": "Shared Nexus SDK provider and types for Avail Widgets"
     },
     "deposit": {
       "title": "Deposit",
-      "description": "Deprecated: use Nexus One instead. A legacy component built with Nexus to enable deposits.",
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and a deposit config for new integrations.",
+      "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable deposits.",
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and a deposit config for new integrations."
+        "deprecationMessage": "Deposit is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
       }
     },
     "swaps": {
       "title": "Swaps",
-      "description": "Legacy swap tokens across chains component.",
-      "docs": "Use @nexus-elements/nexus-one with config.mode = \"swap\" for new integrations."
+      "description": "Deprecated: use Nexus Widget instead. Legacy swap tokens across chains component.",
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"swap\" for new integrations.",
+      "meta": {
+        "deprecated": true,
+        "deprecationMessage": "Swaps is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"swap\" for new integrations."
+      }
     },
     "unified-balance": {
       "title": "Unified Balance",
-      "description": "Deprecated: use Nexus One instead. Unified Balance has been removed in favor of Nexus One's inline balance views.",
-      "docs": "Deprecated in favor of Nexus One. Nexus One includes inline balance views during swap, send, and deposit flows.",
+      "description": "Deprecated: use Nexus Widget instead. Unified Balance has been removed in favor of Nexus Widget's inline balance views.",
+      "docs": "Deprecated in favor of Nexus Widget. NexusWidget includes inline balance views during swap, send, and deposit flows.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one for new integrations."
+        "deprecationMessage": "Unified Balance is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
       }
     },
     "view-history": {
       "title": "View History",
-      "description": "Deprecated: use Nexus One instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
-      "docs": "Deprecated in favor of Nexus One. Intent history is not included in Nexus One V1. Use sdk.getMyIntents() directly.",
+      "description": "Deprecated: use Nexus Widget instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
+      "docs": "Deprecated in favor of Nexus Widget. Intent history is not included in Nexus Widget V1. Use sdk.getMyIntents() directly.",
       "meta": {
         "deprecated": true,
         "deprecationMessage": "View History is deprecated. Use sdk.getMyIntents() for programmatic intent history access."
@@ -82,16 +88,16 @@
     },
     "bridge-deposit": {
       "title": "Bridge Deposit",
-      "description": "Deprecated: use Nexus One instead. Bridge Deposit has been removed in favor of Nexus One deposit mode.",
-      "docs": "Deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and a deposit config for new integrations.",
+      "description": "Deprecated: use Nexus Widget instead. Bridge Deposit has been removed in favor of Nexus Widget deposit mode.",
+      "docs": "Deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations.",
       "meta": {
         "deprecated": true,
-        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus One. Use @nexus-elements/nexus-one with config.mode = \"deposit\" and a deposit config for new integrations."
+        "deprecationMessage": "Bridge Deposit is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus with config.mode = \"deposit\" for new integrations."
       }
     },
     "all": {
       "title": "All Elements",
-      "description": "Install all Nexus Elements. For new integrations, use @nexus-elements/nexus-one instead — it provides unified swap, send, and deposit in one component."
+      "description": "Install all Avail widgets. For new integrations, use @avail-widgets/nexus instead - it provides unified swap, send, and deposit in one component."
     },
     "utils": {
       "title": "Utils (cn)",

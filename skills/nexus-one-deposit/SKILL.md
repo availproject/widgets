@@ -32,7 +32,7 @@ export function DepositWidget({ address }: { address?: `0x${string}` }) {
   // Define destination contract details and ABI
   const APP_DEPOSIT_CONTRACT = "0xYourDepositContractAddress";
   const DESTINATION_TOKEN = "0xUSDTBaseAddress";
-  
+
   const APP_DEPOSIT_ABI = [
     {
       inputs: [

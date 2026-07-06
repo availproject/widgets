@@ -10,14 +10,14 @@ description: Implement swapWithExactIn, swapWithExactOut, and swapAndExecute flo
 - Signature:
   - `sdk.swapWithExactIn(input, { onEvent? })`
 - Params (`ExactInSwapInput`):
-  - `from: { chainId: number; amount: bigint; tokenAddress: Hex }[]`
+  - `sources?: { chainId: number; tokenAddress: Hex; amountRaw?: bigint }[]`
   - `toChainId: number`
   - `toTokenAddress: Hex`
 - Notes:
-  - Ensure `from` amounts are in smallest units.
+  - Ensure `sources[].amountRaw` values are in smallest units when provided.
   - Use chain-specific token addresses (see `TOKEN_CONTRACT_ADDRESSES`).
 - Result (`SwapResult`):
-  - `{ success: true; result: SuccessfulSwapResult }`
+  - `SwapResult` with `sourceSwaps`, `destinationSwap`, and `intentExplorerUrl`.
 
 ## Call swapWithExactOut(input, options?)
 - Use when desired output amount is fixed.
@@ -26,11 +26,11 @@ description: Implement swapWithExactIn, swapWithExactOut, and swapAndExecute flo
 - Params (`ExactOutSwapInput`):
   - `toChainId: number`
   - `toTokenAddress: Hex`
-  - `toAmount: bigint`
-  - `toNativeAmount?: bigint` (optional native token output)
-  - `fromSources?: { chainId: number; tokenAddress: Hex }[]` (optional)
+  - `toAmountRaw: bigint`
+  - `toNativeAmountRaw?: bigint` (optional native token output)
+  - `sources?: { chainId: number; tokenAddress: Hex }[]` (optional)
 - Notes:
-  - If `fromSources` is omitted, SDK auto-selects sources.
+  - If `sources` is omitted, SDK auto-selects sources.
 
 ## Call swapAndExecute(input, options?)
 - Use to perform swap (if needed) and then execute a contract call.
@@ -39,8 +39,8 @@ description: Implement swapWithExactIn, swapWithExactOut, and swapAndExecute flo
 - Params (`SwapAndExecuteParams`):
   - `toChainId: number`
   - `toTokenAddress: Hex`
-  - `toAmount: bigint`
-  - `fromSources?: { chainId: number; tokenAddress: Hex }[]`
+  - `toAmountRaw: bigint`
+  - `sources?: { chainId: number; tokenAddress: Hex }[]`
   - `execute: SwapExecuteParams`
 - `SwapExecuteParams`:
   - `to: Hex`
@@ -48,7 +48,7 @@ description: Implement swapWithExactIn, swapWithExactOut, and swapAndExecute flo
   - `value?: bigint`
   - `gas: bigint`
   - `gasPrice?: 'low' | 'medium' | 'high'`
-  - `tokenApproval?: { token: Hex; amount: bigint; spender: Hex }`
+  - `tokenApproval?: { toTokenAddress: Hex; amount: bigint; spender: Hex }`
 - Result (`SwapAndExecuteResult`):
   - `swapResult: SuccessfulSwapResult | null` (null if swap skipped)
 

@@ -1,5 +1,5 @@
 "use client";
-import { Tabs } from "@/registry/nexus-elements/ui/tabs";
+import { Tabs } from "@/registry/avail-widgets/ui/tabs";
 import * as React from "react";
 
 export function CodeTabs({ children }: React.ComponentProps<typeof Tabs>) {

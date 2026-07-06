@@ -2,20 +2,17 @@
 title: Send
 description: Route funds to a recipient with Nexus intents.
 component: true
+preview:
+  name: nexus-send
+  align: center
+  hideCode: true
 links:
   doc: https://docs.availproject.org/nexus/avail-nexus-sdk/bridge-methods/transfer
   api: https://docs.availproject.org/nexus/avail-nexus-sdk/api-reference#transfer-operations
 ---
 
-<ComponentPreview
-  name="nexus-one-transfer"
-  description="Send mode with USDC on Base prefilled. The recipient is selected by the user."
-  align="center"
-  hideCode
-/>
-
 > **Network support:** Mainnet only. Testnet is not supported at the moment.
- 
+
 ## Build with Agent Skills
 
 <span className="block mt-6" />
@@ -27,6 +24,7 @@ Install the skill pack once in your environment:
 ```bash
 npx skills add availproject/nexus-elements
 ```
+
 <span className="block mt-6" />
 
 For more information, view [skills.sh/availproject/nexus-elements](https://skills.sh/availproject/nexus-elements).
@@ -39,10 +37,34 @@ Recommended skills for this component:
 - `nexus-elements-nexus-provider`
 - `nexus-one-send`
 
+## Build with Agent Skills
+
+<span className="block mt-6" />
+
+Avail Widgets ships with agent skills that help you set up providers, integrate components, and ship faster.
+
+Install the skill pack once in your environment:
+
+```bash
+npx skills add availproject/avail-widgets
+```
+
+<span className="block mt-6" />
+
+For more information, view [skills.sh/availproject/avail-widgets](https://skills.sh/availproject/avail-widgets).
+
+<span className="block mt-6" />
+
+Recommended skills for this component:
+
+- `avail-widgets-overview`
+- `avail-widgets-nexus-provider`
+- `nexus-widget-send`
+
 ## Installation
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add @avail-widgets/nexus
 ```
 
 ## Usage
@@ -50,22 +72,30 @@ npx shadcn@latest add @nexus-elements/nexus-one
 Wrap your app with the Nexus provider first. See [Get Started](/docs/get-started) for provider setup.
 
 ```tsx showLineNumbers
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+import { NexusWidget } from "@/components/nexus/nexus";
 
-const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const RECIPIENT = "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E";
+const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
+const RECIPIENT = "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E" as const;
 
 export function SendExample({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
+    <NexusWidget
       connectedAddress={address}
       config={{
         mode: "send",
-        prefill: {
-          token: USDC_BASE,
+        destination: {
           chain: 8453,
+          tokens: [
+            {
+              address: USDC_BASE,
+              symbol: "USDC",
+              decimals: 6,
+            },
+          ],
+        },
+        recipientAddress: RECIPIENT,
+        prefill: {
           amount: "0.1",
-          recipient: RECIPIENT,
         },
       }}
     />
@@ -75,17 +105,51 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
 
 ## Configuration
 
-Send uses only `mode: "send"`. This mode is exact-out: users enter the token amount to send, pay-with sources are selected, and the flow submits through `swapAndTransfer`.
+Send uses only `mode: "send"`. This mode is exact-out: users enter the token amount to send, pay-with sources are selected, and the flow submits through the v2 transfer execution path.
 
-| Prop | Required | Description |
-| --- | --- | --- |
-| `config.mode` | Yes | Must be `"send"`. |
-| `config.prefill.token` | Optional | Preselects the token to send. |
-| `config.prefill.chain` | Optional | Preselects the destination chain. |
-| `config.prefill.amount` | Optional | Prefills the exact output send amount. |
-| `config.prefill.recipient` | Optional | Prefills the recipient address. A recipient is required before users can submit. |
-| `config.allowedSourcePairs` | Optional | Restricts pay-with source assets. |
-| `config.allowedDestinationPairs` | Optional | Restricts destination token and chain choices. |
-| `connectedAddress` | Optional | Wallet address to use. If omitted, the connected wagmi account is used. |
-| `embed` | Optional | Defaults to `true`. Set `false` to render as a modal surface. |
-| `onStart`, `onComplete`, `onError`, `onClose`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectWallet` to route the element CTA to your app-level wallet flow. |
+| Prop                                          | Required | Description                                                                                                                 |
+| --------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `config.mode`                                 | Yes      | Must be `"send"`.                                                                                                           |
+| `config.destination.chain`                    | Optional | Restricts the destination chain when supplied. If omitted, users can change chains.                                         |
+| `config.destination.tokens`                   | Optional | Restricts destination tokens when supplied with `destination.chain`. Each token needs `address`, `symbol`, and `decimals`.  |
+| `config.recipientAddress`                     | Optional | Prefills and locks the recipient address. A recipient is required before users can submit.                                  |
+| `config.prefill.amount`                       | Optional | Prefills the exact output send amount. Must be greater than `0`.                                                            |
+| `config.prefill.token`                        | Optional | Sets the initial destination token without restricting later choices. Ignored when `config.destination.tokens` is supplied. |
+| `config.validation.minAmount`                 | Optional | Minimum amount. Must be `0` or greater.                                                                                     |
+| `config.validation.maxAmount`                 | Optional | Maximum amount. Must be greater than `0`.                                                                                   |
+| `config.appearance`                           | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`.                                                    |
+| `connectedAddress`                            | Optional | Wallet address to use. If omitted, the connected wagmi account is used.                                                     |
+| `embed`                                       | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                                               |
+| `onStart`, `onComplete`, `onError`, `onClose` | Optional | Lifecycle callbacks for host apps.                                                                                          |
+
+<CodeCollapsibleWrapper className="mt-4">
+
+```ts title="SendConfig"
+type DestinationToken = {
+  address: `0x${string}`;
+  symbol: string;
+  decimals: number;
+  logo?: string;
+};
+
+interface SendConfig {
+  mode: "send";
+  destination?: {
+    chain?: number;
+    tokens?: DestinationToken[];
+  };
+  recipientAddress?: `0x${string}`;
+  prefill?: {
+    amount?: string;
+    token?: DestinationToken & { chain: number };
+  };
+  validation?: {
+    minAmount?: string;
+    maxAmount?: string;
+  };
+}
+```
+
+</CodeCollapsibleWrapper>
+
+Use `destination.tokens` when you want to restrict the selector. Use `prefill.token` when you only want the initial token selected and still want users to choose from the full supported list. If both are supplied, `destination.tokens[0]` is honored and `prefill.token` is ignored.

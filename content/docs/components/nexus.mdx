@@ -1,0 +1,340 @@
+---
+title: Nexus Widget
+description: A unified element for swap, send, and deposit flows powered by Nexus intents.
+component: true
+preview:
+  name: nexus
+  align: center
+  hideCode: true
+---
+
+> **Network support:** Nexus Widget currently supports mainnet only. Testnet is not supported at the moment.
+
+Switch the mode below the element in this preview to see the active `config` update in real time.
+
+## Mode Previews
+
+### Send
+
+Locks the element to the send flow. This preview prefills USDC on Base, an amount, and a recipient; Nexus resolves the sources to pay with.
+
+<ComponentPreview
+  name="nexus-send"
+  description="Locked send mode for cross-chain transfers."
+  align="center"
+  hideCode
+/>
+
+### Swap
+
+Locks the element to the swap flow. This preview prefills USDC on Arbitrum as the source and USDC on Base as the receive asset.
+
+<ComponentPreview
+  name="nexus-swap"
+  description="Locked swap mode for multi-chain swaps."
+  align="center"
+  hideCode
+/>
+
+### Deposit
+
+Locks the element to the deposit flow. A single `deposit` config is required.
+
+<ComponentPreview
+  name="nexus-deposit"
+  description="Locked deposit mode for a configured protocol or smart-contract action."
+  align="center"
+  hideCode
+/>
+
+## Installation
+
+<CodeTabs>
+  <TabsList>
+    <TabsTrigger value="cli">CLI</TabsTrigger>
+    <TabsTrigger value="manual">Manual</TabsTrigger>
+  </TabsList>
+  <TabsContent value="cli">
+    ```bash
+    npx shadcn@latest add @avail-widgets/nexus
+    ```
+  </TabsContent>
+  <TabsContent value="manual">
+    <Steps>
+      <Step>Install dependencies</Step>
+```bash
+npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
+```
+      <Step>Copy and paste the component code into your project.</Step>
+      <div
+        data-slot="code"
+        className="my-4 overflow-hidden **:data-rehype-pretty-code-figure:m-0! **:data-rehype-pretty-code-figure:rounded-t-none **:data-rehype-pretty-code-figure:border-t [&_pre]:max-h-[400px]"
+      >
+        <ComponentSource name="nexus" showAllFiles />
+      </div>
+      <Step>Update import paths to match your project setup.</Step>
+    </Steps>
+  </TabsContent>
+</CodeTabs>
+
+## Usage
+
+<Step className="font-serif text-lg">
+  Wrap your app with `NexusProvider` before rendering `NexusWidget`.
+</Step>
+<Step className="font-serif text-base">
+  View setup instructions{" "}
+  <a href="/docs/get-started" target="_blank" className="underline">
+    here
+  </a>
+  .
+</Step>
+
+```tsx showLineNumbers
+import { NexusWidget } from "@/components/nexus/nexus";
+
+export function App({ address }: { address?: `0x${string}` }) {
+  return <NexusWidget config={{ mode: "swap" }} connectedAddress={address} />;
+}
+```
+
+## Configuration
+
+`config.mode` is required and must be `"swap"`, `"send"`, or `"deposit"`.
+
+### Props
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `config` | `object` | Selects the workflow and any mode-specific behavior. |
+| `connectedAddress` | `` `0x${string}` `` | Wallet address to use. If omitted, Nexus Widget falls back to the connected wagmi wallet account. |
+| `embed` | `boolean` | Defaults to `true`. Set `false` when rendering Nexus Widget as a modal surface. |
+| `open`, `onOpenChange`, `defaultOpen` | modal controls | Control modal state when `embed={false}`. |
+| `onComplete` | `(explorerUrl?: string) => void` | Called after a successful swap, send, or deposit. |
+| `onStart` | `() => void` | Called when the user starts execution. |
+| `onError` | `(message: string) => void` | Called when execution fails. |
+| `onClose` | `() => void` | Used by modal mode. |
+| `onConnectClick` | `() => void \| Promise<void>` | Called when the internal Connect Wallet CTA is clicked. Use this to open your app/header wallet modal. |
+| `onConnectWallet` | `() => void \| Promise<void>` | Backward-compatible connect callback prop. |
+
+### Shared Config
+
+| Field | Modes | Notes |
+| --- | --- | --- |
+| `destination.chain` | all | Required for deposit. Optional for send/swap; when supplied, destination chain selection is restricted. |
+| `destination.tokens` | all | Required for deposit with at least one token. Optional for send/swap; when supplied with `destination.chain`, destination token selection is restricted. |
+| `recipientAddress` | send/swap | Prefills the recipient. In send mode, a supplied recipient is locked. |
+| `prefill.amount` | deposit/send | Optional amount prefill. Must be greater than `0`. |
+| `prefill.token` | send/swap | Optional initial destination/receive token: `{ chain, address, symbol, decimals, logo? }`. It does not restrict later token choices. |
+| `validation.minAmount` | deposit/send | Optional minimum amount. Must be `0` or greater. |
+| `validation.maxAmount` | deposit/send | Optional maximum amount. Must be greater than `0`. |
+| `appearance.heading` | all | Overrides the idle screen heading. |
+| `appearance.appName` | all | App/protocol name used in deposit progress and success UI. |
+| `appearance.appLogoURL` | all | App/protocol logo URL. Must start with `http://` or `https://`. |
+| `appearance.mode` | all | `"system"`, `"light"`, or `"dark"`. |
+| `appearance.primaryColor` | all | Any valid browser-supported CSS color. Text color is chosen automatically for contrast. |
+
+Swap supports `prefill.token` only. It does not support amount prefill or validation yet.
+
+Use `destination.tokens` when you want to restrict the destination/receive selector. Use `prefill.token` when you only want an initial token selected and still want users to choose from the full supported list. If both are supplied, `destination.tokens[0]` is honored and `prefill.token` is ignored.
+
+### Deposit Config
+
+Deposit requires a fixed destination chain, at least one destination token, a deposit contract address, and an execution builder.
+
+```ts
+type NexusWidgetDepositConfig = {
+  mode: "deposit";
+  destination: {
+    chain: number;
+    tokens: {
+      address: `0x${string}`;
+      symbol: string;
+      decimals: number;
+      logo?: string;
+    }[];
+  };
+  depositAddress: `0x${string}`;
+  executeDeposit: (
+    tokenSymbol: string,
+    tokenAddress: `0x${string}`,
+    amount: bigint,
+    chainId: number,
+    user: `0x${string}`,
+  ) => {
+    to: `0x${string}`;
+    data?: `0x${string}`;
+    value?: bigint;
+    gas?: bigint;
+    tokenApproval?: {
+      toTokenAddress: `0x${string}`;
+      amount: bigint;
+      spender: `0x${string}`;
+    };
+  };
+  prefill?: { amount?: string };
+  validation?: { minAmount?: string; maxAmount?: string };
+  appearance?: NexusWidgetAppearance;
+};
+```
+
+## Examples
+
+### Swap
+
+```tsx showLineNumbers
+import { NexusWidget } from "@/components/nexus/nexus";
+
+export function SwapExample({ address }: { address?: `0x${string}` }) {
+  return (
+    <NexusWidget
+      config={{
+        mode: "swap",
+        destination: {
+          chain: 8453,
+          tokens: [
+            {
+              address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              symbol: "USDC",
+              decimals: 6,
+            },
+          ],
+        },
+      }}
+      connectedAddress={address}
+    />
+  );
+}
+```
+
+### Send
+
+```tsx showLineNumbers
+import { NexusWidget } from "@/components/nexus/nexus";
+
+export function SendExample({ address }: { address?: `0x${string}` }) {
+  return (
+    <NexusWidget
+      config={{
+        mode: "send",
+        destination: {
+          chain: 8453,
+          tokens: [
+            {
+              address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              symbol: "USDC",
+              decimals: 6,
+            },
+          ],
+        },
+        recipientAddress: "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E",
+        prefill: {
+          amount: "0.1",
+        },
+      }}
+      connectedAddress={address}
+    />
+  );
+}
+```
+
+### Deposit
+
+```tsx showLineNumbers
+import { NexusWidget } from "@/components/nexus/nexus";
+import { encodeFunctionData } from "viem";
+
+// Configure these for your app.
+const APP_DEPOSIT_CONTRACT = "0x...";
+const DESTINATION_TOKEN = "0x...";
+const DESTINATION_CHAIN_ID = 42161;
+const DESTINATION_TOKEN_SYMBOL = "USDT";
+const DESTINATION_TOKEN_DECIMALS = 6;
+
+const APP_DEPOSIT_ABI = [
+  {
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "user", type: "address" },
+    ],
+    name: "deposit",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
+function buildDepositExecuteConfig(
+  tokenAddress: `0x${string}`,
+  amount: bigint,
+  user: `0x${string}`,
+) {
+  return {
+    to: APP_DEPOSIT_CONTRACT,
+    data: encodeFunctionData({
+      abi: APP_DEPOSIT_ABI,
+      functionName: "deposit",
+      args: [tokenAddress, amount, user],
+      // Aave reference: supply(asset, amount, onBehalfOf, referralCode)
+    }),
+    tokenApproval: {
+      toTokenAddress: tokenAddress,
+      amount,
+      spender: APP_DEPOSIT_CONTRACT,
+    },
+  };
+}
+
+const depositConfig = {
+  mode: "deposit",
+  destination: {
+    chain: DESTINATION_CHAIN_ID,
+    tokens: [
+      {
+        address: DESTINATION_TOKEN,
+        symbol: DESTINATION_TOKEN_SYMBOL,
+        decimals: DESTINATION_TOKEN_DECIMALS,
+      },
+    ],
+  },
+  depositAddress: APP_DEPOSIT_CONTRACT,
+  executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) =>
+    buildDepositExecuteConfig(tokenAddress, amount, user),
+  appearance: {
+    appName: "Your App",
+    heading: "Deposit",
+    mode: "system",
+  },
+} as const;
+
+<NexusWidget config={depositConfig} connectedAddress={address} />;
+```
+
+### Modal Deposit
+
+```tsx showLineNumbers
+import { NexusWidget } from "@/components/nexus/nexus";
+
+<NexusWidget
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  defaultOpen={false}
+/>;
+```
+
+```tsx showLineNumbers
+import { useState } from "react";
+import { NexusWidget } from "@/components/nexus/nexus";
+
+const [open, setOpen] = useState(false);
+
+<NexusWidget
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  open={open}
+  onOpenChange={setOpen}
+/>;
+```

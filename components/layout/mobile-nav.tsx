@@ -1,11 +1,11 @@
 "use client";
 import { cn } from "@/lib/utils";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/registry/nexus-elements/ui/popover";
+} from "@/registry/avail-widgets/ui/popover";
 import Link, { LinkProps } from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -96,14 +96,14 @@ function MobileNav({
             <Link href={"/"} className={cn("cursor-pointer ")}>
               <Image
                 src="/avail-logo-dark.svg"
-                alt="Nexus Elements"
+                alt="Avail Widgets"
                 width={100}
                 height={100}
                 className="sm:w-[100px] sm:h-[100px] w-[60px] h-[60px]  dark:hidden block"
               />
               <Image
                 src="/avail-logo-light.svg"
-                alt="Nexus Elements"
+                alt="Avail Widgets"
                 width={100}
                 height={100}
                 className="sm:w-[100px] sm:h-[100px] w-[60px] h-[60px]  hidden dark:block"

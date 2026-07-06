@@ -20,10 +20,14 @@ import {
 } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { Chain, defineChain } from "viem";
-import NexusProvider from "@/registry/nexus-elements/nexus/NexusProvider";
+import NexusProvider from "@/registry/avail-widgets/nexus/NexusProvider";
+import {
+  CHAIN_METADATA,
+  SUPPORTED_CHAINS,
+} from "@/registry/avail-widgets/common/utils/constant";
 import { type NexusNetwork } from "@avail-project/nexus-core";
 import { Suspense, useMemo, useState, useEffect } from "react";
-import { Skeleton } from "@/registry/nexus-elements/ui/skeleton";
+import { Skeleton } from "@/registry/avail-widgets/ui/skeleton";
 import { getItem, setItem } from "@/lib/local-storage";
 
 const hyperEVM = defineChain({
@@ -60,7 +64,45 @@ const sophon = defineChain({
   },
 });
 
-// Add chain icons for RainbowKit
+const citreaMetadata = CHAIN_METADATA[SUPPORTED_CHAINS.CITREA];
+
+const citrea = defineChain({
+  id: SUPPORTED_CHAINS.CITREA,
+  name: citreaMetadata.name,
+  nativeCurrency: citreaMetadata.nativeCurrency,
+  rpcUrls: {
+    default: {
+      http: citreaMetadata.rpcUrls ?? ["https://rpc.citrea.xyz"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "Citrea Explorer",
+      url: citreaMetadata.blockExplorerUrls[0],
+    },
+  },
+});
+
+const megaEthMetadata = CHAIN_METADATA[SUPPORTED_CHAINS.MEGAETH];
+
+const megaEth = defineChain({
+  id: SUPPORTED_CHAINS.MEGAETH,
+  name: megaEthMetadata.name,
+  nativeCurrency: megaEthMetadata.nativeCurrency,
+  rpcUrls: {
+    default: {
+      http: megaEthMetadata.rpcUrls ?? ["https://rpcs.avail.so/megaeth"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "MegaETH Explorer",
+      url: megaEthMetadata.blockExplorerUrls[0],
+    },
+  },
+});
+
+// Add chain icons for ConnectKit.
 type ConnectKitChain = Chain & { iconUrl?: string; iconBackground?: string };
 
 const monad = {
@@ -89,6 +131,18 @@ const hyperEVMWithIcon: ConnectKitChain = {
   iconBackground: "#0a3cff",
 };
 
+const citreaWithIcon: ConnectKitChain = {
+  ...citrea,
+  iconUrl: citreaMetadata.logo,
+  iconBackground: "#f8f4ee",
+};
+
+const megaEthWithIcon: ConnectKitChain = {
+  ...megaEth,
+  iconUrl: megaEthMetadata.logo,
+  iconBackground: "#111111",
+};
+
 const sophonWithIcon: ConnectKitChain = {
   ...sophon,
   iconUrl:
@@ -98,34 +152,37 @@ const sophonWithIcon: ConnectKitChain = {
 
 const WALLET_CONNECT_ID = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID!;
 
-const defaultConfig = getDefaultConfig({
-  appName: "Nexus Elements",
-  appDescription: "Prebuilt React components powered by Avail Nexus",
-  appIcon: "https://elements.nexus.availproject.org/avail-fav.svg",
-  walletConnectProjectId: WALLET_CONNECT_ID,
-  chains: [
-    mainnet,
-    base,
-    sophonWithIcon,
-    hyperEVMWithIcon,
-    bsc,
-    kaia,
-    arbitrum,
-    avalanche,
-    optimism,
-    polygon,
-    scroll,
-    sepolia,
-    baseSepolia,
-    arbitrumSepolia,
-    optimismSepolia,
-    polygonAmoy,
-    monadTestnet,
-    monad,
-  ],
-});
-
-const wagmiConfig = createConfig(defaultConfig);
+const createWagmiConfig = () =>
+  createConfig(
+    getDefaultConfig({
+      appName: "Avail Widgets",
+      appDescription: "Prebuilt React components powered by Avail Nexus",
+      appIcon: "https://elements.nexus.availproject.org/avail-fav.svg",
+      walletConnectProjectId: WALLET_CONNECT_ID,
+      chains: [
+        mainnet,
+        optimism,
+        arbitrum,
+        polygon,
+        base,
+        bsc,
+        avalanche,
+        kaia,
+        scroll,
+        hyperEVMWithIcon,
+        citreaWithIcon,
+        megaEthWithIcon,
+        monad,
+        sophonWithIcon,
+        sepolia,
+        baseSepolia,
+        arbitrumSepolia,
+        optimismSepolia,
+        polygonAmoy,
+        monadTestnet,
+      ],
+    }),
+  );
 export const NETWORK_KEY = "nexus-elements-network-key";
 
 function NexusContainer({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -152,7 +209,7 @@ function NexusContainer({ children }: Readonly<{ children: React.ReactNode }>) {
 
   const nexusConfig = useMemo(
     () => ({ network: network, debug: true }),
-    [network]
+    [network],
   );
 
   // Don't render until we've initialized from localStorage
@@ -162,10 +219,24 @@ function NexusContainer({ children }: Readonly<{ children: React.ReactNode }>) {
 
   return <NexusProvider config={nexusConfig}>{children}</NexusProvider>;
 }
-const queryClient = new QueryClient();
 const Web3Provider = ({
   children,
 }: Readonly<{ children: React.ReactNode }>) => {
+  const [mounted, setMounted] = useState(false);
+  const queryClient = useMemo(() => new QueryClient(), []);
+  const wagmiConfig = useMemo(
+    () => (mounted ? createWagmiConfig() : null),
+    [mounted],
+  );
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!wagmiConfig) {
+    return <Skeleton className="w-full h-full" />;
+  }
+
   return (
     <Suspense fallback={<Skeleton className="w-full h-full" />}>
       <WagmiProvider config={wagmiConfig}>

@@ -1,10 +1,8 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { PreviewPanel } from "../helpers/preview-panel";
 import { Toggle } from "../ui/toggle";
 import { Check, X } from "lucide-react";
-import { getItem, setItem } from "@/lib/local-storage";
-import { NETWORK_KEY } from "@/providers/Web3Provider";
 
 type ElementType =
   | "deposit"
@@ -13,7 +11,7 @@ type ElementType =
   | "unified-balance"
   | "fast-transfer"
   | "view-history"
-  | "nexus-one"
+  | "nexus-widget"
   | "swap-deposit";
 
 type ToggleControlProps = Omit<
@@ -44,19 +42,6 @@ const ShowcaseWrapper = ({
   banner,
   ...toggleProps
 }: ShowcaseWrapperProps) => {
-  const [currentNetwork, setCurrentNetwork] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Read from localStorage on client side only
-    const storedNetwork = getItem(NETWORK_KEY);
-    if (storedNetwork === "testnet") {
-      setItem(NETWORK_KEY, "mainnet");
-      setCurrentNetwork("mainnet");
-    } else {
-      setCurrentNetwork(storedNetwork ?? "mainnet");
-    }
-  }, []);
-
   const resolvedToggle =
     typeof toggle === "boolean"
       ? toggle
@@ -65,13 +50,10 @@ const ShowcaseWrapper = ({
         onPressedChange !== undefined;
   const isPressed = pressed ?? defaultPressed ?? false;
   const label = toggleLabel ?? "Swap with Exact In";
-  const effectiveNetwork = "mainnet";
-  const isTestnetUnsupported = false;
-  const isNexusOneTestnetUnsupported = false;
 
   return (
     <div className="w-full flex flex-col gap-y-4">
-      {resolvedToggle && (
+      {resolvedToggle ? (
         <div className="flex items-center justify-end w-full">
           <Toggle
             variant={variant}
@@ -89,40 +71,14 @@ const ShowcaseWrapper = ({
             )}
           </Toggle>
         </div>
-      )}
-      {isNexusOneTestnetUnsupported && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
-          Testnet is not supported at the moment.
-        </div>
-      )}
-      <p className="text-sm font-medium">{banner}</p>
-      {isTestnetUnsupported ? (
-        <div className="w-full h-64 flex flex-col gap-y-2 items-center justify-center">
-          {isNexusOneTestnetUnsupported ? (
-            <p className="text-lg font-medium">
-              Testnet is not supported at the moment.
-            </p>
-          ) : (
-            <>
-              <p className="text-lg font-medium">
-                This feature is not available on testnet
-              </p>
-              <p className="text-lg font-medium">Please switch to mainnet</p>
-              <p className="text-center text-base">
-                You can still view the source code or <br /> download the
-                element with the command below.
-              </p>
-            </>
-          )}
-        </div>
-      ) : (
-        <PreviewPanel
-          connectLabel={connectLabel}
-          renderWhenDisconnected={type === "nexus-one"}
-        >
-          {children}
-        </PreviewPanel>
-      )}
+      ) : null}
+      {banner ? <p className="text-sm font-medium">{banner}</p> : null}
+      <PreviewPanel
+        connectLabel={connectLabel}
+        renderWhenDisconnected={type === "nexus-widget"}
+      >
+        {children}
+      </PreviewPanel>
     </div>
   );
 };

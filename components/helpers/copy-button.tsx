@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "../../registry/nexus-elements/ui/tooltip";
+} from "../../registry/avail-widgets/ui/tooltip";
 import { Check, Copy } from "lucide-react";
 
 export function CopyButton({

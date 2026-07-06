@@ -2,13 +2,13 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/registry/nexus-elements/ui/button";
+import { Button } from "@/registry/avail-widgets/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/registry/nexus-elements/ui/collapsible";
-import { Separator } from "@/registry/nexus-elements/ui/separator";
+} from "@/registry/avail-widgets/ui/collapsible";
+import { Separator } from "@/registry/avail-widgets/ui/separator";
 
 export function CodeCollapsibleWrapper({
   className,

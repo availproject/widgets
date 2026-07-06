@@ -142,7 +142,7 @@ export function getReadableNexusError(err: unknown): string {
       case ERROR_CODES.RATES_CHANGED_BEYOND_TOLERANCE:
         return 'Price changed too much. Please try again.';
       case ERROR_CODES.TRANSACTION_TIMEOUT:
-        return 'Transaction timed out. Please retry.';
+        return 'Timed Out';
       default:
         return err.message;
     }
