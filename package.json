@@ -2,7 +2,11 @@
   "name": "avail-widgets",
   "version": "2.0.0",
   "description": "A modern component registry built with Next.js and shadcn/ui for Avail Nexus",
-  "author": "decocereus<amartya@availproject.org>",
+  "author": "decocereus <amartya@availproject.org>",
+  "contributors": [
+    "decocereus <amartya@availproject.org>",
+    "shrinathprabhu <shrinathprabhu.123@gmail.com>"
+  ],
   "private": true,
   "packageManager": "pnpm@11.1.3",
   "scripts": {

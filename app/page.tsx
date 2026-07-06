@@ -4,7 +4,7 @@ import { Check, Terminal, Zap, Shield, Globe, Box } from "lucide-react";
 import { CopyButton } from "@/components/helpers/copy-button";
 import { HomeNexusWidgetPreview } from "@/components/home-nexus-widget-preview";
 
-const INSTALL_COMMAND = "npx shadcn@latest add @avail-widgets/nexus";
+const INSTALL_COMMAND = "npx shadcn@latest add availproject/widgets/nexus";
 
 export default function Home() {
   return (

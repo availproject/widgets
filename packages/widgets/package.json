@@ -2,6 +2,11 @@
   "name": "@avail-project/widgets",
   "version": "2.0.0",
   "description": "Compiled Avail widgets for React applications.",
+  "author": "decocereus <amartya@availproject.org>",
+  "contributors": [
+    "decocereus <amartya@availproject.org>",
+    "shrinathprabhu <shrinathprabhu.123@gmail.com>"
+  ],
   "license": "UNLICENSED",
   "type": "module",
   "sideEffects": false,
@@ -24,7 +29,7 @@
     "prepack": "pnpm build"
   },
   "publishConfig": {
-    "access": "restricted",
+    "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
