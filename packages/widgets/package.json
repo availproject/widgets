@@ -7,6 +7,11 @@
     "decocereus <amartya@availproject.org>",
     "shrinathprabhu <shrinathprabhu.123@gmail.com>"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/availproject/widgets.git",
+    "directory": "packages/widgets"
+  },
   "license": "UNLICENSED",
   "type": "module",
   "sideEffects": false,
