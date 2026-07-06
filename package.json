@@ -12,7 +12,7 @@
     "lint": "next lint",
     "build:registry": "shadcn build",
     "build:registry:json": "npx tsx scripts/build-registry/index.ts",
-    "build:registry:branch": "sh -c 'BRANCH=${1:-$(git branch --show-current)}; pnpm build:registry:json -- --base-url \"https://raw.githubusercontent.com/availproject/nexus-elements/${BRANCH}/public/r\" && pnpm build:registry' --",
+    "build:registry:branch": "pnpm build:registry:json -- --base-url availproject/widgets && pnpm build:registry",
     "build:widgets-package": "pnpm --filter @avail-project/widgets build",
     "postinstall": "fumadocs-mdx"
   },

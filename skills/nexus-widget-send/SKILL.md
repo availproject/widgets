@@ -10,7 +10,7 @@ Use `NexusWidget` with `config.mode = "send"` for recipient transfers. The recip
 ## Installation
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ```bash

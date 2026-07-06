@@ -9,8 +9,12 @@ A unified component for **swap**, **send**, and **deposit** flows powered by [Av
 ## Installation
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
+
+This uses the public GitHub shadcn registry at
+`https://github.com/availproject/widgets`. The `@avail-widgets/nexus`
+namespace install will be documented after the registry is listed in shadcn.
 
 ### Manual Installation
 

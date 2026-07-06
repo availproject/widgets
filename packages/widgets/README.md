@@ -26,4 +26,9 @@ export function App() {
 }
 ```
 
-The shadcn registry remains the open source code-install path under `@avail-widgets/nexus`.
+The shadcn registry remains the open source code-install path. Until the
+namespace is listed in shadcn, install with:
+
+```bash
+npx shadcn@latest add availproject/widgets/nexus
+```

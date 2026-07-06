@@ -24,7 +24,7 @@ Use this skill when migrating legacy Avail widgets to the unified `NexusWidget`.
 ## Install
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 Update imports:

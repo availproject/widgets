@@ -25,17 +25,17 @@ Avail Widgets simplifies the architecture by consolidating all standalone cross-
 
 ---
 
-## 1. Registry Updates
+## 1. Registry Install
 
-Update the registry mapping in your project's `components.json` to configure the `@avail-widgets` namespace if you haven't already:
+For now, install Nexus Widget from the public GitHub shadcn registry. No
+`components.json` namespace mapping is required.
 
-```json title="components.json"
-{
-  "registries": {
-    "@avail-widgets": "https://elements.nexus.availproject.org/r/{name}.json"
-  }
-}
+```bash
+npx shadcn@latest add availproject/widgets/nexus
 ```
+
+The `@avail-widgets/nexus` namespace install will be documented after the
+registry is listed in shadcn.
 
 ---
 
@@ -43,10 +43,10 @@ Update the registry mapping in your project's `components.json` to configure the
 
 ### Install Nexus Widget
 
-Remove legacy component files from your project and install `@avail-widgets/nexus`:
+Remove legacy component files from your project and install Nexus Widget:
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ### Swaps & Bridges
@@ -197,7 +197,7 @@ If you or your team previously customized the source code of the legacy componen
 
 <Callout type="warning">
   **Modifications May Be Overwritten!** Running the CLI command `npx
-  shadcn@latest add @avail-widgets/nexus` installs new files under
+  shadcn@latest add availproject/widgets/nexus` installs new files under
   `components/nexus/`. Any custom modifications made to
   `components/avail-widgets/common/` will **not** be automatically transferred
   to the new component. If you delete the legacy folders, those local
@@ -207,7 +207,7 @@ If you or your team previously customized the source code of the legacy componen
 ### Recommended Migration Workflow for Custom Logic
 
 1. **Create a Backup:** Copy your entire existing `components/avail-widgets/` folder to a backup directory outside of your git workspace.
-2. **Install Nexus Widget:** Run `npx shadcn@latest add @avail-widgets/nexus` to install the new clean codebase.
+2. **Install Nexus Widget:** Run `npx shadcn@latest add availproject/widgets/nexus` to install the new clean codebase.
 3. **Use Component Callbacks first:** Before rewriting custom logic, check if you can use the supported callbacks on `NexusWidget`:
    - `onStart`: Triggered when the transaction pipeline begins.
    - `onComplete`: Triggered when successful. Receives `explorerUrl`.

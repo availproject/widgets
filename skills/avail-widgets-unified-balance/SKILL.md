@@ -29,7 +29,7 @@ const formatted = sdk.utils.formatTokenBalance(balance);
 ## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ## Current skills to use instead
