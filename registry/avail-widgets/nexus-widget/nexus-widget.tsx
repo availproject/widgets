@@ -226,6 +226,7 @@ const BASIS_POINTS = 10000;
 const PREDICTIVE_EXACT_IN_DISCOUNT_BPS = 50;
 const PREDICTIVE_EXACT_OUT_BUFFER_BPS = 100;
 const PREDICTIVE_QUOTE_DISPLAY_DECIMALS = 8;
+const DEPOSIT_TOKEN_DISPLAY_DECIMALS = 8;
 const SWAP_HISTORY_STORAGE_KEY_PREFIX = "nexus-widget-transaction-history-v1";
 const TIMEOUT_LABEL = "Timed Out";
 const PROGRESS_EVENT_NAMES = {
@@ -258,6 +259,14 @@ const uiFont = theme.fonts.sans;
 const modalHeightTransitionStyle = {
   interpolateSize: "allow-keywords",
 } as React.CSSProperties;
+
+const getCappedTokenDisplayDecimals = (decimals?: number) => {
+  const parsedDecimals = Number(decimals);
+  if (!Number.isFinite(parsedDecimals) || parsedDecimals < 0) {
+    return DEPOSIT_TOKEN_DISPLAY_DECIMALS;
+  }
+  return Math.min(Math.floor(parsedDecimals), DEPOSIT_TOKEN_DISPLAY_DECIMALS);
+};
 const modalHeightTransition = `height ${MODAL_HEIGHT_TRANSITION_MS}ms ease, max-height ${MODAL_HEIGHT_TRANSITION_MS}ms ease`;
 
 const getSwapHistoryStorageKey = (ownerAddress?: string) =>
@@ -5339,6 +5348,10 @@ function NexusWidgetInner({
       return undefined;
     }
 
+    if (activeMode === "deposit" && depositAmountMode === "usd") {
+      return amountNumber;
+    }
+
     const fiatValue = getFiatValue(amountNumber.toNumber(), toToken.symbol);
     return Number.isFinite(fiatValue) && fiatValue > 0
       ? new Decimal(fiatValue)
@@ -5346,17 +5359,11 @@ function NexusWidgetInner({
   };
 
   const getExactOutAvailableSourceUsd = () => {
-    const selectedSourceTotal =
-      exactOutQuoteSourceModeRef.current === "selected" && fromTokens.length > 0
-        ? fromTokens.reduce((sum, token) => {
-            const value =
-              parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
-            return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
-          }, new Decimal(0))
-        : undefined;
-
-    if (selectedSourceTotal && selectedSourceTotal.gt(0)) {
-      return selectedSourceTotal;
+    if (exactOutQuoteSourceModeRef.current === "selected") {
+      return fromTokens.reduce((sum, token) => {
+        const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
+        return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
+      }, new Decimal(0));
     }
 
     const allSourceTotal = getGasCapableBalanceSourceTokens().reduce(
@@ -6617,7 +6624,10 @@ function NexusWidgetInner({
   const depositUsdDisplay = depositUsdDecimal.toDecimalPlaces(2).toFixed();
   const depositTokenDisplay =
     depositTokenAmountForQuote
-      ?.toDecimalPlaces(toToken?.decimals ?? 18)
+      ?.toDecimalPlaces(
+        getCappedTokenDisplayDecimals(toToken?.decimals),
+        Decimal.ROUND_DOWN
+      )
       .toFixed() ?? "0";
   const depositSourceTargetUsdKey =
     activeMode === "deposit"
@@ -9167,7 +9177,12 @@ function NexusWidgetInner({
       const converted =
         depositAmountMode === "token"
           ? parsedAmount.mul(rate).toDecimalPlaces(2)
-          : parsedAmount.div(rate).toDecimalPlaces(toToken?.decimals ?? 18);
+          : parsedAmount
+              .div(rate)
+              .toDecimalPlaces(
+                getCappedTokenDisplayDecimals(toToken?.decimals),
+                Decimal.ROUND_DOWN
+              );
       setAmount(converted.toFixed());
     }
     clearPendingSwapIntent();
@@ -9641,6 +9656,14 @@ function NexusWidgetInner({
   })();
   const displayExactOutRouteLoading =
     isExactOutRouteLoading && !shouldShowPredictiveExactOutDisplay;
+  const exactOutRequiredUsdDisplay =
+    activeMode === "deposit"
+      ? previewDestinationUsdNumber?.gt(0)
+        ? previewDestinationUsdNumber.toDecimalPlaces(2).toFixed()
+        : depositUsdDisplay
+      : activeMode === "send" && sendAmountUsd > 0
+        ? sendAmountUsd.toFixed(2)
+        : undefined;
   const totalSwapBalanceUsd = getSwapBalanceTotalUsd()
     .toDecimalPlaces(2)
     .toFixed();
@@ -11177,13 +11200,7 @@ function NexusWidgetInner({
                   });
                 }}
                 preserveSelectedBelowMinimum={false}
-                requiredUsd={
-                  activeMode === "deposit"
-                    ? depositUsdDisplay
-                    : activeMode === "send" && sendAmountUsd > 0
-                      ? sendAmountUsd.toFixed(2)
-                      : undefined
-                }
+                requiredUsd={exactOutRequiredUsdDisplay}
                 selectedTokens={fromTokens}
                 swapBalance={swapBalance}
                 swapSupportedChains={swapSupportedChainsAndTokens}

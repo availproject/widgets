@@ -191,6 +191,70 @@ const SelectionControl = ({
   );
 };
 
+function TokenLogo({
+  src,
+  label,
+  size,
+  fontSize,
+  style,
+  fallbackBackground = brand,
+  fallbackColor = "#FFFFFE",
+}: {
+  src?: string;
+  label?: string;
+  size: number;
+  fontSize: number;
+  style?: React.CSSProperties;
+  fallbackBackground?: string;
+  fallbackColor?: string;
+}) {
+  const normalizedSrc = src?.trim();
+  const [failed, setFailed] = useState(!normalizedSrc);
+
+  useEffect(() => {
+    setFailed(!normalizedSrc);
+  }, [normalizedSrc]);
+
+  if (!failed && normalizedSrc) {
+    return (
+      <img
+        alt={label || ""}
+        onError={() => setFailed(true)}
+        src={normalizedSrc}
+        style={{
+          borderRadius: "999px",
+          height: size,
+          objectFit: "cover",
+          width: size,
+          ...style,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        backgroundColor: fallbackBackground,
+        borderRadius: "999px",
+        color: fallbackColor,
+        display: "flex",
+        flexShrink: 0,
+        fontFamily: '"Geist", system-ui, sans-serif',
+        fontSize,
+        fontWeight: 700,
+        height: size,
+        justifyContent: "center",
+        width: size,
+        ...style,
+      }}
+    >
+      {(label || "?").slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
 /* ── Chain logo cluster ── */
 const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
   const clusterRef = useRef<HTMLDivElement | null>(null);
@@ -335,27 +399,14 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
                     minWidth: 0,
                   }}
                 >
-                  {chain.logo ? (
-                    <img
-                      alt=""
-                      src={chain.logo}
-                      style={{
-                        borderRadius: "999px",
-                        height: 16,
-                        objectFit: "cover",
-                        width: 16,
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        backgroundColor: "#E8E8E7",
-                        borderRadius: "999px",
-                        height: 16,
-                        width: 16,
-                      }}
-                    />
-                  )}
+                  <TokenLogo
+                    fallbackBackground="#E8E8E7"
+                    fallbackColor="#161615"
+                    fontSize={8}
+                    label={chain.name}
+                    size={16}
+                    src={chain.logo}
+                  />
                   <span
                     style={{
                       color: "#363635",
@@ -404,32 +455,18 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
       }}
     >
       {tooltip}
-      {shown.map((c, i) =>
-        c.logo ? (
-          <img
-            alt=""
-            key={c.id}
-            src={c.logo}
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: "999px",
-              objectFit: "cover",
-              border: "1px solid #fff",
-            }}
-          />
-        ) : (
-          <div
-            key={c.id}
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: "999px",
-              backgroundColor: "#E8E8E7",
-            }}
-          />
-        ),
-      )}
+      {shown.map((c) => (
+        <TokenLogo
+          fallbackBackground="#E8E8E7"
+          fallbackColor="#161615"
+          fontSize={8}
+          key={c.id}
+          label={c.name}
+          size={16}
+          src={c.logo}
+          style={{ border: "1px solid #fff" }}
+        />
+      ))}
       <span
         style={{
           fontFamily: '"Geist", system-ui, sans-serif',
@@ -1031,7 +1068,6 @@ export function SwapAssetSelector({
       const next = mergeTokenOptions(tokens, lockedSelectedTokens);
       if (isMulti) {
         setDraftSelectedTokens(next);
-        return;
       }
       onSelectionChange?.(next);
     },
@@ -1529,38 +1565,12 @@ export function SwapAssetSelector({
             selected={selectedInCurrent}
           />
           <div style={{ flexShrink: 0, width: 40, height: 40 }}>
-            {token.logo ? (
-              <img
-                alt={token.symbol}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-                src={token.logo}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "999px",
-                  objectFit: "cover",
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "999px",
-                  backgroundColor: brand,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 700,
-                }}
-              >
-                {token.symbol.slice(0, 2)}
-              </div>
-            )}
+            <TokenLogo
+              fontSize={14}
+              label={token.symbol}
+              size={40}
+              src={token.logo}
+            />
           </div>
           <div
             style={{
@@ -1581,18 +1591,14 @@ export function SwapAssetSelector({
             </span>
             {token.chainName && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                {token.chainLogo && (
-                  <img
-                    alt=""
-                    src={token.chainLogo}
-                    style={{
-                      borderRadius: "999px",
-                      height: 14,
-                      objectFit: "cover",
-                      width: 14,
-                    }}
-                  />
-                )}
+                <TokenLogo
+                  fallbackBackground="#E8E8E7"
+                  fallbackColor="#161615"
+                  fontSize={7}
+                  label={token.chainName}
+                  size={14}
+                  src={token.chainLogo}
+                />
                 <span
                   style={{
                     fontFamily: '"Geist", system-ui, sans-serif',
@@ -1758,38 +1764,12 @@ export function SwapAssetSelector({
                   height: 40,
                 }}
               >
-                {group.logo ? (
-                  <img
-                    alt={group.symbol}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                    src={group.logo}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "999px",
-                      objectFit: "cover",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "999px",
-                      backgroundColor: brand,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#fff",
-                      fontSize: 14,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {group.symbol.slice(0, 2)}
-                  </div>
-                )}
+                <TokenLogo
+                  fontSize={14}
+                  label={group.symbol}
+                  size={40}
+                  src={group.logo}
+                />
               </div>
               <div
                 style={{
@@ -2215,16 +2195,13 @@ export function SwapAssetSelector({
                 }}
               />
             ) : (
-              <img
-                alt={selectedChainLabel}
+              <TokenLogo
+                fallbackBackground="#E8E8E7"
+                fallbackColor="#161615"
+                fontSize={9}
+                label={selectedChainLabel}
+                size={18}
                 src={selectedChainToken?.chainLogo}
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: "999px",
-                  objectFit: "cover",
-                  flexShrink: 0,
-                }}
               />
             )}
             <span
@@ -2443,33 +2420,19 @@ export function SwapAssetSelector({
                     {/* Small token logo cluster */}
                     <div style={{ display: "flex", alignItems: "center" }}>
                       {belowMin.slice(0, 3).map((t, i) =>
-                        t.logo ? (
-                          <img
-                            alt=""
-                            key={`bm-${t.contractAddress}-${t.chainId}`}
-                            src={t.logo}
-                            style={{
-                              width: 18,
-                              height: 18,
-                              borderRadius: "999px",
-                              objectFit: "cover",
-                              marginLeft: i > 0 ? -6 : 0,
-                              border: "1.5px solid #fff",
-                            }}
-                          />
-                        ) : (
-                          <div
-                            key={`bm-${t.contractAddress}-${t.chainId}`}
-                            style={{
-                              width: 18,
-                              height: 18,
-                              borderRadius: "999px",
-                              backgroundColor: "#E8E8E7",
-                              marginLeft: i > 0 ? -6 : 0,
-                              border: "1.5px solid #fff",
-                            }}
-                          />
-                        ),
+                        <TokenLogo
+                          fallbackBackground="#E8E8E7"
+                          fallbackColor="#161615"
+                          fontSize={8}
+                          key={`bm-${t.contractAddress}-${t.chainId}`}
+                          label={t.symbol}
+                          size={18}
+                          src={t.logo}
+                          style={{
+                            border: "1.5px solid #fff",
+                            marginLeft: i > 0 ? -6 : 0,
+                          }}
+                        />,
                       )}
                       {belowMin.length > 3 && (
                         <div
@@ -2546,50 +2509,28 @@ export function SwapAssetSelector({
                               flexShrink: 0,
                             }}
                           >
-                            {token.logo ? (
-                              <img
-                                alt={token.symbol}
-                                src={token.logo}
-                                style={{
-                                  filter: "grayscale(0.2)",
-                                  width: 22,
-                                  height: 22,
-                                  borderRadius: "999px",
-                                  objectFit: "cover",
-                                }}
-                              />
-                            ) : (
-                              <div
-                                style={{
-                                  width: 22,
-                                  height: 22,
-                                  borderRadius: "999px",
-                                  backgroundColor: "#C8C8C7",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  color: "#fff",
-                                  fontSize: 9,
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {token.symbol.slice(0, 2)}
-                              </div>
-                            )}
+                            <TokenLogo
+                              fallbackBackground="#C8C8C7"
+                              fontSize={9}
+                              label={token.symbol}
+                              size={22}
+                              src={token.logo}
+                              style={{ filter: "grayscale(0.2)" }}
+                            />
                             {token.chainLogo && (
-                              <img
-                                alt=""
+                              <TokenLogo
+                                fallbackBackground="#E8E8E7"
+                                fallbackColor="#161615"
+                                fontSize={5}
+                                label={token.chainName}
+                                size={10}
                                 src={token.chainLogo}
                                 style={{
                                   border: "1.5px solid #FFFFFE",
-                                  borderRadius: "999px",
                                   bottom: -2,
                                   filter: "grayscale(0.2)",
-                                  height: 10,
-                                  objectFit: "cover",
                                   position: "absolute",
                                   right: -2,
-                                  width: 10,
                                 }}
                               />
                             )}
@@ -2977,16 +2918,14 @@ export function SwapAssetSelector({
                           <RadioDot
                             selected={selectedChainFilter === t.chainId}
                           />
-                          <img
-                            alt={t.chainName}
+                          <TokenLogo
+                            fallbackBackground="#E8E8E7"
+                            fallbackColor="#161615"
+                            fontSize={10}
+                            label={t.chainName}
+                            size={28}
                             src={t.chainLogo}
-                            style={{
-                              marginLeft: 10,
-                              width: 28,
-                              height: 28,
-                              borderRadius: "999px",
-                              objectFit: "cover",
-                            }}
+                            style={{ marginLeft: 10 }}
                           />
                           <span
                             style={{

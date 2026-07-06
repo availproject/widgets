@@ -356,40 +356,6 @@ export function PayWithSources({
                       </span>
                     </div>
                   </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "3px",
-                      textAlign: "right",
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: primary,
-                        fontFamily: uiFont,
-                        fontSize: "16px",
-                        fontWeight: 500,
-                        lineHeight: "24px",
-                      }}
-                    >
-                      {formatToken(token.userAmount || token.balance)}{" "}
-                      {token.symbol}
-                    </span>
-                    <span
-                      style={{
-                        color: muted,
-                        fontFamily: uiFont,
-                        fontSize: "14px",
-                        lineHeight: "20px",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {formatUsd(token.userAmountUsd || token.balanceInFiat)}
-                    </span>
-                  </div>
                 </div>
                 <div
                   style={{
@@ -403,9 +369,9 @@ export function PayWithSources({
                     style={{
                       color: primary,
                       fontFamily: uiFont,
-                      fontSize: "16px",
+                      fontSize: "14px",
                       fontWeight: 500,
-                      lineHeight: "20px",
+                      lineHeight: "18px",
                     }}
                   >
                     {formatToken(token.userAmount || token.balance)}{" "}
@@ -415,8 +381,8 @@ export function PayWithSources({
                     style={{
                       color: muted,
                       fontFamily: uiFont,
-                      fontSize: "14px",
-                      lineHeight: "20px",
+                      fontSize: "12px",
+                      lineHeight: "18px",
                     }}
                   >
                     {formatUsd(token.userAmountUsd || token.balanceInFiat)}
