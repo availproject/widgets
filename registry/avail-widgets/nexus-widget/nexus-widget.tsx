@@ -1757,7 +1757,7 @@ const getDisplayDestinationSourceRow = (
 
   return {
     key: `destination-balance-${entry.toToken.chainId}-${entry.toToken.contractAddress}`,
-    tokenLogo: entry.toToken.logo,
+    tokenLogo: entry.intentData?.destination.token.logo || entry.toToken.logo,
     chainLogo: entry.toToken.chainLogo,
     symbol: entry.toToken.symbol,
     chainName: getShortChainName(
@@ -2061,13 +2061,21 @@ const normalizeSdkIntentAmount = (
   fallback: string = "0"
 ) => normalizeSdkIntentString(value) ?? fallback;
 
+const getLogoFromMetadata = (metadata: any) =>
+  metadata?.logo ??
+  metadata?.logoURI ??
+  metadata?.logoUri ??
+  metadata?.logoUrl ??
+  metadata?.icon ??
+  "";
+
 const normalizeSdkIntentChain = (chain: any) => {
   const id = Number(chain?.id ?? chain?.chainId);
   if (!Number.isFinite(id)) return undefined;
   const chainMeta = CHAIN_METADATA[id];
   return {
     id,
-    logo: chain?.logo ?? chainMeta?.logo ?? "",
+    logo: getLogoFromMetadata(chain) || chainMeta?.logo || "",
     name: chain?.name ?? chainMeta?.name ?? "",
   };
 };
@@ -2082,6 +2090,7 @@ const normalizeSdkIntentToken = (token: any, chainId?: number) => {
       token?.tokenAddress ??
       zeroAddress,
     decimals: Number.isFinite(decimals) ? decimals : 18,
+    logo: getLogoFromMetadata(token) || undefined,
     symbol: token?.symbol ?? token?.tokenSymbol ?? "",
   };
 };
@@ -2307,7 +2316,7 @@ const getSourceRows = (entry: SwapHistoryEntry): HistorySourceRow[] => {
 
       return {
         key: `${source.chain.id}-${source.token.contractAddress}-${index}`,
-        tokenLogo: fallback?.logo,
+        tokenLogo: source.token.logo || fallback?.logo,
         chainLogo: source.chain.logo || fallback?.chainLogo,
         symbol: source.token.symbol,
         chainName: getShortChainName(source.chain.id, source.chain.name),
@@ -2493,6 +2502,11 @@ function SwapReceiptPanel({
   const depositVenue =
     entry.opportunity?.title || entry.opportunity?.protocol || chainName;
   const amount = destination?.amount || "";
+  const destinationLogo =
+    destination?.token.logo ||
+    entry.toToken?.logo ||
+    entry.opportunity?.tokenLogo ||
+    (isDeposit ? entry.opportunity?.logo : undefined);
   const requestedExactOutAmount =
     (isDeposit || isSend) && entry.requestedToAmount
       ? entry.requestedToAmount
@@ -2568,11 +2582,7 @@ function SwapReceiptPanel({
             fontSize={17}
             label={tokenSymbol}
             size={45}
-            src={
-              isDeposit
-                ? entry.opportunity?.logo || entry.toToken?.logo
-                : entry.toToken?.logo
-            }
+            src={destinationLogo}
           />
           <div
             style={{
@@ -3004,7 +3014,11 @@ function SwapHistoryPanel({
     >
       {sortedEntries.map((entry) => {
         const destination = entry.intentData?.destination;
-        const destinationLogo = entry.toToken?.logo;
+        const destinationLogo =
+          destination?.token.logo ||
+          entry.toToken?.logo ||
+          entry.opportunity?.tokenLogo ||
+          "";
         const destinationChainLogo =
           destination?.chain.logo || entry.toToken?.chainLogo || "";
         const destinationChainName = getShortChainName(
@@ -3951,6 +3965,165 @@ function NexusWidgetInner({
   const normalizeAddress = (value?: string | null) =>
     (value ?? "").toLowerCase();
 
+  const getTokenLookupAddress = (value?: string | null) => {
+    if (!value) return "";
+    return isNativeTokenAddress(value) ? zeroAddress : value.toLowerCase();
+  };
+
+  const findBalanceTokenLogo = (
+    chainId?: number,
+    contractAddress?: string,
+    symbol?: string
+  ) => {
+    if (!chainId) return "";
+    const lookupAddress = getTokenLookupAddress(contractAddress);
+    const lookupSymbol = symbol?.toUpperCase();
+    let symbolMatchLogo = "";
+
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        if (breakdown.chain?.id !== chainId) continue;
+        const breakdownAddress = getTokenLookupAddress(
+          breakdown.contractAddress
+        );
+        const addressMatches =
+          lookupAddress && breakdownAddress === lookupAddress;
+        const symbolMatches =
+          lookupSymbol &&
+          [breakdown.symbol, asset.symbol]
+            .filter(Boolean)
+            .some((candidate) => candidate.toUpperCase() === lookupSymbol);
+        const logo = getLogoFromMetadata(breakdown) || getLogoFromMetadata(asset);
+
+        if (addressMatches && logo) return logo;
+        if (!symbolMatchLogo && symbolMatches && logo) {
+          symbolMatchLogo = logo;
+        }
+      }
+    }
+
+    return symbolMatchLogo;
+  };
+
+  const findSupportedTokenLogo = (
+    chains: any[] | null | undefined,
+    chainId?: number,
+    contractAddress?: string,
+    symbol?: string
+  ) => {
+    if (!chainId) return "";
+    const chain = chains?.find(
+      (item: any) => Number(item?.id ?? item?.chainId) === chainId
+    );
+    const tokens = chain?.tokens ?? chain?.assets ?? [];
+    const lookupAddress = getTokenLookupAddress(contractAddress);
+    const lookupSymbol = symbol?.toUpperCase();
+
+    const addressMatch =
+      lookupAddress &&
+      tokens.find((token: any) => {
+        const tokenAddress = getTokenLookupAddress(
+          token?.contractAddress ?? token?.address ?? token?.tokenAddress
+        );
+        return tokenAddress === lookupAddress;
+      });
+    const symbolMatch =
+      lookupSymbol &&
+      tokens.find((token: any) => {
+        const tokenSymbol = (token?.symbol ?? token?.tokenSymbol ?? "")
+          .toString()
+          .toUpperCase();
+        return tokenSymbol === lookupSymbol;
+      });
+
+    return getLogoFromMetadata(addressMatch) || getLogoFromMetadata(symbolMatch);
+  };
+
+  const resolveTokenLogo = (
+    token:
+      | {
+          address?: string;
+          contractAddress?: string;
+          logo?: string;
+          symbol?: string;
+          tokenAddress?: string;
+          tokenSymbol?: string;
+        }
+      | undefined,
+    chainId?: number
+  ) => {
+    const explicitLogo = getLogoFromMetadata(token);
+    if (explicitLogo) return explicitLogo;
+
+    const contractAddress =
+      token?.contractAddress ?? token?.address ?? token?.tokenAddress;
+    const symbol = token?.symbol ?? token?.tokenSymbol;
+    const citreaToken = findCitreaReceiveToken({
+      address: contractAddress,
+      chainId,
+      symbol,
+    });
+    const tokenMeta = symbol
+      ? TOKEN_METADATA[symbol as keyof typeof TOKEN_METADATA]
+      : undefined;
+
+    return (
+      findBalanceTokenLogo(chainId, contractAddress, symbol) ||
+      findSupportedTokenLogo(
+        swapSupportedChainsAndTokens,
+        chainId,
+        contractAddress,
+        symbol
+      ) ||
+      findSupportedTokenLogo(
+        supportedChainsAndTokens,
+        chainId,
+        contractAddress,
+        symbol
+      ) ||
+      citreaToken?.logo ||
+      tokenMeta?.logo ||
+      (contractAddress && isNativeTokenAddress(contractAddress)
+        ? CHAIN_METADATA[chainId ?? 0]?.logo
+        : "") ||
+      ""
+    );
+  };
+
+  const enrichIntentToken = <
+    T extends {
+      address?: string;
+      contractAddress?: string;
+      logo?: string;
+      symbol?: string;
+      tokenAddress?: string;
+      tokenSymbol?: string;
+    },
+  >(
+    token: T,
+    chainId?: number
+  ): T => {
+    const logo = resolveTokenLogo(token, chainId);
+    return logo && logo !== token.logo ? { ...token, logo } : token;
+  };
+
+  const enrichSwapIntentTokenMetadata = (
+    intent: SwapIntentData
+  ): SwapIntentData => ({
+    ...intent,
+    destination: {
+      ...intent.destination,
+      token: enrichIntentToken(
+        intent.destination.token,
+        intent.destination.chain.id
+      ),
+    },
+    sources: (intent.sources ?? []).map((source) => ({
+      ...source,
+      token: enrichIntentToken(source.token, source.chain.id),
+    })),
+  });
+
   const buildIntentSourceToken = (
     source: SwapIntentData["sources"][number]
   ): SwapTokenOption => {
@@ -3989,8 +4162,7 @@ function NexusWidgetInner({
       isNativeSource && nativeCurrency?.decimals !== undefined
         ? nativeCurrency.decimals
         : source.token.decimals;
-    const sourceLogo =
-      matchedAsset?.logo ?? (isNativeSource ? chainMeta?.logo : "");
+    const sourceLogo = resolveTokenLogo(source.token, source.chain.id);
 
     return {
       contractAddress: source.token.contractAddress,
@@ -5902,16 +6074,17 @@ function NexusWidgetInner({
         ...intent,
         sources: sortIntentSourcesByUsdDesc(intent.sources ?? []),
       };
+      const enrichedIntent = enrichSwapIntentTokenMetadata(sortedIntent);
       const sortedIntentSourceTokens = sortSwapTokensByUsdDesc(
-        (sortedIntent.sources ?? []).map(buildIntentSourceToken)
+        (enrichedIntent.sources ?? []).map(buildIntentSourceToken)
       );
 
       lastSwapIntentRefreshAtRef.current = Date.now();
       lastIntentSourceTokensRef.current = sortedIntentSourceTokens;
-      cacheDestinationUsdRateFromIntent(sortedIntent);
-      cachePredictiveBaselineFromIntent(sortedIntent);
-      setIntentData(sortedIntent);
-      setIntentToAmount(sortedIntent.destination?.amount || undefined);
+      cacheDestinationUsdRateFromIntent(enrichedIntent);
+      cachePredictiveBaselineFromIntent(enrichedIntent);
+      setIntentData(enrichedIntent);
+      setIntentToAmount(enrichedIntent.destination?.amount || undefined);
       setSwapQuoteIssue(null);
 
       if (
@@ -5924,7 +6097,7 @@ function NexusWidgetInner({
       }
 
       try {
-        const bridgeFees = sortedIntent.feesAndBuffer?.bridge;
+        const bridgeFees = enrichedIntent.feesAndBuffer?.bridge;
         const bridgeFeeData =
           bridgeFees && typeof bridgeFees === "object" ? bridgeFees : undefined;
         const collectionFee = parseFiatNumber(bridgeFeeData?.collection);
@@ -5973,6 +6146,8 @@ function NexusWidgetInner({
       sourceSelectionTouched,
       swapType,
       swapBalance,
+      swapSupportedChainsAndTokens,
+      supportedChainsAndTokens,
       toToken,
     ]
   );

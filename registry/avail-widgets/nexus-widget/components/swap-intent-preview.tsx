@@ -18,7 +18,12 @@ import { type SwapTokenOption } from "./swap-asset-selector";
 export interface SwapIntentSource {
   amount: string;
   chain: { id: number; logo: string; name: string };
-  token: { contractAddress: string; decimals: number; symbol: string };
+  token: {
+    contractAddress: string;
+    decimals: number;
+    logo?: string;
+    symbol: string;
+  };
   value?: string;
 }
 
@@ -28,9 +33,19 @@ export interface SwapIntentDestination {
   gas: {
     amount: string;
     value?: string;
-    token: { contractAddress: string; decimals: number; symbol: string };
+    token: {
+      contractAddress: string;
+      decimals: number;
+      logo?: string;
+      symbol: string;
+    };
   };
-  token: { contractAddress: string; decimals: number; symbol: string };
+  token: {
+    contractAddress: string;
+    decimals: number;
+    logo?: string;
+    symbol: string;
+  };
   value?: string;
 }
 
@@ -181,7 +196,12 @@ const isNativeTokenAddress = (address?: string) => {
 };
 
 const normalizeIntentToken = <
-  T extends { contractAddress?: string; decimals?: number; symbol?: string },
+  T extends {
+    contractAddress?: string;
+    decimals?: number;
+    logo?: string;
+    symbol?: string;
+  },
 >(
   token: T | undefined,
   chainId?: number,
@@ -201,7 +221,7 @@ const normalizeIntentToken = <
   return {
     contractAddress: token?.contractAddress ?? "",
     decimals,
-    logo: shouldUseNative ? chainMeta?.logo : undefined,
+    logo: token?.logo || (shouldUseNative ? chainMeta?.logo : undefined),
     symbol,
   };
 };
