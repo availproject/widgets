@@ -307,7 +307,6 @@ export function PayWithSources({
                   key={`${token.contractAddress}-${token.chainId ?? "unified"}-${index}`}
                   style={{
                     alignItems: "center",
-                    borderTop: index === 0 ? "none" : "1px solid #F0F0EF",
                     display: "flex",
                     gap: "14px",
                     minWidth: 0,

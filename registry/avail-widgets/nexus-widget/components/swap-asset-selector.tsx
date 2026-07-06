@@ -1465,8 +1465,144 @@ export function SwapAssetSelector({
       (st) =>
         group.tokens.some((gt) => sameTokenOption(gt, st)) ||
         (st.isUnified && st.unifiedSymbol === group.symbol),
-    );
+      );
   };
+
+  const selectorRows = useMemo(() => {
+    if (isMulti) {
+      return groupedFiltered.map((group) => ({
+        fiat: group.totalFiat,
+        group,
+        key: `group:${group.symbol}`,
+        kind: "group" as const,
+        label: group.symbol,
+        searchScore: query.trim()
+          ? Math.min(
+              ...group.tokens.map(
+                (token) =>
+                  getTokenSearchRank(token, query)?.score ??
+                  Number.MAX_SAFE_INTEGER,
+              ),
+            )
+          : 0,
+      }));
+    }
+
+    const rows: Array<
+      | {
+          fiat: number;
+          group: (typeof groupedFiltered)[number];
+          key: string;
+          kind: "group";
+          label: string;
+          searchScore: number;
+        }
+      | {
+          fiat: number;
+          key: string;
+          kind: "token";
+          label: string;
+          searchScore: number;
+          token: SwapTokenOption;
+        }
+    > = [];
+    const hasQuery = Boolean(query.trim());
+    const getSearchScore = (token: SwapTokenOption) =>
+      hasQuery
+        ? (getTokenSearchRank(token, query)?.score ?? Number.MAX_SAFE_INTEGER)
+        : 0;
+    const isVisibleTokenRow = (token: SwapTokenOption) =>
+      showBelowMinimumInline ||
+      getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
+      isTokenSelectedForVisibility(token) ||
+      isPrioritySearchMatch(token, query);
+
+    for (const group of groupedFiltered) {
+      if (!group.isUnifiedCandidate) {
+        for (const token of group.tokens) {
+          if (!isVisibleTokenRow(token)) continue;
+          rows.push({
+            fiat: getTokenFiatValue(token),
+            key: `token:${token.chainId}:${token.contractAddress}`,
+            kind: "token",
+            label: `${token.symbol} ${token.chainName}`,
+            searchScore: getSearchScore(token),
+            token,
+          });
+        }
+        continue;
+      }
+
+      const unifiedSelectedInOther = isGroupUnifiedSelectedInOtherSlot(group);
+      const unifiedSelectedInCurrent =
+        isGroupUnifiedSelectedInCurrentSlot(group);
+      const anyIndividualSelectedInOther =
+        isAnyTokenInGroupSelectedInOtherSlot(group);
+      const anyIndividualSelectedInCurrent = group.tokens.some(
+        isTokenSelectedInCurrentSlot,
+      );
+      const shouldHideUnifiedRow =
+        anyIndividualSelectedInOther ||
+        anyIndividualSelectedInCurrent ||
+        (group.totalFiat < MIN_FIAT_THRESHOLD &&
+          !isUnifiedSelectedForVisibility(group.symbol));
+      const shouldHideIndividualRows =
+        unifiedSelectedInOther || unifiedSelectedInCurrent;
+
+      if (!unifiedSelectedInOther && !shouldHideUnifiedRow) {
+        rows.push({
+          fiat: group.totalFiat,
+          group,
+          key: `group:${group.symbol}`,
+          kind: "group",
+          label: group.symbol,
+          searchScore: hasQuery
+            ? Math.min(
+                ...group.tokens.map(
+                  (token) =>
+                    getTokenSearchRank(token, query)?.score ??
+                    Number.MAX_SAFE_INTEGER,
+                ),
+              )
+            : 0,
+        });
+      }
+
+      if (!shouldHideIndividualRows) {
+        for (const token of group.tokens) {
+          if (!isVisibleTokenRow(token)) continue;
+          rows.push({
+            fiat: getTokenFiatValue(token),
+            key: `token:${token.chainId}:${token.contractAddress}`,
+            kind: "token",
+            label: `${token.symbol} ${token.chainName}`,
+            searchScore: getSearchScore(token),
+            token,
+          });
+        }
+      }
+    }
+
+    return rows.sort((a, b) => {
+      if (hasQuery && a.searchScore !== b.searchScore) {
+        return a.searchScore - b.searchScore;
+      }
+      if (a.fiat !== b.fiat) return b.fiat - a.fiat;
+      if (a.kind !== b.kind) return a.kind === "group" ? -1 : 1;
+      return a.label.localeCompare(b.label);
+    });
+  }, [
+    groupedFiltered,
+    isMulti,
+    isGroupUnifiedSelectedInCurrentSlot,
+    isGroupUnifiedSelectedInOtherSlot,
+    isAnyTokenInGroupSelectedInOtherSlot,
+    isTokenSelectedInCurrentSlot,
+    isTokenSelectedForVisibility,
+    isUnifiedSelectedForVisibility,
+    query,
+    showBelowMinimumInline,
+  ]);
 
   const handleFilterTabClick = (tab: FilterTab) => {
     setActiveTab(tab);
@@ -1644,7 +1780,10 @@ export function SwapAssetSelector({
   };
 
   /* ── Render a unified (multi-chain) group row ── */
-  const renderGroupRow = (group: (typeof groupedFiltered)[0]) => {
+  const renderGroupRow = (
+    group: (typeof groupedFiltered)[0],
+    includeIndividualRows = true,
+  ) => {
     if (!group.isUnifiedCandidate) {
       return group.tokens
         .filter(
@@ -1853,6 +1992,7 @@ export function SwapAssetSelector({
             </div>
           </div>
         ) : (
+          includeIndividualRows &&
           !shouldHideIndividualRows &&
           individualTokens.map((token) => renderTokenRow(token))
         )}
@@ -2325,10 +2465,10 @@ export function SwapAssetSelector({
                   backgroundColor: "#FFFFFE",
                 }}
               >
-                {groupedFiltered.map((group) =>
-                  group.tokens.length === 1
-                    ? renderTokenRow(group.tokens[0])
-                    : renderGroupRow(group),
+                {selectorRows.map((row) =>
+                  row.kind === "group"
+                    ? renderGroupRow(row.group, isMulti)
+                    : renderTokenRow(row.token),
                 )}
               </div>
             )}
