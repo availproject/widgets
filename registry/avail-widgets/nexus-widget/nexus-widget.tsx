@@ -4262,12 +4262,11 @@ function NexusWidgetInner({
   };
 
   const minimumSourceUsd = new Decimal(1);
+  const hasMinimumSourceUsdValue = (value: unknown) =>
+    (parseFiatNumber(value) ?? new Decimal(0)).gte(minimumSourceUsd);
   const hasMinimumSourceUsdBalance = (
     token: Pick<SwapTokenOption, "balanceInFiat">
-  ) =>
-    (parseFiatNumber(token.balanceInFiat) ?? new Decimal(0)).gte(
-      minimumSourceUsd
-    );
+  ) => hasMinimumSourceUsdValue(token.balanceInFiat);
   const filterMinimumSourceUsdTokens = (tokens: SwapTokenOption[]) =>
     tokens.filter(hasMinimumSourceUsdBalance);
 
@@ -5357,8 +5356,12 @@ function NexusWidgetInner({
               (breakdownSymbol === nativeSymbol || assetSymbol === nativeSymbol)
           );
         const balance = parseFiatNumber(breakdown.balance) ?? new Decimal(0);
+        const hasMinimumFiatBalance = hasMinimumSourceUsdValue(
+          breakdown.balanceInFiat
+        );
 
-        if (!isNativeBalance || balance.lte(0)) continue;
+        if (!isNativeBalance || balance.lte(0) || !hasMinimumFiatBalance)
+          continue;
         return {
           chainId,
           tokenAddress: (breakdown.contractAddress ||
@@ -5389,8 +5392,16 @@ function NexusWidgetInner({
           (breakdown.symbol ?? asset.symbol ?? "").toUpperCase() ===
           toToken.symbol.toUpperCase();
         const balance = parseFiatNumber(breakdown.balance) ?? new Decimal(0);
+        const hasMinimumFiatBalance = hasMinimumSourceUsdValue(
+          breakdown.balanceInFiat
+        );
 
-        if ((!addressMatches && !symbolMatches) || balance.lte(0)) continue;
+        if (
+          (!addressMatches && !symbolMatches) ||
+          balance.lte(0) ||
+          !hasMinimumFiatBalance
+        )
+          continue;
         return {
           chainId,
           tokenAddress: (breakdown.contractAddress ||
@@ -5419,11 +5430,10 @@ function NexusWidgetInner({
       return buildExplicitSourcesPayload(tokens);
     }
 
-    if (!shouldSendExactOutSourceAllowlist()) {
-      return {};
-    }
-
-    const explicitSources = buildExplicitSourcesPayload(tokens).sources;
+    const sourceTokens = shouldSendExactOutSourceAllowlist()
+      ? tokens
+      : getExactOutSourceTokens("all");
+    const explicitSources = buildExplicitSourcesPayload(sourceTokens).sources;
     const sources = dedupeSdkSources([
       ...explicitSources,
       getHeldDestinationTokenSource(),

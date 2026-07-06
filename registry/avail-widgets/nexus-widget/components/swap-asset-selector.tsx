@@ -633,6 +633,8 @@ export const compareChainsBySwapDisplayOrder = <
 const UNIFIED_MAINNET_CHAIN_IDS = new Set([
   1, 10, 56, 137, 143, 999, 4114, 8217, 8453, 42161, 43114, 534352, 4326,
 ]);
+const UNIFIED_USDC_SYMBOL_KEYS = new Set(["USDC", "USDCE", "USDM"]);
+const UNIFIED_USDT_SYMBOL_KEYS = new Set(["USDT", "USDT0", "USDTE"]);
 
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -917,8 +919,8 @@ function getUnifiedSymbol(token: Pick<SwapTokenOption, "symbol" | "chainId">) {
   }
 
   const symbol = normalizeTokenGroupSymbol(token.symbol);
-  if (symbol.includes("USDC") || symbol === "USDM") return "USDC" as const;
-  if (symbol.includes("USDT")) return "USDT" as const;
+  if (UNIFIED_USDC_SYMBOL_KEYS.has(symbol)) return "USDC" as const;
+  if (UNIFIED_USDT_SYMBOL_KEYS.has(symbol)) return "USDT" as const;
   if (symbol === "ETH") return "ETH" as const;
   return null;
 }
