@@ -4261,7 +4261,7 @@ function NexusWidgetInner({
     }
   };
 
-  const minimumSourceUsd = new Decimal(0);
+  const minimumSourceUsd = new Decimal(1);
   const hasMinimumSourceUsdBalance = (
     token: Pick<SwapTokenOption, "balanceInFiat">
   ) =>
@@ -9831,6 +9831,8 @@ function NexusWidgetInner({
   })();
   const displayExactOutRouteLoading =
     isExactOutRouteLoading && !shouldShowPredictiveExactOutDisplay;
+  const isSourcePickerRefreshDisabled =
+    quoteRefreshing || intentLoading || previewQuoteRefreshing;
   const totalSwapBalanceUsd = getSwapBalanceTotalUsd()
     .toDecimalPlaces(2)
     .toFixed();
@@ -10475,6 +10477,7 @@ function NexusWidgetInner({
                         !hasCurrentExactOutPaymentIntent &&
                         (quoteRefreshing || intentLoading)
                       }
+                      isSourcePickerDisabled={isSourcePickerRefreshDisabled}
                       onAmountChange={handleDepositAmountChange}
                       onAmountModeToggle={handleDepositAmountModeToggle}
                       onOpenSourcePicker={() => {
@@ -10640,6 +10643,7 @@ function NexusWidgetInner({
                     !hasCurrentExactOutPaymentIntent &&
                     (quoteRefreshing || intentLoading)
                   }
+                  isSourcePickerDisabled={isSourcePickerRefreshDisabled}
                   onAmountChange={handleSendAmountChange}
                   onOpenAssetPicker={() =>
                     openDrawerStep("choose-receive-asset")
@@ -11377,6 +11381,9 @@ function NexusWidgetInner({
                 preserveSelectedBelowMinimum={false}
                 requiredUsd={exactOutRequiredUsdDisplay}
                 selectedTokens={fromTokens}
+                showBelowMinimumInline={
+                  activeMode === "swap" && swapType === "exactIn"
+                }
                 swapBalance={swapBalance}
                 swapSupportedChains={swapSupportedChainsAndTokens}
                 title={
