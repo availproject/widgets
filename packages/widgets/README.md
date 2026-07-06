@@ -1,6 +1,6 @@
 # @avail-project/widgets
 
-Closed npm distribution for Avail widgets.
+Public npm distribution for Avail widgets.
 
 Install from npm:
 
