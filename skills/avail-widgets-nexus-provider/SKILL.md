@@ -7,18 +7,13 @@ description: Install and configure NexusProvider for Avail Widgets with full SDK
 
 > **Note:** NexusProvider is the foundation required by **Nexus Widget** — the single unified element for all flows.
 > All legacy standalone widget skills (fast-bridge, transfer, swaps, deposit, bridge-deposit, unified-balance, view-history, common) are **deprecated and removed**.
-> Use `npx shadcn@latest add @avail-widgets/nexus` to install the unified element.
-> For detailed SDK integration, refer to the Nexus SDK agent skills (`.agents/skills/nexus-sdk-*`).
-
-> **Note:** NexusProvider is the foundation required by **Nexus One** — the single unified element for all flows.
-> All legacy standalone widget skills (fast-bridge, transfer, swaps, deposit, bridge-deposit, unified-balance, view-history, common) are **deprecated and removed**.
-> Use `npx shadcn@latest add @nexus-elements/nexus-one` to install the unified element.
+> Use `npx shadcn@latest add availproject/widgets/nexus` to install the unified element.
 > For detailed SDK integration, refer to the Nexus SDK agent skills (`.agents/skills/nexus-sdk-*`).
 
 ## Install and wire provider
 
 - Install:
-  - `npx shadcn@latest add @avail-widgets/nexus-provider`
+  - `npx shadcn@latest add availproject/widgets/nexus-provider`
 - Ensure dependencies exist:
   - `@avail-project/nexus-core`
   - `wagmi`

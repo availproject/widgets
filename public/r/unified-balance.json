@@ -4,14 +4,17 @@
   "type": "registry:component",
   "title": "Unified Balance",
   "description": "Deprecated: use Nexus Widget instead. Unified Balance has been removed in favor of Nexus Widget's inline balance views.",
-  "dependencies": ["@avail-project/nexus-core@2.0.0", "lucide-react"],
+  "dependencies": [
+    "@avail-project/nexus-core@2.0.0",
+    "lucide-react"
+  ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/accordion.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/label.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/nexus-provider.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/separator.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/tabs.json",
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+    "availproject/widgets/accordion",
+    "availproject/widgets/label",
+    "availproject/widgets/nexus-provider",
+    "availproject/widgets/separator",
+    "availproject/widgets/tabs",
+    "availproject/widgets/utils"
   ],
   "files": [
     {
@@ -23,7 +26,7 @@
   ],
   "meta": {
     "deprecated": true,
-    "deprecationMessage": "Unified Balance is deprecated in favor of Nexus Widget. Use @avail-widgets/nexus for new integrations."
+    "deprecationMessage": "Unified Balance is deprecated in favor of Nexus Widget. Use availproject/widgets/nexus for new integrations."
   },
   "docs": "Deprecated in favor of Nexus Widget. NexusWidget includes inline balance views during swap, send, and deposit flows."
 }

@@ -32,7 +32,7 @@ import { NexusWidget } from "@/components/nexus/nexus";
 ## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ## Recommended skill to use instead

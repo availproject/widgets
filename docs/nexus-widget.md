@@ -4,7 +4,7 @@ Last updated: June 2, 2026
 
 ## 1) Status
 
-**Nexus Widget is now the production, primary element.** It has been published to the registry and is the only recommended component for all cross-chain flows. All legacy standalone elements have been deprecated and removed.
+**Nexus Widget is now the production, primary element.** It is available from the public GitHub shadcn registry and is the only recommended component for all cross-chain flows. All legacy standalone elements have been deprecated and removed.
 
 ## 2) What Nexus Widget provides
 
@@ -16,12 +16,13 @@ A single unified component that handles:
 ## 3) Install
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ## 4) Registry and docs
 
-- Registry: `@avail-widgets/nexus`
+- GitHub registry: `availproject/widgets/nexus`
+- Future shadcn namespace: `@avail-widgets/nexus`
 - Docs: `https://elements.nexus.availproject.org/docs/components/nexus`
 - Mode-specific docs:
   - Swap: `/docs/components/swaps`

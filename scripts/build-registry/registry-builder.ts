@@ -202,7 +202,13 @@ function analyzeDependencies(
  * Convert registry component names to full URLs
  */
 function toRegistryUrls(componentNames: string[], config: RegistryConfig): string[] {
-  return componentNames.map((name) => `${config.baseUrl}/${name}.json`);
+  const baseUrl = config.baseUrl.replace(/\/+$/, "");
+  const isHttpRegistryUrl =
+    baseUrl.startsWith("https://") || baseUrl.startsWith("http://");
+
+  return componentNames.map((name) =>
+    isHttpRegistryUrl ? `${baseUrl}/${name}.json` : `${baseUrl}/${name}`
+  );
 }
 
 /**

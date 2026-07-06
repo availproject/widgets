@@ -9,7 +9,7 @@
     "class-variance-authority"
   ],
   "registryDependencies": [
-    "https://raw.githubusercontent.com/availproject/nexus-elements/chore/configurator-support/public/r/utils.json"
+    "availproject/widgets/utils"
   ],
   "files": [
     {

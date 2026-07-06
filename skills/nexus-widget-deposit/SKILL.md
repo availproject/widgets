@@ -10,7 +10,7 @@ Use `NexusWidget` with `config.mode = "deposit"` when the app owns the final sma
 ## Installation
 
 ```bash
-npx shadcn@latest add @avail-widgets/nexus
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ```bash

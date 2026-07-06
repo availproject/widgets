@@ -12,7 +12,7 @@ Use the **Nexus One** component with `config.mode = "send"` to enable cross-chai
 Install dependencies and the component via the shadcn CLI:
 
 ```bash
-npx shadcn@latest add @nexus-elements/nexus-one
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 Make sure peer dependencies are installed:
