@@ -2179,11 +2179,15 @@ const normalizeRenderableSwapIntentData = (
   bridgeProvider?: BridgeProvider
 ): SwapIntentData | null => {
   const direct = normalizeSwapIntentData(rawIntent);
-  const nestedSwap = direct ? null : normalizeSwapIntentData(rawIntent?.swap);
-  const requirement = direct || nestedSwap
+  const normalizedIntent = direct
+    ? null
+    : normalizeSwapIntentData(rawIntent?.normalizedIntent);
+  const nestedSwap =
+    direct || normalizedIntent ? null : normalizeSwapIntentData(rawIntent?.swap);
+  const requirement = direct || normalizedIntent || nestedSwap
     ? null
     : normalizeSwapAndExecuteRequirementIntent(rawIntent);
-  const normalized = direct ?? nestedSwap ?? requirement;
+  const normalized = direct ?? normalizedIntent ?? nestedSwap ?? requirement;
   if (!normalized) return null;
 
   return bridgeProvider === undefined
@@ -5274,7 +5278,9 @@ function NexusWidgetInner({
   ) => {
     if (activeMode === "deposit") {
       const selection = getResolvedDepositSourceSelection({ targetAmountUsd });
-      return getDepositSourceTokensForIds(selection.selectedSourceIds);
+      return getDepositSourceTokensForIds(
+        mode === "all" ? selection.sourcePoolIds : selection.selectedSourceIds
+      );
     }
 
     if (activeMode === "send" && mode === "selected" && fromTokens.length > 0) {
@@ -6166,7 +6172,10 @@ function NexusWidgetInner({
     (data: any, runId: number, quoteInputKey: string) => {
       const { intent, allow, deny, refresh } = data;
       const bridgeProvider = normalizeBridgeProvider(
-        data?.bridgeProvider ?? intent?.bridgeProvider ?? intent?.swap?.bridgeProvider
+        data?.bridgeProvider ??
+          intent?.bridgeProvider ??
+          intent?.normalizedIntent?.bridgeProvider ??
+          intent?.swap?.bridgeProvider
       );
       const intentWithBridgeProvider = normalizeRenderableSwapIntentData(
         intent,
@@ -6210,6 +6219,7 @@ function NexusWidgetInner({
               const refreshed = await refresh(...args);
               const refreshedBridgeProvider = normalizeBridgeProvider(
                 refreshed?.bridgeProvider ??
+                  refreshed?.normalizedIntent?.bridgeProvider ??
                   refreshed?.swap?.bridgeProvider ??
                   bridgeProvider
               );
@@ -8954,6 +8964,7 @@ function NexusWidgetInner({
       const updatedRaw = await activeIntent.refresh();
       const updatedBridgeProvider = normalizeBridgeProvider(
         (updatedRaw as any)?.bridgeProvider ??
+          (updatedRaw as any)?.normalizedIntent?.bridgeProvider ??
           (updatedRaw as any)?.swap?.bridgeProvider ??
           activeIntent.intent?.bridgeProvider
       );

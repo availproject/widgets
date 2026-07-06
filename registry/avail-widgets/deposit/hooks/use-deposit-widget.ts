@@ -299,11 +299,11 @@ export function useDepositWidget(
               ? {
                   allow: data.allow,
                   deny: data.deny,
-                  intent: data.intent.swap,
+                  intent: data.intent.normalizedIntent ?? data.intent.swap,
                   refresh: async (sources?: any) => {
                     const refreshed = await data.refresh(sources);
                     return refreshed.swapRequired
-                      ? refreshed.swap
+                      ? refreshed.normalizedIntent ?? refreshed.swap
                       : (refreshed as any);
                   },
                 }
