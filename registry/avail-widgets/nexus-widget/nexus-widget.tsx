@@ -5438,45 +5438,6 @@ function NexusWidgetInner({
     );
   };
 
-  const getHeldNativeGasSourceForChain = (chainId?: number) => {
-    if (!chainId) return undefined;
-
-    const nativeSymbol =
-      CHAIN_METADATA[chainId]?.nativeCurrency?.symbol?.toUpperCase();
-    for (const asset of swapBalance ?? []) {
-      for (const breakdown of asset.breakdown ?? []) {
-        if (breakdown.chain?.id !== chainId) continue;
-
-        const breakdownSymbol = (
-          breakdown.symbol ??
-          asset.symbol ??
-          ""
-        ).toUpperCase();
-        const assetSymbol = (asset.symbol ?? "").toUpperCase();
-        const isNativeBalance =
-          isNativeTokenAddress(breakdown.contractAddress) ||
-          Boolean(
-            nativeSymbol &&
-              (breakdownSymbol === nativeSymbol || assetSymbol === nativeSymbol)
-          );
-        const balance = parseFiatNumber(breakdown.balance) ?? new Decimal(0);
-        const hasMinimumFiatBalance = hasMinimumSourceUsdValue(
-          breakdown.balanceInFiat
-        );
-
-        if (!isNativeBalance || balance.lte(0) || !hasMinimumFiatBalance)
-          continue;
-        return {
-          chainId,
-          tokenAddress: (breakdown.contractAddress ||
-            zeroAddress) as `0x${string}`,
-        };
-      }
-    }
-
-    return undefined;
-  };
-
   const getHeldDestinationTokenSource = () => {
     if (!toToken?.chainId || !toToken.contractAddress) return undefined;
 
@@ -5541,7 +5502,6 @@ function NexusWidgetInner({
     const sources = dedupeSdkSources([
       ...explicitSources,
       getHeldDestinationTokenSource(),
-      getHeldNativeGasSourceForChain(toToken?.chainId),
     ]);
 
     return sources.length > 0 ? { sources } : {};
