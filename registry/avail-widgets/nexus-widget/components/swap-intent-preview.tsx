@@ -195,6 +195,18 @@ const isNativeTokenAddress = (address?: string) => {
   );
 };
 
+const getSourceDisplayKey = (
+  chainId?: number | string,
+  address?: string,
+  symbol?: string,
+) => {
+  const chainKey = chainId ?? "";
+  const normalizedAddress = address?.toLowerCase();
+  return normalizedAddress
+    ? `${chainKey}-${normalizedAddress}`
+    : `${chainKey}-symbol-${(symbol ?? "").toUpperCase()}`;
+};
+
 const normalizeIntentToken = <
   T extends {
     contractAddress?: string;
@@ -1034,29 +1046,30 @@ export function SwapIntentPreview({
   const destinationTokenDisplay = hasResolvedQuote
     ? `${formatTokenAmount(destinationTokenAmount)} ${destTokenSymbol}`
     : pendingLabel;
-  const destinationSourceKey = [
-    normalizedIntentDest?.chain.id ?? toToken?.chainId ?? "",
-    (
-      normalizedIntentDest?.token.contractAddress ??
-      toToken?.contractAddress ??
-      ""
-    ).toLowerCase(),
-  ].join("-");
+  const destinationSourceAddress =
+    normalizedIntentDest?.token.contractAddress || toToken?.contractAddress;
+  const destinationSourceKey = getSourceDisplayKey(
+    normalizedIntentDest?.chain.id ?? toToken?.chainId,
+    destinationSourceAddress,
+    destTokenSymbol,
+  );
   const hasDestinationSourceRow = Boolean(
-    destinationSourceKey !== "-" &&
+    destinationSourceKey &&
     (normalizedIntentSources.length > 0
       ? normalizedIntentSources.some((source) => {
-          const sourceKey = [
+          const sourceKey = getSourceDisplayKey(
             source.chain.id,
-            source.token.contractAddress.toLowerCase(),
-          ].join("-");
+            source.token.contractAddress,
+            source.token.symbol,
+          );
           return sourceKey === destinationSourceKey;
         })
       : fallbackSources.some((source) => {
-          const sourceKey = [
+          const sourceKey = getSourceDisplayKey(
             source.chainId ?? "",
-            source.contractAddress.toLowerCase(),
-          ].join("-");
+            source.contractAddress,
+            source.symbol,
+          );
           return sourceKey === destinationSourceKey;
         })),
   );
@@ -1075,10 +1088,11 @@ export function SwapIntentPreview({
                 token.symbol === source.token.symbol),
           );
 
-          const sourceKey = [
+          const sourceKey = getSourceDisplayKey(
             source.chain.id,
-            source.token.contractAddress.toLowerCase(),
-          ].join("-");
+            source.token.contractAddress,
+            source.token.symbol,
+          );
           const isDestinationSource =
             sourceKey === destinationSourceKey &&
             displayOnlyDestinationSourceAmount !== undefined;
@@ -1120,10 +1134,11 @@ export function SwapIntentPreview({
           const sourceAmount =
             source.userAmount ||
             (fallbackSources.length === 1 ? fromAmount : "");
-          const sourceKey = [
+          const sourceKey = getSourceDisplayKey(
             source.chainId ?? "",
-            source.contractAddress.toLowerCase(),
-          ].join("-");
+            source.contractAddress,
+            source.symbol,
+          );
           const isDestinationSource =
             sourceKey === destinationSourceKey &&
             displayOnlyDestinationSourceAmount !== undefined;

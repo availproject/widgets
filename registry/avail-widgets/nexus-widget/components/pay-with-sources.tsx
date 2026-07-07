@@ -173,6 +173,8 @@ export function PayWithSources({
   const isRouteLoading = routeStatus === "loading";
   const shouldShowSourceSummary = !isRouteLoading && fromTokens.length > 0;
   const shouldScroll = shouldShowSourceSummary && fromTokens.length > 3;
+  const sourceCountLabel =
+    fromTokens.length === 1 ? "1 asset" : `${fromTokens.length} assets`;
   const autoBadge = (
     <span
       style={{
@@ -228,7 +230,7 @@ export function PayWithSources({
         >
           <span>
             Pay With
-            {shouldShowSourceSummary ? ` · ${fromTokens.length} assets` : ""}
+            {shouldShowSourceSummary ? ` · ${sourceCountLabel}` : ""}
           </span>
           {showAutoBadge ? autoBadge : null}
         </div>

@@ -155,8 +155,10 @@ interface SwapHistoryEntry {
 
 type HistorySourceRow = {
   amount: string;
+  chainId?: number;
   chainLogo?: string;
   chainName: string;
+  contractAddress?: string;
   key: string;
   symbol: string;
   tokenLogo?: string;
@@ -278,6 +280,57 @@ const getTokenSelectionKey = (token?: SwapTokenOption | null) => {
     return `unified:${token.unifiedSymbol ?? token.symbol}`;
   }
   return `${token.chainId ?? "unknown"}:${token.contractAddress.toLowerCase()}`;
+};
+
+const getDisplaySourceTokenKey = (token?: SwapTokenOption | null) => {
+  if (!token) return "";
+  const chainId = token.chainId ?? "unknown";
+  const address = token.contractAddress?.toLowerCase();
+  return address
+    ? `${chainId}:${address}`
+    : `${chainId}:symbol:${token.symbol.toUpperCase()}`;
+};
+
+const sumDecimalStrings = (left?: string, right?: string) => {
+  const leftAmount = parseDecimalLoose(left) ?? new Decimal(0);
+  const rightAmount = parseDecimalLoose(right) ?? new Decimal(0);
+  const sum = leftAmount.plus(rightAmount);
+  return sum.gt(0) ? sum.toFixed() : undefined;
+};
+
+const mergeDisplaySourceTokens = (tokens: SwapTokenOption[]) => {
+  const merged = new Map<string, SwapTokenOption>();
+
+  for (const token of tokens) {
+    const key = getDisplaySourceTokenKey(token);
+    if (!key) continue;
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, token);
+      continue;
+    }
+
+    const userAmount = sumDecimalStrings(
+      existing.userAmount || existing.balance,
+      token.userAmount || token.balance
+    );
+    const userAmountUsd = sumDecimalStrings(
+      existing.userAmountUsd || existing.balanceInFiat,
+      token.userAmountUsd || token.balanceInFiat
+    );
+
+    merged.set(key, {
+      ...existing,
+      balance: userAmount ?? existing.balance,
+      balanceInFiat: userAmountUsd ?? existing.balanceInFiat,
+      chainLogo: existing.chainLogo || token.chainLogo,
+      logo: existing.logo || token.logo,
+      userAmount: userAmount ?? existing.userAmount,
+      userAmountUsd: userAmountUsd ?? existing.userAmountUsd,
+    });
+  }
+
+  return Array.from(merged.values());
 };
 
 const getTokenQuoteKey = (token?: SwapTokenOption | null) => {
@@ -1757,6 +1810,8 @@ const getDisplayDestinationSourceRow = (
 
   return {
     key: `destination-balance-${entry.toToken.chainId}-${entry.toToken.contractAddress}`,
+    chainId: entry.toToken.chainId,
+    contractAddress: entry.toToken.contractAddress,
     tokenLogo: entry.intentData?.destination.token.logo || entry.toToken.logo,
     chainLogo: entry.toToken.chainLogo,
     symbol: entry.toToken.symbol,
@@ -1774,6 +1829,41 @@ const getDisplayDestinationSourceRow = (
       ? displayAmount.mul(rate).toFixed()
       : entry.toToken.balanceInFiat,
   };
+};
+
+const getHistorySourceRowMergeKey = (row: HistorySourceRow) => {
+  const chainKey = row.chainId ?? row.chainName;
+  const address = row.contractAddress?.toLowerCase();
+  return address
+    ? `${chainKey}:${address}`
+    : `${chainKey}:symbol:${row.symbol.toUpperCase()}`;
+};
+
+const mergeHistorySourceRows = (rows: HistorySourceRow[]) => {
+  const merged = new Map<string, HistorySourceRow>();
+
+  for (const row of rows) {
+    const key = getHistorySourceRowMergeKey(row);
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, row);
+      continue;
+    }
+
+    merged.set(key, {
+      ...existing,
+      amount: sumDecimalStrings(existing.amount, row.amount) ?? existing.amount,
+      chainLogo: existing.chainLogo || row.chainLogo,
+      key: existing.key,
+      tokenLogo: existing.tokenLogo || row.tokenLogo,
+      value: sumDecimalStrings(
+        String(existing.value ?? ""),
+        String(row.value ?? "")
+      ),
+    });
+  }
+
+  return Array.from(merged.values());
 };
 
 const getProgressStepType = (step?: SwapStepType | BridgeStepType | null) =>
@@ -2320,6 +2410,8 @@ const getSourceRows = (entry: SwapHistoryEntry): HistorySourceRow[] => {
 
       return {
         key: `${source.chain.id}-${source.token.contractAddress}-${index}`,
+        chainId: source.chain.id,
+        contractAddress: source.token.contractAddress,
         tokenLogo: source.token.logo || fallback?.logo,
         chainLogo: source.chain.logo || fallback?.chainLogo,
         symbol: source.token.symbol,
@@ -2329,13 +2421,17 @@ const getSourceRows = (entry: SwapHistoryEntry): HistorySourceRow[] => {
       };
     });
 
-    return displayDestinationSourceRow
-      ? [displayDestinationSourceRow, ...sourceRows]
-      : sourceRows;
+    return mergeHistorySourceRows(
+      displayDestinationSourceRow
+        ? [displayDestinationSourceRow, ...sourceRows]
+        : sourceRows
+    );
   }
 
   const fallbackRows = entry.fromTokens.map((token, index) => ({
     key: `${token.chainId}-${token.contractAddress}-${index}`,
+    chainId: token.chainId,
+    contractAddress: token.contractAddress,
     tokenLogo: token.logo,
     chainLogo: token.chainLogo,
     symbol: token.symbol,
@@ -2344,9 +2440,11 @@ const getSourceRows = (entry: SwapHistoryEntry): HistorySourceRow[] => {
     value: token.balanceInFiat,
   }));
 
-  return displayDestinationSourceRow
-    ? [displayDestinationSourceRow, ...fallbackRows]
-    : fallbackRows;
+  return mergeHistorySourceRows(
+    displayDestinationSourceRow
+      ? [displayDestinationSourceRow, ...fallbackRows]
+      : fallbackRows
+  );
 };
 
 function SourceRowsList({
@@ -9824,11 +9922,11 @@ function NexusWidgetInner({
     ? (predictiveExactOutQuote?.sources ?? fromTokens)
     : fromTokens;
   const displayFromTokens = (() => {
-    if (
-      !destinationBalanceDisplayToken ||
-      (activeMode !== "deposit" && activeMode !== "send")
-    ) {
+    if (activeMode !== "deposit" && activeMode !== "send") {
       return baseDisplayFromTokens;
+    }
+    if (!destinationBalanceDisplayToken) {
+      return mergeDisplaySourceTokens(baseDisplayFromTokens);
     }
 
     const destinationKey = getTokenSelectionKey(destinationBalanceDisplayToken);
@@ -9846,9 +9944,10 @@ function NexusWidgetInner({
       return token;
     });
 
-    return replacedEmptyDestinationToken
+    const displayTokens = replacedEmptyDestinationToken
       ? tokens
       : [...tokens, destinationBalanceDisplayToken];
+    return mergeDisplaySourceTokens(displayTokens);
   })();
   const displayExactOutRouteLoading =
     isExactOutRouteLoading && !shouldShowPredictiveExactOutDisplay;
