@@ -65,8 +65,14 @@ interface NexusContextType {
   fetchBridgableBalance: () => Promise<void>;
   fetchSwapBalance: () => Promise<UserAsset[] | null>;
   getFiatValue: (amount: number, token: string) => number;
-  handleInit: (provider: EthereumProvider) => Promise<void>;
-  initializeNexus: (provider: EthereumProvider) => Promise<void>;
+  handleInit: (
+    provider: EthereumProvider,
+    accountAddress?: string,
+  ) => Promise<void>;
+  initializeNexus: (
+    provider: EthereumProvider,
+    accountAddress?: string,
+  ) => Promise<void>;
   intent: RefObject<OnIntentHookData | null>;
   loading: boolean;
   network?: NexusNetwork;
@@ -119,6 +125,11 @@ const sumSourceBalances = (sources: SourceBalance[]) =>
 
 const getSourceBalanceChainId = (source: SourceBalance) =>
   source.chain?.id ?? (source as SourceBalance & { chainId?: number }).chainId;
+
+const normalizeAccountAddress = (address?: string | null) => {
+  const normalized = address?.trim().toLowerCase();
+  return normalized || null;
+};
 
 const filterUnsupportedSwapSources = (
   assets: TokenBalance[] | null,
@@ -200,6 +211,7 @@ const NexusProvider = ({
     Record<string, Promise<number | null>>
   >({});
   const initRequest = useRef<Promise<void> | null>(null);
+  const initializedAccountAddress = useRef<string | null>(null);
   const bridgableBalanceRequest = useRef<Promise<UserAsset[] | null> | null>(
     null,
   );
@@ -640,10 +652,12 @@ const NexusProvider = ({
   }, [config?.network, normalizeUserAssetFiatValues]);
 
   const initializeNexus = useCallback(
-    async (provider: EthereumProvider) => {
+    async (provider: EthereumProvider, accountAddress?: string) => {
       setLoading(true);
       try {
         console.log("INITIALIZE NEXUS CONFIG", stableConfig);
+        const previousSdk = sdkRef.current;
+        const shouldDestroyPreviousSdk = initializedRef.current;
         const nextSdk = createNexusClient({
           network: stableConfig.network,
           debug: stableConfig.debug,
@@ -652,9 +666,19 @@ const NexusProvider = ({
         await nextSdk.initialize();
         await nextSdk.setEVMProvider(provider);
 
+        if (
+          shouldDestroyPreviousSdk &&
+          previousSdk &&
+          previousSdk !== nextSdk
+        ) {
+          previousSdk.destroy();
+        }
+
         sdkRef.current = nextSdk;
         setSdk(nextSdk);
         initializedRef.current = true;
+        initializedAccountAddress.current =
+          normalizeAccountAddress(accountAddress);
         setNexusSDK(nextSdk);
       } catch (error) {
         console.error("Error initializing Nexus:", error);
@@ -673,7 +697,12 @@ const NexusProvider = ({
         return Promise.resolve();
       }
       activeSdk.destroy();
+      if (sdkRef.current === activeSdk) {
+        sdkRef.current = null;
+      }
       initializedRef.current = false;
+      initializedAccountAddress.current = null;
+      setSdk(null);
       setNexusSDK(null);
       setBridgableBalance(null);
       swapBalanceRef.current = null;
@@ -693,16 +722,37 @@ const NexusProvider = ({
   }, []);
 
   const handleInit = useCallback(
-    async (provider: EthereumProvider) => {
-      if (initializedRef.current || loading) {
+    async (provider: EthereumProvider, accountAddress?: string) => {
+      const nextAccountAddress = normalizeAccountAddress(accountAddress);
+      const currentAccountAddress = initializedAccountAddress.current;
+
+      if (
+        initializedRef.current &&
+        (!nextAccountAddress || currentAccountAddress === nextAccountAddress)
+      ) {
         return;
       }
+
+      if (loading && initRequest.current) {
+        await initRequest.current;
+        if (
+          initializedRef.current &&
+          (!nextAccountAddress ||
+            initializedAccountAddress.current === nextAccountAddress)
+        ) {
+          return;
+        }
+      }
+
       if (!provider || typeof provider.request !== "function") {
         throw new Error("Invalid EIP-1193 provider");
       }
 
       const nextInitRequest = (async () => {
-        await initializeNexus(provider);
+        if (initializedRef.current) {
+          await deinitializeNexus();
+        }
+        await initializeNexus(provider, nextAccountAddress ?? undefined);
         await setupNexus();
         attachEventHooks();
       })();
@@ -719,7 +769,13 @@ const NexusProvider = ({
         }
       }
     },
-    [loading, initializeNexus, setupNexus, attachEventHooks],
+    [
+      loading,
+      initializeNexus,
+      deinitializeNexus,
+      setupNexus,
+      attachEventHooks,
+    ],
   );
 
   const fetchBridgableBalance = useCallback(async () => {

@@ -3604,7 +3604,11 @@ function NexusWidgetInner({
     }
   }, [nexusSDK]);
 
-  const { connector, status: walletStatus } = useAccount();
+  const {
+    address: accountAddress,
+    connector,
+    status: walletStatus,
+  } = useAccount();
   const {
     connectors,
     connectAsync,
@@ -3619,12 +3623,75 @@ function NexusWidgetInner({
     isAddress(connectedAddress) &&
     connectedAddress.toLowerCase() !== zeroAddress
       ? connectedAddress
+      : accountAddress &&
+          isAddress(accountAddress) &&
+          accountAddress.toLowerCase() !== zeroAddress
+        ? accountAddress
       : walletClientAddress &&
           isAddress(walletClientAddress) &&
           walletClientAddress.toLowerCase() !== zeroAddress
         ? walletClientAddress
         : undefined;
+  const getEffectiveWalletProvider = useCallback(
+    async (activeConnector = connector) => {
+      let connectorProvider: unknown;
+      try {
+        connectorProvider = await activeConnector?.getProvider();
+      } catch {
+        connectorProvider = undefined;
+      }
+
+      const connectorClientProvider = connectorClient
+        ? {
+            request: (args: unknown) => connectorClient.request(args as any),
+          }
+        : undefined;
+      const walletClientProvider = walletClient
+        ? {
+            request: (args: unknown) => walletClient.request(args as any),
+          }
+        : undefined;
+      const windowProvider =
+        typeof window !== "undefined"
+          ? (window as Window & { ethereum?: EthereumProvider }).ethereum
+          : undefined;
+      const effectiveProvider =
+        connectorProvider &&
+        typeof (connectorProvider as EthereumProvider).request === "function"
+          ? (connectorProvider as EthereumProvider)
+          : (connectorClientProvider ?? walletClientProvider ?? windowProvider);
+
+      return effectiveProvider &&
+        typeof effectiveProvider.request === "function"
+        ? (effectiveProvider as EthereumProvider)
+        : undefined;
+    },
+    [connector, connectorClient, walletClient]
+  );
   const historyStorageKey = getSwapHistoryStorageKey(ownerAddress);
+
+  useEffect(() => {
+    if (walletStatus !== "connected" || !ownerAddress) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const effectiveProvider = await getEffectiveWalletProvider();
+      if (cancelled || !effectiveProvider) {
+        return;
+      }
+      await handleInit(effectiveProvider, ownerAddress);
+    })().catch((error) => {
+      if (!cancelled) {
+        console.error("Unable to initialize Nexus for wallet address:", error);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getEffectiveWalletProvider, handleInit, ownerAddress, walletStatus]);
 
   // Global form state
   const [amount, setAmount] = useState("");
@@ -3661,7 +3728,6 @@ function NexusWidgetInner({
       : hasCustomSwapRecipient
         ? recipientAddress
         : undefined;
-  const previousDefaultRecipientRef = useRef(defaultRecipientAddress);
 
   // Swap-specific
   const [swapType, setSwapType] = useState<SwapType>("exactIn");
@@ -3799,20 +3865,13 @@ function NexusWidgetInner({
   }, [activeMode, setExactOutQuoteSourceModeValue]);
 
   useEffect(() => {
-    const previousDefault = previousDefaultRecipientRef.current;
-    previousDefaultRecipientRef.current = defaultRecipientAddress;
-
-    if (activeMode !== "swap" || !defaultRecipientAddress) return;
+    if (activeMode !== "swap") return;
 
     setRecipientAddress((current) => {
-      if (
-        !current ||
-        (previousDefault &&
-          current.toLowerCase() === previousDefault.toLowerCase())
-      ) {
-        return defaultRecipientAddress;
-      }
-      return current;
+      if (!defaultRecipientAddress) return current ? "" : current;
+      return current.toLowerCase() === defaultRecipientAddress.toLowerCase()
+        ? current
+        : defaultRecipientAddress;
     });
   }, [activeMode, defaultRecipientAddress]);
 
@@ -7846,31 +7905,12 @@ function NexusWidgetInner({
           throw new Error("No wallet connector available.");
         }
         await connectAsync({ connector: nextConnector });
-        activeConnector = nextConnector;
+        return;
       }
 
-      const connectorProvider = await activeConnector
-        ?.getProvider()
-        .catch(() => undefined);
-      const connectorClientProvider = connectorClient
-        ? {
-            request: (args: unknown) => connectorClient.request(args as any),
-          }
-        : undefined;
-      const walletClientProvider = walletClient
-        ? {
-            request: (args: unknown) => walletClient.request(args as any),
-          }
-        : undefined;
-      const windowProvider =
-        typeof window !== "undefined"
-          ? (window as Window & { ethereum?: EthereumProvider }).ethereum
-          : undefined;
-      const effectiveProvider =
-        connectorProvider &&
-        typeof (connectorProvider as EthereumProvider).request === "function"
-          ? (connectorProvider as EthereumProvider)
-          : (connectorClientProvider ?? walletClientProvider ?? windowProvider);
+      const effectiveProvider = await getEffectiveWalletProvider(
+        activeConnector
+      );
 
       if (
         !effectiveProvider ||
@@ -7879,7 +7919,7 @@ function NexusWidgetInner({
         throw new Error("Wallet provider is not ready yet.");
       }
 
-      await handleInit(effectiveProvider as EthereumProvider);
+      await handleInit(effectiveProvider as EthereumProvider, ownerAddress);
     } catch (error: any) {
       setTxError(error?.message || "Unable to connect wallet.");
     } finally {
