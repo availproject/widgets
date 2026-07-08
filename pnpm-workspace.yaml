@@ -3,22 +3,21 @@ blockExoticSubdeps: false
 packages:
   - "packages/*"
 
-allowBuilds:
-  "@avail-project/ca-common": true
-  "@avail-project/nexus-core": true
-  "@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/186e1ba010d45cebd06516be71116c21e35d202f": true
-  "@avail-project/nexus-types": true
-  bufferutil: true
-  core-js: true
-  esbuild: true
-  keccak: true
-  msgpackr-extract: true
-  msw: true
-  protobufjs: true
-  secp256k1: true
-  sharp: true
-  unrs-resolver: true
-  utf-8-validate: true
+onlyBuiltDependencies:
+  - "@avail-project/ca-common"
+  - "@avail-project/nexus-core"
+  - "@avail-project/nexus-types"
+  - bufferutil
+  - core-js
+  - esbuild
+  - keccak
+  - msgpackr-extract
+  - msw
+  - protobufjs
+  - secp256k1
+  - sharp
+  - unrs-resolver
+  - utf-8-validate
 
 overrides:
   "@types/react": "19.1.2"
@@ -30,3 +29,15 @@ minimumReleaseAgeExclude:
   - "@posthog/core@1.30.6"
   - "@posthog/types@1.379.3"
   - posthog-js@1.379.3
+
+allowBuilds:
+  '@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/186e1ba010d45cebd06516be71116c21e35d202f': set this to true or false
+  '@avail-project/nexus-types': set this to true or false
+  bufferutil: set this to true or false
+  core-js: set this to true or false
+  esbuild: set this to true or false
+  keccak: set this to true or false
+  msw: set this to true or false
+  sharp: set this to true or false
+  unrs-resolver: set this to true or false
+  utf-8-validate: set this to true or false
