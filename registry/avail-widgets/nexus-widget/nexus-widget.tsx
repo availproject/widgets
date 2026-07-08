@@ -9938,6 +9938,11 @@ function NexusWidgetInner({
     predictiveQuote.key === getPredictiveQuoteCacheKey("swap", "exactIn")
       ? predictiveQuote
       : null;
+  const predictiveExactOutQuote =
+    predictiveQuote?.mode === "exactOut" &&
+    predictiveQuote.key === getPredictiveQuoteCacheKey(activeMode, "exactOut")
+      ? predictiveQuote
+      : null;
   const shouldUseCurrentExactOutIntentSources =
     isExactOutPaymentFlow && hasCurrentQuoteIntent && hasIntentSources;
   const currentExactOutIntentSourceTokens =
@@ -9985,10 +9990,16 @@ function NexusWidgetInner({
     (activeMode === "deposit" || activeMode === "send") &&
     (quoteRefreshing || intentLoading) &&
     !hasIntentSources &&
-    Boolean(destinationBalanceDisplayToken);
+    Boolean(
+      predictiveExactOutQuote &&
+        ((predictiveExactOutQuote.sources?.length ?? 0) > 0 ||
+          destinationBalanceDisplayToken)
+    );
   const baseDisplayFromTokens = shouldUseCurrentExactOutIntentSources
     ? currentExactOutIntentSourceTokens
-    : fromTokens;
+    : shouldShowPredictiveExactOutDisplay
+      ? (predictiveExactOutQuote?.sources ?? fromTokens)
+      : fromTokens;
   const displayFromTokens = (() => {
     if (activeMode !== "deposit" && activeMode !== "send") {
       return baseDisplayFromTokens;
