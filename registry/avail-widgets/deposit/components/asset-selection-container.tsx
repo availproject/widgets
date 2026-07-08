@@ -388,6 +388,7 @@ const AssetSelectionContainer = ({
     : 0;
 
   const showProgressBar = requiredAmount > 0 && requiredAmount > selectedAmount;
+  const canFinishSelection = !showProgressBar;
   const progressPercent =
     requiredAmount > 0
       ? Math.min((selectedAmount / requiredAmount) * 100, 100)
@@ -597,8 +598,9 @@ const AssetSelectionContainer = ({
   }, [selectedChainIds, setAssetSelection, swapBalance]);
 
   const handleDone = useCallback(() => {
+    if (!canFinishSelection) return;
     widget.goToStep("amount");
-  }, [filter, selectedChainIds, swapBalance, widget]);
+  }, [canFinishSelection, widget]);
 
   return (
     <>
@@ -750,9 +752,11 @@ const AssetSelectionContainer = ({
               )}
             </div>
 
-            <Button className="w-full rounded-t-none" onClick={handleDone}>
-              Done
-            </Button>
+            {canFinishSelection && (
+              <Button className="w-full rounded-t-none" onClick={handleDone}>
+                Done
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>

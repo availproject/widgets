@@ -2033,11 +2033,13 @@ export function SwapAssetSelector({
     requiredUsdAmount && selectedUsdAmount.lt(requiredUsdAmount)
       ? requiredUsdAmount.minus(selectedUsdAmount)
       : new Decimal(0);
-  const shouldShowSelectionProgress = Boolean(
-    isMulti &&
+  const hasSelectionShortfall = Boolean(
     requiredUsdAmount &&
-    requiredUsdAmount.gt(0) &&
-    selectionDeficitUsdAmount.gt(0),
+      requiredUsdAmount.gt(0) &&
+      selectionDeficitUsdAmount.gt(0),
+  );
+  const shouldShowSelectionProgress = Boolean(
+    isMulti && hasSelectionShortfall,
   );
   const selectionProgressPercent =
     shouldShowSelectionProgress && requiredUsdAmount
@@ -2141,6 +2143,7 @@ export function SwapAssetSelector({
       : selectedChainToken?.chainName || "Chain";
 
   const handleDone = () => {
+    if (hasSelectionShortfall) return;
     if (isMulti && onSelectionChange) {
       onSelectionChange(
         mergeTokenOptions(draftSelectedTokens, lockedSelectedTokens),
@@ -2791,7 +2794,7 @@ export function SwapAssetSelector({
               </div>
             </div>
           )}
-          {!shouldShowSelectionProgress && (
+          {!hasSelectionShortfall && (
             <button
               onClick={handleDone}
               style={{

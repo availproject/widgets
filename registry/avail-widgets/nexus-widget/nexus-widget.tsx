@@ -10043,7 +10043,7 @@ function NexusWidgetInner({
   const totalSwapBalanceUsd = getActiveTotalBalanceUsd()
     .toDecimalPlaces(2)
     .toFixed();
-  const sendAmountUsd =
+  const requestedOutputUsd =
     amount && toToken
       ? getTokenUsdValue(
           {
@@ -10052,8 +10052,9 @@ function NexusWidgetInner({
             userAmountMode: "token",
           },
           amount
-        ).toNumber()
-      : 0;
+        )
+      : new Decimal(0);
+  const sendAmountUsd = requestedOutputUsd.toNumber();
   const exactOutRequiredUsdAmount = (() => {
     if (activeMode !== "deposit" && activeMode !== "send") return undefined;
 
@@ -10064,6 +10065,8 @@ function NexusWidgetInner({
 
     const requiredSourceUsd = getExactOutRequiredSourceUsd();
     if (requiredSourceUsd?.gt(0)) return requiredSourceUsd;
+
+    if (requestedOutputUsd.gt(0)) return requestedOutputUsd;
 
     return undefined;
   })();
