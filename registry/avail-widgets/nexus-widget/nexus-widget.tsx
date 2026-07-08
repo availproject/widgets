@@ -5655,66 +5655,31 @@ function NexusWidgetInner({
     return exactOutTotal.gt(0) ? exactOutTotal : getSwapBalanceTotalUsd();
   };
 
-  const getExactOutRequiredSourceUsd = () => {
-    const requestedUsd = getExactOutRequestedUsd();
-    if (!requestedUsd || requestedUsd.lte(0)) return undefined;
-
-    const requestedAmount =
-      activeMode === "deposit"
-        ? depositTokenAmountForQuote
-        : activeMode === "send"
-          ? parseFiatNumber(amount)
-          : undefined;
+  const getExactOutIntentSourceUsd = () => {
     const intentSourceUsd = (intentData?.sources ?? []).reduce(
       (sum, source) =>
         sum.plus(parseFiatNumber((source as any).value) ?? new Decimal(0)),
       new Decimal(0)
     );
-    const intentDestinationAmount = parseFiatNumber(
-      intentData?.destination?.amount
-    );
-    const intentDestinationUsd = parseFiatNumber(
-      (intentData?.destination as any)?.value
-    );
-    const destinationCoverage = getExactOutDestinationBalanceCoverage({
-      requestedAmount,
-      requestedUsd,
-      producedAmount: intentSourceUsd.gt(0)
-        ? intentDestinationAmount
-        : undefined,
-      producedUsd: intentSourceUsd.gt(0) ? intentDestinationUsd : undefined,
-      token: toToken,
-    });
-    const destinationCoverageUsd =
-      destinationCoverage?.usd ?? new Decimal(0);
+    return intentSourceUsd.gt(0) ? intentSourceUsd : undefined;
+  };
 
-    if (intentSourceUsd.gt(0)) {
-      return Decimal.max(
-        requestedUsd,
-        intentSourceUsd.plus(destinationCoverageUsd)
-      );
-    }
-
-    const baseline =
-      predictiveQuoteCacheRef.current[
-        getPredictiveQuoteCacheKey(activeMode, "exactOut")
-      ];
-    const cachedSourceUsdRatio = parseFiatNumber(
-      baseline?.exactOutSourceUsdPerDestinationUsd
-    );
-    const destinationUsdNeedingSources = Decimal.max(
-      requestedUsd.minus(destinationCoverageUsd),
+  const getPredictiveExactOutSourceUsd = () => {
+    const key = getPredictiveQuoteCacheKey(activeMode, "exactOut");
+    if (!key || predictiveQuote?.key !== key) return undefined;
+    const sourceUsd = (predictiveQuote.sources ?? []).reduce(
+      (sum, token) =>
+        sum.plus(parseFiatNumber(token.userAmountUsd) ?? new Decimal(0)),
       new Decimal(0)
     );
-    const requiredExternalSourceUsd = getPredictiveExactOutSourceTargetUsd(
-      destinationUsdNeedingSources,
-      cachedSourceUsdRatio
-    );
+    return sourceUsd.gt(0) ? sourceUsd : undefined;
+  };
 
-    return Decimal.max(
-      requestedUsd,
-      requiredExternalSourceUsd.plus(destinationCoverageUsd)
-    );
+  const getExactOutRequiredSourceUsd = () => {
+    const intentSourceUsd = getExactOutIntentSourceUsd();
+    if (intentSourceUsd) return intentSourceUsd;
+
+    return getPredictiveExactOutSourceUsd();
   };
 
   const getExactInSourceDeficitUsd = () => {
@@ -5767,8 +5732,7 @@ function NexusWidgetInner({
           details.availableAmount ??
           details.available
       ) ?? parseLabeledErrorDecimal(errorText, "available");
-    const requestedUsd =
-      getExactOutRequiredSourceUsd() ?? getExactOutRequestedUsd();
+    const requestedUsd = getExactOutRequiredSourceUsd();
     const availableUsd = getExactOutAvailableSourceUsd();
     const exactInSourceDeficitUsd = getExactInSourceDeficitUsd();
 
@@ -5809,8 +5773,7 @@ function NexusWidgetInner({
     sourceTokensOverride?: SwapTokenOption[]
   ): SwapQuoteIssue | null => {
     if (activeMode !== "deposit" && activeMode !== "send") return null;
-    const requestedUsd =
-      getExactOutRequiredSourceUsd() ?? getExactOutRequestedUsd();
+    const requestedUsd = getExactOutRequiredSourceUsd();
     const availableUsd = getExactOutAvailableSourceUsd(sourceTokensOverride);
     if (!requestedUsd || requestedUsd.lte(0) || !availableUsd) return null;
 
@@ -10041,13 +10004,7 @@ function NexusWidgetInner({
     const requiredSourceUsd = getExactOutRequiredSourceUsd();
     if (requiredSourceUsd?.gt(0)) return requiredSourceUsd;
 
-    if (activeMode === "deposit") {
-      return previewDestinationUsdNumber?.gt(0)
-        ? previewDestinationUsdNumber
-        : parseFiatNumber(depositUsdDisplay);
-    }
-
-    return sendAmountUsd > 0 ? new Decimal(sendAmountUsd) : undefined;
+    return undefined;
   })();
   const exactOutRequiredUsdDisplay = exactOutRequiredUsdAmount
     ?.toDecimalPlaces(2)
