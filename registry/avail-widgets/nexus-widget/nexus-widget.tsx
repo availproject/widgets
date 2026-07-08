@@ -3689,6 +3689,10 @@ function NexusWidgetInner({
   const [fromTokens, setFromTokens] = useState<SwapTokenOption[]>([]);
   const [sourceSelectionTouched, setSourceSelectionTouched] = useState(false);
   const [sourceSelectionRevision, setSourceSelectionRevision] = useState(0);
+  const [
+    sourceSelectionRequiredUsdDisplay,
+    setSourceSelectionRequiredUsdDisplay,
+  ] = useState<string | undefined>(undefined);
   const [exactOutQuoteSourceMode, setExactOutQuoteSourceMode] = useState<
     "all" | "selected"
   >("all");
@@ -5676,22 +5680,10 @@ function NexusWidgetInner({
     return intentSourceUsd.gt(0) ? intentSourceUsd : undefined;
   };
 
-  const getPredictiveExactOutSourceUsd = () => {
-    const key = getPredictiveQuoteCacheKey(activeMode, "exactOut");
-    if (!key || predictiveQuote?.key !== key) return undefined;
-    const sourceUsd = (predictiveQuote.sources ?? []).reduce(
-      (sum, token) =>
-        sum.plus(parseFiatNumber(token.userAmountUsd) ?? new Decimal(0)),
-      new Decimal(0)
-    );
-    return sourceUsd.gt(0) ? sourceUsd : undefined;
-  };
-
   const getExactOutRequiredSourceUsd = () => {
     const intentSourceUsd = getExactOutIntentSourceUsd();
     if (intentSourceUsd) return intentSourceUsd;
-
-    return getPredictiveExactOutSourceUsd();
+    return undefined;
   };
 
   const getExactInSourceDeficitUsd = () => {
@@ -9946,11 +9938,6 @@ function NexusWidgetInner({
     predictiveQuote.key === getPredictiveQuoteCacheKey("swap", "exactIn")
       ? predictiveQuote
       : null;
-  const predictiveExactOutQuote =
-    predictiveQuote?.mode === "exactOut" &&
-    predictiveQuote.key === getPredictiveQuoteCacheKey(activeMode, "exactOut")
-      ? predictiveQuote
-      : null;
   const shouldUseCurrentExactOutIntentSources =
     isExactOutPaymentFlow && hasCurrentQuoteIntent && hasIntentSources;
   const currentExactOutIntentSourceTokens =
@@ -9998,16 +9985,10 @@ function NexusWidgetInner({
     (activeMode === "deposit" || activeMode === "send") &&
     (quoteRefreshing || intentLoading) &&
     !hasIntentSources &&
-    Boolean(
-      predictiveExactOutQuote &&
-        ((predictiveExactOutQuote.sources?.length ?? 0) > 0 ||
-          destinationBalanceDisplayToken)
-    );
+    Boolean(destinationBalanceDisplayToken);
   const baseDisplayFromTokens = shouldUseCurrentExactOutIntentSources
     ? currentExactOutIntentSourceTokens
-    : shouldShowPredictiveExactOutDisplay
-      ? (predictiveExactOutQuote?.sources ?? fromTokens)
-      : fromTokens;
+    : fromTokens;
   const displayFromTokens = (() => {
     if (activeMode !== "deposit" && activeMode !== "send") {
       return baseDisplayFromTokens;
@@ -10073,6 +10054,16 @@ function NexusWidgetInner({
   const exactOutRequiredUsdDisplay = exactOutRequiredUsdAmount
     ?.toDecimalPlaces(2)
     .toFixed();
+  const assetSelectorRequiredUsdDisplay =
+    (activeMode === "deposit" || activeMode === "send") &&
+    (swapStep === "choose-swap-asset" ||
+      closingDrawerStep === "choose-swap-asset")
+      ? (sourceSelectionRequiredUsdDisplay ?? exactOutRequiredUsdDisplay)
+      : exactOutRequiredUsdDisplay;
+  const captureSourceSelectionRequiredUsd = () => {
+    if (activeMode !== "deposit" && activeMode !== "send") return;
+    setSourceSelectionRequiredUsdDisplay(exactOutRequiredUsdDisplay);
+  };
   const isIdleSwapQuoteLoading =
     activeMode === "swap" &&
     swapStep === "idle" &&
@@ -10704,6 +10695,7 @@ function NexusWidgetInner({
                           void handleConnectWallet();
                           return;
                         }
+                        captureSourceSelectionRequiredUsd();
                         openDrawerStep("choose-swap-asset");
                       }}
                       onOpenTokenPicker={() =>
@@ -10878,6 +10870,7 @@ function NexusWidgetInner({
                       return;
                     }
                     setEditingAssetIndex(null);
+                    captureSourceSelectionRequiredUsd();
                     openDrawerStep("choose-swap-asset");
                   }}
                   onSetPercent={handleSendPercentSelect}
@@ -11619,7 +11612,7 @@ function NexusWidgetInner({
                   setFromTokens(nextTokens);
                 }}
                 preserveSelectedBelowMinimum={false}
-                requiredUsd={exactOutRequiredUsdDisplay}
+                requiredUsd={assetSelectorRequiredUsdDisplay}
                 selectedTokens={fromTokens}
                 showBelowMinimumInline={
                   activeMode === "swap" && swapType === "exactIn"
