@@ -255,6 +255,15 @@ function TokenLogo({
   );
 }
 
+const getChainLogo = (
+  token?: Pick<SwapTokenOption, "chainId" | "chainLogo"> | null,
+) => {
+  if (!token) return undefined;
+  return token.chainId
+    ? (CHAIN_METADATA[token.chainId]?.logo ?? token.chainLogo)
+    : token.chainLogo;
+};
+
 /* ── Chain logo cluster ── */
 const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
   const clusterRef = useRef<HTMLDivElement | null>(null);
@@ -280,7 +289,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
         seen.add(t.chainId);
         out.push({
           id: t.chainId,
-          logo: t.chainLogo,
+          logo: getChainLogo(t),
           name: getShortChainName(t.chainId, t.chainName),
           balance: t.balance,
           balanceInFiat: t.balanceInFiat,
@@ -1735,7 +1744,7 @@ export function SwapAssetSelector({
                   fontSize={7}
                   label={token.chainName}
                   size={14}
-                  src={token.chainLogo}
+                  src={getChainLogo(token)}
                 />
                 <span
                   style={{
@@ -2101,7 +2110,7 @@ export function SwapAssetSelector({
         balanceInFiat: "$0.00",
         chainId: chain.id,
         chainName: getShortChainName(chain.id, chain.name),
-        chainLogo: chain.logo,
+        chainLogo: CHAIN_METADATA[chain.id]?.logo ?? chain.logo,
       });
     }
 
@@ -2343,7 +2352,7 @@ export function SwapAssetSelector({
                 fontSize={9}
                 label={selectedChainLabel}
                 size={18}
-                src={selectedChainToken?.chainLogo}
+                src={getChainLogo(selectedChainToken)}
               />
             )}
             <span
@@ -2666,7 +2675,7 @@ export function SwapAssetSelector({
                                 fontSize={5}
                                 label={token.chainName}
                                 size={10}
-                                src={token.chainLogo}
+                                src={getChainLogo(token)}
                                 style={{
                                   border: "1.5px solid #FFFFFE",
                                   bottom: -2,
@@ -3066,7 +3075,7 @@ export function SwapAssetSelector({
                             fontSize={10}
                             label={t.chainName}
                             size={28}
-                            src={t.chainLogo}
+                            src={getChainLogo(t)}
                             style={{ marginLeft: 10 }}
                           />
                           <span
