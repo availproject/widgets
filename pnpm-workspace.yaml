@@ -6,6 +6,7 @@ packages:
 allowBuilds:
   "@avail-project/ca-common": true
   "@avail-project/nexus-core": true
+  "@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/186e1ba010d45cebd06516be71116c21e35d202f": true
   "@avail-project/nexus-types": true
   bufferutil: true
   core-js: true
@@ -26,7 +27,6 @@ overrides:
 
 minimumReleaseAgeExclude:
   - "@avail-project/ca-common@2.3.0"
-  - "@avail-project/nexus-core@2.0.0"
   - "@posthog/core@1.30.6"
   - "@posthog/types@1.379.3"
   - posthog-js@1.379.3

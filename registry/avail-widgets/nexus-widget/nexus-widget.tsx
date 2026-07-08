@@ -404,6 +404,18 @@ const getSourceTokensQuoteKey = (tokens: SwapTokenOption[]) =>
     )
     .join("|");
 
+const getSourceTokenSyncKey = (token: SwapTokenOption) =>
+  [
+    getTokenSelectionKey(token),
+    token.userAmount ?? "",
+    token.userAmountUsd ?? "",
+    token.balance ?? "",
+    token.balanceInFiat ?? "",
+  ].join(":");
+
+const getSourceTokenListSyncKey = (tokens: SwapTokenOption[]) =>
+  tokens.map(getSourceTokenSyncKey).join("|");
+
 const isSameTokenSelection = (
   a?: SwapTokenOption | null,
   b?: SwapTokenOption | null
@@ -6224,6 +6236,7 @@ function NexusWidgetInner({
 
       if (
         !sourceSelectionTouched &&
+        swapStepRef.current !== "choose-swap-asset" &&
         (activeMode === "send" ||
           (activeMode === "deposit" && swapType === "exactOut"))
       ) {
@@ -7052,6 +7065,39 @@ function NexusWidgetInner({
       swapIntentRef.current.runId === swapRunIdRef.current &&
       swapIntentRef.current.quoteInputKey === activeQuoteInputKey
   );
+
+  useEffect(() => {
+    if (swapStep !== "idle") return;
+    if (!hasCurrentQuoteIntent) return;
+    if (sourceSelectionTouched) return;
+    if (
+      activeMode !== "send" &&
+      !(activeMode === "deposit" && swapType === "exactOut")
+    ) {
+      return;
+    }
+
+    const nextTokens = lastIntentSourceTokensRef.current;
+    if (nextTokens.length === 0) return;
+
+    setFromTokens((current) => {
+      if (
+        getSourceTokenListSyncKey(current) ===
+        getSourceTokenListSyncKey(nextTokens)
+      ) {
+        return current;
+      }
+
+      syncingIntentSourcesRef.current = true;
+      return nextTokens;
+    });
+  }, [
+    activeMode,
+    hasCurrentQuoteIntent,
+    sourceSelectionTouched,
+    swapStep,
+    swapType,
+  ]);
 
   useEffect(() => {
     if (activeMode !== "deposit") return;
@@ -8941,7 +8987,12 @@ function NexusWidgetInner({
 
     if (syncingIntentSourcesRef.current) {
       syncingIntentSourcesRef.current = false;
-      return;
+      if (hasCurrentQuoteIntent) {
+        setIntentLoading(false);
+        setQuoteRefreshing(false);
+        setReceiveMaxCalculating(false);
+        return;
+      }
     }
 
     if (hasReceiveAmountQuoteIssue) {
@@ -9011,7 +9062,12 @@ function NexusWidgetInner({
 
     if (syncingIntentSourcesRef.current) {
       syncingIntentSourcesRef.current = false;
-      return;
+      if (hasCurrentQuoteIntent) {
+        setIntentLoading(false);
+        setQuoteRefreshing(false);
+        setReceiveMaxCalculating(false);
+        return;
+      }
     }
 
     if (hasReceiveAmountQuoteIssue) {
@@ -9087,7 +9143,12 @@ function NexusWidgetInner({
 
     if (syncingIntentSourcesRef.current) {
       syncingIntentSourcesRef.current = false;
-      return;
+      if (hasCurrentQuoteIntent) {
+        setIntentLoading(false);
+        setQuoteRefreshing(false);
+        setReceiveMaxCalculating(false);
+        return;
+      }
     }
 
     if (hasReceiveAmountQuoteIssue) {
@@ -11323,13 +11384,13 @@ function NexusWidgetInner({
                           filter: nextFilter,
                           isManualSelection: false,
                         });
-                        const nextTokens = getDepositSourceTokensForIds(
-                          selection.selectedSourceIds
+                        const sourcePoolTokens = getDepositSourceTokensForIds(
+                          selection.sourcePoolIds
                         );
                         invalidateExactOutQuoteForRefresh({
-                          sourceTokens: nextTokens,
+                          sourceTokens: sourcePoolTokens,
                         });
-                        setFromTokens(nextTokens);
+                        setFromTokens(sourcePoolTokens);
                       }
                     : undefined
                 }
