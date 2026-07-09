@@ -192,6 +192,18 @@ type PredictiveQuote = {
   toUsd?: string;
 };
 
+type IntentFetchTiming = {
+  background: boolean;
+  endTimeMs?: number;
+  fetchDurationMs?: number;
+  operation: string;
+  quoteInputKey: string;
+  runId: number;
+  sourceCount?: number;
+  startTimeMs: number;
+  walletAddress?: string | null;
+};
+
 type PredictiveQuoteBaseline = {
   destinationUsdRate: string;
   exactInDestinationAmountPerSourceUsd?: string;
@@ -3531,7 +3543,6 @@ function NexusWidgetInner({
 }: NexusWidgetProps) {
   const {
     nexusSDK,
-    balanceFetchTiming,
     bridgableBalance,
     swapBalance,
     swapBalanceLoading,
@@ -4003,7 +4014,11 @@ function NexusWidgetInner({
     Record<string, PredictiveQuoteBaseline>
   >({});
   const predictiveQuoteRunRef = useRef(0);
-  const balanceUiRenderLoggedRunIdRef = useRef<number | null>(null);
+  const latestIntentFetchRunIdRef = useRef(0);
+  const intentFetchTimingRef = useRef<IntentFetchTiming | null>(null);
+  const intentUiRenderLoggedRunIdRef = useRef<number | null>(null);
+  const [intentFetchTiming, setIntentFetchTiming] =
+    useState<IntentFetchTiming | null>(null);
   const [predictiveQuote, setPredictiveQuote] =
     useState<PredictiveQuote | null>(null);
   const maxPercentRunRef = useRef(0);
@@ -4052,6 +4067,87 @@ function NexusWidgetInner({
     runId?: number;
     quoteInputKey?: string;
   } | null>(null);
+
+  const startIntentFetchTiming = useCallback(
+    ({
+      background,
+      operation,
+      quoteInputKey,
+      runId,
+    }: {
+      background: boolean;
+      operation: string;
+      quoteInputKey: string;
+      runId: number;
+    }) => {
+      const startTimeMs = Date.now();
+      const timing: IntentFetchTiming = {
+        background,
+        operation,
+        quoteInputKey,
+        runId,
+        startTimeMs,
+        walletAddress: ownerAddress ?? null,
+      };
+
+      latestIntentFetchRunIdRef.current = runId;
+      intentFetchTimingRef.current = timing;
+      intentUiRenderLoggedRunIdRef.current = null;
+      setIntentFetchTiming(timing);
+      console.log("[NexusWidget] intent fetch start", {
+        runId,
+        walletAddress: timing.walletAddress,
+        operation,
+        quoteInputKey,
+        background,
+        dateNow: startTimeMs,
+        date: new Date(startTimeMs),
+      });
+      return timing;
+    },
+    [ownerAddress]
+  );
+
+  const finishIntentFetchTiming = useCallback(
+    (runId: number, status: "resolved" | "failed" = "resolved") => {
+      const timing = intentFetchTimingRef.current;
+      if (!timing || timing.runId !== runId) return;
+      if (timing.endTimeMs !== undefined) return;
+
+      const endTimeMs = Date.now();
+      if (latestIntentFetchRunIdRef.current !== runId) {
+        return;
+      }
+
+      const fetchDurationMs = endTimeMs - timing.startTimeMs;
+      const completedTiming: IntentFetchTiming = {
+        ...timing,
+        endTimeMs,
+        fetchDurationMs,
+      };
+      intentFetchTimingRef.current = completedTiming;
+      setIntentFetchTiming(completedTiming);
+      console.log("[NexusWidget] intent fetch end", {
+        runId,
+        walletAddress: timing.walletAddress,
+        operation: timing.operation,
+        quoteInputKey: timing.quoteInputKey,
+        status,
+        dateNow: endTimeMs,
+        date: new Date(endTimeMs),
+      });
+      console.log("[NexusWidget] intent fetch total", {
+        runId,
+        walletAddress: timing.walletAddress,
+        operation: timing.operation,
+        quoteInputKey: timing.quoteInputKey,
+        totalTimeSeconds: fetchDurationMs / 1000,
+        elapsedMs: fetchDurationMs,
+        dateNow: endTimeMs,
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     swapStepRef.current = swapStep;
@@ -6507,6 +6603,7 @@ function NexusWidgetInner({
           intent,
           raw: data,
         });
+        finishIntentFetchTiming(runId, "failed");
         deny();
         setIntentLoading(false);
         setQuoteRefreshing(false);
@@ -6534,6 +6631,7 @@ function NexusWidgetInner({
               );
             }
           : refresh;
+      finishIntentFetchTiming(runId);
       providerSwapIntent.current = {
         intent: intentWithBridgeProvider as any,
         allow,
@@ -6556,7 +6654,7 @@ function NexusWidgetInner({
         setPreviewQuoteRefreshing(false);
       });
     },
-    [applySwapIntent, providerSwapIntent]
+    [applySwapIntent, finishIntentFetchTiming, providerSwapIntent]
   );
 
   // Deposit-specific
@@ -8725,6 +8823,12 @@ function NexusWidgetInner({
               quoteInputKey,
               runId,
             });
+            startIntentFetchTiming({
+              background,
+              operation: "swapWithExactIn",
+              quoteInputKey,
+              runId,
+            });
             const result = await nexusSDK.swapWithExactIn(exactInSwapPayload, {
               hooks: {
                 onIntent: (data) =>
@@ -8765,6 +8869,12 @@ function NexusWidgetInner({
           // Start exact-in swap — the intent hook will fire and populate preview
           logSdkIntentInput("swapWithExactIn", exactInSwapPayload, {
             activeMode,
+            quoteInputKey,
+            runId,
+          });
+          startIntentFetchTiming({
+            background,
+            operation: "swapWithExactIn",
             quoteInputKey,
             runId,
           });
@@ -8929,6 +9039,14 @@ function NexusWidgetInner({
               runId,
             }
           );
+          startIntentFetchTiming({
+            background,
+            operation: isTransferExactOut
+              ? "swapAndTransfer exactOut"
+              : "swapAndExecute exactOut",
+            quoteInputKey,
+            runId,
+          });
           const result =
             isTransferExactOut
               ? await sdkWithOptionalTransfer.swapAndTransfer(
@@ -9001,6 +9119,12 @@ function NexusWidgetInner({
             quoteInputKey,
             runId,
           });
+          startIntentFetchTiming({
+            background,
+            operation: "swapWithExactOut",
+            quoteInputKey,
+            runId,
+          });
           const result = await nexusSDK.swapWithExactOut(
             exactOutSwapInput,
             {
@@ -9070,6 +9194,7 @@ function NexusWidgetInner({
       if (swapRunIdRef.current !== runId || !isCurrentQuoteInput()) {
         return;
       }
+      finishIntentFetchTiming(runId, "failed");
       if (activeMode === "deposit" && err?.code !== "USER_DENIED_INTENT") {
         const hasActiveExecution =
           swapStepRef.current === "progress" &&
@@ -10310,14 +10435,28 @@ function NexusWidgetInner({
     isExactOutRouteLoading && !shouldShowPredictiveExactOutDisplay;
   const isSourcePickerRefreshDisabled =
     quoteRefreshing || intentLoading || previewQuoteRefreshing;
+  const isIntentSourceUiActionable =
+    activeMode === "deposit"
+      ? !isDepositCtaDisabled
+      : activeMode === "send"
+        ? !isSendCtaDisabled
+        : !isSwapCtaDisabled;
 
   useEffect(() => {
-    if (!balanceFetchTiming?.endTimeMs || !swapBalance) {
+    if (!intentFetchTiming?.endTimeMs) {
       return;
     }
-    if (balanceUiRenderLoggedRunIdRef.current === balanceFetchTiming.runId) {
+    if (latestIntentFetchRunIdRef.current !== intentFetchTiming.runId) {
       return;
     }
+    if (intentUiRenderLoggedRunIdRef.current === intentFetchTiming.runId) {
+      return;
+    }
+    const hasRenderedSources =
+      displayFromTokens.length > 0 ||
+      hasIntentSources ||
+      Boolean(intentData?.destination);
+    if (!hasRenderedSources) return;
     if (
       isSwapBalancePending ||
       isSourcePickerRefreshDisabled ||
@@ -10325,43 +10464,56 @@ function NexusWidgetInner({
       intentLoading ||
       previewQuoteRefreshing ||
       receiveMaxCalculating ||
-      displayExactOutRouteLoading
+      displayExactOutRouteLoading ||
+      !isIntentSourceUiActionable
     ) {
       return;
     }
 
     const renderTimeMs = Date.now();
-    const renderDurationMs = renderTimeMs - balanceFetchTiming.startTimeMs;
+    const renderDurationMs = renderTimeMs - intentFetchTiming.startTimeMs;
     const fetchDurationMs =
-      balanceFetchTiming.fetchDurationMs ??
-      balanceFetchTiming.endTimeMs - balanceFetchTiming.startTimeMs;
+      intentFetchTiming.fetchDurationMs ??
+      intentFetchTiming.endTimeMs - intentFetchTiming.startTimeMs;
     const differenceMs = renderDurationMs - fetchDurationMs;
 
-    console.log("[NexusWidget] balance UI render complete", {
-      runId: balanceFetchTiming.runId,
+    console.log("[NexusWidget] intent sources UI render complete", {
+      runId: intentFetchTiming.runId,
+      walletAddress: intentFetchTiming.walletAddress,
+      operation: intentFetchTiming.operation,
+      quoteInputKey: intentFetchTiming.quoteInputKey,
+      sourceCount: displayFromTokens.length,
       dateNow: renderTimeMs,
       date: new Date(renderTimeMs),
       totalRenderTimeSeconds: renderDurationMs / 1000,
       elapsedMs: renderDurationMs,
     });
-    console.log("[NexusWidget] balance UI render/fetch difference", {
-      runId: balanceFetchTiming.runId,
+    console.log("[NexusWidget] intent render/fetch difference", {
+      runId: intentFetchTiming.runId,
+      walletAddress: intentFetchTiming.walletAddress,
+      operation: intentFetchTiming.operation,
+      quoteInputKey: intentFetchTiming.quoteInputKey,
       differenceMs,
       dateNow: renderTimeMs,
       date: new Date(renderTimeMs),
     });
-    balanceUiRenderLoggedRunIdRef.current = balanceFetchTiming.runId;
+    intentUiRenderLoggedRunIdRef.current = intentFetchTiming.runId;
   }, [
-    balanceFetchTiming,
     displayExactOutRouteLoading,
     displayFromTokens.length,
+    hasIntentSources,
     intentLoading,
+    intentData?.destination,
+    intentFetchTiming,
+    isDepositCtaDisabled,
+    isIntentSourceUiActionable,
+    isSendCtaDisabled,
     isSourcePickerRefreshDisabled,
+    isSwapCtaDisabled,
     isSwapBalancePending,
     previewQuoteRefreshing,
     quoteRefreshing,
     receiveMaxCalculating,
-    swapBalance,
   ]);
 
   const totalSwapBalanceUsd = getActiveTotalBalanceUsd()
