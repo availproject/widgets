@@ -1297,11 +1297,29 @@ const getSwapTokenUsdValue = (token: SwapTokenOption) =>
   parseDecimalLoose(token.balanceInFiat) ??
   new Decimal(0);
 
+const getSwapTokenBalanceUsdValue = (token: SwapTokenOption) =>
+  parseDecimalLoose(token.balanceInFiat) ?? new Decimal(0);
+
 const sortSwapTokensByUsdDesc = (tokens: SwapTokenOption[]) =>
   [...tokens].sort((a, b) => {
     const usdDelta = getSwapTokenUsdValue(b).cmp(getSwapTokenUsdValue(a));
     if (usdDelta !== 0) return usdDelta;
     return (a.symbol ?? "").localeCompare(b.symbol ?? "");
+  });
+
+const sortDisplaySourcesByBalanceUsdDesc = (tokens: SwapTokenOption[]) =>
+  [...tokens].sort((a, b) => {
+    const balanceUsdDelta = getSwapTokenBalanceUsdValue(b).cmp(
+      getSwapTokenBalanceUsdValue(a)
+    );
+    if (balanceUsdDelta !== 0) return balanceUsdDelta;
+
+    const spendUsdDelta = getSwapTokenUsdValue(b).cmp(getSwapTokenUsdValue(a));
+    if (spendUsdDelta !== 0) return spendUsdDelta;
+
+    return `${a.symbol ?? ""} ${a.chainName ?? ""}`.localeCompare(
+      `${b.symbol ?? ""} ${b.chainName ?? ""}`
+    );
   });
 
 const getIntentSourceUsdValue = (source: SwapIntentData["sources"][number]) =>
@@ -10178,7 +10196,9 @@ function NexusWidgetInner({
       return baseDisplayFromTokens;
     }
     if (!destinationBalanceDisplayToken) {
-      return mergeDisplaySourceTokens(baseDisplayFromTokens);
+      return mergeDisplaySourceTokens(
+        sortDisplaySourcesByBalanceUsdDesc(baseDisplayFromTokens)
+      );
     }
 
     const destinationKey = getTokenSelectionKey(destinationBalanceDisplayToken);
@@ -10199,7 +10219,9 @@ function NexusWidgetInner({
     const displayTokens = replacedEmptyDestinationToken
       ? tokens
       : [...tokens, destinationBalanceDisplayToken];
-    return mergeDisplaySourceTokens(displayTokens);
+    return mergeDisplaySourceTokens(
+      sortDisplaySourcesByBalanceUsdDesc(displayTokens)
+    );
   })();
   const displayExactOutRouteLoading =
     isExactOutRouteLoading && !shouldShowPredictiveExactOutDisplay;
