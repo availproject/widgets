@@ -3528,6 +3528,7 @@ function NexusWidgetInner({
 }: NexusWidgetProps) {
   const {
     nexusSDK,
+    balanceFetchTiming,
     bridgableBalance,
     swapBalance,
     swapBalanceLoading,
@@ -3999,6 +4000,7 @@ function NexusWidgetInner({
     Record<string, PredictiveQuoteBaseline>
   >({});
   const predictiveQuoteRunRef = useRef(0);
+  const balanceUiRenderLoggedRunIdRef = useRef<number | null>(null);
   const [predictiveQuote, setPredictiveQuote] =
     useState<PredictiveQuote | null>(null);
   const maxPercentRunRef = useRef(0);
@@ -10300,6 +10302,60 @@ function NexusWidgetInner({
     isExactOutRouteLoading && !shouldShowPredictiveExactOutDisplay;
   const isSourcePickerRefreshDisabled =
     quoteRefreshing || intentLoading || previewQuoteRefreshing;
+
+  useEffect(() => {
+    if (!balanceFetchTiming?.endTimeMs || !swapBalance) {
+      return;
+    }
+    if (balanceUiRenderLoggedRunIdRef.current === balanceFetchTiming.runId) {
+      return;
+    }
+    if (
+      isSwapBalancePending ||
+      isSourcePickerRefreshDisabled ||
+      quoteRefreshing ||
+      intentLoading ||
+      previewQuoteRefreshing ||
+      receiveMaxCalculating ||
+      displayExactOutRouteLoading
+    ) {
+      return;
+    }
+
+    const renderTimeMs = Date.now();
+    const renderDurationMs = renderTimeMs - balanceFetchTiming.startTimeMs;
+    const fetchDurationMs =
+      balanceFetchTiming.fetchDurationMs ??
+      balanceFetchTiming.endTimeMs - balanceFetchTiming.startTimeMs;
+    const differenceMs = renderDurationMs - fetchDurationMs;
+
+    console.log("[NexusWidget] balance UI render complete", {
+      runId: balanceFetchTiming.runId,
+      dateNow: renderTimeMs,
+      date: new Date(renderTimeMs),
+      totalRenderTimeSeconds: renderDurationMs / 1000,
+      elapsedMs: renderDurationMs,
+    });
+    console.log("[NexusWidget] balance UI render/fetch difference", {
+      runId: balanceFetchTiming.runId,
+      differenceMs,
+      dateNow: renderTimeMs,
+      date: new Date(renderTimeMs),
+    });
+    balanceUiRenderLoggedRunIdRef.current = balanceFetchTiming.runId;
+  }, [
+    balanceFetchTiming,
+    displayExactOutRouteLoading,
+    displayFromTokens.length,
+    intentLoading,
+    isSourcePickerRefreshDisabled,
+    isSwapBalancePending,
+    previewQuoteRefreshing,
+    quoteRefreshing,
+    receiveMaxCalculating,
+    swapBalance,
+  ]);
+
   const totalSwapBalanceUsd = getActiveTotalBalanceUsd()
     .toDecimalPlaces(2)
     .toFixed();

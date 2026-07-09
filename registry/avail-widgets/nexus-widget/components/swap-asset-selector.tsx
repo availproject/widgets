@@ -18,6 +18,7 @@ import {
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1054,6 +1055,8 @@ export function SwapAssetSelector({
   );
   const [isChainSearchFocused, setIsChainSearchFocused] = useState(false);
   const stableListHeightRef = useRef(0);
+  const pendingSelectionScrollTopRef = useRef<number | null>(null);
+  const skipNextSelectionScrollResetRef = useRef(false);
   const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const lockedSelectedTokens = useMemo(
     () => dedupeTokenOptions(lockedTokens),
@@ -1107,10 +1110,24 @@ export function SwapAssetSelector({
   }, [normalizedInitialFilterTab]);
 
   useEffect(() => {
+    if (skipNextSelectionScrollResetRef.current) {
+      skipNextSelectionScrollResetRef.current = false;
+      return;
+    }
     if (listRef.current) {
       listRef.current.scrollTop = 0;
     }
   }, [query, activeTab, selectedChainFilter]);
+
+  useLayoutEffect(() => {
+    const pendingScrollTop = pendingSelectionScrollTopRef.current;
+    if (pendingScrollTop === null) return;
+
+    if (listRef.current) {
+      listRef.current.scrollTop = pendingScrollTop;
+    }
+    pendingSelectionScrollTopRef.current = null;
+  }, [draftSelectedTokens]);
 
   const allTokens = useMemo<SwapTokenOption[]>(() => {
     const isSwapSupportedToken = (token: SwapTokenOption) =>
@@ -1176,9 +1193,7 @@ export function SwapAssetSelector({
         result.filter(
           (token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD,
         ),
-        lockedSelectedTokens.filter(
-          (token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD,
-        ),
+        lockedSelectedTokens,
       );
     },
     [allTokens, lockedSelectedTokens, selectedChainFilter],
@@ -1247,6 +1262,7 @@ export function SwapAssetSelector({
 
   const isTokenSelectedForVisibility = useCallback(
     (token: SwapTokenOption) => {
+      if (isLockedToken(token)) return true;
       if (!preserveSelectedBelowMinimum) return false;
 
       return activeSelectedTokens.some(
@@ -1260,7 +1276,7 @@ export function SwapAssetSelector({
           ),
       );
     },
-    [activeSelectedTokens, preserveSelectedBelowMinimum],
+    [activeSelectedTokens, isLockedToken, preserveSelectedBelowMinimum],
   );
 
   const isUnifiedSelectedForVisibility = useCallback(
@@ -1298,7 +1314,8 @@ export function SwapAssetSelector({
       if (
         !showBelowMinimumInline &&
         unifiedSym &&
-        getTokenFiatValue(token) < MIN_FIAT_THRESHOLD
+        getTokenFiatValue(token) < MIN_FIAT_THRESHOLD &&
+        !isTokenSelectedForVisibility(token)
       ) {
         continue;
       }
@@ -1646,6 +1663,8 @@ export function SwapAssetSelector({
       return;
     }
 
+    pendingSelectionScrollTopRef.current = listRef.current?.scrollTop ?? null;
+    skipNextSelectionScrollResetRef.current = true;
     setActiveTab("custom");
     const current = mergeTokenOptions(
       activeSelectedTokens,
