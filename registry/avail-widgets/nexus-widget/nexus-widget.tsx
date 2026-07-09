@@ -5341,6 +5341,15 @@ function NexusWidgetInner({
     return getExpandedSourceTokens(tokens).filter(hasGasForSource);
   };
 
+  const getMinimumBalanceSourceTokens = () =>
+    filterMinimumSourceUsdTokens(
+      getExpandedSourceTokens(
+        swapBalance
+          ? deriveTokenOptions(swapBalance, swapSupportedChainsAndTokens)
+          : []
+      )
+    );
+
   const getDepositDestinationForSourceSelection = () => {
     const destination =
       activeMode === "deposit" ? selectedOpportunity : toToken;
@@ -5698,49 +5707,21 @@ function NexusWidgetInner({
       : undefined;
   };
 
-  const getHeldDestinationTokenBalanceUsd = () => {
-    if (!toToken) return new Decimal(0);
-
-    const balanceAmount =
-      parseFiatNumber(destinationBalance) ??
-      parseFiatNumber(toToken.balance) ??
-      new Decimal(0);
-    if (balanceAmount.lte(0)) return new Decimal(0);
-
-    const balanceUsd =
-      parseFiatNumber(toToken.balanceInFiat) ??
-      balanceAmount.mul(getTokenUsdRate(toToken));
-    return balanceUsd.gte(minimumSourceUsd) ? balanceUsd : new Decimal(0);
-  };
-
   const getExactOutAvailableSourceUsd = (
     sourceTokensOverride?: SwapTokenOption[]
   ) => {
-    const destinationKey = getTokenSelectionKey(toToken);
-    const includesDestinationToken = (tokens: SwapTokenOption[]) =>
-      Boolean(
-        destinationKey &&
-          tokens.some((token) => getTokenSelectionKey(token) === destinationKey)
-      );
-    const getDestinationUsdIfMissing = (tokens: SwapTokenOption[]) =>
-      includesDestinationToken(tokens)
-        ? new Decimal(0)
-        : getHeldDestinationTokenBalanceUsd();
-
     if (
       sourceTokensOverride ||
       exactOutQuoteSourceModeRef.current === "selected"
     ) {
       const selectedSourceTokens = sourceTokensOverride ?? fromTokens;
-      return selectedSourceTokens
-        .reduce((sum, token) => {
-          const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
-          return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
-        }, new Decimal(0))
-        .plus(getDestinationUsdIfMissing(selectedSourceTokens));
+      return selectedSourceTokens.reduce((sum, token) => {
+        const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
+        return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
+      }, new Decimal(0));
     }
 
-    const allSourceTokens = getGasCapableBalanceSourceTokens();
+    const allSourceTokens = getMinimumBalanceSourceTokens();
     const allSourceTotal = allSourceTokens.reduce(
       (sum, token) => {
         const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
@@ -5748,11 +5729,8 @@ function NexusWidgetInner({
       },
       new Decimal(0)
     );
-    const exactOutTotal = allSourceTotal.plus(
-      getDestinationUsdIfMissing(allSourceTokens)
-    );
 
-    return exactOutTotal.gt(0) ? exactOutTotal : getSwapBalanceTotalUsd();
+    return allSourceTotal.gt(0) ? allSourceTotal : getSwapBalanceTotalUsd();
   };
 
   const getExactOutIntentSourceUsd = () => {

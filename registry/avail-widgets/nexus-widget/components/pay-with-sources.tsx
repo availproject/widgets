@@ -37,6 +37,18 @@ const formatUsd = (value: unknown) => {
   return `$${amount.toDecimalPlaces(2).toFixed()}`;
 };
 
+const getDisplayedUsdValue = (token: SwapTokenOption) =>
+  parseDecimal(token.userAmountUsd || token.balanceInFiat) ?? new Decimal(0);
+
+const sortSourceTokensByDisplayedUsdDesc = (tokens: SwapTokenOption[]) =>
+  [...tokens].sort((a, b) => {
+    const usdDiff = getDisplayedUsdValue(b).cmp(getDisplayedUsdValue(a));
+    if (usdDiff !== 0) return usdDiff;
+    return `${a.symbol ?? ""} ${a.chainName ?? ""}`.localeCompare(
+      `${b.symbol ?? ""} ${b.chainName ?? ""}`,
+    );
+  });
+
 function TokenLogo({
   src,
   label,
@@ -171,10 +183,14 @@ export function PayWithSources({
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const isRouteLoading = routeStatus === "loading";
-  const shouldShowSourceSummary = !isRouteLoading && fromTokens.length > 0;
-  const shouldScroll = shouldShowSourceSummary && fromTokens.length > 3;
+  const displayTokens = React.useMemo(
+    () => sortSourceTokensByDisplayedUsdDesc(fromTokens),
+    [fromTokens],
+  );
+  const shouldShowSourceSummary = !isRouteLoading && displayTokens.length > 0;
+  const shouldScroll = shouldShowSourceSummary && displayTokens.length > 3;
   const sourceCountLabel =
-    fromTokens.length === 1 ? "1 asset" : `${fromTokens.length} assets`;
+    displayTokens.length === 1 ? "1 asset" : `${displayTokens.length} assets`;
   const autoBadge = (
     <span
       style={{
@@ -294,7 +310,7 @@ export function PayWithSources({
               paddingRight: shouldScroll ? "8px" : 0,
             }}
           >
-            {fromTokens.map((token, index) => (
+            {displayTokens.map((token, index) => (
               <div
                 key={`${token.contractAddress}-${token.chainId ?? "unified"}-${index}`}
                 style={{
