@@ -70,7 +70,7 @@ interface SwapAssetSelectorProps {
   lockedTokens?: SwapTokenOption[];
   onBack: () => void;
   onClearSelection?: () => void;
-  onDone?: () => void;
+  onDone?: (tokens?: SwapTokenOption[]) => void;
   onFilterTabSelect?: (tab: Exclude<FilterTab, "custom">) => void;
   onSelect: (token: SwapTokenOption) => void;
   onSelectionChange?: (tokens: SwapTokenOption[]) => void;
@@ -2144,12 +2144,11 @@ export function SwapAssetSelector({
 
   const handleDone = () => {
     if (hasSelectionShortfall) return;
-    if (isMulti && onSelectionChange) {
-      onSelectionChange(
-        mergeTokenOptions(draftSelectedTokens, lockedSelectedTokens),
-      );
-    }
-    onDone?.();
+    onDone?.(
+      isMulti
+        ? mergeTokenOptions(draftSelectedTokens, lockedSelectedTokens)
+        : undefined,
+    );
   };
 
   return (

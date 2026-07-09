@@ -3759,6 +3759,13 @@ function NexusWidgetInner({
     sourceSelectionRequiredUsdDisplay,
     setSourceSelectionRequiredUsdDisplay,
   ] = useState<string | undefined>(undefined);
+  const [sourcePickerDraftTokens, setSourcePickerDraftTokens] = useState<
+    SwapTokenOption[] | null
+  >(null);
+  const sourcePickerDraftTokensRef = useRef<SwapTokenOption[] | null>(null);
+  const sourcePickerDraftDepositFilterRef = useRef<DepositSourceFilter>("all");
+  const sourcePickerDraftTouchedRef = useRef(false);
+  const sourcePickerDraftModeRef = useRef<"all" | "selected">("all");
   const [exactOutQuoteSourceMode, setExactOutQuoteSourceMode] = useState<
     "all" | "selected"
   >("all");
@@ -7622,6 +7629,132 @@ function NexusWidgetInner({
     toToken?.symbol,
   ]);
 
+  const setSourcePickerDraftSelection = useCallback(
+    (tokens: SwapTokenOption[]) => {
+      const nextTokens = tokens.map((token) => ({
+        ...token,
+        userAmount: "",
+      }));
+      sourcePickerDraftTokensRef.current = nextTokens;
+      setSourcePickerDraftTokens(nextTokens);
+    },
+    []
+  );
+
+  const resetSourcePickerDraft = useCallback(() => {
+    sourcePickerDraftTokensRef.current = null;
+    setSourcePickerDraftTokens(null);
+  }, []);
+
+  const beginSourcePickerEdit = useCallback(() => {
+    if (activeMode !== "deposit" && activeMode !== "send") {
+      resetSourcePickerDraft();
+      return;
+    }
+
+    sourcePickerDraftDepositFilterRef.current = depositSourceFilter;
+    sourcePickerDraftTouchedRef.current = sourceSelectionTouched;
+    sourcePickerDraftModeRef.current = exactOutQuoteSourceModeRef.current;
+    setSourcePickerDraftSelection(fromTokens);
+  }, [
+    activeMode,
+    depositSourceFilter,
+    fromTokens,
+    resetSourcePickerDraft,
+    setSourcePickerDraftSelection,
+    sourceSelectionTouched,
+  ]);
+
+  const handleSourcePickerCancel = useCallback(() => {
+    resetSourcePickerDraft();
+    closeDrawerToIdle();
+  }, [closeDrawerToIdle, resetSourcePickerDraft]);
+
+  const handleSourcePickerDraftSelectionChange = useCallback(
+    (tokens: SwapTokenOption[]) => {
+      if (activeMode !== "deposit" && activeMode !== "send") return;
+
+      setSourcePickerDraftSelection(tokens);
+      sourcePickerDraftTouchedRef.current = true;
+      sourcePickerDraftModeRef.current = "selected";
+      if (activeMode === "deposit") {
+        sourcePickerDraftDepositFilterRef.current = "custom";
+      }
+    },
+    [activeMode, setSourcePickerDraftSelection]
+  );
+
+  const handleSourcePickerFilterTabSelect = useCallback(
+    (tab: Exclude<SourceFilterTab, "custom">) => {
+      if (activeMode !== "deposit") return;
+
+      const nextFilter: DepositSourceFilter =
+        tab === "stables" ? "stablecoins" : tab;
+      const selection = getResolvedDepositSourceSelection({
+        filter: nextFilter,
+        isManualSelection: false,
+      });
+      const sourcePoolTokens = getDepositSourceTokensForIds(
+        selection.sourcePoolIds
+      );
+
+      sourcePickerDraftDepositFilterRef.current = nextFilter;
+      sourcePickerDraftTouchedRef.current = false;
+      sourcePickerDraftModeRef.current = "all";
+      setSourcePickerDraftSelection(sourcePoolTokens);
+    },
+    [
+      activeMode,
+      getDepositSourceTokensForIds,
+      getResolvedDepositSourceSelection,
+      setSourcePickerDraftSelection,
+    ]
+  );
+
+  const commitSourcePickerDraft = useCallback(
+    (tokens?: SwapTokenOption[]) => {
+      if (activeMode !== "deposit" && activeMode !== "send") {
+        resetSourcePickerDraft();
+        closeDrawerToIdle();
+        return;
+      }
+
+      const nextTokens =
+        tokens ?? sourcePickerDraftTokensRef.current ?? fromTokens;
+      const normalizedTokens = nextTokens.map((token) => ({
+        ...token,
+        userAmount: "",
+      }));
+
+      setSourceSelectionTouched(sourcePickerDraftTouchedRef.current);
+      setExactOutQuoteSourceModeValue(sourcePickerDraftModeRef.current);
+      if (activeMode === "deposit") {
+        setDepositSourceFilter(sourcePickerDraftDepositFilterRef.current);
+      }
+      invalidateExactOutQuoteForRefresh({
+        sourceTokens: normalizedTokens,
+      });
+      setSourceSelectionRevision((current) => current + 1);
+      setFromTokens(normalizedTokens);
+      resetSourcePickerDraft();
+      closeDrawerToIdle();
+    },
+    [
+      activeMode,
+      closeDrawerToIdle,
+      fromTokens,
+      invalidateExactOutQuoteForRefresh,
+      resetSourcePickerDraft,
+      setExactOutQuoteSourceModeValue,
+    ]
+  );
+
+  const sourcePickerSelectedTokens =
+    (activeMode === "deposit" || activeMode === "send") &&
+    swapStep === "choose-swap-asset"
+      ? (sourcePickerDraftTokens ?? fromTokens)
+      : fromTokens;
+
   useEffect(() => {
     if (activeMode !== "deposit" && activeMode !== "send") return;
     if (lockedDestinationSourceTokens.length === 0) return;
@@ -9526,7 +9659,7 @@ function NexusWidgetInner({
       return;
     }
     if (swapStep === "choose-swap-asset") {
-      closeDrawerToIdle();
+      handleSourcePickerCancel();
       return;
     }
     if (swapStep === "choose-receive-asset") {
@@ -10584,6 +10717,7 @@ function NexusWidgetInner({
                       return;
                     }
                     setEditingAssetIndex(index ?? null);
+                    beginSourcePickerEdit();
                     openDrawerStep("choose-swap-asset");
                   }}
                   onUpdateTokens={handleSwapTokensUpdate}
@@ -10747,6 +10881,7 @@ function NexusWidgetInner({
                           return;
                         }
                         captureSourceSelectionRequiredUsd();
+                        beginSourcePickerEdit();
                         openDrawerStep("choose-swap-asset");
                       }}
                       onOpenTokenPicker={() =>
@@ -10922,6 +11057,7 @@ function NexusWidgetInner({
                     }
                     setEditingAssetIndex(null);
                     captureSourceSelectionRequiredUsd();
+                    beginSourcePickerEdit();
                     openDrawerStep("choose-swap-asset");
                   }}
                   onSetPercent={handleSendPercentSelect}
@@ -11326,7 +11462,7 @@ function NexusWidgetInner({
             }}
           >
             <div
-              onClick={closeDrawerToIdle}
+              onClick={handleSourcePickerCancel}
               style={{
                 position: "absolute",
                 top: 0,
@@ -11398,47 +11534,15 @@ function NexusWidgetInner({
                 }
                 isMulti={activeMode === "deposit" || activeMode === "send"}
                 lockedTokens={lockedDestinationSourceTokens}
-                onBack={closeDrawerToIdle}
-                onClearSelection={
+                onBack={handleSourcePickerCancel}
+                onDone={
                   activeMode === "deposit" || activeMode === "send"
-                    ? () => {
-                        setSourceSelectionTouched(true);
-                        setExactOutQuoteSourceModeValue("selected");
-                        if (activeMode === "deposit") {
-                          setDepositSourceFilter("custom");
-                        }
-                        invalidateExactOutQuoteForRefresh({
-                          sourceTokens: [],
-                        });
-                        setSourceSelectionRevision((current) => current + 1);
-                        setFromTokens((current) =>
-                          current.length === 0 ? current : []
-                        );
-                      }
-                    : undefined
+                    ? commitSourcePickerDraft
+                    : closeDrawerToIdle
                 }
-                onDone={closeDrawerToIdle}
                 onFilterTabSelect={
                   activeMode === "deposit"
-                    ? (tab) => {
-                        const nextFilter: DepositSourceFilter =
-                          tab === "stables" ? "stablecoins" : tab;
-                        setDepositSourceFilter(nextFilter);
-                        setSourceSelectionTouched(false);
-                        setExactOutQuoteSourceModeValue("all");
-                        setSourceSelectionRevision((current) => current + 1);
-                        const selection = getResolvedDepositSourceSelection({
-                          filter: nextFilter,
-                          isManualSelection: false,
-                        });
-                        const sourcePoolTokens = getDepositSourceTokensForIds(
-                          selection.sourcePoolIds
-                        );
-                        invalidateExactOutQuoteForRefresh({
-                          sourceTokens: sourcePoolTokens,
-                        });
-                        setFromTokens(sourcePoolTokens);
-                      }
+                    ? handleSourcePickerFilterTabSelect
                     : undefined
                 }
                 onSelect={(token) => {
@@ -11483,42 +11587,22 @@ function NexusWidgetInner({
                     activeMode === "deposit" ||
                     activeMode === "send"
                   ) {
-                    const nextTokens = [{ ...token, userAmount: amount }];
-                    setSourceSelectionTouched(true);
-                    setExactOutQuoteSourceModeValue("selected");
-                    if (activeMode === "deposit") {
-                      setDepositSourceFilter("custom");
-                    }
-                    invalidateExactOutQuoteForRefresh({
-                      sourceTokens: nextTokens,
-                    });
-                    setSourceSelectionRevision((current) => current + 1);
-                    setFromTokens(nextTokens);
-                    closeDrawerToIdle();
+                    handleSourcePickerDraftSelectionChange([
+                      { ...token, userAmount: "" },
+                    ]);
                   }
                 }}
                 onSelectionChange={
                   activeMode === "deposit" || activeMode === "send"
-                    ? (tokens) => {
-                        const nextTokens = tokens.map((token) => ({
-                          ...token,
-                          userAmount: "",
-                        }));
-                        setSourceSelectionTouched(true);
-                        setExactOutQuoteSourceModeValue("selected");
-                        if (activeMode === "deposit") {
-                          setDepositSourceFilter("custom");
-                        }
-                        invalidateExactOutQuoteForRefresh({
-                          sourceTokens: nextTokens,
-                        });
-                        setSourceSelectionRevision((current) => current + 1);
-                        setFromTokens(nextTokens);
-                      }
+                    ? handleSourcePickerDraftSelectionChange
                     : undefined
                 }
                 onToggle={(token) => {
-                  const prevTokens = fromTokens;
+                  const isDepositOrSendSourcePicker =
+                    activeMode === "deposit" || activeMode === "send";
+                  const prevTokens = isDepositOrSendSourcePicker
+                    ? sourcePickerSelectedTokens
+                    : fromTokens;
                   const isSameSelection = (
                     a: SwapTokenOption,
                     b: SwapTokenOption
@@ -11535,8 +11619,6 @@ function NexusWidgetInner({
                         b.contractAddress.toLowerCase() && a.chainId === b.chainId
                     );
                   };
-                  const isDepositOrSendSourcePicker =
-                    activeMode === "deposit" || activeMode === "send";
                   const sourceTokens = token.sourceTokens ?? [];
                   const isSameUnifiedGroup = (item: SwapTokenOption) =>
                     Boolean(
@@ -11647,24 +11729,16 @@ function NexusWidgetInner({
                   };
                   const nextTokens = getNextTokens();
 
-                  if (activeMode === "deposit" || activeMode === "send") {
-                    setSourceSelectionTouched(true);
-                    setExactOutQuoteSourceModeValue("selected");
-                    if (activeMode === "deposit") {
-                      setDepositSourceFilter("custom");
-                    }
-                    invalidateExactOutQuoteForRefresh({
-                      sourceTokens: nextTokens,
-                    });
-                    setSourceSelectionRevision((current) => current + 1);
+                  if (isDepositOrSendSourcePicker) {
+                    handleSourcePickerDraftSelectionChange(nextTokens);
                   } else {
                     clearPendingSwapIntent();
+                    setFromTokens(nextTokens);
                   }
-                  setFromTokens(nextTokens);
                 }}
                 preserveSelectedBelowMinimum={false}
                 requiredUsd={assetSelectorRequiredUsdDisplay}
-                selectedTokens={fromTokens}
+                selectedTokens={sourcePickerSelectedTokens}
                 showBelowMinimumInline={
                   activeMode === "swap" && swapType === "exactIn"
                 }
