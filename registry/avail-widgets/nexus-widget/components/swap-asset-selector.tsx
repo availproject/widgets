@@ -2018,20 +2018,22 @@ export function SwapAssetSelector({
   const isLoading = !staticOptions && swapBalance === null;
   const selectedAssetCount = activeSelectedTokens.length;
   const requiredUsdAmount = parseTokenAmount(requiredUsd);
+  const shouldCountSelectedUsd = (token: SwapTokenOption, value: Decimal) =>
+    value.gt(0) && (isLockedToken(token) || value.gte(MIN_FIAT_THRESHOLD));
   const selectedUsdAmount = activeSelectedTokens.reduce((sum, token) => {
     if (token.isUnified && token.sourceTokens?.length) {
       return sum.plus(
         token.sourceTokens.reduce((sourceSum, source) => {
           const value =
             parseTokenAmount(source.balanceInFiat) ?? new Decimal(0);
-          return value.gte(MIN_FIAT_THRESHOLD)
+          return shouldCountSelectedUsd(source, value)
             ? sourceSum.plus(value)
             : sourceSum;
         }, new Decimal(0)),
       );
     }
     const value = parseTokenAmount(token.balanceInFiat) ?? new Decimal(0);
-    return value.gte(MIN_FIAT_THRESHOLD) ? sum.plus(value) : sum;
+    return shouldCountSelectedUsd(token, value) ? sum.plus(value) : sum;
   }, new Decimal(0));
   const selectionDeficitUsdAmount =
     requiredUsdAmount && selectedUsdAmount.lt(requiredUsdAmount)

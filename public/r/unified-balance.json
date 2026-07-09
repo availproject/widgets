@@ -13,6 +13,7 @@
     "availproject/widgets/label",
     "availproject/widgets/nexus-provider",
     "availproject/widgets/separator",
+    "availproject/widgets/skeleton",
     "availproject/widgets/tabs",
     "availproject/widgets/utils"
   ],

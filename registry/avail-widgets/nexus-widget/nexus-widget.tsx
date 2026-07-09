@@ -5741,54 +5741,53 @@ function NexusWidgetInner({
 
   const getExactOutAvailableSourceUsd = (
     sourceTokensOverride?: SwapTokenOption[]
-  ) => {
-    if (
-      sourceTokensOverride ||
-      exactOutQuoteSourceModeRef.current === "selected"
-    ) {
-      const selectedSourceTokens = sourceTokensOverride ?? fromTokens;
-      const heldDestinationKey = getTokenSelectionKey(
-        getHeldDestinationTokenOption()
-      );
-      return selectedSourceTokens.reduce((sum, token) => {
+  ): Decimal => {
+    const sumTokensWithDestinationCredit = (
+      tokens: SwapTokenOption[]
+    ): Decimal => {
+      const heldDestinationToken = getHeldDestinationTokenOption();
+      const heldDestinationKey = getTokenSelectionKey(heldDestinationToken);
+      let hasHeldDestinationToken = false;
+
+      const sourceTotal = tokens.reduce((sum, token) => {
         const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
         const isHeldDestinationToken =
           heldDestinationKey &&
           getTokenSelectionKey(token) === heldDestinationKey;
+        if (isHeldDestinationToken) {
+          hasHeldDestinationToken = true;
+        }
+
         return value.gt(0) &&
           (isHeldDestinationToken || value.gte(minimumSourceUsd))
           ? sum.plus(value)
           : sum;
       }, new Decimal(0));
+
+      if (!heldDestinationToken || hasHeldDestinationToken) {
+        return sourceTotal;
+      }
+
+      const heldDestinationUsd =
+        parseFiatNumber(heldDestinationToken.balanceInFiat) ?? new Decimal(0);
+      return heldDestinationUsd.gt(0)
+        ? sourceTotal.plus(heldDestinationUsd)
+        : sourceTotal;
+    };
+
+    if (
+      sourceTokensOverride ||
+      exactOutQuoteSourceModeRef.current === "selected"
+    ) {
+      const selectedSourceTokens = sourceTokensOverride ?? fromTokens;
+      return sumTokensWithDestinationCredit(selectedSourceTokens);
     }
 
     return getExactOutTotalSourceBalanceUsd();
   };
-  const getExactOutTotalSourceBalanceUsd = () => {
-    const allSourceTokens = getMinimumBalanceSourceTokens();
-    const heldDestinationToken = getHeldDestinationTokenOption();
-    const sourceTokens =
-      heldDestinationToken &&
-      !allSourceTokens.some(
-        (token) =>
-          getTokenSelectionKey(token) ===
-          getTokenSelectionKey(heldDestinationToken)
-      )
-        ? [...allSourceTokens, heldDestinationToken]
-        : allSourceTokens;
-    const heldDestinationKey = getTokenSelectionKey(heldDestinationToken);
-    const allSourceTotal = sourceTokens.reduce(
-      (sum, token) => {
-        const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
-        const isHeldDestinationToken =
-          heldDestinationKey &&
-          getTokenSelectionKey(token) === heldDestinationKey;
-        return value.gt(0) &&
-          (isHeldDestinationToken || value.gte(minimumSourceUsd))
-          ? sum.plus(value)
-          : sum;
-      },
-      new Decimal(0)
+  const getExactOutTotalSourceBalanceUsd = (): Decimal => {
+    const allSourceTotal: Decimal = getExactOutAvailableSourceUsd(
+      getMinimumBalanceSourceTokens()
     );
 
     return allSourceTotal.gt(0) ? allSourceTotal : getSwapBalanceTotalUsd();
@@ -5803,10 +5802,47 @@ function NexusWidgetInner({
     return intentSourceUsd.gt(0) ? intentSourceUsd : undefined;
   };
 
+  const getExactOutHeldDestinationUsd = () => {
+    const heldDestinationToken = getHeldDestinationTokenOption();
+    const value = parseFiatNumber(heldDestinationToken?.balanceInFiat);
+    return value && value.gt(0) ? value : new Decimal(0);
+  };
+
+  const exactOutIntentIncludesHeldDestination = () => {
+    const heldDestinationToken = getHeldDestinationTokenOption();
+    const heldDestinationKey = getTokenSelectionKey(heldDestinationToken);
+    if (!heldDestinationKey) return false;
+
+    return (intentData?.sources ?? []).some((source) => {
+      const chainId = source.chain?.id;
+      const tokenAddress = source.token?.contractAddress;
+      if (!chainId || !tokenAddress) return false;
+
+      return (
+        getTokenSelectionKey({
+          chainId,
+          contractAddress: tokenAddress,
+        } as SwapTokenOption) === heldDestinationKey
+      );
+    });
+  };
+
   const getExactOutRequiredSourceUsd = () => {
     const intentSourceUsd = getExactOutIntentSourceUsd();
     if (intentSourceUsd) return intentSourceUsd;
     return undefined;
+  };
+
+  const getExactOutRequiredFundingUsd = () => {
+    const sourceRequiredUsd = getExactOutRequiredSourceUsd();
+    if (sourceRequiredUsd) {
+      const destinationCreditUsd = exactOutIntentIncludesHeldDestination()
+        ? new Decimal(0)
+        : getExactOutHeldDestinationUsd();
+      return sourceRequiredUsd.plus(destinationCreditUsd);
+    }
+
+    return getExactOutRequestedUsd();
   };
 
   const getExactInSourceDeficitUsd = () => {
@@ -5859,7 +5895,7 @@ function NexusWidgetInner({
           details.availableAmount ??
           details.available
       ) ?? parseLabeledErrorDecimal(errorText, "available");
-    const requestedUsd = getExactOutRequiredSourceUsd();
+    const requestedUsd = getExactOutRequiredFundingUsd();
     const availableUsd = getExactOutAvailableSourceUsd();
     const exactInSourceDeficitUsd = getExactInSourceDeficitUsd();
 
@@ -5900,7 +5936,7 @@ function NexusWidgetInner({
     sourceTokensOverride?: SwapTokenOption[]
   ): SwapQuoteIssue | null => {
     if (activeMode !== "deposit" && activeMode !== "send") return null;
-    const requestedUsd = getExactOutRequiredSourceUsd();
+    const requestedUsd = getExactOutRequiredFundingUsd();
     const availableUsd = getExactOutAvailableSourceUsd(sourceTokensOverride);
     if (!requestedUsd || requestedUsd.lte(0) || !availableUsd) return null;
 
@@ -10287,8 +10323,8 @@ function NexusWidgetInner({
       return getExactOutAvailableSourceUsd().plus(issueMissingUsd);
     }
 
-    const requiredSourceUsd = getExactOutRequiredSourceUsd();
-    if (requiredSourceUsd?.gt(0)) return requiredSourceUsd;
+    const requiredFundingUsd = getExactOutRequiredFundingUsd();
+    if (requiredFundingUsd?.gt(0)) return requiredFundingUsd;
 
     if (requestedOutputUsd.gt(0)) return requestedOutputUsd;
 
