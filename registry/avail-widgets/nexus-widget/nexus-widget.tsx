@@ -10465,6 +10465,7 @@ function NexusWidgetInner({
     swapStep === "choose-receive-asset" ||
     swapStep === "enter-recipient" ||
     closingDrawerStep !== null;
+  const isPreviewIntentScreen = swapStep === "preview-intent";
   const displayedRootContentHeight =
     hasMeasuredRootContent && rootContentHeight
       ? Math.max(
@@ -10519,8 +10520,10 @@ function NexusWidgetInner({
         lineHeight: "17px",
         margin: "auto",
         overflowX: "hidden",
-        overflowY: isDrawerOverlayActive ? "hidden" : "auto",
-        overscrollBehavior: isDrawerOverlayActive ? "contain" : "auto",
+        overflowY:
+          isDrawerOverlayActive || isPreviewIntentScreen ? "hidden" : "auto",
+        overscrollBehavior:
+          isDrawerOverlayActive || isPreviewIntentScreen ? "contain" : "auto",
         padding: "16px",
         scrollbarColor: `${theme.colors.textEmpty} transparent`,
         scrollbarWidth: "thin",
@@ -10753,7 +10756,7 @@ function NexusWidgetInner({
                   <div
                     className="w-full"
                     style={{
-                      maxHeight: "calc(90dvh - 66px)",
+                      maxHeight: "calc(90dvh - 92px)",
                       minHeight: 0,
                       overflowX: "hidden",
                       overflowY: isPreviewTransitioning ? "hidden" : "auto",

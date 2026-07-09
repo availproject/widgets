@@ -1287,7 +1287,9 @@ export function SwapIntentPreview({
     const count = sourceAssetCount || 1;
     return `${count} asset${count === 1 ? "" : "s"}`;
   })();
-  const shouldScrollSourceDetails = sourceDetailRows.length > 5;
+  // The preview panel owns vertical scrolling; nested source scrollbars make
+  // confirm screens show multiple scrollbars.
+  const shouldScrollSourceDetails = false;
   const progressExplorerUrls = explorerUrls ?? {
     destinationExplorerUrl: null,
     sourceExplorerUrl: null,

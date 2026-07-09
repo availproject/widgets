@@ -8,6 +8,30 @@ A unified component for **swap**, **send**, and **deposit** flows powered by [Av
 
 ## Installation
 
+Choose one of the two supported install paths.
+
+### NPM Package
+
+Install the compiled package from npm:
+
+```bash
+npm install @avail-project/widgets
+```
+
+```bash
+pnpm add @avail-project/widgets
+```
+
+Then import the provider and widget from the package:
+
+```tsx
+import { NexusProvider, NexusWidget } from "@avail-project/widgets";
+```
+
+### Shadcn Registry
+
+Install the source into your app from the public shadcn registry:
+
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
@@ -15,6 +39,10 @@ npx shadcn@latest add availproject/widgets/nexus
 This uses the public GitHub shadcn registry at
 `https://github.com/availproject/widgets`. The `@avail-widgets/nexus`
 namespace install will be documented after the registry is listed in shadcn.
+
+The examples below use shadcn-style local imports such as
+`@/components/nexus/nexus`. If you install from npm, replace those imports with
+`@avail-project/widgets`.
 
 ### Manual Installation
 
@@ -31,9 +59,19 @@ npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi c
 
 Wrap your app with `NexusProvider` before rendering `NexusWidget`.
 
+NPM package:
+
+```tsx
+import { NexusProvider } from "@avail-project/widgets";
+```
+
+Shadcn registry:
+
 ```tsx
 import { NexusProvider } from "@/components/nexus/NexusProvider";
+```
 
+```tsx
 export default function RootLayout({ children }) {
   return <NexusProvider>{children}</NexusProvider>;
 }
