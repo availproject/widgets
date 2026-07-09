@@ -16,6 +16,7 @@ interface DepositIdleFormProps {
   calculatingPercent?: number | null;
   fromTokens: SwapTokenOption[];
   isAmountReadOnly?: boolean;
+  isBalanceLoading?: boolean;
   isCalculatingMax?: boolean;
   isQuoteRefreshing?: boolean;
   isSourcePickerDisabled?: boolean;
@@ -554,6 +555,32 @@ function PayWithSources({
   );
 }
 
+function BalanceSkeleton({
+  height = "16px",
+  width = "72px",
+}: {
+  height?: string;
+  width?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className="animate-pulse"
+      style={{
+        background:
+          "linear-gradient(90deg, #F0F0EF 0%, #E6EEFF 48%, #F0F0EF 100%)",
+        backgroundSize: "200% 100%",
+        borderRadius: "6px",
+        display: "inline-block",
+        flexShrink: 0,
+        height,
+        maxWidth: "100%",
+        width,
+      }}
+    />
+  );
+}
+
 export function DepositIdleForm({
   amount,
   amountMode,
@@ -569,6 +596,7 @@ export function DepositIdleForm({
   routeStatus,
   routeMessage,
   isAmountReadOnly = false,
+  isBalanceLoading = false,
   isCalculatingMax,
   calculatingPercent,
   isQuoteRefreshing,
@@ -685,7 +713,11 @@ export function DepositIdleForm({
                 lineHeight: "20px",
               }}
             >
-              ${totalBalance}
+              {isBalanceLoading ? (
+                <BalanceSkeleton width="64px" />
+              ) : (
+                `$${totalBalance}`
+              )}
             </span>
           </div>
         </div>
@@ -934,7 +966,11 @@ export function DepositIdleForm({
                   whiteSpace: "nowrap",
                 }}
               >
-                {destinationBalanceLabel}
+                {isBalanceLoading ? (
+                  <BalanceSkeleton width="110px" />
+                ) : (
+                  destinationBalanceLabel
+                )}
               </span>
             </div>
           </div>

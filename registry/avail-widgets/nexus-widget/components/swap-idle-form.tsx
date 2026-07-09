@@ -21,6 +21,7 @@ interface SwapIdleFormProps {
   defaultRecipientAddress?: string;
   fromTokens: SwapTokenOption[];
   isAmountReadOnly?: boolean;
+  isBalanceLoading?: boolean;
   isDestinationPickerDisabled?: boolean;
   hideDestinationTokenDropdownIcon?: boolean;
   isReceiveAmountLoading?: boolean;
@@ -635,6 +636,7 @@ export function SwapIdleForm({
   swapType,
   onUpdateTokens,
   isAmountReadOnly = false,
+  isBalanceLoading = false,
   isDestinationPickerDisabled = false,
   hideDestinationTokenDropdownIcon = false,
   isSourcePickerDisabled = false,
@@ -1517,7 +1519,7 @@ export function SwapIdleForm({
                       flex: 1,
                     }}
                   >
-                    {showSourceRouteSkeleton ? (
+                    {showSourceRouteSkeleton || isBalanceLoading ? (
                       <SkeletonBar height="16px" width="124px" />
                     ) : token ? (
                       <div
@@ -1976,7 +1978,11 @@ export function SwapIdleForm({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {receiveBalanceLabel}
+                  {isBalanceLoading ? (
+                    <SkeletonBar height="16px" width="96px" />
+                  ) : (
+                    receiveBalanceLabel
+                  )}
                 </div>
 
                 {/* Tooltip */}

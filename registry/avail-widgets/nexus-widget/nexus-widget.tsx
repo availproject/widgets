@@ -3530,6 +3530,7 @@ function NexusWidgetInner({
     nexusSDK,
     bridgableBalance,
     swapBalance,
+    swapBalanceLoading,
     getFiatValue,
     resolveTokenUsdRate,
     swapSupportedChainsAndTokens,
@@ -3546,6 +3547,8 @@ function NexusWidgetInner({
     }),
     [network]
   );
+  const isSwapBalancePending =
+    Boolean(nexusSDK) && (swapBalanceLoading || swapBalance === null);
 
   const normalizedWidgetConfig = useMemo(
     () => normalizeNexusWidgetConfig(rawConfig),
@@ -3938,6 +3941,7 @@ function NexusWidgetInner({
   const widgetOpenedFiredRef = useRef(false);
   const reachedTerminalRef = useRef(false);
   const lastIntentSourceTokensRef = useRef<SwapTokenOption[]>([]);
+  const lastAutoIntentSourceTokensRef = useRef<SwapTokenOption[]>([]);
   const immediateQuoteAfterSourceEditRef = useRef(false);
   const amountEnteredLastValueRef = useRef<string>("");
   const lastInputMethodRef = useRef<
@@ -5349,6 +5353,59 @@ function NexusWidgetInner({
           : []
       )
     );
+  const getHeldDestinationTokenOption = () => {
+    if (!toToken?.chainId || !toToken.contractAddress) return undefined;
+
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        const chainId = breakdown.chain?.id;
+        if (chainId !== toToken.chainId) continue;
+
+        const breakdownAddress = breakdown.contractAddress;
+        const addressMatches =
+          breakdownAddress &&
+          (breakdownAddress.toLowerCase() ===
+            toToken.contractAddress.toLowerCase() ||
+            (isNativeTokenAddress(breakdownAddress) &&
+              isNativeTokenAddress(toToken.contractAddress)));
+        const symbolMatches =
+          (breakdown.symbol ?? asset.symbol ?? "").toUpperCase() ===
+          toToken.symbol.toUpperCase();
+
+        if (!addressMatches && !symbolMatches) continue;
+
+        const balanceAmount = parseFiatNumber(breakdown.balance);
+        if (!balanceAmount || balanceAmount.lte(0)) continue;
+
+        const chainMeta = CHAIN_METADATA[chainId];
+        const symbol = breakdown.symbol ?? asset.symbol ?? toToken.symbol;
+        const fiatBalance = parseFiatNumber(breakdown.balanceInFiat);
+
+        return {
+          chainId,
+          chainLogo:
+            chainMeta?.logo ?? breakdown.chain?.logo ?? toToken.chainLogo,
+          chainName: getShortChainName(
+            chainId,
+            chainMeta?.name ?? breakdown.chain?.name ?? toToken.chainName
+          ),
+          contractAddress: breakdown.contractAddress ?? toToken.contractAddress,
+          decimals:
+            breakdown.decimals ?? asset.decimals ?? toToken.decimals ?? 18,
+          logo: asset.logo ?? toToken.logo,
+          name: symbol,
+          symbol,
+          balance: `${breakdown.balance} ${symbol}`,
+          balanceInFiat:
+            fiatBalance !== undefined
+              ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
+              : "$0.00",
+        } satisfies SwapTokenOption;
+      }
+    }
+
+    return undefined;
+  };
 
   const getDepositDestinationForSourceSelection = () => {
     const destination =
@@ -5540,43 +5597,18 @@ function NexusWidgetInner({
   };
 
   const getHeldDestinationTokenSource = () => {
-    if (!toToken?.chainId || !toToken.contractAddress) return undefined;
-
-    for (const asset of swapBalance ?? []) {
-      for (const breakdown of asset.breakdown ?? []) {
-        const chainId = breakdown.chain?.id;
-        if (chainId !== toToken.chainId) continue;
-
-        const breakdownAddress = breakdown.contractAddress;
-        const addressMatches =
-          breakdownAddress &&
-          (breakdownAddress.toLowerCase() ===
-            toToken.contractAddress.toLowerCase() ||
-            (isNativeTokenAddress(breakdownAddress) &&
-              isNativeTokenAddress(toToken.contractAddress)));
-        const symbolMatches =
-          (breakdown.symbol ?? asset.symbol ?? "").toUpperCase() ===
-          toToken.symbol.toUpperCase();
-        const balance = parseFiatNumber(breakdown.balance) ?? new Decimal(0);
-        const hasMinimumFiatBalance = hasMinimumSourceUsdValue(
-          breakdown.balanceInFiat
-        );
-
-        if (
-          (!addressMatches && !symbolMatches) ||
-          balance.lte(0) ||
-          !hasMinimumFiatBalance
-        )
-          continue;
-        return {
-          chainId,
-          tokenAddress: (breakdown.contractAddress ||
-            toToken.contractAddress) as `0x${string}`,
-        };
-      }
+    const heldDestinationToken = getHeldDestinationTokenOption();
+    if (
+      !heldDestinationToken?.chainId ||
+      !heldDestinationToken.contractAddress
+    ) {
+      return undefined;
     }
 
-    return undefined;
+    return {
+      chainId: heldDestinationToken.chainId,
+      tokenAddress: heldDestinationToken.contractAddress as `0x${string}`,
+    };
   };
 
   const shouldSendExactOutSourceAllowlist = () => {
@@ -5715,17 +5747,46 @@ function NexusWidgetInner({
       exactOutQuoteSourceModeRef.current === "selected"
     ) {
       const selectedSourceTokens = sourceTokensOverride ?? fromTokens;
+      const heldDestinationKey = getTokenSelectionKey(
+        getHeldDestinationTokenOption()
+      );
       return selectedSourceTokens.reduce((sum, token) => {
         const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
-        return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
+        const isHeldDestinationToken =
+          heldDestinationKey &&
+          getTokenSelectionKey(token) === heldDestinationKey;
+        return value.gt(0) &&
+          (isHeldDestinationToken || value.gte(minimumSourceUsd))
+          ? sum.plus(value)
+          : sum;
       }, new Decimal(0));
     }
 
+    return getExactOutTotalSourceBalanceUsd();
+  };
+  const getExactOutTotalSourceBalanceUsd = () => {
     const allSourceTokens = getMinimumBalanceSourceTokens();
-    const allSourceTotal = allSourceTokens.reduce(
+    const heldDestinationToken = getHeldDestinationTokenOption();
+    const sourceTokens =
+      heldDestinationToken &&
+      !allSourceTokens.some(
+        (token) =>
+          getTokenSelectionKey(token) ===
+          getTokenSelectionKey(heldDestinationToken)
+      )
+        ? [...allSourceTokens, heldDestinationToken]
+        : allSourceTokens;
+    const heldDestinationKey = getTokenSelectionKey(heldDestinationToken);
+    const allSourceTotal = sourceTokens.reduce(
       (sum, token) => {
         const value = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
-        return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
+        const isHeldDestinationToken =
+          heldDestinationKey &&
+          getTokenSelectionKey(token) === heldDestinationKey;
+        return value.gt(0) &&
+          (isHeldDestinationToken || value.gte(minimumSourceUsd))
+          ? sum.plus(value)
+          : sum;
       },
       new Decimal(0)
     );
@@ -6282,6 +6343,13 @@ function NexusWidgetInner({
 
       lastSwapIntentRefreshAtRef.current = Date.now();
       lastIntentSourceTokensRef.current = sortedIntentSourceTokens;
+      if (
+        !sourceSelectionTouched &&
+        (activeMode === "send" ||
+          (activeMode === "deposit" && swapType === "exactOut"))
+      ) {
+        lastAutoIntentSourceTokensRef.current = sortedIntentSourceTokens;
+      }
       cacheDestinationUsdRateFromIntent(enrichedIntent);
       cachePredictiveBaselineFromIntent(enrichedIntent);
       setIntentData(enrichedIntent);
@@ -7026,7 +7094,9 @@ function NexusWidgetInner({
       .toFixed() ?? "0";
   const isExactOutMode = activeMode === "deposit" || activeMode === "send";
   const getActiveTotalBalanceUsd = () =>
-    isExactOutMode ? getExactOutAvailableSourceUsd() : getSwapBalanceTotalUsd();
+    isExactOutMode
+      ? getExactOutTotalSourceBalanceUsd()
+      : getSwapBalanceTotalUsd();
   const getTotalBalancePercentUsdAmount = (pct: number) => {
     const ratio =
       isExactOutMode && pct === 100
@@ -7108,7 +7178,26 @@ function NexusWidgetInner({
       : "",
   ].join("|");
 
+  const exactOutAutoSourceInputKey = [
+    activeMode,
+    normalizedQuoteAmountKey,
+    toTokenQuoteKey,
+    quoteRecipientKey.toLowerCase(),
+    activeMode === "deposit"
+      ? [
+          depositAmountMode,
+          depositQuoteAmountKey,
+          selectedOpportunityIdentity,
+          depositSourceTargetUsdKey,
+        ].join(":")
+      : "",
+  ].join("|");
+
   activeQuoteInputKeyRef.current = activeQuoteInputKey;
+
+  useEffect(() => {
+    lastAutoIntentSourceTokensRef.current = [];
+  }, [exactOutAutoSourceInputKey]);
 
   useEffect(() => {
     setTxError(null);
@@ -7559,59 +7648,8 @@ function NexusWidgetInner({
       return [];
     }
 
-    for (const asset of swapBalance ?? []) {
-      for (const breakdown of asset.breakdown ?? []) {
-        const chainId = breakdown.chain?.id;
-        if (chainId !== toToken.chainId) continue;
-
-        const breakdownAddress = breakdown.contractAddress;
-        const addressMatches =
-          breakdownAddress &&
-          toToken.contractAddress &&
-          (breakdownAddress.toLowerCase() ===
-            toToken.contractAddress.toLowerCase() ||
-            (isNativeTokenAddress(breakdownAddress) &&
-              isNativeTokenAddress(toToken.contractAddress)));
-        const symbolMatches =
-          (breakdown.symbol ?? asset.symbol ?? "").toUpperCase() ===
-          toToken.symbol.toUpperCase();
-
-        if (!addressMatches && !symbolMatches) continue;
-
-        const balanceAmount = parseFiatNumber(breakdown.balance);
-        if (!balanceAmount || balanceAmount.lte(0)) continue;
-
-        const chainMeta = CHAIN_METADATA[chainId];
-        const symbol = breakdown.symbol ?? asset.symbol ?? toToken.symbol;
-        const fiatBalance = parseFiatNumber(breakdown.balanceInFiat);
-        if (!fiatBalance || fiatBalance.lt(minimumSourceUsd)) continue;
-        return [
-          {
-            chainId,
-            chainLogo:
-              chainMeta?.logo ?? breakdown.chain?.logo ?? toToken.chainLogo,
-            chainName: getShortChainName(
-              chainId,
-              chainMeta?.name ?? breakdown.chain?.name ?? toToken.chainName
-            ),
-            contractAddress:
-              breakdown.contractAddress ?? toToken.contractAddress,
-            decimals:
-              breakdown.decimals ?? asset.decimals ?? toToken.decimals ?? 18,
-            logo: asset.logo ?? toToken.logo,
-            name: symbol,
-            symbol,
-            balance: `${breakdown.balance} ${symbol}`,
-            balanceInFiat:
-              fiatBalance !== undefined
-                ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
-                : "$0.00",
-          },
-        ];
-      }
-    }
-
-    return [];
+    const heldDestinationToken = getHeldDestinationTokenOption();
+    return heldDestinationToken ? [heldDestinationToken] : [];
   }, [
     activeMode,
     requiredDestinationTokenAmount?.toFixed(),
@@ -7636,6 +7674,15 @@ function NexusWidgetInner({
     },
     []
   );
+
+  const getAutoExactOutSourceTokensForPicker = useCallback(() => {
+    const autoIntentTokens = lastAutoIntentSourceTokensRef.current;
+    if (autoIntentTokens.length > 0) {
+      return autoIntentTokens;
+    }
+
+    return sourceSelectionTouched ? [] : fromTokens;
+  }, [fromTokens, sourceSelectionTouched]);
 
   const resetSourcePickerDraft = useCallback(() => {
     sourcePickerDraftTokensRef.current = null;
@@ -7682,10 +7729,21 @@ function NexusWidgetInner({
 
   const handleSourcePickerFilterTabSelect = useCallback(
     (tab: Exclude<SourceFilterTab, "custom">) => {
-      if (activeMode !== "deposit") return;
+      if (activeMode !== "deposit" && activeMode !== "send") return;
 
       const nextFilter: DepositSourceFilter =
         tab === "stables" ? "stablecoins" : tab;
+
+      if (tab === "all") {
+        sourcePickerDraftDepositFilterRef.current = nextFilter;
+        sourcePickerDraftTouchedRef.current = false;
+        sourcePickerDraftModeRef.current = "all";
+        setSourcePickerDraftSelection(getAutoExactOutSourceTokensForPicker());
+        return;
+      }
+
+      if (activeMode !== "deposit") return;
+
       const selection = getResolvedDepositSourceSelection({
         filter: nextFilter,
         isManualSelection: false,
@@ -7701,6 +7759,7 @@ function NexusWidgetInner({
     },
     [
       activeMode,
+      getAutoExactOutSourceTokensForPicker,
       getDepositSourceTokensForIds,
       getResolvedDepositSourceSelection,
       setSourcePickerDraftSelection,
@@ -10700,6 +10759,7 @@ function NexusWidgetInner({
                   isReceiveAmountLoading={isReceiveAmountLoading}
                   isReceiveUsdLoading={isReceiveUsdLoading}
                   isAmountReadOnly={isConfiguredAmountFixed}
+                  isBalanceLoading={isSwapBalancePending}
                   isDestinationPickerDisabled={isReceiveAssetPickerLocked}
                   hideDestinationTokenDropdownIcon={
                     hideDestinationTokenDropdownIcon
@@ -10867,6 +10927,7 @@ function NexusWidgetInner({
                       calculatingPercent={maxCalculationPercent}
                       fromTokens={displayFromTokens}
                       isAmountReadOnly={isConfiguredAmountFixed}
+                      isBalanceLoading={isSwapBalancePending}
                       isCalculatingMax={receiveMaxCalculating}
                       isQuoteRefreshing={
                         !hasCurrentExactOutPaymentIntent &&
@@ -11031,6 +11092,7 @@ function NexusWidgetInner({
                   fromTokens={displayFromTokens}
                   isAmountReadOnly={isConfiguredAmountFixed}
                   isAssetPickerDisabled={isReceiveAssetPickerLocked}
+                  isBalanceLoading={isSwapBalancePending}
                   hideDestinationTokenDropdownIcon={
                     hideDestinationTokenDropdownIcon
                   }
@@ -11541,7 +11603,7 @@ function NexusWidgetInner({
                     : closeDrawerToIdle
                 }
                 onFilterTabSelect={
-                  activeMode === "deposit"
+                  activeMode === "deposit" || activeMode === "send"
                     ? handleSourcePickerFilterTabSelect
                     : undefined
                 }

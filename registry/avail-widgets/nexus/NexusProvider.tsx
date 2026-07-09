@@ -60,6 +60,7 @@ interface NexusContextType {
   allowance: RefObject<OnAllowanceHookData | null>;
   attachEventHooks: () => void;
   bridgableBalance: UserAsset[] | null;
+  bridgableBalanceLoading: boolean;
   deinitializeNexus: () => Promise<void>;
   exchangeRate: Record<string, number> | null;
   fetchBridgableBalance: () => Promise<void>;
@@ -82,6 +83,7 @@ interface NexusContextType {
   setIntent: (data: OnIntentHookData | null) => void;
   supportedChainsAndTokens: SupportedChainsAndTokensResult | null;
   swapBalance: UserAsset[] | null;
+  swapBalanceLoading: boolean;
   swapIntent: RefObject<OnSwapIntentHookData | null>;
   swapSupportedChainsAndTokens: SupportedChainsResult | null;
 }
@@ -199,7 +201,10 @@ const NexusProvider = ({
   const [bridgableBalance, setBridgableBalance] = useState<UserAsset[] | null>(
     null,
   );
+  const [bridgableBalanceLoading, setBridgableBalanceLoading] =
+    useState(false);
   const [swapBalance, setSwapBalance] = useState<UserAsset[] | null>(null);
+  const [swapBalanceLoading, setSwapBalanceLoading] = useState(false);
   const swapBalanceRef = useRef<UserAsset[] | null>(null);
   const [exchangeRateState, setExchangeRateState] = useState<Record<
     string,
@@ -603,51 +608,58 @@ const NexusProvider = ({
     const swapList = activeSdk.getSupportedChains();
     swapSupportedChainsAndTokens.current = swapList ?? null;
     setSwapSupportedChainsAndTokensState(swapList ?? null);
-    const [bridgeAbleBalanceResult, swapBalanceResult, rates] =
-      await Promise.allSettled([
-        activeSdk.getBalancesForBridge(),
-        activeSdk.getBalancesForSwap(),
-        getCoinbaseRates(),
-      ]);
+    setBridgableBalanceLoading(true);
+    setSwapBalanceLoading(true);
+    try {
+      const [bridgeAbleBalanceResult, swapBalanceResult, rates] =
+        await Promise.allSettled([
+          activeSdk.getBalancesForBridge(),
+          activeSdk.getBalancesForSwap(),
+          getCoinbaseRates(),
+        ]);
 
-    if (rates?.status === "fulfilled") {
-      const usdPerUnit: Record<string, number> = {};
+      if (rates?.status === "fulfilled") {
+        const usdPerUnit: Record<string, number> = {};
 
-      for (const [symbol, value] of Object.entries(rates.value)) {
-        const normalized = normalizeTokenSymbol(symbol);
-        // Skip tokens with an explicit peg (e.g. WCBTC→BTC) — the SDK
-        // may return a bogus 1:1 USD rate for these. Our pegging map
-        // will resolve them correctly via their base symbol.
-        if (TOKEN_PRICE_PEGS[normalized]) continue;
+        for (const [symbol, value] of Object.entries(rates.value)) {
+          const normalized = normalizeTokenSymbol(symbol);
+          // Skip tokens with an explicit peg (e.g. WCBTC→BTC) — the SDK
+          // may return a bogus 1:1 USD rate for these. Our pegging map
+          // will resolve them correctly via their base symbol.
+          if (TOKEN_PRICE_PEGS[normalized]) continue;
 
-        const unitsPerUsd = Number.parseFloat(String(value));
-        if (Number.isFinite(unitsPerUsd) && unitsPerUsd > 0) {
-          usdPerUnit[normalized] = 1 / unitsPerUsd;
+          const unitsPerUsd = Number.parseFloat(String(value));
+          if (Number.isFinite(unitsPerUsd) && unitsPerUsd > 0) {
+            usdPerUnit[normalized] = 1 / unitsPerUsd;
+          }
         }
+        exchangeRate.current = usdPerUnit;
+        setExchangeRateState(usdPerUnit);
       }
-      exchangeRate.current = usdPerUnit;
-      setExchangeRateState(usdPerUnit);
-    }
 
-    if (bridgeAbleBalanceResult.status === "fulfilled") {
-      setBridgableBalance(
-        normalizeUserAssetFiatValues(bridgeAbleBalanceResult.value),
-      );
-    }
+      if (bridgeAbleBalanceResult.status === "fulfilled") {
+        setBridgableBalance(
+          normalizeUserAssetFiatValues(bridgeAbleBalanceResult.value),
+        );
+      }
 
-    if (swapBalanceResult.status === "fulfilled") {
-      const rawSwapBalance = swapBalanceResult.value;
-      const filteredSwapBalance = filterUnsupportedSwapSources(
-        rawSwapBalance,
-        swapList,
-      );
-      const normalizedSwapBalance =
-        normalizeUserAssetFiatValues(filteredSwapBalance);
-      console.log(
-        "[NexusProvider] getBalancesForSwap:init raw",
-        rawSwapBalance,
-      );
-      setSwapBalance(normalizedSwapBalance);
+      if (swapBalanceResult.status === "fulfilled") {
+        const rawSwapBalance = swapBalanceResult.value;
+        const filteredSwapBalance = filterUnsupportedSwapSources(
+          rawSwapBalance,
+          swapList,
+        );
+        const normalizedSwapBalance =
+          normalizeUserAssetFiatValues(filteredSwapBalance);
+        console.log(
+          "[NexusProvider] getBalancesForSwap:init raw",
+          rawSwapBalance,
+        );
+        setSwapBalance(normalizedSwapBalance);
+      }
+    } finally {
+      setBridgableBalanceLoading(false);
+      setSwapBalanceLoading(false);
     }
   }, [config?.network, normalizeUserAssetFiatValues]);
 
@@ -711,6 +723,8 @@ const NexusProvider = ({
       swapIntent.current = null;
       allowance.current = null;
       setLoading(false);
+      setBridgableBalanceLoading(false);
+      setSwapBalanceLoading(false);
     } catch (error) {
       console.error("Error deinitializing Nexus:", error);
     }
@@ -785,11 +799,13 @@ const NexusProvider = ({
       if (!activeSdk) {
         return;
       }
+      setBridgableBalanceLoading(true);
       const updatedBalance = await activeSdk.getBalancesForBridge();
       setBridgableBalance(normalizeUserAssetFiatValues(updatedBalance));
     } catch (error) {
       console.error("Error fetching bridgable balance:", error);
     } finally {
+      setBridgableBalanceLoading(false);
       if (request && bridgableBalanceRequest.current === request) {
         bridgableBalanceRequest.current = null;
       }
@@ -802,6 +818,7 @@ const NexusProvider = ({
       if (!activeSdk) {
         return null;
       }
+      setSwapBalanceLoading(true);
       const updatedBalance = await activeSdk.getBalancesForSwap();
       const filteredSwapBalance = filterUnsupportedSwapSources(
         updatedBalance,
@@ -818,6 +835,8 @@ const NexusProvider = ({
     } catch (error) {
       console.error("Error fetching swap balance:", error);
       return null;
+    } finally {
+      setSwapBalanceLoading(false);
     }
   }, [normalizeUserAssetFiatValues]);
 
@@ -863,7 +882,9 @@ const NexusProvider = ({
       supportedChainsAndTokens: supportedChainsAndTokensState,
       swapSupportedChainsAndTokens: swapSupportedChainsAndTokensState,
       bridgableBalance,
+      bridgableBalanceLoading,
       swapBalance,
+      swapBalanceLoading,
       network: config?.network,
       loading,
       fetchBridgableBalance,
@@ -882,7 +903,9 @@ const NexusProvider = ({
       attachEventHooks,
       handleInit,
       bridgableBalance,
+      bridgableBalanceLoading,
       swapBalance,
+      swapBalanceLoading,
       stableConfig.network,
       loading,
       fetchBridgableBalance,

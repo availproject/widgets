@@ -1618,6 +1618,10 @@ export function SwapAssetSelector({
   const handleFilterTabClick = (tab: FilterTab) => {
     setActiveTab(tab);
     if (autoSelectFilterTabs && isMulti && tab !== "custom") {
+      if (tab === "all" && onFilterTabSelect) {
+        onFilterTabSelect(tab);
+        return;
+      }
       if (filterTabBehavior === "source-pool") {
         onFilterTabSelect?.(tab);
         return;

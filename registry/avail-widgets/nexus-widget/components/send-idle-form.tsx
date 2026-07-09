@@ -15,6 +15,7 @@ interface SendIdleFormProps {
   fromTokens: SwapTokenOption[];
   isAmountReadOnly?: boolean;
   isAssetPickerDisabled?: boolean;
+  isBalanceLoading?: boolean;
   isCalculatingMax?: boolean;
   isQuoteRefreshing?: boolean;
   isRecipientLocked?: boolean;
@@ -554,6 +555,32 @@ function PayWithSources({
   );
 }
 
+function BalanceSkeleton({
+  height = "16px",
+  width = "72px",
+}: {
+  height?: string;
+  width?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className="animate-pulse"
+      style={{
+        background:
+          "linear-gradient(90deg, #F0F0EF 0%, #E6EEFF 48%, #F0F0EF 100%)",
+        backgroundSize: "200% 100%",
+        borderRadius: "6px",
+        display: "inline-block",
+        flexShrink: 0,
+        height,
+        maxWidth: "100%",
+        width,
+      }}
+    />
+  );
+}
+
 export function SendIdleForm({
   amount,
   onAmountChange,
@@ -570,6 +597,7 @@ export function SendIdleForm({
   routeMessage,
   isAmountReadOnly = false,
   isAssetPickerDisabled = false,
+  isBalanceLoading = false,
   isCalculatingMax,
   calculatingPercent,
   isQuoteRefreshing,
@@ -775,7 +803,11 @@ export function SendIdleForm({
                 lineHeight: "20px",
               }}
             >
-              ${totalBalance}
+              {isBalanceLoading ? (
+                <BalanceSkeleton width="64px" />
+              ) : (
+                `$${totalBalance}`
+              )}
             </span>
           </div>
         </div>
@@ -993,7 +1025,11 @@ export function SendIdleForm({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {destinationBalanceLabel}
+                    {isBalanceLoading ? (
+                      <BalanceSkeleton width="110px" />
+                    ) : (
+                      destinationBalanceLabel
+                    )}
                   </span>
                 </>
               )}
