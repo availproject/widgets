@@ -11,7 +11,7 @@ export type DepositExecuteConfig = {
   to: Address;
   value?: bigint;
   data?: `0x${string}`;
-  gas?: bigint;
+  gas: bigint;
   tokenApproval?: {
     toTokenAddress: Address;
     amount: bigint;

@@ -85,6 +85,7 @@ const depositConfig = {
   depositAddress: APP_DEPOSIT_CONTRACT,
   executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) => ({
     to: APP_DEPOSIT_CONTRACT,
+    gas: 400_000n,
     data: encodeFunctionData({
       abi: APP_DEPOSIT_ABI,
       functionName: "deposit",
@@ -125,7 +126,7 @@ Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the des
 | `config.destination.chain`                                                         | Yes      | Chain ID of the fixed destination network. Deposit destination chain cannot be changed by the user.                                         |
 | `config.destination.tokens`                                                        | Yes      | One or more accepted destination tokens. The token dropdown is limited to this list and is editable only when multiple tokens are supplied. |
 | `config.depositAddress`                                                            | Yes      | Smart contract address for the deposit target.                                                                                              |
-| `config.executeDeposit`                                                            | Yes      | Callback builder returning `{ to, data?, value?, gas?, tokenApproval? }` for the final app transaction.                                     |
+| `config.executeDeposit`                                                            | Yes      | Callback builder returning `{ to, gas, data?, value?, tokenApproval? }` for the final app transaction. `gas` must be a positive `bigint`.   |
 | `config.prefill.amount`                                                            | Optional | Prefills the exact output deposit amount. Must be greater than `0`.                                                                         |
 | `config.validation.minAmount`                                                      | Optional | Minimum deposit amount. Must be `0` or greater.                                                                                             |
 | `config.validation.maxAmount`                                                      | Optional | Maximum deposit amount. Must be greater than `0`.                                                                                           |
@@ -146,9 +147,9 @@ type ExecuteDeposit = (
   user: `0x${string}`,
 ) => {
   to: `0x${string}`;
+  gas: bigint;
   data?: `0x${string}`;
   value?: bigint;
-  gas?: bigint;
   tokenApproval?: {
     toTokenAddress: `0x${string}`;
     amount: bigint;
@@ -207,6 +208,7 @@ const OPPORTUNITIES = {
     depositAddress: "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
     executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
       to: "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+      gas: 400_000n,
       data: encodeFunctionData({
         /* Aave supply arguments */
       }),
@@ -228,6 +230,7 @@ const OPPORTUNITIES = {
     depositAddress: "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
     executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
       to: "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+      gas: 400_000n,
       data: encodeFunctionData({
         /* Compound supply arguments */
       }),

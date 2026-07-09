@@ -163,9 +163,9 @@ type NexusWidgetDepositConfig = {
     user: `0x${string}`,
   ) => {
     to: `0x${string}`;
+    gas: bigint;
     data?: `0x${string}`;
     value?: bigint;
-    gas?: bigint;
     tokenApproval?: {
       toTokenAddress: `0x${string}`;
       amount: bigint;
@@ -272,6 +272,7 @@ function buildDepositExecuteConfig(
 ) {
   return {
     to: APP_DEPOSIT_CONTRACT,
+    gas: 400_000n,
     data: encodeFunctionData({
       abi: APP_DEPOSIT_ABI,
       functionName: "deposit",

@@ -149,6 +149,7 @@ function buildDepositExecuteConfig(
 ) {
   return {
     to: APP_DEPOSIT_CONTRACT,
+    gas: 400_000n,
     data: encodeFunctionData({
       abi: APP_DEPOSIT_ABI,
       functionName: "deposit",
@@ -275,7 +276,7 @@ export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
 | `destination.tokens`   | all          | Required for deposit with at least one token. Optional for send/swap; when supplied with `destination.chain`, destination token selection is restricted. |
 | `recipientAddress`     | send/swap    | Prefills the recipient. In send mode, a supplied recipient is locked.                                                                                    |
 | `depositAddress`       | deposit      | Required smart contract address for the deposit target.                                                                                                  |
-| `executeDeposit`       | deposit      | Required transaction builder: `(tokenSymbol, tokenAddress, amount, chainId, user) => { to, data?, value?, gas?, tokenApproval? }`.                       |
+| `executeDeposit`       | deposit      | Required transaction builder: `(tokenSymbol, tokenAddress, amount, chainId, user) => { to, gas, data?, value?, tokenApproval? }`. `gas` must be a positive `bigint`. |
 | `prefill.amount`       | deposit/send | Optional amount prefill. Must be greater than `0`.                                                                                                       |
 | `prefill.token`        | send/swap    | Optional initial destination/receive token: `{ chain, address, symbol, decimals, logo? }`. Ignored when `destination.tokens` is supplied.                |
 | `validation.minAmount` | deposit/send | Optional minimum amount. Must be `0` or greater.                                                                                                         |

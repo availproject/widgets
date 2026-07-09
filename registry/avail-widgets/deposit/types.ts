@@ -88,7 +88,9 @@ export interface ExecuteDepositParams {
   user: Address;
 }
 
-export type ExecuteDepositResult = Omit<ExecuteParams, "toChainId">;
+export type ExecuteDepositResult = Omit<ExecuteParams, "toChainId"> & {
+  gas: bigint;
+};
 
 export interface UseDepositWidgetProps {
   executeDeposit: (
@@ -97,7 +99,7 @@ export interface UseDepositWidgetProps {
     amount: bigint,
     chainId: number,
     user: Address,
-  ) => Omit<ExecuteParams, "toChainId">;
+  ) => ExecuteDepositResult;
   destination: DestinationConfig;
   onSuccess?: () => void;
   onError?: (error: string) => void;

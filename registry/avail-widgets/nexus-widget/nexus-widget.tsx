@@ -511,6 +511,9 @@ const normalizeConfiguredAddress = (value: unknown) => {
   return text && isAddress(text) ? text : undefined;
 };
 
+const isPositiveGasLimit = (value: unknown): value is bigint =>
+  typeof value === "bigint" && value > BigInt(0);
+
 const normalizePositiveNumericString = (value: unknown) => {
   const text = normalizeConfiguredString(value);
   if (!text) return undefined;
@@ -8862,12 +8865,17 @@ function NexusWidgetInner({
             selectedOpportunity.chainId,
             user
           );
+          if (!isPositiveGasLimit(executeParams.gas)) {
+            throw new Error(
+              "Deposit config executeDeposit must return a positive gas limit."
+            );
+          }
           executeConfig = {
             to: executeParams.to,
             value: executeParams.value,
             data: executeParams.data,
             tokenApproval: executeParams.tokenApproval,
-            gas: executeParams.gas ?? BigInt(400_000),
+            gas: executeParams.gas,
           };
         } else if (
           (activeMode === "send" || hasCustomSwapRecipient) &&

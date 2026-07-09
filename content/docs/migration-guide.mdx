@@ -127,6 +127,7 @@ Replace legacy `NexusDeposit` or `BridgeDeposit` elements:
 +    depositAddress: "0xContract...",
 +    executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
 +      to: "0xContract...",
++      gas: 400_000n,
 +      data: "0xCalldata...",
 +      tokenApproval: {
 +        toTokenAddress: tokenAddress,
