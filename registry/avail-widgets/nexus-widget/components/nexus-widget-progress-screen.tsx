@@ -350,15 +350,38 @@ const getApprovalIndexFromEvent = (event?: NexusWidgetProgressEvent) => {
   );
 };
 
-const getActiveApprovalProgressEvent = (events: NexusWidgetProgressEvent[]) =>
+const getActiveApprovalProgressEvent = (
+  events: NexusWidgetProgressEvent[],
+  completedApprovalCount = 0,
+  approvalSymbols: string[] = [],
+) =>
   [...events]
     .reverse()
-    .find(
-      (event) =>
-        event.name === PROGRESS_EVENT_NAMES.SWAP_PLAN_PROGRESS &&
-        !event.completed &&
-        getApprovalUnitsForStep(event.step).length > 0,
-    );
+    .find((event) => {
+      if (
+        event.name !== PROGRESS_EVENT_NAMES.SWAP_PLAN_PROGRESS ||
+        event.completed
+      ) {
+        return false;
+      }
+
+      const units = getApprovalUnitsForStep(event.step);
+      if (units.length === 0) return false;
+
+      const eventIndex = getApprovalIndexFromEvent(event);
+      if (eventIndex !== undefined) {
+        return eventIndex >= completedApprovalCount;
+      }
+
+      if (units.length === 1 && units[0]?.symbol) {
+        const symbolIndex = approvalSymbols.findIndex(
+          (symbol) => symbol === units[0]?.symbol,
+        );
+        if (symbolIndex >= 0) return symbolIndex >= completedApprovalCount;
+      }
+
+      return completedApprovalCount === 0;
+    });
 
 const getApprovalSymbolFromProgressEvent = (
   event?: NexusWidgetProgressEvent,
@@ -444,7 +467,11 @@ const buildStatusRows = ({
     swapListSteps.length > 0 ? swapListSteps : fallbackSteps,
   );
   const activeApprovalSymbol = getApprovalSymbolFromProgressEvent(
-    getActiveApprovalProgressEvent(events),
+    getActiveApprovalProgressEvent(
+      events,
+      approvalCompletedCount,
+      approvalSymbols,
+    ),
   );
   const hasSwapList =
     swapListSteps.length > 0 ||

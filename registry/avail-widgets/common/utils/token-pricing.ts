@@ -11,6 +11,7 @@ export const DEFAULT_COINBASE_PRICE_REQUEST_TIMEOUT_MS = 4_000;
 export const USD_PEGGED_FALLBACK_RATE = 1;
 export const DEFAULT_USD_PEGGED_TOKEN_SYMBOLS = [
   "USDT",
+  "USDT0",
   "USDC",
   "USDC.E",
   "USDT.E",
@@ -78,6 +79,7 @@ export const TOKEN_PRICE_PEGS: Readonly<Record<string, string>> = {
   // --- Stablecoin variants ---
   "USDC.E": "USDC",
   "USDT.E": "USDT",
+  USDT0: "USDT",
   GUSD: "USD",
   JUSD: "USD",
   SVJUSD: "USD",
@@ -145,7 +147,7 @@ type SupportedChainMetadata = {
 };
 
 export function normalizeTokenSymbol(tokenSymbol: string): string {
-  return tokenSymbol.trim().toUpperCase();
+  return tokenSymbol.trim().toUpperCase().replaceAll("\u20ae", "T");
 }
 
 const USD_RATE_PEG_SYMBOLS: Record<string, string> = {
@@ -157,6 +159,7 @@ const USD_RATE_PEG_SYMBOLS: Record<string, string> = {
   SYBTC: "BTC",
   "USDC.E": "USDC",
   "USDT.E": "USDT",
+  USDT0: "USDT",
   "WBTC.E": "BTC",
   WCBTC: "BTC",
 };

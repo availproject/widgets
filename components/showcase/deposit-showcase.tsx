@@ -77,6 +77,7 @@ const DepositShowcase = () => {
     }
     return {
       to: contractAddress,
+      gas: BigInt(400_000),
       data: encoded,
       gasPriceSelector: "medium",
       tokenApproval: {

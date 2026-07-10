@@ -16,6 +16,7 @@ interface DepositIdleFormProps {
   calculatingPercent?: number | null;
   fromTokens: SwapTokenOption[];
   isAmountReadOnly?: boolean;
+  isBalanceLoading?: boolean;
   isCalculatingMax?: boolean;
   isQuoteRefreshing?: boolean;
   isSourcePickerDisabled?: boolean;
@@ -184,6 +185,12 @@ function ExactOutPercentButtons({
   visible: boolean;
   onSelect: (pct: number) => void;
 }) {
+  const [focusedPercent, setFocusedPercent] = useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (!visible) setFocusedPercent(null);
+  }, [visible]);
+
   return (
     <div
       style={{
@@ -199,6 +206,7 @@ function ExactOutPercentButtons({
     >
       {[25, 50, 75, 100].map((pct) => {
         const isMax = pct === 100;
+        const isFocused = focusedPercent === pct;
         return (
           <button
             key={pct}
@@ -206,16 +214,15 @@ function ExactOutPercentButtons({
               e.stopPropagation();
               onSelect(pct);
             }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-            }}
+            onBlur={() => setFocusedPercent(null)}
+            onFocus={() => setFocusedPercent(pct)}
             style={{
               alignItems: "center",
-              backgroundColor: isMax ? "#E8F0FF" : "#F4F4F3",
+              backgroundColor: isFocused ? "#E8F0FF" : "#F4F4F3",
               border: "none",
               borderRadius: "8px",
               boxSizing: "border-box",
-              color: isMax ? brand : "#363635",
+              color: isFocused ? brand : "#363635",
               cursor: "pointer",
               display: "flex",
               flex: "1 1 0%",
@@ -228,7 +235,6 @@ function ExactOutPercentButtons({
               paddingBlock: "5px",
               paddingInline: "10px",
             }}
-            tabIndex={-1}
             type="button"
           >
             {isMax ? "MAX" : `${pct}%`}
@@ -549,6 +555,32 @@ function PayWithSources({
   );
 }
 
+function BalanceSkeleton({
+  height = "16px",
+  width = "72px",
+}: {
+  height?: string;
+  width?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className="animate-pulse"
+      style={{
+        background:
+          "linear-gradient(90deg, #F0F0EF 0%, #E6EEFF 48%, #F0F0EF 100%)",
+        backgroundSize: "200% 100%",
+        borderRadius: "6px",
+        display: "inline-block",
+        flexShrink: 0,
+        height,
+        maxWidth: "100%",
+        width,
+      }}
+    />
+  );
+}
+
 export function DepositIdleForm({
   amount,
   amountMode,
@@ -564,6 +596,7 @@ export function DepositIdleForm({
   routeStatus,
   routeMessage,
   isAmountReadOnly = false,
+  isBalanceLoading = false,
   isCalculatingMax,
   calculatingPercent,
   isQuoteRefreshing,
@@ -680,7 +713,11 @@ export function DepositIdleForm({
                 lineHeight: "20px",
               }}
             >
-              ${totalBalance}
+              {isBalanceLoading ? (
+                <BalanceSkeleton width="64px" />
+              ) : (
+                `$${totalBalance}`
+              )}
             </span>
           </div>
         </div>
@@ -929,7 +966,11 @@ export function DepositIdleForm({
                   whiteSpace: "nowrap",
                 }}
               >
-                {destinationBalanceLabel}
+                {isBalanceLoading ? (
+                  <BalanceSkeleton width="110px" />
+                ) : (
+                  destinationBalanceLabel
+                )}
               </span>
             </div>
           </div>

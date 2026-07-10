@@ -26,7 +26,6 @@ overrides:
 
 minimumReleaseAgeExclude:
   - "@avail-project/ca-common@2.3.0"
-  - "@avail-project/nexus-core@2.0.0"
   - "@posthog/core@1.30.6"
   - "@posthog/types@1.379.3"
   - posthog-js@1.379.3

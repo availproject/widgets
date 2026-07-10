@@ -8,6 +8,30 @@ A unified component for **swap**, **send**, and **deposit** flows powered by [Av
 
 ## Installation
 
+Choose one of the two supported install paths.
+
+### NPM Package
+
+Install the compiled package from npm:
+
+```bash
+npm install @avail-project/widgets
+```
+
+```bash
+pnpm add @avail-project/widgets
+```
+
+Then import the provider and widget from the package:
+
+```tsx
+import { NexusProvider, NexusWidget } from "@avail-project/widgets";
+```
+
+### Shadcn Registry
+
+Install the source into your app from the public shadcn registry:
+
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
@@ -15,6 +39,10 @@ npx shadcn@latest add availproject/widgets/nexus
 This uses the public GitHub shadcn registry at
 `https://github.com/availproject/widgets`. The `@avail-widgets/nexus`
 namespace install will be documented after the registry is listed in shadcn.
+
+The examples below use shadcn-style local imports such as
+`@/components/nexus/nexus`. If you install from npm, replace those imports with
+`@avail-project/widgets`.
 
 ### Manual Installation
 
@@ -31,9 +59,19 @@ npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi c
 
 Wrap your app with `NexusProvider` before rendering `NexusWidget`.
 
+NPM package:
+
+```tsx
+import { NexusProvider } from "@avail-project/widgets";
+```
+
+Shadcn registry:
+
 ```tsx
 import { NexusProvider } from "@/components/nexus/NexusProvider";
+```
 
+```tsx
 export default function RootLayout({ children }) {
   return <NexusProvider>{children}</NexusProvider>;
 }
@@ -149,6 +187,7 @@ function buildDepositExecuteConfig(
 ) {
   return {
     to: APP_DEPOSIT_CONTRACT,
+    gas: 400_000n,
     data: encodeFunctionData({
       abi: APP_DEPOSIT_ABI,
       functionName: "deposit",
@@ -275,7 +314,7 @@ export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
 | `destination.tokens`   | all          | Required for deposit with at least one token. Optional for send/swap; when supplied with `destination.chain`, destination token selection is restricted. |
 | `recipientAddress`     | send/swap    | Prefills the recipient. In send mode, a supplied recipient is locked.                                                                                    |
 | `depositAddress`       | deposit      | Required smart contract address for the deposit target.                                                                                                  |
-| `executeDeposit`       | deposit      | Required transaction builder: `(tokenSymbol, tokenAddress, amount, chainId, user) => { to, data?, value?, gas?, tokenApproval? }`.                       |
+| `executeDeposit`       | deposit      | Required transaction builder: `(tokenSymbol, tokenAddress, amount, chainId, user) => { to, gas, data?, value?, tokenApproval? }`. `gas` must be a positive `bigint`. |
 | `prefill.amount`       | deposit/send | Optional amount prefill. Must be greater than `0`.                                                                                                       |
 | `prefill.token`        | send/swap    | Optional initial destination/receive token: `{ chain, address, symbol, decimals, logo? }`. Ignored when `destination.tokens` is supplied.                |
 | `validation.minAmount` | deposit/send | Optional minimum amount. Must be `0` or greater.                                                                                                         |

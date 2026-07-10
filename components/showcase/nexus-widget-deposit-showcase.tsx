@@ -249,6 +249,7 @@ const OPPORTUNITIES = {
       user: `0x${string}`,
     ) => ({
       to: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" as const,
+      gas: BigInt(400_000),
       data: encodeFunctionData({
         abi: AAVE_ABI,
         functionName: "supply",
@@ -313,6 +314,7 @@ const OPPORTUNITIES = {
       user: `0x${string}`,
     ) => ({
       to: "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2" as const,
+      gas: BigInt(400_000),
       data: encodeFunctionData({
         abi: AAVE_ABI,
         functionName: "supply",
@@ -345,6 +347,7 @@ const OPPORTUNITIES = {
       user: `0x${string}`,
     ) => ({
       to: "0xaeB318360f27748Acb200CE616E389A6C9409a07" as const,
+      gas: BigInt(400_000),
       data: encodeFunctionData({
         abi: COMPOUND_ABI,
         functionName: "supply",
@@ -376,6 +379,7 @@ const OPPORTUNITIES = {
       user: `0x${string}`,
     ) => ({
       to: "0xf42f5795D9ac7e9D757dB633D693cD548Cfd9169" as const,
+      gas: BigInt(400_000),
       data: encodeFunctionData({
         abi: FLUID_ABI,
         functionName: "deposit",
@@ -407,6 +411,7 @@ const OPPORTUNITIES = {
       user: `0x${string}`,
     ) => ({
       to: "0x72f8C254548839Fa1Db4156aE01d8C6ae5885EE4" as const,
+      gas: BigInt(400_000),
       data: encodeFunctionData({
         abi: MYSTIC_ABI,
         functionName: "deposit",
@@ -439,6 +444,7 @@ const OPPORTUNITIES = {
       user: `0x${string}`,
     ) => ({
       to: "0xfb7908150b738e7dB9862007c66C9eb7850706F5" as const,
+      gas: BigInt(400_000),
       data: encodeFunctionData({
         abi: ZENTRA_ABI,
         functionName: "supply",
@@ -497,7 +503,7 @@ const NexusWidgetDepositShowcase = () => {
     argsText: `["{{amount}}", "{{user}}"]`,
     enableApproval: true,
     approvalAmountType: "required",
-    gasLimit: "",
+    gasLimit: "400000",
     executeDeposit: (
       symbol: string,
       tokenAddress: `0x${string}`,
@@ -507,6 +513,7 @@ const NexusWidgetDepositShowcase = () => {
     ) => {
       return {
         to: "0xE592427A0AEce92De3Edee1F18E0157C05861564" as const,
+        gas: BigInt(400_000),
         data: encodeFunctionData({
           abi: [
             {
@@ -560,7 +567,7 @@ const NexusWidgetDepositShowcase = () => {
   const [formApprovalAmountType, setFormApprovalAmountType] = useState<
     "required" | "infinite"
   >("required");
-  const [formGasLimit, setFormGasLimit] = useState("");
+  const [formGasLimit, setFormGasLimit] = useState("400000");
   const [formError, setFormError] = useState("");
 
   const openSandboxModal = () => {
@@ -600,6 +607,11 @@ const NexusWidgetDepositShowcase = () => {
     }
     if (!formFunctionName.trim()) {
       setFormError("Function name is required");
+      return;
+    }
+    const parsedGasLimit = Number.parseInt(formGasLimit.trim(), 10);
+    if (!Number.isFinite(parsedGasLimit) || parsedGasLimit <= 0) {
+      setFormError("Gas limit is required and must be greater than 0");
       return;
     }
 
@@ -690,6 +702,7 @@ const NexusWidgetDepositShowcase = () => {
 
         const executeResult: any = {
           to: formTargetContract as `0x${string}`,
+          gas: BigInt(parsedGasLimit),
           data: encodeFunctionData({
             abi: parsedAbi,
             functionName: formFunctionName,
@@ -703,13 +716,6 @@ const NexusWidgetDepositShowcase = () => {
             amount: formApprovalAmountType === "infinite" ? maxUint256 : amount,
             spender: formTargetContract as `0x${string}`,
           };
-        }
-
-        if (formGasLimit.trim()) {
-          const parsedGas = parseInt(formGasLimit.trim(), 10);
-          if (!isNaN(parsedGas) && parsedGas > 0) {
-            executeResult.gas = BigInt(parsedGas);
-          }
         }
 
         return executeResult;

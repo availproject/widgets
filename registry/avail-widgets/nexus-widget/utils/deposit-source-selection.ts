@@ -13,25 +13,102 @@ type DepositSourceDestination = {
 };
 
 const STABLECOIN_SYMBOLS = ["USDC", "USDT", "DAI", "TUSD", "USDP"] as const;
+const SDK_EXACT_OUT_STABLE_SYMBOLS = new Set([
+  "USDC",
+  "USDT",
+  "DAI",
+  "BUSD",
+  "TUSD",
+  "FRAX",
+  "LUSD",
+  "USDD",
+  "USDP",
+  "GUSD",
+]);
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const EVM_NATIVE_PLACEHOLDER = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+const ETHEREUM_MAINNET_CHAIN_ID = 1;
 const MAX_PRIORITY_RANK = Number.MAX_SAFE_INTEGER;
+
+const normalizeSdkStableSymbol = (symbol?: string) =>
+  (symbol ?? "")
+    .trim()
+    .toUpperCase()
+    .replaceAll("\u20ae", "T")
+    .replaceAll(/[^A-Z0-9]/g, "");
+
+const isSdkExactOutStablecoin = (symbol?: string) =>
+  SDK_EXACT_OUT_STABLE_SYMBOLS.has(normalizeSdkStableSymbol(symbol));
+
+const isNativeAddress = (address?: string) =>
+  !address ||
+  address.toLowerCase() === ZERO_ADDRESS ||
+  address.toLowerCase() === EVM_NATIVE_PLACEHOLDER;
+
+const isSameSdkToken = (left: string, right: string) =>
+  (isNativeAddress(left) && isNativeAddress(right)) ||
+  normalizeAddress(left) === normalizeAddress(right);
+
+const getSdkExactOutPriority = (
+  source: {
+    chainID: number;
+    symbol?: string;
+    tokenAddress: string;
+  },
+  destination: DepositSourceDestination,
+) => {
+  const isSameChain = source.chainID === destination.chainId;
+  const isSameToken = isSameSdkToken(
+    source.tokenAddress,
+    destination.tokenAddress,
+  );
+  const isStable = isSdkExactOutStablecoin(source.symbol);
+  const isGas = isNativeAddress(source.tokenAddress);
+  const isEthereum = source.chainID === ETHEREUM_MAINNET_CHAIN_ID;
+
+  if (isSameChain) {
+    if (isSameToken) return 1;
+    if (isStable) return 2;
+    if (isGas) return 3;
+    return 4;
+  }
+
+  if (isEthereum) {
+    if (isSameToken) return 8;
+    if (isStable) return 9;
+    if (isGas) return 10;
+    return 11;
+  }
+
+  if (isSameToken) return 5;
+  if (isStable) return 6;
+  return 7;
+};
 
 const sortSourcesByPriority = (
   swapBalance: UserAsset[],
-  _destination: DepositSourceDestination,
+  destination: DepositSourceDestination,
 ) =>
   swapBalance
     .flatMap((asset) => asset.breakdown ?? [])
-    .sort(
-      (a, b) =>
-        parseNonNegativeNumber(b.balanceInFiat) -
-        parseNonNegativeNumber(a.balanceInFiat),
-    )
     .map((breakdown) => ({
       chainID: breakdown.chain.id,
+      balanceInFiat: parseNonNegativeNumber(breakdown.balanceInFiat),
+      symbol: breakdown.symbol,
       tokenAddress: breakdown.contractAddress,
-    }));
+    }))
+    .sort((a, b) => {
+      const priorityDiff =
+        getSdkExactOutPriority(a, destination) -
+        getSdkExactOutPriority(b, destination);
+      if (priorityDiff !== 0) return priorityDiff;
+      if (a.balanceInFiat !== b.balanceInFiat) {
+        return b.balanceInFiat - a.balanceInFiat;
+      }
+      return `${a.symbol ?? ""}-${a.chainID}-${a.tokenAddress}`.localeCompare(
+        `${b.symbol ?? ""}-${b.chainID}-${b.tokenAddress}`,
+      );
+    });
 
 const parseNonNegativeNumber = (value: unknown): number => {
   const parsed = Number.parseFloat(String(value));

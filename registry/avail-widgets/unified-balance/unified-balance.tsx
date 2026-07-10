@@ -14,15 +14,18 @@ import { cn } from "@/lib/utils";
 import { type UserAsset } from "../nexus/NexusProvider";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Skeleton } from "../ui/skeleton";
 
 const BalanceBreakdown = ({
   className,
+  isLoading = false,
   totalFiat,
   tokens,
 }: {
   totalFiat: string;
   tokens: UserAsset[];
   className?: string;
+  isLoading?: boolean;
 }) => {
   return (
     <div className={cn(className)}>
@@ -31,12 +34,37 @@ const BalanceBreakdown = ({
           Total Balance:
         </Label>
 
-        <Label className="text-lg font-bold gap-x-0">
-          <DollarSign className="w-4 h-4 font-bold" strokeWidth={3} />
-          {totalFiat}
-        </Label>
+        {isLoading ? (
+          <Skeleton className="h-6 w-24" />
+        ) : (
+          <Label className="text-lg font-bold gap-x-0">
+            <DollarSign className="w-4 h-4 font-bold" strokeWidth={3} />
+            {totalFiat}
+          </Label>
+        )}
       </div>
       <Accordion type="single" collapsible className="w-full space-y-4">
+        {isLoading &&
+          tokens.length === 0 &&
+          Array.from({ length: 3 }).map((_, index) => (
+            <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: static loading placeholders.
+              key={index}
+              className="flex items-center justify-between px-4 py-3"
+            >
+              <div className="flex items-center gap-3">
+                <Skeleton className="size-8 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-14" />
+              </div>
+            </div>
+          ))}
         {tokens.map((token) => {
           const positiveBreakdown = token.breakdown.filter(
             (chain) => Number.parseFloat(chain.balance) > 0,
@@ -78,15 +106,24 @@ const BalanceBreakdown = ({
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex flex-col items-end">
-                      <p className="text-base font-medium">
-                        {formatTokenBalance(token.balance, {
-                          symbol: token.symbol,
-                          decimals: token.decimals,
-                        })}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        ${token.balanceInFiat != null ? token.balanceInFiat.toFixed(2) : "0.00"}
-                      </p>
+                      {isLoading ? (
+                        <>
+                          <Skeleton className="h-5 w-28" />
+                          <Skeleton className="mt-1 h-4 w-16" />
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-base font-medium">
+                            {formatTokenBalance(token.balance, {
+                              symbol: token.symbol,
+                              decimals: token.decimals,
+                            })}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            ${token.balanceInFiat != null ? token.balanceInFiat.toFixed(2) : "0.00"}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -112,15 +149,24 @@ const BalanceBreakdown = ({
                           </span>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium">
-                            {formatTokenBalance(chain.balance, {
-                              symbol: chain.symbol,
-                              decimals: chain.decimals,
-                            })}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            ${chain.balanceInFiat.toFixed(2)}
-                          </p>
+                          {isLoading ? (
+                            <div className="flex flex-col items-end gap-2">
+                              <Skeleton className="h-4 w-24" />
+                              <Skeleton className="h-3 w-14" />
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm font-medium">
+                                {formatTokenBalance(chain.balance, {
+                                  symbol: chain.symbol,
+                                  decimals: chain.decimals,
+                                })}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                ${chain.balanceInFiat.toFixed(2)}
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                       {index < positiveBreakdown.length - 1 && (
@@ -139,7 +185,12 @@ const BalanceBreakdown = ({
 };
 
 const UnifiedBalance = ({ className }: { className?: string }) => {
-  const { bridgableBalance, swapBalance, nexusSDK } = useNexus();
+  const {
+    bridgableBalance,
+    bridgableBalanceLoading,
+    swapBalance,
+    swapBalanceLoading,
+  } = useNexus();
 
   const totalFiat = useMemo(() => {
     if (!bridgableBalance) return "0.00";
@@ -176,6 +227,7 @@ const UnifiedBalance = ({ className }: { className?: string }) => {
       <BalanceBreakdown
         totalFiat={totalFiat}
         tokens={tokens}
+        isLoading={bridgableBalanceLoading}
         className={cn(
           "w-full max-w-lg mx-auto py-4 px-1 sm:p-4 flex flex-col gap-y-2 items-center overflow-y-scroll max-h-93 rounded-lg border border-border",
           className,
@@ -204,6 +256,7 @@ const UnifiedBalance = ({ className }: { className?: string }) => {
         <BalanceBreakdown
           totalFiat={totalFiat}
           tokens={tokens}
+          isLoading={bridgableBalanceLoading}
           className={className}
         />
       </TabsContent>
@@ -214,6 +267,7 @@ const UnifiedBalance = ({ className }: { className?: string }) => {
         <BalanceBreakdown
           totalFiat={swapTotalFiat}
           tokens={swapTokens}
+          isLoading={swapBalanceLoading}
           className={className}
         />
       </TabsContent>

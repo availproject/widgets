@@ -6,10 +6,10 @@ import type {
   DepositWidgetContextValue,
   DepositInputs,
   DestinationConfig,
+  ExecuteDepositResult,
 } from "../types";
 import {
   ERROR_CODES,
-  type ExecuteParams,
   type OnSwapIntentHookData,
   type SwapAndExecuteParams,
   type SwapAndExecuteResult,
@@ -49,7 +49,7 @@ interface UseDepositProps {
     amount: bigint,
     chainId: number,
     user: Address,
-  ) => Omit<ExecuteParams, "toChainId">;
+  ) => ExecuteDepositResult;
   destination: DestinationConfig;
   onSuccess?: () => void;
   onError?: (error: string) => void;
@@ -60,6 +60,10 @@ function parseUsdAmount(value?: string): number {
   const parsed = Number.parseFloat(value.replace(/,/g, ""));
   if (!Number.isFinite(parsed) || parsed <= 0) return 0;
   return parsed;
+}
+
+function hasPositiveGasLimit(value: unknown): value is bigint {
+  return typeof value === "bigint" && value > BigInt(0);
 }
 
 function summarizeIntentSources(
@@ -299,11 +303,12 @@ export function useDepositWidget(
               ? {
                   allow: data.allow,
                   deny: data.deny,
-                  intent: data.intent.swap,
+                  intent:
+                    (data.intent as any).normalizedIntent ?? data.intent.swap,
                   refresh: async (sources?: any) => {
                     const refreshed = await data.refresh(sources);
                     return refreshed.swapRequired
-                      ? refreshed.swap
+                      ? (refreshed as any).normalizedIntent ?? refreshed.swap
                       : (refreshed as any);
                   },
                 }
@@ -521,6 +526,15 @@ export function useDepositWidget(
         address,
       );
 
+      if (!hasPositiveGasLimit(executeParams.gas)) {
+        const message =
+          "Deposit config executeDeposit must return a positive gas limit.";
+        dispatch({ type: "setError", payload: message });
+        dispatch({ type: "setStatus", payload: "error" });
+        onError?.(message);
+        return false;
+      }
+
       const newInputs: SwapAndExecuteParams = {
         toChainId: destination.chainId,
         toTokenAddress: destination.tokenAddress,
@@ -540,7 +554,7 @@ export function useDepositWidget(
                 spender: executeParams.tokenApproval.spender,
               }
             : undefined,
-          gas: BigInt(400_000),
+          gas: executeParams.gas,
         },
       };
 

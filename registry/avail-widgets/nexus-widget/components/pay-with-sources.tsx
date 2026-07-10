@@ -37,6 +37,18 @@ const formatUsd = (value: unknown) => {
   return `$${amount.toDecimalPlaces(2).toFixed()}`;
 };
 
+const getDisplayedUsdValue = (token: SwapTokenOption) =>
+  parseDecimal(token.userAmountUsd || token.balanceInFiat) ?? new Decimal(0);
+
+const sortSourceTokensByDisplayedUsdDesc = (tokens: SwapTokenOption[]) =>
+  [...tokens].sort((a, b) => {
+    const usdDiff = getDisplayedUsdValue(b).cmp(getDisplayedUsdValue(a));
+    if (usdDiff !== 0) return usdDiff;
+    return `${a.symbol ?? ""} ${a.chainName ?? ""}`.localeCompare(
+      `${b.symbol ?? ""} ${b.chainName ?? ""}`,
+    );
+  });
+
 function TokenLogo({
   src,
   label,
@@ -171,8 +183,14 @@ export function PayWithSources({
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const isRouteLoading = routeStatus === "loading";
-  const shouldShowSourceSummary = !isRouteLoading && fromTokens.length > 0;
-  const shouldScroll = shouldShowSourceSummary && fromTokens.length > 3;
+  const displayTokens = React.useMemo(
+    () => sortSourceTokensByDisplayedUsdDesc(fromTokens),
+    [fromTokens],
+  );
+  const shouldShowSourceSummary = !isRouteLoading && displayTokens.length > 0;
+  const shouldScroll = shouldShowSourceSummary && displayTokens.length > 3;
+  const sourceCountLabel =
+    displayTokens.length === 1 ? "1 asset" : `${displayTokens.length} assets`;
   const autoBadge = (
     <span
       style={{
@@ -228,7 +246,7 @@ export function PayWithSources({
         >
           <span>
             Pay With
-            {shouldShowSourceSummary ? ` · ${fromTokens.length} assets` : ""}
+            {shouldShowSourceSummary ? ` · ${sourceCountLabel}` : ""}
           </span>
           {showAutoBadge ? autoBadge : null}
         </div>
@@ -292,7 +310,7 @@ export function PayWithSources({
               paddingRight: shouldScroll ? "8px" : 0,
             }}
           >
-            {fromTokens.map((token, index) => (
+            {displayTokens.map((token, index) => (
               <div
                 key={`${token.contractAddress}-${token.chainId ?? "unified"}-${index}`}
                 style={{
@@ -307,7 +325,6 @@ export function PayWithSources({
                   key={`${token.contractAddress}-${token.chainId ?? "unified"}-${index}`}
                   style={{
                     alignItems: "center",
-                    borderTop: index === 0 ? "none" : "1px solid #F0F0EF",
                     display: "flex",
                     gap: "14px",
                     minWidth: 0,
@@ -356,40 +373,6 @@ export function PayWithSources({
                       </span>
                     </div>
                   </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "3px",
-                      textAlign: "right",
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: primary,
-                        fontFamily: uiFont,
-                        fontSize: "16px",
-                        fontWeight: 500,
-                        lineHeight: "24px",
-                      }}
-                    >
-                      {formatToken(token.userAmount || token.balance)}{" "}
-                      {token.symbol}
-                    </span>
-                    <span
-                      style={{
-                        color: muted,
-                        fontFamily: uiFont,
-                        fontSize: "14px",
-                        lineHeight: "20px",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {formatUsd(token.userAmountUsd || token.balanceInFiat)}
-                    </span>
-                  </div>
                 </div>
                 <div
                   style={{
@@ -403,9 +386,9 @@ export function PayWithSources({
                     style={{
                       color: primary,
                       fontFamily: uiFont,
-                      fontSize: "16px",
+                      fontSize: "14px",
                       fontWeight: 500,
-                      lineHeight: "20px",
+                      lineHeight: "18px",
                     }}
                   >
                     {formatToken(token.userAmount || token.balance)}{" "}
@@ -415,8 +398,8 @@ export function PayWithSources({
                     style={{
                       color: muted,
                       fontFamily: uiFont,
-                      fontSize: "14px",
-                      lineHeight: "20px",
+                      fontSize: "12px",
+                      lineHeight: "18px",
                     }}
                   >
                     {formatUsd(token.userAmountUsd || token.balanceInFiat)}

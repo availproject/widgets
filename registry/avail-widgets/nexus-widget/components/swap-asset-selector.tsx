@@ -18,6 +18,7 @@ import {
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -70,7 +71,7 @@ interface SwapAssetSelectorProps {
   lockedTokens?: SwapTokenOption[];
   onBack: () => void;
   onClearSelection?: () => void;
-  onDone?: () => void;
+  onDone?: (tokens?: SwapTokenOption[]) => void;
   onFilterTabSelect?: (tab: Exclude<FilterTab, "custom">) => void;
   onSelect: (token: SwapTokenOption) => void;
   onSelectionChange?: (tokens: SwapTokenOption[]) => void;
@@ -191,6 +192,79 @@ const SelectionControl = ({
   );
 };
 
+function TokenLogo({
+  src,
+  label,
+  size,
+  fontSize,
+  style,
+  fallbackBackground = brand,
+  fallbackColor = "#FFFFFE",
+}: {
+  src?: string;
+  label?: string;
+  size: number;
+  fontSize: number;
+  style?: React.CSSProperties;
+  fallbackBackground?: string;
+  fallbackColor?: string;
+}) {
+  const normalizedSrc = src?.trim();
+  const [failed, setFailed] = useState(!normalizedSrc);
+
+  useEffect(() => {
+    setFailed(!normalizedSrc);
+  }, [normalizedSrc]);
+
+  if (!failed && normalizedSrc) {
+    return (
+      <img
+        alt={label || ""}
+        onError={() => setFailed(true)}
+        src={normalizedSrc}
+        style={{
+          borderRadius: "999px",
+          height: size,
+          objectFit: "cover",
+          width: size,
+          ...style,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        backgroundColor: fallbackBackground,
+        borderRadius: "999px",
+        color: fallbackColor,
+        display: "flex",
+        flexShrink: 0,
+        fontFamily: '"Geist", system-ui, sans-serif',
+        fontSize,
+        fontWeight: 700,
+        height: size,
+        justifyContent: "center",
+        width: size,
+        ...style,
+      }}
+    >
+      {(label || "?").slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+const getChainLogo = (
+  token?: Pick<SwapTokenOption, "chainId" | "chainLogo"> | null,
+) => {
+  if (!token) return undefined;
+  return token.chainId
+    ? (CHAIN_METADATA[token.chainId]?.logo ?? token.chainLogo)
+    : token.chainLogo;
+};
+
 /* ── Chain logo cluster ── */
 const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
   const clusterRef = useRef<HTMLDivElement | null>(null);
@@ -216,7 +290,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
         seen.add(t.chainId);
         out.push({
           id: t.chainId,
-          logo: t.chainLogo,
+          logo: getChainLogo(t),
           name: getShortChainName(t.chainId, t.chainName),
           balance: t.balance,
           balanceInFiat: t.balanceInFiat,
@@ -335,27 +409,14 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
                     minWidth: 0,
                   }}
                 >
-                  {chain.logo ? (
-                    <img
-                      alt=""
-                      src={chain.logo}
-                      style={{
-                        borderRadius: "999px",
-                        height: 16,
-                        objectFit: "cover",
-                        width: 16,
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        backgroundColor: "#E8E8E7",
-                        borderRadius: "999px",
-                        height: 16,
-                        width: 16,
-                      }}
-                    />
-                  )}
+                  <TokenLogo
+                    fallbackBackground="#E8E8E7"
+                    fallbackColor="#161615"
+                    fontSize={8}
+                    label={chain.name}
+                    size={16}
+                    src={chain.logo}
+                  />
                   <span
                     style={{
                       color: "#363635",
@@ -404,32 +465,18 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
       }}
     >
       {tooltip}
-      {shown.map((c, i) =>
-        c.logo ? (
-          <img
-            alt=""
-            key={c.id}
-            src={c.logo}
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: "999px",
-              objectFit: "cover",
-              border: "1px solid #fff",
-            }}
-          />
-        ) : (
-          <div
-            key={c.id}
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: "999px",
-              backgroundColor: "#E8E8E7",
-            }}
-          />
-        ),
-      )}
+      {shown.map((c) => (
+        <TokenLogo
+          fallbackBackground="#E8E8E7"
+          fallbackColor="#161615"
+          fontSize={8}
+          key={c.id}
+          label={c.name}
+          size={16}
+          src={c.logo}
+          style={{ border: "1px solid #fff" }}
+        />
+      ))}
       <span
         style={{
           fontFamily: '"Geist", system-ui, sans-serif',
@@ -538,7 +585,7 @@ function isNativeToken(t: SwapTokenOption) {
   return false;
 }
 
-const MIN_FIAT_THRESHOLD = 0;
+const MIN_FIAT_THRESHOLD = 1;
 const CHAIN_SELECTOR_CLOSE_MS = 220;
 const MODAL_HEIGHT_TRANSITION_MS = 260;
 const modalHeightTransitionStyle = {
@@ -596,6 +643,8 @@ export const compareChainsBySwapDisplayOrder = <
 const UNIFIED_MAINNET_CHAIN_IDS = new Set([
   1, 10, 56, 137, 143, 999, 4114, 8217, 8453, 42161, 43114, 534352, 4326,
 ]);
+const UNIFIED_USDC_SYMBOL_KEYS = new Set(["USDC", "USDCE", "USDM"]);
+const UNIFIED_USDT_SYMBOL_KEYS = new Set(["USDT", "USDT0", "USDTE"]);
 
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -880,8 +929,8 @@ function getUnifiedSymbol(token: Pick<SwapTokenOption, "symbol" | "chainId">) {
   }
 
   const symbol = normalizeTokenGroupSymbol(token.symbol);
-  if (symbol.includes("USDC") || symbol === "USDM") return "USDC" as const;
-  if (symbol.includes("USDT")) return "USDT" as const;
+  if (UNIFIED_USDC_SYMBOL_KEYS.has(symbol)) return "USDC" as const;
+  if (UNIFIED_USDT_SYMBOL_KEYS.has(symbol)) return "USDT" as const;
   if (symbol === "ETH") return "ETH" as const;
   return null;
 }
@@ -1006,6 +1055,8 @@ export function SwapAssetSelector({
   );
   const [isChainSearchFocused, setIsChainSearchFocused] = useState(false);
   const stableListHeightRef = useRef(0);
+  const pendingSelectionScrollTopRef = useRef<number | null>(null);
+  const skipNextSelectionScrollResetRef = useRef(false);
   const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const lockedSelectedTokens = useMemo(
     () => dedupeTokenOptions(lockedTokens),
@@ -1031,7 +1082,6 @@ export function SwapAssetSelector({
       const next = mergeTokenOptions(tokens, lockedSelectedTokens);
       if (isMulti) {
         setDraftSelectedTokens(next);
-        return;
       }
       onSelectionChange?.(next);
     },
@@ -1060,10 +1110,24 @@ export function SwapAssetSelector({
   }, [normalizedInitialFilterTab]);
 
   useEffect(() => {
+    if (skipNextSelectionScrollResetRef.current) {
+      skipNextSelectionScrollResetRef.current = false;
+      return;
+    }
     if (listRef.current) {
       listRef.current.scrollTop = 0;
     }
   }, [query, activeTab, selectedChainFilter]);
+
+  useLayoutEffect(() => {
+    const pendingScrollTop = pendingSelectionScrollTopRef.current;
+    if (pendingScrollTop === null) return;
+
+    if (listRef.current) {
+      listRef.current.scrollTop = pendingScrollTop;
+    }
+    pendingSelectionScrollTopRef.current = null;
+  }, [draftSelectedTokens]);
 
   const allTokens = useMemo<SwapTokenOption[]>(() => {
     const isSwapSupportedToken = (token: SwapTokenOption) =>
@@ -1129,9 +1193,7 @@ export function SwapAssetSelector({
         result.filter(
           (token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD,
         ),
-        lockedSelectedTokens.filter(
-          (token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD,
-        ),
+        lockedSelectedTokens,
       );
     },
     [allTokens, lockedSelectedTokens, selectedChainFilter],
@@ -1200,6 +1262,7 @@ export function SwapAssetSelector({
 
   const isTokenSelectedForVisibility = useCallback(
     (token: SwapTokenOption) => {
+      if (isLockedToken(token)) return true;
       if (!preserveSelectedBelowMinimum) return false;
 
       return activeSelectedTokens.some(
@@ -1213,7 +1276,7 @@ export function SwapAssetSelector({
           ),
       );
     },
-    [activeSelectedTokens, preserveSelectedBelowMinimum],
+    [activeSelectedTokens, isLockedToken, preserveSelectedBelowMinimum],
   );
 
   const isUnifiedSelectedForVisibility = useCallback(
@@ -1251,7 +1314,8 @@ export function SwapAssetSelector({
       if (
         !showBelowMinimumInline &&
         unifiedSym &&
-        getTokenFiatValue(token) < MIN_FIAT_THRESHOLD
+        getTokenFiatValue(token) < MIN_FIAT_THRESHOLD &&
+        !isTokenSelectedForVisibility(token)
       ) {
         continue;
       }
@@ -1429,12 +1493,152 @@ export function SwapAssetSelector({
       (st) =>
         group.tokens.some((gt) => sameTokenOption(gt, st)) ||
         (st.isUnified && st.unifiedSymbol === group.symbol),
-    );
+      );
   };
+
+  const selectorRows = useMemo(() => {
+    if (isMulti) {
+      return groupedFiltered.map((group) => ({
+        fiat: group.totalFiat,
+        group,
+        key: `group:${group.symbol}`,
+        kind: "group" as const,
+        label: group.symbol,
+        searchScore: query.trim()
+          ? Math.min(
+              ...group.tokens.map(
+                (token) =>
+                  getTokenSearchRank(token, query)?.score ??
+                  Number.MAX_SAFE_INTEGER,
+              ),
+            )
+          : 0,
+      }));
+    }
+
+    const rows: Array<
+      | {
+          fiat: number;
+          group: (typeof groupedFiltered)[number];
+          key: string;
+          kind: "group";
+          label: string;
+          searchScore: number;
+        }
+      | {
+          fiat: number;
+          key: string;
+          kind: "token";
+          label: string;
+          searchScore: number;
+          token: SwapTokenOption;
+        }
+    > = [];
+    const hasQuery = Boolean(query.trim());
+    const getSearchScore = (token: SwapTokenOption) =>
+      hasQuery
+        ? (getTokenSearchRank(token, query)?.score ?? Number.MAX_SAFE_INTEGER)
+        : 0;
+    const isVisibleTokenRow = (token: SwapTokenOption) =>
+      showBelowMinimumInline ||
+      getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
+      isTokenSelectedForVisibility(token) ||
+      isPrioritySearchMatch(token, query);
+
+    for (const group of groupedFiltered) {
+      if (!group.isUnifiedCandidate) {
+        for (const token of group.tokens) {
+          if (!isVisibleTokenRow(token)) continue;
+          rows.push({
+            fiat: getTokenFiatValue(token),
+            key: `token:${token.chainId}:${token.contractAddress}`,
+            kind: "token",
+            label: `${token.symbol} ${token.chainName}`,
+            searchScore: getSearchScore(token),
+            token,
+          });
+        }
+        continue;
+      }
+
+      const unifiedSelectedInOther = isGroupUnifiedSelectedInOtherSlot(group);
+      const unifiedSelectedInCurrent =
+        isGroupUnifiedSelectedInCurrentSlot(group);
+      const anyIndividualSelectedInOther =
+        isAnyTokenInGroupSelectedInOtherSlot(group);
+      const anyIndividualSelectedInCurrent = group.tokens.some(
+        isTokenSelectedInCurrentSlot,
+      );
+      const shouldHideUnifiedRow =
+        anyIndividualSelectedInOther ||
+        anyIndividualSelectedInCurrent ||
+        (group.totalFiat < MIN_FIAT_THRESHOLD &&
+          !isUnifiedSelectedForVisibility(group.symbol));
+      const shouldHideIndividualRows =
+        unifiedSelectedInOther || unifiedSelectedInCurrent;
+
+      if (!unifiedSelectedInOther && !shouldHideUnifiedRow) {
+        rows.push({
+          fiat: group.totalFiat,
+          group,
+          key: `group:${group.symbol}`,
+          kind: "group",
+          label: group.symbol,
+          searchScore: hasQuery
+            ? Math.min(
+                ...group.tokens.map(
+                  (token) =>
+                    getTokenSearchRank(token, query)?.score ??
+                    Number.MAX_SAFE_INTEGER,
+                ),
+              )
+            : 0,
+        });
+      }
+
+      if (!shouldHideIndividualRows) {
+        for (const token of group.tokens) {
+          if (!isVisibleTokenRow(token)) continue;
+          rows.push({
+            fiat: getTokenFiatValue(token),
+            key: `token:${token.chainId}:${token.contractAddress}`,
+            kind: "token",
+            label: `${token.symbol} ${token.chainName}`,
+            searchScore: getSearchScore(token),
+            token,
+          });
+        }
+      }
+    }
+
+    return rows.sort((a, b) => {
+      if (hasQuery && a.searchScore !== b.searchScore) {
+        return a.searchScore - b.searchScore;
+      }
+      if (a.fiat !== b.fiat) return b.fiat - a.fiat;
+      if (a.kind !== b.kind) return a.kind === "group" ? -1 : 1;
+      return a.label.localeCompare(b.label);
+    });
+  }, [
+    groupedFiltered,
+    isMulti,
+    isGroupUnifiedSelectedInCurrentSlot,
+    isGroupUnifiedSelectedInOtherSlot,
+    isAnyTokenInGroupSelectedInOtherSlot,
+    isTokenSelectedInCurrentSlot,
+    isTokenSelectedForVisibility,
+    isUnifiedSelectedForVisibility,
+    query,
+    showBelowMinimumInline,
+  ]);
 
   const handleFilterTabClick = (tab: FilterTab) => {
     setActiveTab(tab);
     if (autoSelectFilterTabs && isMulti && tab !== "custom") {
+      if (tab === "all" && onFilterTabSelect) {
+        onFilterTabSelect(tab);
+        return;
+      }
       if (filterTabBehavior === "source-pool") {
         onFilterTabSelect?.(tab);
         return;
@@ -1459,6 +1663,8 @@ export function SwapAssetSelector({
       return;
     }
 
+    pendingSelectionScrollTopRef.current = listRef.current?.scrollTop ?? null;
+    skipNextSelectionScrollResetRef.current = true;
     setActiveTab("custom");
     const current = mergeTokenOptions(
       activeSelectedTokens,
@@ -1529,38 +1735,12 @@ export function SwapAssetSelector({
             selected={selectedInCurrent}
           />
           <div style={{ flexShrink: 0, width: 40, height: 40 }}>
-            {token.logo ? (
-              <img
-                alt={token.symbol}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-                src={token.logo}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "999px",
-                  objectFit: "cover",
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "999px",
-                  backgroundColor: brand,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 700,
-                }}
-              >
-                {token.symbol.slice(0, 2)}
-              </div>
-            )}
+            <TokenLogo
+              fontSize={14}
+              label={token.symbol}
+              size={40}
+              src={token.logo}
+            />
           </div>
           <div
             style={{
@@ -1581,18 +1761,14 @@ export function SwapAssetSelector({
             </span>
             {token.chainName && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                {token.chainLogo && (
-                  <img
-                    alt=""
-                    src={token.chainLogo}
-                    style={{
-                      borderRadius: "999px",
-                      height: 14,
-                      objectFit: "cover",
-                      width: 14,
-                    }}
-                  />
-                )}
+                <TokenLogo
+                  fallbackBackground="#E8E8E7"
+                  fallbackColor="#161615"
+                  fontSize={7}
+                  label={token.chainName}
+                  size={14}
+                  src={getChainLogo(token)}
+                />
                 <span
                   style={{
                     fontFamily: '"Geist", system-ui, sans-serif',
@@ -1638,7 +1814,10 @@ export function SwapAssetSelector({
   };
 
   /* ── Render a unified (multi-chain) group row ── */
-  const renderGroupRow = (group: (typeof groupedFiltered)[0]) => {
+  const renderGroupRow = (
+    group: (typeof groupedFiltered)[0],
+    includeIndividualRows = true,
+  ) => {
     if (!group.isUnifiedCandidate) {
       return group.tokens
         .filter(
@@ -1758,38 +1937,12 @@ export function SwapAssetSelector({
                   height: 40,
                 }}
               >
-                {group.logo ? (
-                  <img
-                    alt={group.symbol}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                    src={group.logo}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "999px",
-                      objectFit: "cover",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "999px",
-                      backgroundColor: brand,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#fff",
-                      fontSize: 14,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {group.symbol.slice(0, 2)}
-                  </div>
-                )}
+                <TokenLogo
+                  fontSize={14}
+                  label={group.symbol}
+                  size={40}
+                  src={group.logo}
+                />
               </div>
               <div
                 style={{
@@ -1873,6 +2026,7 @@ export function SwapAssetSelector({
             </div>
           </div>
         ) : (
+          includeIndividualRows &&
           !shouldHideIndividualRows &&
           individualTokens.map((token) => renderTokenRow(token))
         )}
@@ -1883,30 +2037,34 @@ export function SwapAssetSelector({
   const isLoading = !staticOptions && swapBalance === null;
   const selectedAssetCount = activeSelectedTokens.length;
   const requiredUsdAmount = parseTokenAmount(requiredUsd);
+  const shouldCountSelectedUsd = (token: SwapTokenOption, value: Decimal) =>
+    value.gt(0) && (isLockedToken(token) || value.gte(MIN_FIAT_THRESHOLD));
   const selectedUsdAmount = activeSelectedTokens.reduce((sum, token) => {
     if (token.isUnified && token.sourceTokens?.length) {
       return sum.plus(
         token.sourceTokens.reduce((sourceSum, source) => {
           const value =
             parseTokenAmount(source.balanceInFiat) ?? new Decimal(0);
-          return value.gte(MIN_FIAT_THRESHOLD)
+          return shouldCountSelectedUsd(source, value)
             ? sourceSum.plus(value)
             : sourceSum;
         }, new Decimal(0)),
       );
     }
     const value = parseTokenAmount(token.balanceInFiat) ?? new Decimal(0);
-    return value.gte(MIN_FIAT_THRESHOLD) ? sum.plus(value) : sum;
+    return shouldCountSelectedUsd(token, value) ? sum.plus(value) : sum;
   }, new Decimal(0));
   const selectionDeficitUsdAmount =
     requiredUsdAmount && selectedUsdAmount.lt(requiredUsdAmount)
       ? requiredUsdAmount.minus(selectedUsdAmount)
       : new Decimal(0);
-  const shouldShowSelectionProgress = Boolean(
-    isMulti &&
+  const hasSelectionShortfall = Boolean(
     requiredUsdAmount &&
-    requiredUsdAmount.gt(0) &&
-    selectionDeficitUsdAmount.gt(0),
+      requiredUsdAmount.gt(0) &&
+      selectionDeficitUsdAmount.gt(0),
+  );
+  const shouldShowSelectionProgress = Boolean(
+    isMulti && hasSelectionShortfall,
   );
   const selectionProgressPercent =
     shouldShowSelectionProgress && requiredUsdAmount
@@ -1979,7 +2137,7 @@ export function SwapAssetSelector({
         balanceInFiat: "$0.00",
         chainId: chain.id,
         chainName: getShortChainName(chain.id, chain.name),
-        chainLogo: chain.logo,
+        chainLogo: CHAIN_METADATA[chain.id]?.logo ?? chain.logo,
       });
     }
 
@@ -2010,12 +2168,12 @@ export function SwapAssetSelector({
       : selectedChainToken?.chainName || "Chain";
 
   const handleDone = () => {
-    if (isMulti && onSelectionChange) {
-      onSelectionChange(
-        mergeTokenOptions(draftSelectedTokens, lockedSelectedTokens),
-      );
-    }
-    onDone?.();
+    if (hasSelectionShortfall) return;
+    onDone?.(
+      isMulti
+        ? mergeTokenOptions(draftSelectedTokens, lockedSelectedTokens)
+        : undefined,
+    );
   };
 
   return (
@@ -2215,16 +2373,13 @@ export function SwapAssetSelector({
                 }}
               />
             ) : (
-              <img
-                alt={selectedChainLabel}
-                src={selectedChainToken?.chainLogo}
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: "999px",
-                  objectFit: "cover",
-                  flexShrink: 0,
-                }}
+              <TokenLogo
+                fallbackBackground="#E8E8E7"
+                fallbackColor="#161615"
+                fontSize={9}
+                label={selectedChainLabel}
+                size={18}
+                src={getChainLogo(selectedChainToken)}
               />
             )}
             <span
@@ -2348,10 +2503,10 @@ export function SwapAssetSelector({
                   backgroundColor: "#FFFFFE",
                 }}
               >
-                {groupedFiltered.map((group) =>
-                  group.tokens.length === 1
-                    ? renderTokenRow(group.tokens[0])
-                    : renderGroupRow(group),
+                {selectorRows.map((row) =>
+                  row.kind === "group"
+                    ? renderGroupRow(row.group, isMulti)
+                    : renderTokenRow(row.token),
                 )}
               </div>
             )}
@@ -2443,33 +2598,19 @@ export function SwapAssetSelector({
                     {/* Small token logo cluster */}
                     <div style={{ display: "flex", alignItems: "center" }}>
                       {belowMin.slice(0, 3).map((t, i) =>
-                        t.logo ? (
-                          <img
-                            alt=""
-                            key={`bm-${t.contractAddress}-${t.chainId}`}
-                            src={t.logo}
-                            style={{
-                              width: 18,
-                              height: 18,
-                              borderRadius: "999px",
-                              objectFit: "cover",
-                              marginLeft: i > 0 ? -6 : 0,
-                              border: "1.5px solid #fff",
-                            }}
-                          />
-                        ) : (
-                          <div
-                            key={`bm-${t.contractAddress}-${t.chainId}`}
-                            style={{
-                              width: 18,
-                              height: 18,
-                              borderRadius: "999px",
-                              backgroundColor: "#E8E8E7",
-                              marginLeft: i > 0 ? -6 : 0,
-                              border: "1.5px solid #fff",
-                            }}
-                          />
-                        ),
+                        <TokenLogo
+                          fallbackBackground="#E8E8E7"
+                          fallbackColor="#161615"
+                          fontSize={8}
+                          key={`bm-${t.contractAddress}-${t.chainId}`}
+                          label={t.symbol}
+                          size={18}
+                          src={t.logo}
+                          style={{
+                            border: "1.5px solid #fff",
+                            marginLeft: i > 0 ? -6 : 0,
+                          }}
+                        />,
                       )}
                       {belowMin.length > 3 && (
                         <div
@@ -2546,50 +2687,28 @@ export function SwapAssetSelector({
                               flexShrink: 0,
                             }}
                           >
-                            {token.logo ? (
-                              <img
-                                alt={token.symbol}
-                                src={token.logo}
-                                style={{
-                                  filter: "grayscale(0.2)",
-                                  width: 22,
-                                  height: 22,
-                                  borderRadius: "999px",
-                                  objectFit: "cover",
-                                }}
-                              />
-                            ) : (
-                              <div
-                                style={{
-                                  width: 22,
-                                  height: 22,
-                                  borderRadius: "999px",
-                                  backgroundColor: "#C8C8C7",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  color: "#fff",
-                                  fontSize: 9,
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {token.symbol.slice(0, 2)}
-                              </div>
-                            )}
+                            <TokenLogo
+                              fallbackBackground="#C8C8C7"
+                              fontSize={9}
+                              label={token.symbol}
+                              size={22}
+                              src={token.logo}
+                              style={{ filter: "grayscale(0.2)" }}
+                            />
                             {token.chainLogo && (
-                              <img
-                                alt=""
-                                src={token.chainLogo}
+                              <TokenLogo
+                                fallbackBackground="#E8E8E7"
+                                fallbackColor="#161615"
+                                fontSize={5}
+                                label={token.chainName}
+                                size={10}
+                                src={getChainLogo(token)}
                                 style={{
                                   border: "1.5px solid #FFFFFE",
-                                  borderRadius: "999px",
                                   bottom: -2,
                                   filter: "grayscale(0.2)",
-                                  height: 10,
-                                  objectFit: "cover",
                                   position: "absolute",
                                   right: -2,
-                                  width: 10,
                                 }}
                               />
                             )}
@@ -2699,7 +2818,7 @@ export function SwapAssetSelector({
               </div>
             </div>
           )}
-          {!shouldShowSelectionProgress && (
+          {!hasSelectionShortfall && (
             <button
               onClick={handleDone}
               style={{
@@ -2977,16 +3096,14 @@ export function SwapAssetSelector({
                           <RadioDot
                             selected={selectedChainFilter === t.chainId}
                           />
-                          <img
-                            alt={t.chainName}
-                            src={t.chainLogo}
-                            style={{
-                              marginLeft: 10,
-                              width: 28,
-                              height: 28,
-                              borderRadius: "999px",
-                              objectFit: "cover",
-                            }}
+                          <TokenLogo
+                            fallbackBackground="#E8E8E7"
+                            fallbackColor="#161615"
+                            fontSize={10}
+                            label={t.chainName}
+                            size={28}
+                            src={getChainLogo(t)}
+                            style={{ marginLeft: 10 }}
                           />
                           <span
                             style={{
