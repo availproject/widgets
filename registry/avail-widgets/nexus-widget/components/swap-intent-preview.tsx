@@ -81,6 +81,7 @@ export interface SwapIntentPreviewProps {
   };
   fromAmount: string;
   fromAmountUsd?: string;
+  destinationGasFeeUsd?: string;
   fromToken?: SwapTokenOption;
   fromTokens?: SwapTokenOption[];
   intentData?: SwapIntentData | null;
@@ -685,6 +686,7 @@ export function SwapIntentPreview({
   toToken,
   fromAmount,
   fromAmountUsd,
+  destinationGasFeeUsd,
   toAmount,
   toAmountUsd,
   toAmountTokens,
@@ -905,26 +907,39 @@ export function SwapIntentPreview({
       : undefined);
   const protocolFeeNumber = parseDecimal(bridgeFeeData?.protocol);
   const solverFeeNumber = parseDecimal(bridgeFeeData?.solver);
-  const gasSuppliedNumber = parseDecimal(bridgeFeeData?.gasSupplied);
+  const bridgeGasSuppliedNumber = parseDecimal(bridgeFeeData?.gasSupplied);
+  const destinationGasValueNumber =
+    parseDecimal(normalizedIntentDest?.gas?.value) ??
+    parseDecimal(destinationGasFeeUsd);
+  const destinationGasSuppliedNumber =
+    bridgeGasSuppliedNumber ?? destinationGasValueNumber;
+  const bridgeTotalWithDestinationGas =
+    bridgeTotalNumber &&
+    !bridgeGasSuppliedNumber &&
+    destinationGasValueNumber &&
+    destinationGasValueNumber.gt(0)
+      ? bridgeTotalNumber.plus(destinationGasValueNumber)
+      : bridgeTotalNumber;
   const swapBufferNumber = parseDecimal(intentData?.feesAndBuffer?.buffer);
   const bridgeComponentsTotalNumber = bridgeFeeData
     ? [
         executionGasFeeNumber,
         protocolFeeNumber,
         solverFeeNumber,
-        gasSuppliedNumber,
+        destinationGasSuppliedNumber,
       ].reduce<Decimal>(
         (sum, value) => sum.plus(value ?? new Decimal(0)),
         new Decimal(0),
       )
     : undefined;
   const explicitFeeNumber =
-    bridgeTotalNumber ??
+    bridgeTotalWithDestinationGas ??
     (bridgeComponentsTotalNumber && bridgeComponentsTotalNumber.gt(0)
       ? bridgeComponentsTotalNumber
       : undefined) ??
     parseDecimal(totalFeeUsd) ??
-    parseDecimal((intentData as any)?.fees?.total);
+    parseDecimal((intentData as any)?.fees?.total) ??
+    destinationGasSuppliedNumber;
   const feeNumber =
     explicitFeeNumber ?? (hasFiatQuote ? new Decimal(0) : undefined);
   const quotedDestinationUsdNumber = parseDecimal(normalizedIntentDest?.value);
@@ -1010,12 +1025,24 @@ export function SwapIntentPreview({
           label: "Solver Fee",
           value: solverFeeNumber ?? new Decimal(0),
         },
-        ...(gasSuppliedNumber && gasSuppliedNumber.gt(0)
-          ? [{ label: "Gas Sponsorship", value: gasSuppliedNumber }]
+        ...(destinationGasSuppliedNumber && destinationGasSuppliedNumber.gt(0)
+          ? [{ label: "Gas Sponsorship", value: destinationGasSuppliedNumber }]
           : []),
       ]
-    : feeNumber !== undefined
-      ? [{ label: "Network & protocol", value: feeNumber }]
+    : destinationGasSuppliedNumber && destinationGasSuppliedNumber.gt(0)
+      ? [
+          ...(feeNumber && feeNumber.gt(destinationGasSuppliedNumber)
+            ? [
+                {
+                  label: "Network & protocol",
+                  value: feeNumber.minus(destinationGasSuppliedNumber),
+                },
+              ]
+            : []),
+          { label: "Gas Sponsorship", value: destinationGasSuppliedNumber },
+        ]
+      : feeNumber !== undefined
+        ? [{ label: "Network & protocol", value: feeNumber }]
       : [];
 
   const pendingLabel = isLoading ? "Fetching quote" : "Quote unavailable";

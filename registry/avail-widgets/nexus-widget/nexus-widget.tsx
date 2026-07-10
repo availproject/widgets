@@ -222,7 +222,7 @@ const SCIENTIFIC_DECIMAL_REGEX = /^-?(?:\d+\.?\d*|\.\d+)e[+-]?\d+$/i;
 const QUOTE_REFRESH_INTERVAL_MS = 30000;
 const EXACT_OUT_INPUT_DEBOUNCE_MS = 1300;
 const DRAWER_CLOSE_MS = 220;
-const BALANCE_REFRESH_AFTER_TERMINAL_MS = 5000;
+const BALANCE_REFRESH_AFTER_TERMINAL_MS = 3000;
 const MODAL_HEIGHT_TRANSITION_MS = 220;
 const ROOT_HEIGHT_TRANSITION_MS = 140;
 const ASSET_SELECTOR_DRAWER_HEIGHT = "90%";
@@ -4777,6 +4777,115 @@ function NexusWidgetInner({
     const rate = parseFiatNumber(cached?.rate);
     return rate && rate.gt(0) ? rate : new Decimal(0);
   };
+
+  const getFeeTokenLookupAddress = (value?: string | null) => {
+    const lower = (value ?? "").toLowerCase();
+    if (!lower || lower === "0x" || isNativeTokenAddress(lower)) {
+      return zeroAddress;
+    }
+    return lower;
+  };
+
+  const getTokenUsdRateFromBalances = (
+    chainId?: number,
+    contractAddress?: string,
+    symbol?: string
+  ) => {
+    if (!chainId) return undefined;
+    const lookupAddress = getFeeTokenLookupAddress(contractAddress);
+    const lookupSymbol = symbol?.toUpperCase();
+
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        if (breakdown.chain?.id !== chainId) continue;
+        const breakdownAddress = getFeeTokenLookupAddress(
+          breakdown.contractAddress
+        );
+        const addressMatches =
+          lookupAddress && breakdownAddress === lookupAddress;
+        const symbolMatches =
+          lookupSymbol &&
+          [breakdown.symbol, asset.symbol]
+            .filter(Boolean)
+            .some((candidate) => candidate.toUpperCase() === lookupSymbol);
+        if (!addressMatches && !symbolMatches) continue;
+
+        const balance = parseFiatNumber(breakdown.balance);
+        const fiatBalance = parseFiatNumber(breakdown.balanceInFiat);
+        if (balance && fiatBalance && balance.gt(0) && fiatBalance.gt(0)) {
+          return fiatBalance.div(balance);
+        }
+      }
+    }
+
+    return undefined;
+  };
+
+  const getTokenUsdRateFromSupportedChains = (
+    chains: any[] | null | undefined,
+    chainId?: number,
+    contractAddress?: string,
+    symbol?: string
+  ) => {
+    if (!chainId) return undefined;
+    const chain = chains?.find(
+      (item: any) => Number(item?.id ?? item?.chainId) === chainId
+    );
+    const tokens = chain?.tokens ?? chain?.assets ?? [];
+    const lookupAddress = getFeeTokenLookupAddress(contractAddress);
+    const lookupSymbol = symbol?.toUpperCase();
+    const matchedToken = tokens.find((token: any) => {
+      const tokenAddress = getFeeTokenLookupAddress(
+        token?.contractAddress ?? token?.address ?? token?.tokenAddress
+      );
+      const addressMatches = lookupAddress && tokenAddress === lookupAddress;
+      const tokenSymbol = (token?.symbol ?? token?.tokenSymbol ?? "")
+        .toString()
+        .toUpperCase();
+      const symbolMatches = lookupSymbol && tokenSymbol === lookupSymbol;
+      return addressMatches || symbolMatches;
+    });
+    const priceUsd = parseFiatNumber(
+      matchedToken?.priceUSD ??
+        matchedToken?.priceUsd ??
+        matchedToken?.usdPrice ??
+        matchedToken?.price
+    );
+    return priceUsd && priceUsd.gt(0) ? priceUsd : undefined;
+  };
+
+  const getIntentDestinationGasUsdValue = (
+    intent?: SwapIntentData | null
+  ) => {
+    const gas = intent?.destination?.gas;
+    const explicitValue = parseFiatNumber(gas?.value);
+    if (explicitValue && explicitValue.gt(0)) return explicitValue;
+
+    const amount = parseFiatNumber(gas?.amount);
+    if (!amount || amount.lte(0)) return undefined;
+
+    const chainId = intent?.destination?.chain?.id;
+    const contractAddress = gas?.token?.contractAddress;
+    const symbol = gas?.token?.symbol;
+    const rate =
+      getTokenUsdRateFromBalances(chainId, contractAddress, symbol) ??
+      getTokenUsdRateFromSupportedChains(
+        swapSupportedChainsAndTokens,
+        chainId,
+        contractAddress,
+        symbol
+      ) ??
+      getTokenUsdRateFromSupportedChains(
+        supportedChainsAndTokens,
+        chainId,
+        contractAddress,
+        symbol
+      ) ??
+      getUsdRateForSymbol(symbol);
+
+    return rate.gt(0) ? amount.mul(rate) : undefined;
+  };
+
   const getCachedDestinationUsdRate = (token?: SwapTokenOption) => {
     return getCachedIntentUsdRate(token);
   };
@@ -6516,24 +6625,38 @@ function NexusWidgetInner({
                 fulfilmentFee ?? new Decimal(0)
               )
             : undefined);
+        const bridgeGasSuppliedFee = parseFiatNumber(
+          bridgeFeeData?.gasSupplied
+        );
+        const destinationGasSuppliedFee =
+          getIntentDestinationGasUsdValue(enrichedIntent);
+        const gasSuppliedFee =
+          bridgeGasSuppliedFee ?? destinationGasSuppliedFee;
         const bridgeComponentsTotal = bridgeFeeData
           ? [
               executionGasFee,
               parseFiatNumber(bridgeFeeData.protocol),
               parseFiatNumber(bridgeFeeData.solver),
-              parseFiatNumber(bridgeFeeData.gasSupplied),
+              gasSuppliedFee,
             ].reduce<Decimal>(
               (sum, value) => sum.plus(value ?? new Decimal(0)),
               new Decimal(0)
             )
           : undefined;
-        const bridgeTotal =
+        const rawBridgeTotal =
           typeof bridgeFees === "string"
             ? parseFiatNumber(bridgeFees)
-            : (parseFiatNumber(bridgeFeeData?.total) ??
+            : parseFiatNumber(bridgeFeeData?.total);
+        const bridgeTotal =
+          rawBridgeTotal &&
+          !bridgeGasSuppliedFee &&
+          destinationGasSuppliedFee &&
+          destinationGasSuppliedFee.gt(0)
+            ? rawBridgeTotal.plus(destinationGasSuppliedFee)
+            : (rawBridgeTotal ??
               (bridgeComponentsTotal && bridgeComponentsTotal.gt(0)
                 ? bridgeComponentsTotal
-                : undefined));
+                : destinationGasSuppliedFee));
 
         if (bridgeTotal !== undefined) {
           setIntentFeeUsd(
@@ -6550,6 +6673,7 @@ function NexusWidgetInner({
     [
       activeMode,
       fromTokens,
+      getFiatValue,
       sourceSelectionTouched,
       swapType,
       swapBalance,
@@ -8127,8 +8251,16 @@ function NexusWidgetInner({
     rotateAttempt();
   };
 
+  const resetSourceSelectionAfterFailure = () => {
+    lastAutoIntentSourceTokensRef.current = [];
+    lastIntentSourceTokensRef.current = [];
+    resetSourcePickerDraft();
+    resetExactOutSourcesToAuto();
+  };
+
   const handleFailureBack = () => {
     clearPendingSwapIntent();
+    resetSourceSelectionAfterFailure();
     setTxError(null);
     void refreshSelectedSourceBalances();
     setSwapStep("idle");
@@ -10332,6 +10464,12 @@ function NexusWidgetInner({
     previewDestinationUsdNumber && previewDestinationUsdNumber.gt(0)
       ? previewDestinationUsdNumber.toDecimalPlaces(6).toFixed()
       : undefined;
+  const previewDestinationGasFeeUsd = (() => {
+    const value = getIntentDestinationGasUsdValue(intentData);
+    return value && value.gt(0)
+      ? value.toDecimalPlaces(6, Decimal.ROUND_DOWN).toFixed()
+      : undefined;
+  })();
   const predictiveExactInQuote =
     predictiveQuote?.mode === "exactIn" &&
     predictiveQuote.key === getPredictiveQuoteCacheKey("swap", "exactIn")
@@ -10920,6 +11058,7 @@ function NexusWidgetInner({
                   >
                     <SwapIntentPreview
                       activeMode={activeMode}
+                      destinationGasFeeUsd={previewDestinationGasFeeUsd}
                       estimatedTime="10s"
                       explorerUrls={explorerUrls}
                       fromAmount={amount}
@@ -10978,8 +11117,7 @@ function NexusWidgetInner({
                       <SwapReceiptPanel
                         entry={currentSwapEntry}
                         onDone={
-                          swapStep === "failed" &&
-                          currentSwapEntry.status !== "timeout"
+                          swapStep === "failed"
                             ? handleFailureBack
                             : handleTerminalReceiptDone
                         }
