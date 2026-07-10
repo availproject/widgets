@@ -3580,7 +3580,8 @@ function NexusWidgetInner({
   const primaryColor = normalizeNexusWidgetPrimaryColor(
     appearanceConfig?.primaryColor
   );
-  const primaryButtonBackground = primaryColor ?? nexusWidgetTheme.colors.text;
+  const primaryButtonBackground =
+    primaryColor ?? NEXUS_WIDGET_DEFAULT_PRIMARY_COLOR;
   const primaryButtonForeground = getReadableTextColor(
     primaryButtonBackground
   );
