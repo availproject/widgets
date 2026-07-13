@@ -1,6 +1,6 @@
 {
   "name": "@avail-project/widgets",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Compiled Avail widgets for React applications.",
   "author": "shrinathprabhu <shrinathprabhu.123@gmail.com>",
   "contributors": [
@@ -38,7 +38,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@avail-project/nexus-core": "2.0.0",
+    "@avail-project/nexus-core": "2.1.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
