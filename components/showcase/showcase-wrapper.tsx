@@ -26,6 +26,7 @@ interface ShowcaseWrapperProps extends ToggleControlProps {
   toggleLabel?: string;
   toggle?: boolean;
   banner?: string;
+  controls?: React.ReactNode;
 }
 
 const ShowcaseWrapper = ({
@@ -40,6 +41,7 @@ const ShowcaseWrapper = ({
   defaultPressed,
   onPressedChange,
   banner,
+  controls,
   ...toggleProps
 }: ShowcaseWrapperProps) => {
   const resolvedToggle =
@@ -53,23 +55,26 @@ const ShowcaseWrapper = ({
 
   return (
     <div className="w-full flex flex-col gap-y-4">
-      {resolvedToggle ? (
-        <div className="flex items-center justify-end w-full">
-          <Toggle
-            variant={variant}
-            size={size}
-            pressed={pressed}
-            defaultPressed={defaultPressed}
-            onPressedChange={onPressedChange}
-            {...toggleProps}
-          >
-            <p className="text-sm font-medium">{label}</p>
-            {isPressed ? (
-              <Check className="size-4" />
-            ) : (
-              <X className="size-4" />
-            )}
-          </Toggle>
+      {resolvedToggle || controls ? (
+        <div className="flex flex-wrap items-center justify-end gap-2 w-full">
+          {controls}
+          {resolvedToggle ? (
+            <Toggle
+              variant={variant}
+              size={size}
+              pressed={pressed}
+              defaultPressed={defaultPressed}
+              onPressedChange={onPressedChange}
+              {...toggleProps}
+            >
+              <p className="text-sm font-medium">{label}</p>
+              {isPressed ? (
+                <Check className="size-4" />
+              ) : (
+                <X className="size-4" />
+              )}
+            </Toggle>
+          ) : null}
         </div>
       ) : null}
       {banner ? <p className="text-sm font-medium">{banner}</p> : null}

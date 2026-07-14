@@ -11,6 +11,10 @@ import {
 } from "viem";
 import { useAccount } from "wagmi";
 import { useConnectWalletClick } from "../helpers/use-connect-wallet-click";
+import {
+  NexusWidgetRenderModeToggle,
+  type NexusWidgetRenderMode,
+} from "./nexus-widget-render-mode-toggle";
 
 const AAVE_ABI = [
   {
@@ -467,6 +471,9 @@ const NexusWidgetDepositShowcase = () => {
   >("aave-arbitrum");
   const [isOpen, setIsOpen] = useState(false);
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
+  const [renderMode, setRenderMode] =
+    useState<NexusWidgetRenderMode>("inline");
+  const isPopupMode = renderMode === "popup";
 
   // Default sandbox configuration state
   const [sandboxConfig, setSandboxConfig] = useState<{
@@ -736,6 +743,12 @@ const NexusWidgetDepositShowcase = () => {
     <ShowcaseWrapper
       type="nexus-widget"
       connectLabel="Connect wallet to use Deposit"
+      controls={
+        <NexusWidgetRenderModeToggle
+          value={renderMode}
+          onValueChange={setRenderMode}
+        />
+      }
     >
       <div className="flex flex-col gap-6 w-full items-center">
         {/* Custom Dropdown Selector */}
@@ -921,7 +934,9 @@ const NexusWidgetDepositShowcase = () => {
           }}
         >
           <NexusWidget
-            key={selectedOpt}
+            key={`${selectedOpt}-${renderMode}`}
+            embed={!isPopupMode}
+            defaultOpen={isPopupMode}
             config={{
               mode: "deposit",
               destination: {
