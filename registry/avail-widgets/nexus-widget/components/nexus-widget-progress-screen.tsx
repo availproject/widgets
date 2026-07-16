@@ -14,6 +14,7 @@ import {
   type NexusWidgetDepositOpportunityMetadata,
   type NexusWidgetMode,
 } from "../types";
+import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
 
@@ -1207,10 +1208,15 @@ export function NexusWidgetProgressScreen({
                       }}
                     />
                   ) : (
-                    <Loader2
-                      className="animate-spin"
-                      style={{ color: brand, height: 15, width: 15 }}
-                    />
+	                    <Loader2
+	                      className="animate-spin"
+	                      style={{
+	                        ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+	                        color: brand,
+	                        height: 15,
+	                        width: 15,
+	                      }}
+	                    />
                   )}
                   <span
                     style={{

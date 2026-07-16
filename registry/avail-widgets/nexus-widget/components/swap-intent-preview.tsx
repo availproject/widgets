@@ -13,6 +13,7 @@ import {
   type NexusWidgetDepositOpportunityMetadata,
   type NexusWidgetMode,
 } from "../types";
+import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { type SwapTokenOption } from "./swap-asset-selector";
 
 export interface SwapIntentSource {
@@ -1922,7 +1923,10 @@ export function SwapIntentPreview({
             "Swapping..."
           )
         ) : isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2
+            className="h-4 w-4 animate-spin"
+            style={NEXUS_WIDGET_FAST_SPINNER_STYLE}
+          />
         ) : isRefreshing ? (
           "Refreshing quotes..."
         ) : quoteUnavailable ? (

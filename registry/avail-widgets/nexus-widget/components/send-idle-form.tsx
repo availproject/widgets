@@ -4,6 +4,7 @@ import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { PayWithSources as SharedPayWithSources } from "./pay-with-sources";
+import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import {
   formatSelectedTokenBalanceLabel,
   type SwapTokenOption,
@@ -390,7 +391,11 @@ function PayWithSources({
           >
             <Loader2
               className="animate-spin"
-              style={{ height: 13, width: 13 }}
+              style={{
+                ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+                height: 13,
+                width: 13,
+              }}
             />
             Calculating best route...
           </div>
@@ -867,6 +872,7 @@ export function SendIdleForm({
               <Loader2
                 className="animate-spin"
                 style={{
+                  ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
                   color: brand,
                   flexShrink: 0,
                   height: 18,

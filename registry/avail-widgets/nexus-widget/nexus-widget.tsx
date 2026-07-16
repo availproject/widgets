@@ -79,6 +79,7 @@ import {
 } from "./components/swap-intent-preview";
 import {
   NEXUS_WIDGET_DEFAULT_PRIMARY_COLOR,
+  NEXUS_WIDGET_FAST_SPINNER_STYLE,
   nexusWidgetTheme,
 } from "./theme";
 import {
@@ -11265,12 +11266,13 @@ function NexusWidgetInner({
                     ) : (needsWalletConnection && walletConnectBusy) ||
                       quoteRefreshing ||
                       receiveMaxCalculating ? (
-                      <Loader2
-                        className="animate-spin"
-                        style={{
-                          color: isSwapCtaDisabled
-                            ? theme.colors.muted
-                            : primaryButtonForeground,
+	                      <Loader2
+	                        className="animate-spin"
+	                        style={{
+	                          ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+	                          color: isSwapCtaDisabled
+	                            ? theme.colors.muted
+	                            : primaryButtonForeground,
                           height: "14px",
                           width: "14px",
                         }}
@@ -11435,12 +11437,13 @@ function NexusWidgetInner({
                         ) : (needsWalletConnection && walletConnectBusy) ||
                           isExactOutPaymentQuotePending ||
                           receiveMaxCalculating ? (
-                          <Loader2
-                            className="animate-spin"
-                            style={{
-                              color: isDepositCtaDisabled
-                                ? theme.colors.muted
-                                : primaryButtonForeground,
+	                          <Loader2
+	                            className="animate-spin"
+	                            style={{
+	                              ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+	                              color: isDepositCtaDisabled
+	                                ? theme.colors.muted
+	                                : primaryButtonForeground,
                               height: "14px",
                               width: "14px",
                             }}
@@ -11610,12 +11613,13 @@ function NexusWidgetInner({
                       (!sendNeedsRecipient &&
                         (isExactOutPaymentQuotePending ||
                           receiveMaxCalculating)) ? (
-                      <Loader2
-                        className="animate-spin"
-                        style={{
-                          color: isSendCtaDisabled
-                            ? theme.colors.muted
-                            : primaryButtonForeground,
+	                      <Loader2
+	                        className="animate-spin"
+	                        style={{
+	                          ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+	                          color: isSendCtaDisabled
+	                            ? theme.colors.muted
+	                            : primaryButtonForeground,
                           height: "14px",
                           width: "14px",
                         }}

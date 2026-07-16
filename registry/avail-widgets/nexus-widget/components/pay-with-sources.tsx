@@ -3,6 +3,7 @@
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
+import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { type SwapTokenOption } from "./swap-asset-selector";
 
 const uiFont = '"Geist", system-ui, sans-serif';
@@ -290,7 +291,11 @@ export function PayWithSources({
           >
             <Loader2
               className="animate-spin"
-              style={{ height: 14, width: 14 }}
+              style={{
+                ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+                height: 14,
+                width: 14,
+              }}
             />
             Calculating best route...
           </div>

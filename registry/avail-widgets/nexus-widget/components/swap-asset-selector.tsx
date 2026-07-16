@@ -31,6 +31,7 @@ import {
   isSwapSupportedBySdkChainList,
 } from "../../common/utils/constant";
 import type { UserAsset } from "../../nexus/NexusProvider";
+import { NEXUS_WIDGET_FAST_SPINNER_ANIMATION } from "../theme";
 
 const tabularNums: React.CSSProperties = {
   fontFeatureSettings: '"tnum"',
@@ -2466,7 +2467,7 @@ export function SwapAssetSelector({
                 width: 20,
                 height: 20,
                 color: "#848483",
-                animation: "spin 1s linear infinite",
+                animation: NEXUS_WIDGET_FAST_SPINNER_ANIMATION,
               }}
             />
             <p
