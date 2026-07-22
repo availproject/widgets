@@ -46,10 +46,10 @@ interface SwapIdleFormProps {
 /** Chevron down icon used in asset selector pills */
 const ChevronDownIcon = () => (
   <svg
-    height="10"
-    style={{ width: "12px", height: "12px", flexShrink: 0 }}
+    height="16"
+    style={{ width: "16px", height: "16px", flexShrink: 0 }}
     viewBox="0 0 10 10"
-    width="10"
+    width="16"
     xmlns="http://www.w3.org/2000/svg"
   >
     <path
@@ -58,7 +58,7 @@ const ChevronDownIcon = () => (
       stroke="#848483"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth="1.3"
+      strokeWidth="1.15"
     />
   </svg>
 );
@@ -1265,11 +1265,11 @@ export function SwapIdleForm({
                           boxShadow: token ? "#1616150A 0px 1px 2px" : "none",
                           boxSizing: "border-box",
                           display: "flex",
-                          gap: "6px",
-                          paddingBottom: "3px",
-                          paddingLeft: token ? "3px" : "7px",
-                          paddingRight: "8px",
-                          paddingTop: "3px",
+                          gap: "8px",
+                          paddingBottom: "5px",
+                          paddingLeft: token ? "5px" : "10px",
+                          paddingRight: "10px",
+                          paddingTop: "5px",
                           cursor: isSourcePickerDisabled
                             ? "not-allowed"
                             : "pointer",
@@ -1279,31 +1279,31 @@ export function SwapIdleForm({
                       >
                         {token ? (
                           token.isUnified ? (
-                            <UnifiedTokenLogoBadge size={20} token={token} />
+                            <UnifiedTokenLogoBadge size={26} token={token} />
                           ) : (
                             <div
                               style={{
                                 boxSizing: "border-box",
                                 flexShrink: 0,
-                                height: "20px",
+                                height: "26px",
                                 position: "relative" as const,
-                                width: "20px",
+                                width: "26px",
                               }}
                             >
                               <LogoCircle
                                 alt={token.symbol}
-                                fontSize={10}
+                                fontSize={13}
                                 label={token.symbol}
-                                size={20}
+                                size={26}
                                 src={token.logo}
                               />
                               {token.chainLogo && (
                                 <LogoCircle
                                   alt={token.chainName}
-                                  fontSize={5}
+                                  fontSize={6}
                                   label={token.chainName}
                                   outline="1px solid #FFFFFE"
-                                  size={10}
+                                  size={12}
                                   src={token.chainLogo}
                                   style={{
                                     bottom: -2,
@@ -1323,8 +1323,8 @@ export function SwapIdleForm({
                               borderWidth: "1.5px",
                               boxSizing: "border-box",
                               flexShrink: 0,
-                              height: "18px",
-                              width: "18px",
+                              height: "26px",
+                              width: "26px",
                             }}
                           />
                         )}
@@ -1333,9 +1333,9 @@ export function SwapIdleForm({
                             boxSizing: "border-box",
                             color: "#161615",
                             fontFamily: '"Geist", system-ui, sans-serif',
-                            fontSize: token ? "12px" : "14px",
+                            fontSize: "16px",
                             fontWeight: 500,
-                            lineHeight: token ? "16px" : "20px",
+                            lineHeight: "24px",
                           }}
                         >
                           {token ? token.symbol : "Assets"}
@@ -1841,11 +1841,11 @@ export function SwapIdleForm({
                 boxShadow: toToken ? "#1616150A 0px 1px 2px" : "none",
                 boxSizing: "border-box",
                 display: "flex",
-                gap: "6px",
-                paddingBottom: "3px",
-                paddingLeft: toToken ? "3px" : "7px",
-                paddingRight: "8px",
-                paddingTop: "3px",
+                gap: "8px",
+                paddingBottom: "5px",
+                paddingLeft: toToken ? "5px" : "10px",
+                paddingRight: "10px",
+                paddingTop: "5px",
                 cursor: isDestinationPickerDisabled ? "default" : "pointer",
                 flexShrink: 0,
               }}
@@ -1855,25 +1855,25 @@ export function SwapIdleForm({
                   style={{
                     boxSizing: "border-box",
                     flexShrink: 0,
-                    height: "20px",
+                    height: "26px",
                     position: "relative" as const,
-                    width: "20px",
+                    width: "26px",
                   }}
                 >
                   <LogoCircle
                     alt={toToken.symbol}
-                    fontSize={10}
+                    fontSize={13}
                     label={toToken.symbol}
-                    size={20}
+                    size={26}
                     src={toToken.logo}
                   />
                   {toToken.chainLogo && (
                     <LogoCircle
                       alt={toToken.chainName}
-                      fontSize={5}
+                      fontSize={6}
                       label={toToken.chainName}
                       outline="1px solid #FFFFFE"
-                      size={10}
+                      size={12}
                       src={toToken.chainLogo}
                       style={{
                         bottom: -2,
@@ -1892,8 +1892,8 @@ export function SwapIdleForm({
                     borderWidth: "1.5px",
                     boxSizing: "border-box",
                     flexShrink: 0,
-                    height: "18px",
-                    width: "18px",
+                    height: "26px",
+                    width: "26px",
                   }}
                 />
               )}
@@ -1902,9 +1902,9 @@ export function SwapIdleForm({
                   boxSizing: "border-box",
                   color: "#161615",
                   fontFamily: '"Geist", system-ui, sans-serif',
-                  fontSize: toToken ? "12px" : "14px",
+                  fontSize: "16px",
                   fontWeight: 500,
-                  lineHeight: toToken ? "16px" : "20px",
+                  lineHeight: "24px",
                 }}
               >
                 {toToken ? toToken.symbol : "Assets"}

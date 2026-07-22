@@ -51,7 +51,9 @@ import {
 import { type UserAsset, useNexus } from "../nexus/NexusProvider";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
+import { DepositFundingMethod } from "./components/deposit-funding-method";
 import { DepositIdleForm } from "./components/deposit-idle-form";
+import { DepositOnrampFlow } from "./components/deposit-onramp-flow";
 import {
   type NexusWidgetProgressEvent,
   NexusWidgetProgressScreen,
@@ -117,6 +119,8 @@ type SwapStep =
   | "success" // completed seamlessly
   | "failed" // failed swap receipt
   | "history"; // transaction history
+
+type DepositFundingStep = "method" | "wallet" | "onramp";
 
 type SourceFilterTab = "all" | "native" | "stables";
 
@@ -3770,6 +3774,11 @@ function NexusWidgetInner({
   // Swap-specific
   const [swapType, setSwapType] = useState<SwapType>("exactIn");
   const [swapStep, setSwapStep] = useState<SwapStep>("idle");
+  const [depositFundingStep, setDepositFundingStep] =
+    useState<DepositFundingStep>("method");
+  const [depositOnrampSessionState, setDepositOnrampSessionState] = useState<
+    string | null
+  >(null);
   const drawerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -3812,6 +3821,10 @@ function NexusWidgetInner({
     undefined
   );
   const [fromTokensQuoteKey, setFromTokensQuoteKey] = useState("");
+
+  useEffect(() => {
+    setDepositFundingStep(activeMode === "deposit" ? "method" : "wallet");
+  }, [activeMode]);
 
   useEffect(() => {
     const key = getSourceTokensQuoteKey(
@@ -9959,6 +9972,73 @@ function NexusWidgetInner({
   // ---------------------------------------------------------------------------
   // Header title
   // ---------------------------------------------------------------------------
+  const isDepositMethodScreen =
+    activeMode === "deposit" &&
+    swapStep === "idle" &&
+    depositFundingStep === "method";
+  const isDepositWalletScreen =
+    activeMode === "deposit" &&
+    swapStep === "idle" &&
+    depositFundingStep === "wallet";
+  const isDepositOnrampScreen =
+    activeMode === "deposit" &&
+    swapStep === "idle" &&
+    depositFundingStep === "onramp";
+  const normalizedDepositOnrampSessionState =
+    depositOnrampSessionState?.trim().toUpperCase() ?? "";
+  const hasDepositOnrampSession =
+    isDepositOnrampScreen && Boolean(depositOnrampSessionState);
+  const getDepositOnrampSessionTitle = () => {
+    if (
+      normalizedDepositOnrampSessionState === "SETTLED" ||
+      [
+        "COMPLETED",
+        "DEPOSIT_COMPLETE",
+        "DEPOSIT_SUCCESS",
+        "DEPOSITED",
+      ].includes(normalizedDepositOnrampSessionState)
+    ) {
+      return "Success";
+    }
+    if (normalizedDepositOnrampSessionState === "FAILED") {
+      return "Payment failed";
+    }
+    if (
+      [
+        "DEPOSIT_ATTENTION",
+        "DEPOSIT_FAILED",
+        "DEPOSIT_REQUIRES_ATTENTION",
+      ].includes(normalizedDepositOnrampSessionState)
+    ) {
+      return "Deposit needs your attention";
+    }
+    if (normalizedDepositOnrampSessionState === "CANCELLED") {
+      return "Payment cancelled";
+    }
+    if (normalizedDepositOnrampSessionState === "REFUNDED") {
+      return "Payment refunded";
+    }
+    if (normalizedDepositOnrampSessionState === "EXPIRED") {
+      return "Payment expired";
+    }
+    if (
+      [
+        "COMPLETING_DEPOSIT",
+        "DEPOSIT_PROCESSING",
+        "DEPOSITING",
+      ].includes(normalizedDepositOnrampSessionState)
+    ) {
+      return "Completing your deposit";
+    }
+    if (
+      normalizedDepositOnrampSessionState === "PROCESSING" ||
+      normalizedDepositOnrampSessionState === "SETTLING"
+    ) {
+      return "Processing your payment";
+    }
+    return "Continue on Other Window";
+  };
+
   const getTitle = () => {
     const configuredWidgetHeading = normalizeConfiguredString(
       appearanceConfig?.widgetHeading
@@ -9985,6 +10065,11 @@ function NexusWidgetInner({
       return configuredWidgetHeading ?? "Swap and Bridge";
     }
     if (activeMode === "deposit") {
+      if (isDepositOnrampScreen) {
+        return hasDepositOnrampSession
+          ? getDepositOnrampSessionTitle()
+          : "Payment Amount";
+      }
       if (swapStep === "progress") return "Depositing…";
       if (swapStep === "success") return "Deposit Complete";
       if (swapStep === "failed" && currentSwapEntry?.status === "timeout") {
@@ -10012,8 +10097,22 @@ function NexusWidgetInner({
     return true; // idle, drawer panels, preview-intent, progress, etc.
   };
 
-  const canGoBack = swapStep === "preview-intent" || swapStep === "history";
+  const canGoBack =
+    swapStep === "preview-intent" ||
+    swapStep === "history" ||
+    isDepositWalletScreen ||
+    (isDepositOnrampScreen && !hasDepositOnrampSession);
+  const showHistoryButton =
+    !(isDepositMethodScreen || isDepositOnrampScreen);
   const handleBack = () => {
+    if (
+      activeMode === "deposit" &&
+      swapStep === "idle" &&
+      depositFundingStep !== "method"
+    ) {
+      setDepositFundingStep("method");
+      return;
+    }
     if (swapStep === "history") {
       setSwapStep("idle");
       return;
@@ -10860,7 +10959,19 @@ function NexusWidgetInner({
             zIndex: 10,
           }}
         >
-          <div className="flex items-center gap-x-2">
+          <div
+            className="flex items-center gap-x-2"
+            style={
+              hasDepositOnrampSession
+                ? {
+                    justifyContent: "center",
+                    paddingInline: "36px",
+                    textAlign: "center",
+                    width: "100%",
+                  }
+                : undefined
+            }
+          >
             {canGoBack && (
               <button
                 aria-label="Back"
@@ -10916,6 +11027,9 @@ function NexusWidgetInner({
               boxSizing: "border-box",
               display: "flex",
               gap: "9px",
+              position: hasDepositOnrampSession ? "absolute" : undefined,
+              right: hasDepositOnrampSession ? 0 : undefined,
+              top: hasDepositOnrampSession ? 0 : undefined,
             }}
           >
             {hasQuoteRefreshCountdown && (
@@ -10925,56 +11039,58 @@ function NexusWidgetInner({
                 secondsRemaining={quoteRefreshSecondsRemaining}
               />
             )}
-            <button
-              onClick={() => setSwapStep("history")}
-              style={{
-                alignItems: "center",
-                backgroundColor: theme.primitives.iconButton.backgroundColor,
-                borderColor: theme.primitives.iconButton.borderColor,
-                borderRadius: theme.radius.iconButton,
-                borderStyle: "solid",
-                borderWidth: "1px",
-                boxShadow: theme.primitives.iconButton.boxShadow,
-                boxSizing: "border-box",
-                display: "flex",
-                flexShrink: 0,
-                height: "28px",
-                justifyContent: "center",
-                width: "28px",
-                cursor: "pointer",
-                padding: 0,
-              }}
-            >
-              <svg
-                fill="none"
-                height="14"
-                style={{ width: "14px", height: "14px", flexShrink: 0 }}
-                viewBox="0 0 16 16"
-                width="14"
-                xmlns="http://www.w3.org/2000/svg"
+            {showHistoryButton && (
+              <button
+                onClick={() => setSwapStep("history")}
+                style={{
+                  alignItems: "center",
+                  backgroundColor: theme.primitives.iconButton.backgroundColor,
+                  borderColor: theme.primitives.iconButton.borderColor,
+                  borderRadius: theme.radius.iconButton,
+                  borderStyle: "solid",
+                  borderWidth: "1px",
+                  boxShadow: theme.primitives.iconButton.boxShadow,
+                  boxSizing: "border-box",
+                  display: "flex",
+                  flexShrink: 0,
+                  height: "28px",
+                  justifyContent: "center",
+                  width: "28px",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
               >
-                <path
-                  d="M8 4V8L10.5 9.5"
-                  stroke={theme.colors.textStrong}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.4"
-                />
-                <path
-                  d="M14 8C14 11.314 11.314 14 8 14C4.686 14 2 11.314 2 8C2 4.686 4.686 2 8 2C10.196 2 12.117 3.179 13.163 4.936"
-                  stroke={theme.colors.textStrong}
-                  strokeLinecap="round"
-                  strokeWidth="1.4"
-                />
-                <path
-                  d="M13.5 2V5H10.5"
-                  stroke={theme.colors.textStrong}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.4"
-                />
-              </svg>
-            </button>
+                <svg
+                  fill="none"
+                  height="14"
+                  style={{ width: "14px", height: "14px", flexShrink: 0 }}
+                  viewBox="0 0 16 16"
+                  width="14"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M8 4V8L10.5 9.5"
+                    stroke={theme.colors.textStrong}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.4"
+                  />
+                  <path
+                    d="M14 8C14 11.314 11.314 14 8 14C4.686 14 2 11.314 2 8C2 4.686 4.686 2 8 2C10.196 2 12.117 3.179 13.163 4.936"
+                    stroke={theme.colors.textStrong}
+                    strokeLinecap="round"
+                    strokeWidth="1.4"
+                  />
+                  <path
+                    d="M13.5 2V5H10.5"
+                    stroke={theme.colors.textStrong}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.4"
+                  />
+                </svg>
+              </button>
+            )}
             {showCloseButton && (
               <button
                 aria-label="Close"
@@ -11315,7 +11431,57 @@ function NexusWidgetInner({
               "enter-recipient",
             ].includes(swapStep) && (
               <>
-                {selectedOpportunity && (
+                {swapStep === "idle" && depositFundingStep === "method" && (
+                  <DepositFundingMethod
+                    onSelectLocalCurrency={() => {
+                      if (needsWalletConnection) {
+                        void handleConnectWallet();
+                        return;
+                      }
+                      setDepositFundingStep("onramp");
+                    }}
+                    onSelectWallet={() => setDepositFundingStep("wallet")}
+                    primaryButtonForeground={primaryButtonForeground}
+                    totalBalance={totalSwapBalanceUsd}
+                  />
+                )}
+
+                {swapStep === "idle" && depositFundingStep === "onramp" && (
+                  <DepositOnrampFlow
+                    destinationTokens={configuredDestinationTokenOptions}
+                    onConnectWallet={handleConnectWallet}
+                    onError={(message) => {
+                      setTxError(message);
+                      onError?.(message);
+                    }}
+                    onSelectDestinationToken={(token) => {
+                      const tokenChanged = !isSameTokenSelection(toToken, token);
+                      if (tokenChanged) {
+                        onReceiveAssetChange?.({
+                          chainId: token.chainId,
+                          chainName: token.chainName,
+                          contractAddress: token.contractAddress,
+                          symbol: token.symbol,
+                        });
+                      }
+                      const nextDeposit = getDepositForTokenSelection(
+                        configuredDepositOptions,
+                        token
+                      );
+                      if (nextDeposit) {
+                        setSelectedOpportunity(nextDeposit);
+                      }
+                      setToToken(token);
+                    }}
+                    onSessionStateChange={setDepositOnrampSessionState}
+                    ownerAddress={ownerAddress}
+                    opportunity={selectedOpportunity}
+                    primaryButtonForeground={primaryButtonForeground}
+                    toToken={toTokenWithFetchedBalance}
+                  />
+                )}
+
+                {selectedOpportunity && depositFundingStep === "wallet" && (
                   <>
                     <DepositIdleForm
                       amount={amount}

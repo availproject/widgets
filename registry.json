@@ -884,8 +884,18 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-funding-method.tsx",
+          "target": "components/nexus/components/deposit-funding-method.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/deposit-idle-form.tsx",
           "target": "components/nexus/components/deposit-idle-form.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-onramp-flow.tsx",
+          "target": "components/nexus/components/deposit-onramp-flow.tsx",
           "type": "registry:component"
         },
         {
