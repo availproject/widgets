@@ -29,4 +29,4 @@ minimumReleaseAgeExclude:
   - "@posthog/core@1.30.6"
   - "@posthog/types@1.379.3"
   - posthog-js@1.379.3
-  - '@avail-project/nexus-core@2.1.0'
+  - "@avail-project/nexus-core"
