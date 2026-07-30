@@ -7,6 +7,7 @@ import { nexusWidgetTheme } from "../theme";
 type FundingMethod = "wallet" | "local-currency";
 
 interface DepositFundingMethodProps {
+  isBalanceLoading?: boolean;
   onSelectLocalCurrency: () => void;
   onSelectWallet: () => void;
   primaryButtonForeground: string;
@@ -87,9 +88,36 @@ function RadioMark({ selected }: { selected: boolean }) {
   );
 }
 
+function AmountSkeleton({
+  height = "16px",
+  width = "64px",
+}: {
+  height?: string;
+  width?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className="animate-pulse"
+      style={{
+        background:
+          "linear-gradient(90deg, #F0F0EF 0%, #E6EEFF 48%, #F0F0EF 100%)",
+        backgroundSize: "200% 100%",
+        borderRadius: "6px",
+        display: "inline-block",
+        flexShrink: 0,
+        height,
+        maxWidth: "100%",
+        width,
+      }}
+    />
+  );
+}
+
 function FundingOption({
   active,
   amount,
+  amountLoading = false,
   description,
   icon,
   label,
@@ -98,6 +126,7 @@ function FundingOption({
 }: {
   active: boolean;
   amount?: string;
+  amountLoading?: boolean;
   description: string;
   icon: React.ReactNode;
   label: string;
@@ -172,7 +201,7 @@ function FundingOption({
           {description}
         </span>
       </div>
-      {amount && (
+      {(amount || amountLoading) && (
         <span
           style={{
             color: theme.colors.textStrong,
@@ -184,7 +213,7 @@ function FundingOption({
             lineHeight: "20px",
           }}
         >
-          ${amount}
+          {amountLoading ? <AmountSkeleton /> : `$${amount}`}
         </span>
       )}
       <RadioMark selected={active} />
@@ -193,6 +222,7 @@ function FundingOption({
 }
 
 export function DepositFundingMethod({
+  isBalanceLoading = false,
   onSelectLocalCurrency,
   onSelectWallet,
   primaryButtonForeground,
@@ -240,6 +270,7 @@ export function DepositFundingMethod({
         <FundingOption
           active={selectedMethod === "wallet"}
           amount={totalBalance}
+          amountLoading={isBalanceLoading}
           description="Wallet balance"
           icon={
             <Wallet

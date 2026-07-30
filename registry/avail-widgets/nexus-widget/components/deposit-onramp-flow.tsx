@@ -15,42 +15,90 @@ import {
 } from "lucide-react";
 import React from "react";
 import {
-  NEXUS_WIDGET_FAST_SPINNER_STYLE,
-  nexusWidgetTheme,
-} from "../theme";
+  erc20Abi,
+  formatUnits,
+  parseUnits,
+  zeroAddress,
+  type Address,
+  type Hex,
+  type PublicClient,
+} from "viem";
+import { NEXUS_WIDGET_FAST_SPINNER_STYLE, nexusWidgetTheme } from "../theme";
 import type { NexusWidgetDepositOpportunityConfig } from "../types";
 import type { SwapTokenOption } from "./swap-asset-selector";
 
 type OnrampCryptoCurrency = {
-  chainId: number;
+  chainCode?: string;
+  chainId: number | string;
   contract?: string;
   currencyCode: string;
   decimals?: number;
   name?: string;
+  symbolUrl?: string;
+  token?: string;
+};
+
+type OnrampCountry = {
+  countryCode: string;
+  flagUrl?: string;
+  name: string;
+  subdivisions?: unknown[];
+};
+
+type OnrampFiatCurrency =
+  | string
+  | {
+      code?: string;
+      currencyCode?: string;
+      flagUrl?: string;
+      name?: string;
+      symbol?: string;
+      symbolUrl?: string;
+    };
+
+type OnrampFiatCurrencyOption = {
+  currencyCode: string;
+  flagUrl?: string;
+  name?: string;
+  symbol?: string;
+  symbolUrl?: string;
 };
 
 type OnrampOptionsResponse = {
-  countries?: {
-    countryCode: string;
-    flagUrl?: string;
-    name: string;
-  }[];
+  countries?: OnrampCountry[];
   selection?: {
     countryCode: string;
     cryptoCurrencies?: OnrampCryptoCurrency[];
     defaultFiat?: string;
     defaultPaymentMethods?: string[];
-    fiatCurrencies?: string[];
+    fiatCurrencies?: OnrampFiatCurrency[];
   } | null;
 };
 
+type IpCountryResponse = {
+  country?: string;
+  ip?: string;
+};
+
+type OnrampErrorResponse = {
+  code?: string;
+  errorId?: string;
+  message?: string;
+  subcode?: string;
+};
+
 type OnrampPaymentMethod = {
+  description?: string;
+  duration?: string;
+  estimatedDuration?: string;
+  estimatedTime?: string;
   limits?: {
     currencyCode?: string;
     max?: string;
     min?: string;
   };
   method: string;
+  subtitle?: string;
   type?: string;
 };
 
@@ -61,6 +109,15 @@ type OnrampRoute = {
 
 type OnrampRoutesResponse = {
   routes?: OnrampRoute[];
+};
+
+type OnrampProviderOption = {
+  destinationAmount?: string;
+  paymentMethod?: OnrampPaymentMethod;
+  paymentMethodType?: string;
+  provider: string;
+  quote?: OnrampQuote;
+  route?: OnrampRoute;
 };
 
 type OnrampQuote = {
@@ -109,6 +166,29 @@ type OnrampSessionResponse = {
   widgetUrl?: string;
 };
 
+type OnrampCacheRecord<T> = {
+  expiresAt: number;
+  value: T;
+};
+
+type OnrampBlockedRequest = {
+  key: string;
+  message: string;
+};
+
+type OnrampDepositExecutionState = {
+  amount?: string;
+  error?: string;
+  explorerUrl?: string;
+  skipped?: boolean;
+  status: "idle" | "running" | "success" | "failed";
+  txHash?: Hex;
+};
+
+type OnrampNexusSDK = {
+  execute: (params: any, options?: any) => Promise<any>;
+};
+
 type OnrampSheet =
   | "currency"
   | "destination"
@@ -124,18 +204,33 @@ interface DepositOnrampFlowProps {
   onError?: (message: string) => void;
   onSelectDestinationToken?: (token: SwapTokenOption) => void;
   onSessionStateChange?: (state: string | null) => void;
+  nexusSDK?: OnrampNexusSDK | null;
   ownerAddress?: string;
   opportunity?: NexusWidgetDepositOpportunityConfig;
   primaryButtonForeground: string;
+  publicClient?: PublicClient | null;
   toToken?: SwapTokenOption;
 }
 
-const ONRAMP_CLIENT_HEADER = "nexus-widget";
-const ONRAMP_DEFAULT_COUNTRY = "IN";
-const ONRAMP_DEFAULT_BASE_URL = "http://localhost:8000";
-const QUOTE_REFRESH_SECONDS = 15;
+const ONRAMP_CLIENT_HEADER = "nexus-widgets";
+const ONRAMP_DEFAULT_BASE_URL = "https://nexus-v2.canary.avail.so/middleware";
+const ONRAMP_RETURN_PATH = "/onramp/complete";
+const ONRAMP_IP_COUNTRY_URL = "https://api.country.is/";
+const ONRAMP_OPTIONS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const ONRAMP_COUNTRY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const ONRAMP_COUNTRY_CACHE_KEY = "nexus-widgets:onramp:country:v1";
+const ONRAMP_OPTIONS_CACHE_KEY_PREFIX = "nexus-widgets:onramp:options:v1";
+const ONRAMP_SANDBOX_FALLBACK_COUNTRY = "FR";
+const ONRAMP_PRODUCTION_FALLBACK_COUNTRY = "US";
+const QUOTE_REFRESH_SECONDS = 60;
 const ONRAMP_SESSION_POLL_MS = 3000;
-const TEST_FIAT_CURRENCIES = ["INR", "USD", "EUR", "JPY", "GBP"] as const;
+const ONRAMP_CALLBACK_MESSAGE_TYPE = "nexus-widgets:onramp:session";
+const ONRAMP_CALLBACK_SUCCESS_MESSAGE = "nexus-onramp-success";
+const ONRAMP_CALLBACK_CHANNEL = "nexus-widgets:onramp";
+const ONRAMP_CALLBACK_STORAGE_KEY = "nexus-widgets:onramp:session";
+const ONRAMP_PROGRESS_ARTWORK_URL =
+  "https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif";
+const ONRAMP_SHEET_EDGE_OFFSET = "-16px";
 const theme = nexusWidgetTheme;
 const brand = "var(--foreground-brand)";
 
@@ -221,21 +316,272 @@ const formatUsdDisplay = (value: unknown) => {
   return `$${formatNumberDisplay(parsed, 2)}`;
 };
 
-const getFiatCurrencyName = (currencyCode?: string) => {
-  switch ((currencyCode ?? "").toUpperCase()) {
-    case "EUR":
-      return "Euro";
-    case "GBP":
-      return "British Pound";
-    case "INR":
-      return "Indian Rupee";
-    case "JPY":
-      return "Japanese Yen";
-    case "USD":
-      return "US Dollar";
-    default:
-      return currencyCode ?? "";
+const getIntlCurrencyName = (currencyCode?: string) => {
+  if (!currencyCode) return "";
+  try {
+    return (
+      new Intl.DisplayNames(["en"], { type: "currency" }).of(
+        currencyCode.toUpperCase(),
+      ) ?? currencyCode
+    );
+  } catch {
+    return currencyCode;
   }
+};
+
+const getIntlCurrencySymbol = (currencyCode?: string) => {
+  if (!currencyCode) return undefined;
+  try {
+    return new Intl.NumberFormat("en", {
+      currency: currencyCode.toUpperCase(),
+      currencyDisplay: "narrowSymbol",
+      style: "currency",
+    })
+      .formatToParts(0)
+      .find((part) => part.type === "currency")?.value;
+  } catch {
+    return undefined;
+  }
+};
+
+const getFiatCurrencyCode = (currency: OnrampFiatCurrency) =>
+  (typeof currency === "string"
+    ? currency
+    : (currency.currencyCode ?? currency.code ?? "")
+  ).toUpperCase();
+
+const getFiatCurrencyName = (
+  currencyCode?: string,
+  currency?: OnrampFiatCurrencyOption,
+) => currency?.name ?? getIntlCurrencyName(currencyCode);
+
+const getCountryByCode = (
+  countries: OnrampCountry[] | undefined,
+  countryCode?: string,
+) =>
+  countries?.find(
+    (country) =>
+      country.countryCode.toUpperCase() === countryCode?.toUpperCase(),
+  );
+
+const isCountryInOptionsList = (
+  options: OnrampOptionsResponse,
+  countryCode: string,
+) => {
+  if (!options.countries?.length) return true;
+  return Boolean(getCountryByCode(options.countries, countryCode));
+};
+
+const getCountryFlagUrl = (
+  countries: OnrampCountry[] | undefined,
+  countryCode?: string,
+) => {
+  const normalizedCountryCode = countryCode?.toUpperCase();
+  if (!normalizedCountryCode) return undefined;
+  return (
+    getCountryByCode(countries, normalizedCountryCode)?.flagUrl ??
+    `https://flagsapi.com/${normalizedCountryCode}/flat/64.png`
+  );
+};
+
+const getFiatCurrencyOptions = (
+  options: OnrampOptionsResponse | null,
+): OnrampFiatCurrencyOption[] => {
+  const selection = options?.selection;
+  const selectedCountryFlagUrl = getCountryFlagUrl(
+    options?.countries,
+    selection?.countryCode,
+  );
+  const byCode = new Map<string, OnrampFiatCurrencyOption>();
+
+  for (const currency of selection?.fiatCurrencies ?? []) {
+    const currencyCode = getFiatCurrencyCode(currency);
+    if (!currencyCode || byCode.has(currencyCode)) continue;
+    const isDefaultFiat =
+      currencyCode === selection?.defaultFiat?.toUpperCase();
+    byCode.set(currencyCode, {
+      currencyCode,
+      flagUrl:
+        typeof currency === "string"
+          ? isDefaultFiat
+            ? selectedCountryFlagUrl
+            : undefined
+          : (currency.flagUrl ??
+            currency.symbolUrl ??
+            (isDefaultFiat ? selectedCountryFlagUrl : undefined)),
+      name:
+        typeof currency === "string"
+          ? getIntlCurrencyName(currencyCode)
+          : (currency.name ?? getIntlCurrencyName(currencyCode)),
+      symbol:
+        typeof currency === "string"
+          ? getIntlCurrencySymbol(currencyCode)
+          : (currency.symbol ?? getIntlCurrencySymbol(currencyCode)),
+      symbolUrl: typeof currency === "string" ? undefined : currency.symbolUrl,
+    });
+  }
+
+  const defaultFiat = selection?.defaultFiat?.toUpperCase();
+  if (defaultFiat && !byCode.has(defaultFiat)) {
+    byCode.set(defaultFiat, {
+      currencyCode: defaultFiat,
+      flagUrl: selectedCountryFlagUrl,
+      name: getIntlCurrencyName(defaultFiat),
+      symbol: getIntlCurrencySymbol(defaultFiat),
+    });
+  }
+
+  return Array.from(byCode.values());
+};
+
+const readOnrampCache = <T,>(key: string) => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as OnrampCacheRecord<T>;
+    if (!cached?.expiresAt || cached.expiresAt <= Date.now()) {
+      window.localStorage.removeItem(key);
+      return null;
+    }
+    return cached.value;
+  } catch {
+    return null;
+  }
+};
+
+const writeOnrampCache = <T,>(key: string, value: T, ttlMs: number) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        expiresAt: Date.now() + ttlMs,
+        value,
+      } satisfies OnrampCacheRecord<T>),
+    );
+  } catch {
+    // Cache failures should not affect the onramp flow.
+  }
+};
+
+const getOnrampOptionsCacheKey = (baseUrl: string, countryCode: string) =>
+  `${ONRAMP_OPTIONS_CACHE_KEY_PREFIX}:${baseUrl}:${countryCode.toUpperCase()}`;
+
+const readCachedOnrampOptions = (baseUrl: string, countryCode: string) =>
+  readOnrampCache<OnrampOptionsResponse>(
+    getOnrampOptionsCacheKey(baseUrl, countryCode),
+  );
+
+const writeCachedOnrampOptions = (
+  baseUrl: string,
+  countryCode: string,
+  options: OnrampOptionsResponse,
+) => {
+  writeOnrampCache(
+    getOnrampOptionsCacheKey(baseUrl, countryCode),
+    options,
+    ONRAMP_OPTIONS_CACHE_TTL_MS,
+  );
+};
+
+const getOnrampEnvironmentValue = (key: string) => {
+  if (typeof process === "undefined") return "";
+  return process.env?.[key]?.trim() ?? "";
+};
+
+const normalizeOnrampBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
+
+const getOnrampBaseUrl = () =>
+  normalizeOnrampBaseUrl(
+    getOnrampEnvironmentValue("NEXT_PUBLIC_NEXUS_ONRAMP_BASE_URL") ||
+      ONRAMP_DEFAULT_BASE_URL,
+  );
+
+const getOnrampReturnUrl = () =>
+  getOnrampEnvironmentValue("NEXT_PUBLIC_NEXUS_ONRAMP_RETURN_URL") ||
+  (typeof window !== "undefined" && window.location.origin
+    ? `${window.location.origin}${ONRAMP_RETURN_PATH}`
+    : ONRAMP_RETURN_PATH);
+
+const getOnrampRuntimeEnvironment = (baseUrl: string) => {
+  const explicitEnvironment =
+    getOnrampEnvironmentValue("NEXT_PUBLIC_NEXUS_ONRAMP_ENV") ||
+    getOnrampEnvironmentValue("NEXT_PUBLIC_ONRAMP_ENV") ||
+    getOnrampEnvironmentValue("NEXT_PUBLIC_NEXUS_ENV") ||
+    getOnrampEnvironmentValue("NEXT_PUBLIC_VERCEL_ENV") ||
+    getOnrampEnvironmentValue("VERCEL_ENV");
+
+  if (explicitEnvironment) return explicitEnvironment.toLowerCase();
+
+  const normalizedBaseUrl = baseUrl.toLowerCase();
+  if (
+    normalizedBaseUrl.includes("canary") ||
+    normalizedBaseUrl.includes("localhost") ||
+    normalizedBaseUrl.includes("127.0.0.1")
+  ) {
+    return "sandbox";
+  }
+
+  return "production";
+};
+
+const getUnsupportedCountryFallbackCode = (baseUrl: string) => {
+  const environment = getOnrampRuntimeEnvironment(baseUrl);
+  return environment === "production" || environment === "prod"
+    ? ONRAMP_PRODUCTION_FALLBACK_COUNTRY
+    : ONRAMP_SANDBOX_FALLBACK_COUNTRY;
+};
+
+const getIpCountryCode = async () => {
+  try {
+    const response = await fetch(ONRAMP_IP_COUNTRY_URL, {
+      headers: { Accept: "application/json" },
+      method: "GET",
+    });
+    if (!response.ok) return "";
+    const data = (await response.json()) as IpCountryResponse;
+    return data.country?.toUpperCase() ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const getLocalCountryCode = () => {
+  if (typeof navigator === "undefined") return "";
+  const locales = [...(navigator.languages ?? []), navigator.language].filter(
+    Boolean,
+  );
+  for (const locale of locales) {
+    const countryCode = locale.match(/[-_]([A-Za-z]{2})$/)?.[1]?.toUpperCase();
+    if (countryCode) return countryCode;
+  }
+  return "";
+};
+
+const resolveOnrampCountryCode = async () => {
+  const cached = readOnrampCache<string>(ONRAMP_COUNTRY_CACHE_KEY);
+  if (cached) return cached;
+
+  const resolved = (await getIpCountryCode()) || getLocalCountryCode() || "US";
+  writeOnrampCache(
+    ONRAMP_COUNTRY_CACHE_KEY,
+    resolved,
+    ONRAMP_COUNTRY_CACHE_TTL_MS,
+  );
+  return resolved;
+};
+
+const getDefaultFiatCurrencyCode = (options: OnrampOptionsResponse | null) => {
+  const currencies = getFiatCurrencyOptions(options);
+  const defaultFiat = options?.selection?.defaultFiat?.toUpperCase();
+  if (
+    defaultFiat &&
+    currencies.some((currency) => currency.currencyCode === defaultFiat)
+  ) {
+    return defaultFiat;
+  }
+  return currencies[0]?.currencyCode ?? "";
 };
 
 const getMethodLabel = (method?: string) => {
@@ -261,31 +607,23 @@ const getMethodLabel = (method?: string) => {
             .filter(Boolean)
             .map(
               (part) =>
-                part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+                part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
             )
             .join(" ")
         : "Payment method";
   }
 };
 
-const getMethodSubtitle = (method?: string) => {
-  switch ((method ?? "").toUpperCase()) {
-    case "UPI":
-      return "~1 min";
-    case "APPLE_PAY":
-    case "GOOGLE_PAY":
-      return "~2 min";
-    case "BANK_TRANSFER":
-    case "IMPS":
-    case "NEFT":
-    case "RTGS":
-      return "~3 min";
-    case "CREDIT_DEBIT_CARD":
-    case "CARD":
-      return "~3 min";
-    default:
-      return "Available route";
-  }
+const getMethodSubtitle = (method?: OnrampPaymentMethod) => {
+  const subtitle =
+    method?.subtitle ??
+    method?.description ??
+    method?.estimatedTime ??
+    method?.estimatedDuration ??
+    method?.duration;
+  return typeof subtitle === "string" && subtitle.trim()
+    ? subtitle.trim()
+    : undefined;
 };
 
 const getProviderLabel = (provider?: string) =>
@@ -293,7 +631,9 @@ const getProviderLabel = (provider?: string) =>
     ? provider
         .split(/[_\s-]+/)
         .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .map(
+          (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
+        )
         .join(" ")
     : "Payment partner";
 
@@ -304,11 +644,126 @@ const getProviderInitials = (provider?: string) => {
   return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
 };
 
+class OnrampRequestError extends Error {
+  code?: string;
+  errorId?: string;
+  rawMessage?: string;
+  status: number;
+  subcode?: string;
+
+  constructor({
+    code,
+    errorId,
+    message,
+    rawMessage,
+    status,
+    subcode,
+  }: {
+    code?: string;
+    errorId?: string;
+    message: string;
+    rawMessage?: string;
+    status: number;
+    subcode?: string;
+  }) {
+    super(message);
+    this.name = "OnrampRequestError";
+    this.code = code;
+    this.errorId = errorId;
+    this.rawMessage = rawMessage;
+    this.status = status;
+    this.subcode = subcode;
+  }
+}
+
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return "Unable to continue with local currency.";
 };
+
+const getOnrampErrorSignature = (error: OnrampRequestError) =>
+  [error.code, error.subcode, error.rawMessage, error.message]
+    .filter(Boolean)
+    .join(" ")
+    .toUpperCase();
+
+const isUnsupportedOnrampDestinationError = (error: unknown) => {
+  if (!(error instanceof OnrampRequestError)) return false;
+  const signature = getOnrampErrorSignature(error);
+  return (
+    signature.includes("ASSET_NOT_SUPPORTED") ||
+    signature.includes("CURRENCY_NOT_SUPPORTED") ||
+    signature.includes("TOKEN_NOT_SUPPORTED") ||
+    signature.includes("TOKEN UNSUPPORTED") ||
+    signature.includes("UNSUPPORTED_DESTINATION") ||
+    signature.includes("UNSUPPORTED TOKEN") ||
+    signature.includes("DESTINATION ASSET IS NOT SUPPORTED") ||
+    signature.includes("DESTINATIONCHAINID IS INVALID") ||
+    signature.includes("DESTINATIONTOKEN IS INVALID")
+  );
+};
+
+const isOnrampConfigError = (error: unknown) => {
+  if (!(error instanceof OnrampRequestError)) return false;
+  const signature = getOnrampErrorSignature(error);
+  return (
+    signature.includes("CONFIG") ||
+    signature.includes("CONFIGURATION") ||
+    signature.includes("NOT CONFIGURED") ||
+    signature.includes("NO ROUTE") ||
+    (signature.includes("ROUTE") && signature.includes("UNAVAILABLE"))
+  );
+};
+
+const isTerminalOnrampRateError = (error: unknown) =>
+  isUnsupportedOnrampDestinationError(error) || isOnrampConfigError(error);
+
+const getOnrampRequestErrorMessage = (
+  error: unknown,
+  context?: {
+    countryCode?: string;
+    sourceCurrencyCode?: string;
+    token?: SwapTokenOption;
+  },
+) => {
+  if (isTerminalOnrampRateError(error)) {
+    const tokenLabel = context?.token?.symbol
+      ? `${context.token.symbol}${
+          context.token.chainName ? ` on ${context.token.chainName}` : ""
+        }`
+      : "this token";
+    const localeLabel = [context?.countryCode, context?.sourceCurrencyCode]
+      .filter(Boolean)
+      .join(" / ");
+    return `Local currency deposits are not available for ${tokenLabel}${
+      localeLabel ? ` with ${localeLabel}` : ""
+    }. Choose another deposit token or pay with wallet.`;
+  }
+
+  return getErrorMessage(error);
+};
+
+const getOnrampRateRequestKey = ({
+  countryCode,
+  destinationChainId,
+  destinationCurrencyCode,
+  destinationToken,
+  sourceCurrencyCode,
+}: {
+  countryCode?: string;
+  destinationChainId?: string;
+  destinationCurrencyCode?: string;
+  destinationToken?: string;
+  sourceCurrencyCode?: string;
+}) =>
+  [
+    countryCode?.toUpperCase() ?? "",
+    sourceCurrencyCode?.toUpperCase() ?? "",
+    destinationCurrencyCode?.toUpperCase() ?? "",
+    destinationChainId ?? "",
+    destinationToken?.toLowerCase() ?? "",
+  ].join("|");
 
 const ONRAMP_TERMINAL_STATES = new Set([
   "CANCELLED",
@@ -362,61 +817,117 @@ const isOnrampDepositFailedState = (state?: string | null) =>
 const isNativeAddress = (address?: string) => {
   const lower = address?.toLowerCase();
   return (
-    lower === "0x0000000000000000000000000000000000000000" ||
+    lower === zeroAddress ||
     lower === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
   );
 };
 
-const getChainCurrencySuffix = (chainId?: number, chainName?: string) => {
-  switch (chainId) {
-    case 1:
-      return "ETHEREUM";
-    case 10:
-      return "OPTIMISM";
-    case 56:
-      return "BNB";
-    case 137:
-      return "POLYGON";
-    case 8453:
-      return "BASE";
-    case 42161:
-      return "ARBITRUM";
-    case 43114:
-      return "AVALANCHE";
-    default:
-      return (chainName ?? "CHAIN").replaceAll(/[^a-zA-Z0-9]+/g, "_").toUpperCase();
+const isPositiveGasLimit = (value: unknown): value is bigint => {
+  try {
+    return BigInt(value as bigint) > BigInt(0);
+  } catch {
+    return false;
   }
 };
 
-const getFallbackDestinationCurrencyCode = (token?: SwapTokenOption) => {
-  if (!token?.symbol) return "";
-  return `${token.symbol.toUpperCase()}_${getChainCurrencySuffix(
-    token.chainId,
-    token.chainName
-  )}`;
+const getOnrampChainIdNumber = (chainId?: number | string) => {
+  if (typeof chainId === "number") return chainId;
+  const match = chainId?.match(/\d+$/);
+  return match ? Number(match[0]) : undefined;
 };
 
-const getDestinationCurrencyCode = (
+const getOnrampCurrencyAddress = (currency?: OnrampCryptoCurrency) =>
+  currency?.contract ?? currency?.token;
+
+const getOnrampCryptoCurrency = (
   options: OnrampOptionsResponse | null,
-  token?: SwapTokenOption
+  token?: SwapTokenOption,
 ) => {
-  if (!token?.chainId || !token.contractAddress) {
-    return getFallbackDestinationCurrencyCode(token);
-  }
+  if (!token?.chainId || !token.contractAddress) return undefined;
 
   const targetAddress = token.contractAddress.toLowerCase();
-  const currencies = options?.selection?.cryptoCurrencies ?? [];
-  const matched = currencies.find((currency) => {
-    if (currency.chainId !== token.chainId) return false;
-    const contract = currency.contract?.toLowerCase();
-    if (!contract) return false;
+  return options?.selection?.cryptoCurrencies?.find((currency) => {
+    if (getOnrampChainIdNumber(currency.chainId) !== token.chainId)
+      return false;
+    const address = getOnrampCurrencyAddress(currency)?.toLowerCase();
+    if (!address) return false;
     return (
-      contract === targetAddress ||
-      (isNativeAddress(contract) && isNativeAddress(targetAddress))
+      address === targetAddress ||
+      (isNativeAddress(address) && isNativeAddress(targetAddress))
     );
   });
+};
 
-  return matched?.currencyCode ?? getFallbackDestinationCurrencyCode(token);
+const getDestinationRequestDetails = (
+  options: OnrampOptionsResponse | null,
+  token?: SwapTokenOption,
+) => {
+  const matched = getOnrampCryptoCurrency(options, token);
+  return {
+    destinationChainId: token?.chainId ? `EVM_${token.chainId}` : undefined,
+    destinationCurrencyCode:
+      matched?.currencyCode ?? token?.symbol?.toUpperCase() ?? "",
+    destinationToken: token?.contractAddress,
+  };
+};
+
+const getRawTokenAmount = (amount: unknown, decimals: number) => {
+  const parsed = parseDecimal(amount);
+  if (!parsed?.gt(0)) return null;
+  return parseUnits(
+    parsed.toDecimalPlaces(decimals, Decimal.ROUND_DOWN).toFixed(),
+    decimals,
+  );
+};
+
+const getTransactionExplorerUrl = (chainId?: number, txHash?: string) => {
+  const baseUrl = getExplorerBaseUrl(chainId);
+  return baseUrl && txHash ? `${baseUrl}${txHash}` : undefined;
+};
+
+const getSandboxDepositAmountRaw = (decimals: number) =>
+  BigInt(new Decimal(0.1).mul(Decimal.pow(10, decimals)).toFixed());
+
+const getSdkExecuteTransactionHash = (result: any): Hex | undefined => {
+  const candidates = [
+    result?.execute?.txHash,
+    result?.execute?.transactionHash,
+    result?.execute?.hash,
+    result?.executeResponse?.txHash,
+    result?.executeResponse?.transactionHash,
+    result?.executeResponse?.hash,
+    result?.receipt?.transactionHash,
+    result?.txHash,
+    result?.transactionHash,
+    result?.hash,
+  ];
+
+  return candidates.find(
+    (candidate): candidate is Hex =>
+      typeof candidate === "string" && candidate.startsWith("0x"),
+  );
+};
+
+const getSdkExecuteExplorerUrl = (result: any): string | undefined => {
+  const candidates = [
+    result?.execute?.explorerUrl,
+    result?.execute?.explorerURL,
+    result?.execute?.txExplorerUrl,
+    result?.execute?.transactionExplorerUrl,
+    result?.executeResponse?.explorerUrl,
+    result?.executeResponse?.explorerURL,
+    result?.executeResponse?.txExplorerUrl,
+    result?.executeResponse?.transactionExplorerUrl,
+    result?.explorerUrl,
+    result?.explorerURL,
+    result?.txExplorerUrl,
+    result?.transactionExplorerUrl,
+  ];
+
+  return candidates.find(
+    (candidate): candidate is string =>
+      typeof candidate === "string" && candidate.length > 0,
+  );
 };
 
 const getOnrampTokenKey = (token?: SwapTokenOption) => {
@@ -424,10 +935,10 @@ const getOnrampTokenKey = (token?: SwapTokenOption) => {
   return `${token.chainId}:${token.contractAddress.toLowerCase()}`;
 };
 
-const isSameOnrampToken = (
-  left?: SwapTokenOption,
-  right?: SwapTokenOption
-) => Boolean(left && right && getOnrampTokenKey(left) === getOnrampTokenKey(right));
+const isSameOnrampToken = (left?: SwapTokenOption, right?: SwapTokenOption) =>
+  Boolean(
+    left && right && getOnrampTokenKey(left) === getOnrampTokenKey(right),
+  );
 
 const sortQuotes = (quotes: OnrampQuote[]) =>
   [...quotes].sort((a, b) => {
@@ -435,7 +946,7 @@ const sortQuotes = (quotes: OnrampQuote[]) =>
     if (scoreDelta !== 0) return scoreDelta;
     const destinationDelta =
       parseDecimal(b.destinationAmount)?.cmp(
-        parseDecimal(a.destinationAmount) ?? new Decimal(0)
+        parseDecimal(a.destinationAmount) ?? new Decimal(0),
       ) ?? 0;
     return destinationDelta;
   });
@@ -444,7 +955,7 @@ const matchesSearch = (query: string, values: Array<string | undefined>) => {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return true;
   return values.some((value) =>
-    (value ?? "").toLowerCase().includes(normalizedQuery)
+    (value ?? "").toLowerCase().includes(normalizedQuery),
   );
 };
 
@@ -455,10 +966,51 @@ const createIdempotencyKey = () => {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+const openOnrampProviderWindow = () => {
+  if (typeof window === "undefined") return null;
+  const providerWindow = window.open("about:blank", "_blank");
+  if (!providerWindow) return null;
+  providerWindow.document.title = "Opening payment provider";
+  providerWindow.document.body.style.fontFamily =
+    "system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  providerWindow.document.body.style.margin = "0";
+  providerWindow.document.body.style.display = "grid";
+  providerWindow.document.body.style.minHeight = "100vh";
+  providerWindow.document.body.style.placeItems = "center";
+  providerWindow.document.body.textContent = "Opening payment provider...";
+  return providerWindow;
+};
+
+type OnrampCallbackPayload = {
+  session?: OnrampSessionResponse;
+  sessionId: string;
+  state?: string;
+  timestamp?: number;
+  type: string;
+};
+
+declare global {
+  interface Window {
+    setRampSessionId?: (sessionId: string) => void;
+  }
+}
+
+const isOnrampCallbackPayload = (
+  payload: unknown,
+): payload is OnrampCallbackPayload => {
+  if (!payload || typeof payload !== "object") return false;
+  const candidate = payload as Partial<OnrampCallbackPayload>;
+  return (
+    candidate.type === ONRAMP_CALLBACK_MESSAGE_TYPE &&
+    typeof candidate.sessionId === "string" &&
+    candidate.sessionId.length > 0
+  );
+};
+
 const fetchOnrampJson = async <T,>(
   baseUrl: string,
   path: string,
-  init?: RequestInit
+  init?: RequestInit,
 ) => {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
@@ -469,14 +1021,31 @@ const fetchOnrampJson = async <T,>(
     },
   });
   const text = await response.text();
-  const data = text ? JSON.parse(text) : {};
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = text ? { message: text } : {};
+  }
 
   if (!response.ok) {
-    const message =
-      typeof data?.message === "string"
-        ? data.message
+    const errorData = data as OnrampErrorResponse;
+    const baseMessage =
+      typeof errorData?.message === "string"
+        ? errorData.message
         : `Onramp request failed (${response.status})`;
-    throw new Error(message);
+    const details = [errorData?.subcode, errorData?.errorId]
+      .filter(Boolean)
+      .join(" · ");
+    const message = details ? `${baseMessage} (${details})` : baseMessage;
+    throw new OnrampRequestError({
+      code: errorData?.code,
+      errorId: errorData?.errorId,
+      message,
+      rawMessage: baseMessage,
+      status: response.status,
+      subcode: errorData?.subcode,
+    });
   }
 
   return data as T;
@@ -561,7 +1130,20 @@ function TokenLogoPair({ token }: { token?: SwapTokenOption }) {
   );
 }
 
-function CurrencyMark({ code }: { code?: string }) {
+function CurrencyMark({
+  code,
+  currency,
+}: {
+  code?: string;
+  currency?: OnrampFiatCurrencyOption;
+}) {
+  const displayCode = currency?.currencyCode ?? code;
+  const imageUrl = currency?.flagUrl ?? currency?.symbolUrl;
+
+  if (imageUrl) {
+    return <TokenLogo label={displayCode} size={32} src={imageUrl} />;
+  }
+
   return (
     <div
       style={{
@@ -579,7 +1161,7 @@ function CurrencyMark({ code }: { code?: string }) {
         width: "32px",
       }}
     >
-      {(code ?? "?").slice(0, 3).toUpperCase()}
+      {(currency?.symbol ?? displayCode ?? "?").slice(0, 3).toUpperCase()}
     </div>
   );
 }
@@ -610,7 +1192,9 @@ function ProviderMark({ provider }: { provider?: string }) {
 function MethodMark({ method }: { method?: string }) {
   const normalized = (method ?? "").toUpperCase();
   const icon =
-    normalized === "UPI" || normalized === "APPLE_PAY" || normalized === "GOOGLE_PAY" ? (
+    normalized === "UPI" ||
+    normalized === "APPLE_PAY" ||
+    normalized === "GOOGLE_PAY" ? (
       <Smartphone aria-hidden="true" size={20} strokeWidth={1.7} />
     ) : normalized.includes("BANK") ||
       normalized === "IMPS" ||
@@ -765,15 +1349,15 @@ function Sheet({
     <div
       style={{
         backgroundColor: "rgba(22, 22, 21, 0.36)",
-        bottom: 0,
+        bottom: ONRAMP_SHEET_EDGE_OFFSET,
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
         justifyContent: "flex-end",
-        left: 0,
+        left: ONRAMP_SHEET_EDGE_OFFSET,
         position: "absolute",
-        right: 0,
-        top: 0,
+        right: ONRAMP_SHEET_EDGE_OFFSET,
+        top: ONRAMP_SHEET_EDGE_OFFSET,
         zIndex: 60,
       }}
     >
@@ -797,13 +1381,13 @@ function Sheet({
         style={{
           backgroundColor: theme.colors.surface,
           borderRadius: "16px 16px 0 0",
-          boxShadow: theme.shadows.sheet,
+          boxShadow: "none",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
           gap: "12px",
-          height: "min(420px, calc(100% - 16px))",
-          maxHeight: "calc(100% - 16px)",
+          height: "min(420px, 100%)",
+          maxHeight: "100%",
           overflow: "hidden",
           padding: "16px",
           position: "relative",
@@ -819,11 +1403,7 @@ function Sheet({
             gap: "12px",
           }}
         >
-          <div
-            style={compactTitleStyle}
-          >
-            {title}
-          </div>
+          <div style={compactTitleStyle}>{title}</div>
           <button
             aria-label="Close"
             onClick={onClose}
@@ -1103,11 +1683,13 @@ function SkeletonBlock({
   );
 }
 
-function QuoteDetailsSkeleton() {
+function QuoteDetailsSkeleton({ showFees = true }: { showFees?: boolean }) {
   return (
     <div style={panelStyle}>
       <DetailRow
-        action={<SkeletonBlock borderRadius="999px" height="30px" width="62px" />}
+        action={
+          <SkeletonBlock borderRadius="999px" height="30px" width="62px" />
+        }
         label="Payment Method"
       >
         <div style={{ alignItems: "center", display: "flex", gap: "10px" }}>
@@ -1117,7 +1699,9 @@ function QuoteDetailsSkeleton() {
       </DetailRow>
 
       <DetailRow
-        action={<SkeletonBlock borderRadius="999px" height="30px" width="62px" />}
+        action={
+          <SkeletonBlock borderRadius="999px" height="30px" width="62px" />
+        }
         divider
         label="Payment Partner"
       >
@@ -1130,25 +1714,27 @@ function QuoteDetailsSkeleton() {
         </div>
       </DetailRow>
 
-      <div
-        style={{
-          alignItems: "center",
-          borderTop: `1px solid ${theme.colors.divider}`,
-          boxSizing: "border-box",
-          display: "flex",
-          justifyContent: "space-between",
-          padding: "14px",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
-          <SkeletonBlock height="19px" width="78px" />
-          <SkeletonBlock height="17px" width="104px" />
+      {showFees && (
+        <div
+          style={{
+            alignItems: "center",
+            borderTop: `1px solid ${theme.colors.divider}`,
+            boxSizing: "border-box",
+            display: "flex",
+            justifyContent: "space-between",
+            padding: "14px",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+            <SkeletonBlock height="19px" width="78px" />
+            <SkeletonBlock height="17px" width="104px" />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+            <SkeletonBlock height="20px" width="76px" />
+            <SkeletonBlock height="17px" width="92px" />
+          </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
-          <SkeletonBlock height="20px" width="76px" />
-          <SkeletonBlock height="17px" width="92px" />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1163,7 +1749,7 @@ const formatTokenAmountDisplay = (amount: unknown, symbol?: string) => {
 
 const getOnrampSessionSubtitle = (
   state: string | null | undefined,
-  opportunity?: NexusWidgetDepositOpportunityConfig
+  opportunity?: NexusWidgetDepositOpportunityConfig,
 ) => {
   const normalized = getNormalizedOnrampState(state);
   if (normalized === "SETTLED" || isOnrampDepositSuccessState(normalized)) {
@@ -1185,7 +1771,7 @@ const getOnrampSessionSubtitle = (
 
 const getOnrampSummaryLabel = (
   state: string | null | undefined,
-  provider?: string
+  provider?: string,
 ) => {
   const partner = getProviderLabel(provider);
   const normalized = getNormalizedOnrampState(state);
@@ -1201,7 +1787,7 @@ const getOnrampSummaryLabel = (
 };
 
 const getDepositTargetLabel = (
-  opportunity?: NexusWidgetDepositOpportunityConfig
+  opportunity?: NexusWidgetDepositOpportunityConfig,
 ) =>
   opportunity?.title ||
   opportunity?.label ||
@@ -1210,8 +1796,9 @@ const getDepositTargetLabel = (
 
 const getDepositChainName = (
   opportunity?: NexusWidgetDepositOpportunityConfig,
-  token?: SwapTokenOption
-) => token?.chainName ?? opportunity?.subtitle?.replace(/^on\s+/i, "") ?? "chain";
+  token?: SwapTokenOption,
+) =>
+  token?.chainName ?? opportunity?.subtitle?.replace(/^on\s+/i, "") ?? "chain";
 
 const getExplorerBaseUrl = (chainId?: number) => {
   switch (chainId) {
@@ -1237,7 +1824,7 @@ const getExplorerBaseUrl = (chainId?: number) => {
 const getOnrampExplorerUrl = (
   session: OnrampSessionResponse,
   opportunity?: NexusWidgetDepositOpportunityConfig,
-  token?: SwapTokenOption
+  token?: SwapTokenOption,
 ) => {
   if (session.deposit?.explorerUrl) return session.deposit.explorerUrl;
   if (opportunity?.explorerUrl) return opportunity.explorerUrl;
@@ -1246,11 +1833,7 @@ const getOnrampExplorerUrl = (
   return txHash && baseUrl ? `${baseUrl}${txHash}` : undefined;
 };
 
-function OnrampStatusArtwork({ tone = "neutral" }: { tone?: "green" | "neutral" }) {
-  const pulseColor =
-    tone === "green"
-      ? "rgba(67, 190, 162, 0.72)"
-      : "rgba(115, 129, 148, 0.58)";
+function OnrampStatusArtwork() {
   return (
     <div
       aria-hidden="true"
@@ -1267,26 +1850,16 @@ function OnrampStatusArtwork({ tone = "neutral" }: { tone?: "green" | "neutral" 
         width: "100%",
       }}
     >
-      <div
+      <img
+        alt=""
+        src={ONRAMP_PROGRESS_ARTWORK_URL}
         style={{
-          display: "flex",
-          gap: "5px",
+          display: "block",
+          height: "100%",
+          objectFit: "cover",
+          width: "100%",
         }}
-      >
-        {Array.from({ length: 18 }).map((_, index) => (
-          <span
-            className="animate-pulse"
-            key={`onramp-status-pulse-${index}`}
-            style={{
-              animationDelay: `${index * 45}ms`,
-              backgroundColor: pulseColor,
-              display: "block",
-              height: "7px",
-              width: "7px",
-            }}
-          />
-        ))}
-      </div>
+      />
     </div>
   );
 }
@@ -1424,12 +1997,8 @@ function OnrampActionStatusPanel({
     >
       <WarningStatusIcon />
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        <div style={compactTitleStyle}>
-          {title}
-        </div>
-        <div style={compactBodyStyle}>
-          {description}
-        </div>
+        <div style={compactTitleStyle}>{title}</div>
+        <div style={compactBodyStyle}>{description}</div>
       </div>
       <div
         style={{
@@ -1562,7 +2131,9 @@ function TimelineStep({
       >
         <div
           style={{
-            color: isPending ? theme.colors.textSubtle : theme.colors.textStrong,
+            color: isPending
+              ? theme.colors.textSubtle
+              : theme.colors.textStrong,
             fontFamily: theme.fonts.sans,
             fontSize: "14px",
             fontWeight: isPending ? 400 : 500,
@@ -1582,6 +2153,98 @@ function TimelineStep({
           {subtitle}
         </div>
       </div>
+    </div>
+  );
+}
+
+type OnrampTimelineItem = {
+  complete?: boolean;
+  pending?: boolean;
+  subtitle: string;
+  title: string;
+};
+
+function OnrampExpandableTimelineCard({
+  summaryAmount,
+  summaryLabel,
+  steps,
+}: {
+  summaryAmount: string;
+  summaryLabel: string;
+  steps: OnrampTimelineItem[];
+}) {
+  const [expanded, setExpanded] = React.useState(true);
+  return (
+    <div
+      style={{
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: "10px",
+        overflow: "hidden",
+        width: "100%",
+      }}
+    >
+      <button
+        onClick={() => setExpanded((current) => !current)}
+        style={{
+          alignItems: "center",
+          background: "transparent",
+          border: "none",
+          color: theme.colors.textStrong,
+          cursor: "pointer",
+          display: "flex",
+          fontFamily: theme.fonts.sans,
+          fontSize: "14px",
+          gap: "10px",
+          justifyContent: "space-between",
+          lineHeight: "20px",
+          padding: "12px 14px",
+          textAlign: "left",
+          width: "100%",
+        }}
+        type="button"
+      >
+        <span>{summaryLabel}</span>
+        <span
+          style={{
+            alignItems: "center",
+            display: "flex",
+            flexShrink: 0,
+            fontFamily: theme.fonts.display,
+            fontWeight: 500,
+            gap: "6px",
+          }}
+        >
+          {summaryAmount}
+          <ChevronDown
+            aria-hidden="true"
+            color={theme.colors.icon}
+            size={15}
+            strokeWidth={1.8}
+            style={{ transform: expanded ? "rotate(180deg)" : undefined }}
+          />
+        </span>
+      </button>
+      {expanded && (
+        <div
+          style={{
+            backgroundColor: "#EFEFEF",
+            display: "flex",
+            flexDirection: "column",
+            padding: "14px",
+          }}
+        >
+          {steps.map((step, index) => (
+            <TimelineStep
+              isComplete={step.complete}
+              isLast={index === steps.length - 1}
+              isPending={step.pending}
+              key={`${step.title}-${index}`}
+              subtitle={step.subtitle}
+              title={step.title}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1607,7 +2270,7 @@ function OnrampProcessingTimelinePanel({
 }) {
   const destinationDisplay = formatTokenAmountDisplay(
     destinationAmount,
-    destinationSymbol
+    destinationSymbol,
   );
   const sourceDisplay = formatCurrencyAmount(sourceAmount, sourceCurrencyCode);
   return (
@@ -1635,85 +2298,31 @@ function OnrampProcessingTimelinePanel({
         }}
       >
         <OnrampStatusArtwork />
-        <div
-          style={{
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: "10px",
-            boxShadow: theme.shadows.card,
-            overflow: "hidden",
-            width: "100%",
-          }}
-        >
-          <div
-            style={{
-              alignItems: "center",
-              display: "flex",
-              gap: "10px",
-              justifyContent: "space-between",
-              padding: "12px 14px",
-            }}
-          >
-            <div
-              style={{
-                color: theme.colors.textStrong,
-                fontFamily: theme.fonts.sans,
-                fontSize: "14px",
-                lineHeight: "20px",
-              }}
-            >
-              {isSettling
-                ? "Sending amount to your wallet"
-                : "Processing your payment"}
-            </div>
-            <div
-              style={{
-                alignItems: "center",
-                color: theme.colors.textStrong,
-                display: "flex",
-                flexShrink: 0,
-                fontFamily: theme.fonts.display,
-                fontSize: "14px",
-                fontWeight: 500,
-                gap: "6px",
-                lineHeight: "20px",
-              }}
-            >
-              {isSettling ? destinationDisplay : sourceDisplay}
-              <ChevronDown
-                aria-hidden="true"
-                color={theme.colors.icon}
-                size={15}
-                strokeWidth={1.8}
-                style={{ transform: "rotate(180deg)" }}
-              />
-            </div>
-          </div>
-          <div
-            style={{
-              backgroundColor: "#EFEFEF",
-              display: "flex",
-              flexDirection: "column",
-              padding: "14px",
-            }}
-          >
-            <TimelineStep
-              isComplete={isSettling}
-              subtitle={`${sourceDisplay} by ${getProviderLabel(provider)}`}
-              title={isSettling ? "Payment received" : "Payment processing"}
-            />
-            <TimelineStep
-              isPending={!isSettling}
-              subtitle={`On ${destinationChainName}`}
-              title={`Sending ${destinationDisplay} to your wallet`}
-            />
-            <TimelineStep
-              isLast
-              isPending
-              subtitle={`On ${destinationChainName}`}
-              title={`Depositing on ${targetLabel}`}
-            />
-          </div>
-        </div>
+        <OnrampExpandableTimelineCard
+          steps={[
+            {
+              complete: isSettling,
+              subtitle: `${sourceDisplay} by ${getProviderLabel(provider)}`,
+              title: isSettling ? "Payment received" : "Payment processing",
+            },
+            {
+              pending: !isSettling,
+              subtitle: `On ${destinationChainName}`,
+              title: `Sending ${destinationDisplay} to your wallet`,
+            },
+            {
+              pending: true,
+              subtitle: `On ${destinationChainName}`,
+              title: `Depositing on ${targetLabel}`,
+            },
+          ]}
+          summaryAmount={isSettling ? destinationDisplay : sourceDisplay}
+          summaryLabel={
+            isSettling
+              ? "Sending amount to your wallet"
+              : "Processing your payment"
+          }
+        />
         <SafeCloseNotice />
       </div>
     </>
@@ -1722,13 +2331,26 @@ function OnrampProcessingTimelinePanel({
 
 function OnrampCompletingDepositPanel({
   destinationAmount,
+  destinationChainName,
   destinationSymbol,
+  provider,
+  sourceAmount,
+  sourceCurrencyCode,
   targetLabel,
 }: {
   destinationAmount: string;
+  destinationChainName: string;
   destinationSymbol?: string;
+  provider?: string;
+  sourceAmount: string;
+  sourceCurrencyCode: string;
   targetLabel: string;
 }) {
+  const destinationDisplay = formatTokenAmountDisplay(
+    destinationAmount,
+    destinationSymbol,
+  );
+  const sourceDisplay = formatCurrencyAmount(sourceAmount, sourceCurrencyCode);
   return (
     <>
       <div
@@ -1754,48 +2376,26 @@ function OnrampCompletingDepositPanel({
         }}
       >
         <OnrampStatusArtwork />
-        <div
-          style={{
-            alignItems: "center",
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: "10px",
-            display: "flex",
-            gap: "10px",
-            justifyContent: "space-between",
-            padding: "14px",
-          }}
-        >
-          <div
-            style={{
-              color: theme.colors.textSubtle,
-              fontFamily: theme.fonts.sans,
-              fontSize: "14px",
-              lineHeight: "18px",
-            }}
-          >
-            Depositing to {targetLabel}
-          </div>
-          <div
-            style={{
-              alignItems: "center",
-              color: theme.colors.textStrong,
-              display: "flex",
-              fontFamily: theme.fonts.display,
-              fontSize: "14px",
-              fontWeight: 500,
-              gap: "8px",
-              lineHeight: "18px",
-            }}
-          >
-            {formatTokenAmountDisplay(destinationAmount, destinationSymbol)}
-            <ChevronDown
-              aria-hidden="true"
-              color={theme.colors.icon}
-              size={15}
-              strokeWidth={1.8}
-            />
-          </div>
-        </div>
+        <OnrampExpandableTimelineCard
+          steps={[
+            {
+              complete: true,
+              subtitle: `${sourceDisplay} by ${getProviderLabel(provider)}`,
+              title: "Payment received",
+            },
+            {
+              complete: true,
+              subtitle: `On ${destinationChainName}`,
+              title: `Sent ${destinationDisplay} to your wallet`,
+            },
+            {
+              subtitle: `On ${destinationChainName}`,
+              title: `Depositing on ${targetLabel}`,
+            },
+          ]}
+          summaryAmount={destinationDisplay}
+          summaryLabel={`Depositing to ${targetLabel}`}
+        />
         <SafeCloseNotice />
       </div>
     </>
@@ -1839,7 +2439,7 @@ function OnrampSuccessPanel({
       >
         {subtitle}
       </div>
-      <OnrampStatusArtwork tone="green" />
+      <OnrampStatusArtwork />
       <div
         style={{
           ...panelStyle,
@@ -1950,11 +2550,15 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 function OnrampHandoffPanel({
+  destinationChainName,
   provider,
   summaryAmount,
+  targetLabel,
 }: {
+  destinationChainName: string;
   provider?: string;
   summaryAmount: string;
+  targetLabel: string;
 }) {
   return (
     <>
@@ -1981,74 +2585,56 @@ function OnrampHandoffPanel({
         }}
       >
         <OnrampStatusArtwork />
-        <div
-          style={{
-            alignItems: "center",
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: "10px",
-            display: "flex",
-            gap: "10px",
-            justifyContent: "space-between",
-            minHeight: "56px",
-            padding: "12px 14px",
-          }}
-        >
-          <div
-            style={{
-              color: theme.colors.textSubtle,
-              fontFamily: theme.fonts.sans,
-              fontSize: "14px",
-              lineHeight: "18px",
-            }}
-          >
-            {getOnrampSummaryLabel("AWAITING_USER", provider)}
-          </div>
-          <div
-            style={{
-              alignItems: "center",
-              color: theme.colors.textStrong,
-              display: "flex",
-              flexShrink: 0,
-              fontFamily: theme.fonts.display,
-              fontSize: "15px",
-              fontWeight: 500,
-              gap: "6px",
-              lineHeight: "20px",
-            }}
-          >
-            {summaryAmount}
-            <ChevronDown
-              aria-hidden="true"
-              color={theme.colors.icon}
-              size={15}
-              strokeWidth={1.8}
-            />
-          </div>
-        </div>
+        <OnrampExpandableTimelineCard
+          steps={[
+            {
+              subtitle: `With ${getProviderLabel(provider)}`,
+              title: "Continue on other window",
+            },
+            {
+              pending: true,
+              subtitle: `On ${destinationChainName}`,
+              title: `Sending ${summaryAmount} to your wallet`,
+            },
+            {
+              pending: true,
+              subtitle: `On ${destinationChainName}`,
+              title: `Depositing on ${targetLabel}`,
+            },
+          ]}
+          summaryAmount={summaryAmount}
+          summaryLabel={getOnrampSummaryLabel("AWAITING_USER", provider)}
+        />
       </div>
     </>
   );
 }
 
 function OnrampSessionStatusPanel({
+  depositExecution,
   onCancel,
   onDone,
+  onRetryDeposit,
   onRetryPayment,
   opportunity,
   primaryButtonForeground,
   quote,
   session,
+  sessionCallbackReceived,
   sourceAmount,
   sourceCurrencyCode,
   toToken,
 }: {
+  depositExecution: OnrampDepositExecutionState;
   onCancel: () => void;
   onDone: () => void;
+  onRetryDeposit: () => void;
   onRetryPayment: () => void;
   opportunity?: NexusWidgetDepositOpportunityConfig;
   primaryButtonForeground: string;
   quote?: OnrampQuote;
   session: OnrampSessionResponse;
+  sessionCallbackReceived: boolean;
   sourceAmount: string;
   sourceCurrencyCode: string;
   toToken?: SwapTokenOption;
@@ -2059,7 +2645,10 @@ function OnrampSessionStatusPanel({
   const transaction = session.transaction;
   const destinationSymbol = toToken?.symbol ?? quote?.destinationCurrencyCode;
   const destinationAmount =
-    transaction?.destinationAmount ?? quote?.destinationAmount ?? "";
+    depositExecution.amount ??
+    transaction?.destinationAmount ??
+    quote?.destinationAmount ??
+    "";
   const sourceDisplayAmount =
     transaction?.sourceAmount ?? quote?.sourceAmount ?? sourceAmount;
   const sourceDisplayCurrency =
@@ -2068,7 +2657,9 @@ function OnrampSessionStatusPanel({
     sourceCurrencyCode;
   const destinationChainName = getDepositChainName(opportunity, toToken);
   const targetLabel = getDepositTargetLabel(opportunity);
-  const explorerUrl = getOnrampExplorerUrl(session, opportunity, toToken);
+  const explorerUrl =
+    depositExecution.explorerUrl ??
+    getOnrampExplorerUrl(session, opportunity, toToken);
   const containerStyle: React.CSSProperties = {
     boxSizing: "border-box",
     display: "flex",
@@ -2082,7 +2673,7 @@ function OnrampSessionStatusPanel({
       <div style={containerStyle}>
         <OnrampActionStatusPanel
           description={`${getProviderLabel(
-            provider
+            provider,
           )} declined the payment. Your card wasn't charged.`}
           onPrimary={onRetryPayment}
           onSecondary={onCancel}
@@ -2123,13 +2714,19 @@ function OnrampSessionStatusPanel({
     );
   }
 
-  if (isOnrampDepositFailedState(normalizedState)) {
+  if (
+    depositExecution.status === "failed" ||
+    isOnrampDepositFailedState(normalizedState)
+  ) {
     return (
       <div style={containerStyle}>
         <OnrampActionStatusPanel
-          description={getOnrampSessionSubtitle(normalizedState, opportunity)}
-          onPrimary={onCancel}
-          onSecondary={onCancel}
+          description={
+            depositExecution.error ??
+            getOnrampSessionSubtitle(normalizedState, opportunity)
+          }
+          onPrimary={onRetryDeposit}
+          onSecondary={onDone}
           primaryButtonForeground={primaryButtonForeground}
           primaryLabel="Retry Deposit"
           secondaryLabel="Skip Deposit"
@@ -2139,7 +2736,10 @@ function OnrampSessionStatusPanel({
     );
   }
 
-  if (normalizedState === "SETTLED" || isOnrampDepositSuccessState(normalizedState)) {
+  if (
+    depositExecution.status === "success" ||
+    isOnrampDepositSuccessState(normalizedState)
+  ) {
     return (
       <div style={containerStyle}>
         <OnrampSuccessPanel
@@ -2158,12 +2758,37 @@ function OnrampSessionStatusPanel({
     );
   }
 
-  if (isOnrampDepositProcessingState(normalizedState)) {
+  if (
+    normalizedState === "SETTLED" ||
+    depositExecution.status === "running" ||
+    isOnrampDepositProcessingState(normalizedState)
+  ) {
     return (
       <div style={containerStyle}>
         <OnrampCompletingDepositPanel
           destinationAmount={destinationAmount}
+          destinationChainName={destinationChainName}
           destinationSymbol={destinationSymbol}
+          provider={provider}
+          sourceAmount={sourceDisplayAmount}
+          sourceCurrencyCode={sourceDisplayCurrency}
+          targetLabel={targetLabel}
+        />
+      </div>
+    );
+  }
+
+  if (sessionCallbackReceived) {
+    return (
+      <div style={containerStyle}>
+        <OnrampProcessingTimelinePanel
+          destinationAmount={destinationAmount}
+          destinationChainName={destinationChainName}
+          destinationSymbol={destinationSymbol}
+          isSettling={true}
+          provider={provider}
+          sourceAmount={sourceDisplayAmount}
+          sourceCurrencyCode={sourceDisplayCurrency}
           targetLabel={targetLabel}
         />
       </div>
@@ -2190,37 +2815,40 @@ function OnrampSessionStatusPanel({
   return (
     <div style={containerStyle}>
       <OnrampHandoffPanel
+        destinationChainName={destinationChainName}
         provider={provider}
         summaryAmount={formatTokenAmountDisplay(
           destinationAmount,
-          destinationSymbol
+          destinationSymbol,
         )}
+        targetLabel={targetLabel}
       />
     </div>
   );
 }
 
 export function DepositOnrampFlow({
-  baseUrl = ONRAMP_DEFAULT_BASE_URL,
+  baseUrl = getOnrampBaseUrl(),
   destinationTokens,
   onConnectWallet,
   onError,
   onSelectDestinationToken,
   onSessionStateChange,
+  nexusSDK,
   ownerAddress,
   opportunity,
   primaryButtonForeground,
+  publicClient,
   toToken,
 }: DepositOnrampFlowProps) {
-  const [countryCode] = React.useState(ONRAMP_DEFAULT_COUNTRY);
-  const [sourceCurrencyCode, setSourceCurrencyCode] = React.useState("INR");
+  const [countryCode, setCountryCode] = React.useState("");
+  const [sourceCurrencyCode, setSourceCurrencyCode] = React.useState("");
   const [sourceAmount, setSourceAmount] = React.useState("");
   const [options, setOptions] = React.useState<OnrampOptionsResponse | null>(
-    null
+    null,
   );
   const [routes, setRoutes] = React.useState<OnrampRoute[]>([]);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] =
-    React.useState("");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState("");
   const [quotes, setQuotes] = React.useState<OnrampQuote[]>([]);
   const [selectedProvider, setSelectedProvider] = React.useState("");
   const [activeSheet, setActiveSheet] = React.useState<OnrampSheet>(null);
@@ -2233,54 +2861,140 @@ export function DepositOnrampFlow({
   const [quotesLoading, setQuotesLoading] = React.useState(false);
   const [sessionLoading, setSessionLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [blockedRateRequest, setBlockedRateRequest] =
+    React.useState<OnrampBlockedRequest | null>(null);
   const [session, setSession] = React.useState<OnrampSessionResponse | null>(
-    null
+    null,
   );
+  const [sessionCallbackReceived, setSessionCallbackReceived] =
+    React.useState(false);
+  const [depositExecution, setDepositExecution] =
+    React.useState<OnrampDepositExecutionState>({ status: "idle" });
   const [quoteRefreshSeconds, setQuoteRefreshSeconds] = React.useState(
-    QUOTE_REFRESH_SECONDS
+    QUOTE_REFRESH_SECONDS,
   );
   const quoteRunIdRef = React.useRef(0);
+  const routeRunIdRef = React.useRef(0);
+  const lastRouteRequestKeyRef = React.useRef("");
+  const lastQuoteRequestKeyRef = React.useRef("");
+  const quotesLoadingRef = React.useRef(false);
+  const depositExecutionSessionRef = React.useRef("");
   const normalizedSessionState = getNormalizedOnrampState(session?.state);
 
-  const fiatCurrencies = TEST_FIAT_CURRENCIES;
+  const fiatCurrencyOptions = React.useMemo(
+    () => getFiatCurrencyOptions(options),
+    [options],
+  );
+  const selectedFiatCurrency = fiatCurrencyOptions.find(
+    (currency) => currency.currencyCode === sourceCurrencyCode,
+  );
+  const selectedOnrampCryptoCurrency = React.useMemo(
+    () => getOnrampCryptoCurrency(options, toToken),
+    [options, toToken],
+  );
+  const hasBackendCryptoCurrencyList = Array.isArray(
+    options?.selection?.cryptoCurrencies,
+  );
+  const isDestinationTokenUnsupported = Boolean(
+    hasBackendCryptoCurrencyList &&
+    toToken?.chainId &&
+    toToken.contractAddress &&
+    !selectedOnrampCryptoCurrency,
+  );
+  const destinationTokenUnsupportedMessage = isDestinationTokenUnsupported
+    ? "Token is not supported for purchase with local currency"
+    : null;
   const availableDestinationTokens = React.useMemo(() => {
-    const tokens = destinationTokens?.length ? destinationTokens : toToken ? [toToken] : [];
+    const tokens = destinationTokens?.length
+      ? destinationTokens
+      : toToken
+        ? [toToken]
+        : [];
     const byKey = new Map<string, SwapTokenOption>();
     for (const token of tokens) {
       const key = getOnrampTokenKey(token);
       if (!key) continue;
-      byKey.set(key, token);
+      const onrampCurrency = getOnrampCryptoCurrency(options, token);
+      if (hasBackendCryptoCurrencyList && !onrampCurrency) continue;
+      byKey.set(key, {
+        ...token,
+        logo: onrampCurrency?.symbolUrl ?? token.logo,
+        name: token.name ?? onrampCurrency?.name,
+      });
     }
     return Array.from(byKey.values());
-  }, [destinationTokens, toToken]);
-  const destinationCurrencyCode = React.useMemo(
-    () => getDestinationCurrencyCode(options, toToken),
-    [options, toToken]
+  }, [destinationTokens, hasBackendCryptoCurrencyList, options, toToken]);
+  const destinationRequestDetails = React.useMemo(
+    () => getDestinationRequestDetails(options, toToken),
+    [options, toToken],
+  );
+  const rateRequestKey = React.useMemo(
+    () =>
+      getOnrampRateRequestKey({
+        countryCode,
+        destinationChainId: destinationRequestDetails.destinationChainId,
+        destinationCurrencyCode:
+          destinationRequestDetails.destinationCurrencyCode,
+        destinationToken: destinationRequestDetails.destinationToken,
+        sourceCurrencyCode,
+      }),
+    [
+      countryCode,
+      destinationRequestDetails.destinationChainId,
+      destinationRequestDetails.destinationCurrencyCode,
+      destinationRequestDetails.destinationToken,
+      sourceCurrencyCode,
+    ],
+  );
+  const quoteRequestKey = React.useMemo(
+    () =>
+      [
+        rateRequestKey,
+        ownerAddress?.toLowerCase() ?? "",
+        selectedPaymentMethod,
+        sourceAmount.trim(),
+      ].join("|"),
+    [ownerAddress, rateRequestKey, selectedPaymentMethod, sourceAmount],
+  );
+  const selectedRoute = React.useMemo(
+    () =>
+      routes.find((route) => route.provider === selectedProvider) ?? routes[0],
+    [routes, selectedProvider],
   );
   const availablePaymentMethods = React.useMemo(() => {
     const map = new Map<string, OnrampPaymentMethod>();
-    for (const route of routes) {
+    const sourceRoutes = selectedRoute ? [selectedRoute] : routes;
+    for (const route of sourceRoutes) {
       for (const method of route.paymentMethods ?? []) {
         if (!method.method || map.has(method.method)) continue;
         map.set(method.method, method);
       }
     }
     return Array.from(map.values());
-  }, [routes]);
+  }, [routes, selectedRoute]);
   const selectedPaymentMethodDetails = availablePaymentMethods.find(
-    (method) => method.method === selectedPaymentMethod
+    (method) => method.method === selectedPaymentMethod,
   );
   const selectedQuote =
-    quotes.find((quote) => quote.provider === selectedProvider) ?? quotes[0];
-  const filteredFiatCurrencies = React.useMemo(
+    quotes.find(
+      (quote) =>
+        quote.provider === selectedProvider &&
+        (!selectedPaymentMethod ||
+          quote.paymentMethodType === selectedPaymentMethod),
+    ) ??
+    quotes.find((quote) => quote.provider === selectedProvider) ??
+    quotes.find((quote) => quote.paymentMethodType === selectedPaymentMethod) ??
+    quotes[0];
+  const filteredFiatCurrencyOptions = React.useMemo(
     () =>
-      fiatCurrencies.filter((currencyCode) =>
+      fiatCurrencyOptions.filter((currency) =>
         matchesSearch(currencySearch, [
-          currencyCode,
-          getFiatCurrencyName(currencyCode),
-        ])
+          currency.currencyCode,
+          currency.name,
+          currency.symbol,
+        ]),
       ),
-    [currencySearch, fiatCurrencies]
+    [currencySearch, fiatCurrencyOptions],
   );
   const filteredDestinationTokens = React.useMemo(
     () =>
@@ -2290,9 +3004,9 @@ export function DepositOnrampFlow({
           token.name,
           token.chainName,
           token.contractAddress,
-        ])
+        ]),
       ),
-    [availableDestinationTokens, destinationSearch]
+    [availableDestinationTokens, destinationSearch],
   );
   const filteredPaymentMethods = React.useMemo(
     () =>
@@ -2300,31 +3014,59 @@ export function DepositOnrampFlow({
         matchesSearch(methodSearch, [
           method.method,
           getMethodLabel(method.method),
-          getMethodSubtitle(method.method),
-        ])
+          getMethodSubtitle(method),
+        ]),
       ),
-    [availablePaymentMethods, methodSearch]
+    [availablePaymentMethods, methodSearch],
   );
-  const filteredQuotes = React.useMemo(
+  const providerOptions = React.useMemo<OnrampProviderOption[]>(() => {
+    if (quotes.length > 0) {
+      return quotes.map((quote) => {
+        const route = routes.find(
+          (candidate) => candidate.provider === quote.provider,
+        );
+        const paymentMethod = route?.paymentMethods?.find(
+          (method) => method.method === quote.paymentMethodType,
+        );
+        return {
+          destinationAmount: quote.destinationAmount,
+          paymentMethod,
+          paymentMethodType: quote.paymentMethodType,
+          provider: quote.provider,
+          quote,
+          route,
+        };
+      });
+    }
+    return routes
+      .filter((route) => route.provider)
+      .map((route) => ({
+        paymentMethod: route.paymentMethods?.[0],
+        paymentMethodType: route.paymentMethods?.[0]?.method,
+        provider: route.provider,
+        route,
+      }));
+  }, [quotes, routes]);
+  const filteredProviderOptions = React.useMemo(
     () =>
-      quotes.filter((quote) =>
+      providerOptions.filter((option) =>
         matchesSearch(partnerSearch, [
-          quote.provider,
-          getProviderLabel(quote.provider),
-          quote.paymentMethodType,
-          getMethodLabel(quote.paymentMethodType),
-        ])
+          option.provider,
+          getProviderLabel(option.provider),
+          option.paymentMethodType,
+          getMethodLabel(option.paymentMethodType),
+          getMethodSubtitle(option.paymentMethod),
+        ]),
       ),
-    [partnerSearch, quotes]
+    [partnerSearch, providerOptions],
   );
-  const hasMultipleCurrencies = fiatCurrencies.length > 1;
+  const hasMultipleCurrencies = fiatCurrencyOptions.length > 1;
   const hasMultipleDestinationTokens = availableDestinationTokens.length > 1;
   const hasMultipleMethods = availablePaymentMethods.length > 1;
-  const hasMultipleProviders = quotes.length > 1;
-  const isLoading = optionsLoading || routesLoading || quotesLoading;
+  const hasMultipleProviders = providerOptions.length > 1;
   const parsedSourceAmount = React.useMemo(
     () => parseDecimal(sourceAmount),
-    [sourceAmount]
+    [sourceAmount],
   );
   const hasPositiveSourceAmount = Boolean(parsedSourceAmount?.gt(0));
   const amountLimitMessage = (() => {
@@ -2341,17 +3083,230 @@ export function DepositOnrampFlow({
     return null;
   })();
 
+  const executeOnrampDeposit = React.useCallback(
+    async (force = false) => {
+      const sessionId = session?.sessionId;
+      if (!sessionId || !opportunity || !ownerAddress || !toToken) return;
+      if (
+        !force &&
+        depositExecutionSessionRef.current === sessionId &&
+        depositExecution.status !== "failed"
+      ) {
+        return;
+      }
+
+      depositExecutionSessionRef.current = sessionId;
+      setDepositExecution({ status: "running" });
+      setSession((current) =>
+        current?.sessionId === sessionId
+          ? { ...current, state: "COMPLETING_DEPOSIT" }
+          : current,
+      );
+
+      const account = ownerAddress as Address;
+      const decimals = opportunity.tokenDecimals ?? toToken.decimals ?? 18;
+      const receivedAmount =
+        session.transaction?.destinationAmount ??
+        selectedQuote?.destinationAmount ??
+        "";
+      const isSandbox = getOnrampRuntimeEnvironment(baseUrl) !== "production";
+      const sandboxAmountRaw = getSandboxDepositAmountRaw(decimals);
+      let amountRaw = getRawTokenAmount(receivedAmount, decimals);
+
+      try {
+        if (!amountRaw || amountRaw <= BigInt(0)) {
+          throw new Error("Unable to resolve the onramp received amount.");
+        }
+
+        if (isSandbox) {
+          let balanceRaw: bigint | null = null;
+          if (publicClient) {
+            try {
+              balanceRaw = isNativeAddress(opportunity.tokenAddress)
+                ? await publicClient.getBalance({ address: account })
+                : ((await publicClient.readContract({
+                    abi: erc20Abi,
+                    address: opportunity.tokenAddress,
+                    args: [account],
+                    functionName: "balanceOf",
+                  })) as bigint);
+            } catch {
+              balanceRaw = null;
+            }
+          }
+
+          if (balanceRaw === null || balanceRaw <= sandboxAmountRaw) {
+            const displayAmount = formatUnits(amountRaw, decimals);
+            setDepositExecution({
+              amount: displayAmount,
+              skipped: true,
+              status: "success",
+            });
+            setSession((current) =>
+              current?.sessionId === sessionId
+                ? {
+                    ...current,
+                    deposit: {
+                      ...current.deposit,
+                      state: "DEPOSIT_SUCCESS",
+                    },
+                    state: "DEPOSIT_SUCCESS",
+                  }
+                : current,
+            );
+            return;
+          }
+
+          amountRaw = sandboxAmountRaw;
+        }
+
+        if (!nexusSDK) {
+          throw new Error("Nexus SDK is not available for deposit.");
+        }
+
+        const toChainId = toToken.chainId ?? opportunity.chainId;
+        const executeParams = opportunity.executeDeposit(
+          opportunity.tokenSymbol,
+          opportunity.tokenAddress,
+          amountRaw,
+          opportunity.chainId,
+          account,
+        );
+
+        if (!isPositiveGasLimit(executeParams.gas)) {
+          throw new Error(
+            "Deposit config executeDeposit must return a positive gas limit.",
+          );
+        }
+
+        const executionResult = await nexusSDK.execute({
+          ...executeParams,
+          toChainId,
+        });
+        const txHash = getSdkExecuteTransactionHash(executionResult);
+        const displayAmount = formatUnits(amountRaw, decimals);
+        const explorerUrl =
+          getSdkExecuteExplorerUrl(executionResult) ??
+          getTransactionExplorerUrl(toChainId, txHash);
+        setDepositExecution({
+          amount: displayAmount,
+          explorerUrl,
+          status: "success",
+          txHash,
+        });
+        setSession((current) =>
+          current?.sessionId === sessionId
+            ? {
+                ...current,
+                deposit: {
+                  ...current.deposit,
+                  explorerUrl,
+                  state: "DEPOSIT_SUCCESS",
+                  txHash,
+                },
+                state: "DEPOSIT_SUCCESS",
+              }
+            : current,
+        );
+      } catch (depositError) {
+        const message = getErrorMessage(depositError);
+        setDepositExecution({ error: message, status: "failed" });
+        setSession((current) =>
+          current?.sessionId === sessionId
+            ? {
+                ...current,
+                deposit: {
+                  ...current.deposit,
+                  state: "DEPOSIT_FAILED",
+                },
+                state: "DEPOSIT_FAILED",
+              }
+            : current,
+        );
+        onError?.(message);
+      }
+    },
+    [
+      baseUrl,
+      depositExecution.status,
+      onError,
+      opportunity,
+      ownerAddress,
+      publicClient,
+      nexusSDK,
+      selectedQuote,
+      session,
+      toToken,
+    ],
+  );
+
+  const applyOptions = React.useCallback(
+    (data: OnrampOptionsResponse, fallbackCountryCode: string) => {
+      setOptions(data);
+      setCountryCode(
+        data.selection?.countryCode?.toUpperCase() ?? fallbackCountryCode,
+      );
+      setSourceCurrencyCode((current) => {
+        const currencies = getFiatCurrencyOptions(data);
+        if (
+          current &&
+          currencies.some((currency) => currency.currencyCode === current)
+        ) {
+          return current;
+        }
+        return getDefaultFiatCurrencyCode(data);
+      });
+    },
+    [],
+  );
+
   const loadOptions = React.useCallback(async () => {
     setOptionsLoading(true);
     setError(null);
     try {
-      const data = await fetchOnrampJson<OnrampOptionsResponse>(
-        baseUrl,
-        `/api/v1/onramp/options?countryCode=${encodeURIComponent(countryCode)}`,
-        { method: "GET" }
-      );
-      setOptions(data);
-      setSourceCurrencyCode((current) => current || "INR");
+      const loadOptionsForCountry = async (countryCodeToLoad: string) => {
+        const requestedCountryCode = countryCodeToLoad.toUpperCase();
+        const cached = readCachedOnrampOptions(baseUrl, requestedCountryCode);
+        if (cached) {
+          return { data: cached, requestedCountryCode };
+        }
+
+        const data = await fetchOnrampJson<OnrampOptionsResponse>(
+          baseUrl,
+          `/api/v1/onramp/options?countryCode=${encodeURIComponent(
+            requestedCountryCode,
+          )}`,
+          { method: "GET" },
+        );
+        writeCachedOnrampOptions(baseUrl, requestedCountryCode, data);
+
+        const selectedCountryCode = data.selection?.countryCode?.toUpperCase();
+        if (
+          selectedCountryCode &&
+          selectedCountryCode !== requestedCountryCode &&
+          isCountryInOptionsList(data, selectedCountryCode)
+        ) {
+          writeCachedOnrampOptions(baseUrl, selectedCountryCode, data);
+        }
+
+        return { data, requestedCountryCode };
+      };
+
+      const resolvedCountryCode = await resolveOnrampCountryCode();
+      let { data, requestedCountryCode } =
+        await loadOptionsForCountry(resolvedCountryCode);
+
+      if (!isCountryInOptionsList(data, requestedCountryCode)) {
+        const fallbackCountryCode = getUnsupportedCountryFallbackCode(baseUrl);
+        if (fallbackCountryCode !== requestedCountryCode) {
+          const fallbackOptions =
+            await loadOptionsForCountry(fallbackCountryCode);
+          data = fallbackOptions.data;
+          requestedCountryCode = fallbackOptions.requestedCountryCode;
+        }
+      }
+
+      applyOptions(data, requestedCountryCode);
     } catch (requestError) {
       const message = getErrorMessage(requestError);
       setError(message);
@@ -2359,11 +3314,27 @@ export function DepositOnrampFlow({
     } finally {
       setOptionsLoading(false);
     }
-  }, [baseUrl, countryCode, onError]);
+  }, [applyOptions, baseUrl, onError]);
 
   React.useEffect(() => {
     void loadOptions();
   }, [loadOptions]);
+
+  const getRequestErrorMessage = React.useCallback(
+    (requestError: unknown) =>
+      getOnrampRequestErrorMessage(requestError, {
+        countryCode,
+        sourceCurrencyCode,
+        token: toToken,
+      }),
+    [countryCode, sourceCurrencyCode, toToken],
+  );
+
+  React.useEffect(() => {
+    setBlockedRateRequest((current) =>
+      current && current.key !== rateRequestKey ? null : current,
+    );
+  }, [rateRequestKey]);
 
   React.useEffect(() => {
     if (activeSheet !== "currency") setCurrencySearch("");
@@ -2373,7 +3344,60 @@ export function DepositOnrampFlow({
   }, [activeSheet]);
 
   React.useEffect(() => {
-    if (!sourceCurrencyCode || !destinationCurrencyCode) return;
+    quotesLoadingRef.current = quotesLoading;
+  }, [quotesLoading]);
+
+  React.useEffect(() => {
+    if (blockedRateRequest?.key === rateRequestKey) {
+      quoteRunIdRef.current += 1;
+      lastRouteRequestKeyRef.current = rateRequestKey;
+      lastQuoteRequestKeyRef.current = "";
+      setRoutes([]);
+      setSelectedPaymentMethod("");
+      setQuotes([]);
+      setSelectedProvider("");
+      setError(blockedRateRequest.message);
+      setRoutesLoading(false);
+      setQuotesLoading(false);
+      return;
+    }
+    if (isDestinationTokenUnsupported) {
+      quoteRunIdRef.current += 1;
+      lastRouteRequestKeyRef.current = "";
+      lastQuoteRequestKeyRef.current = "";
+      setRoutes([]);
+      setSelectedPaymentMethod("");
+      setQuotes([]);
+      setSelectedProvider("");
+      setError(null);
+      setRoutesLoading(false);
+      setQuotesLoading(false);
+      return;
+    }
+    if (
+      !countryCode ||
+      !sourceCurrencyCode ||
+      !destinationRequestDetails.destinationCurrencyCode
+    ) {
+      lastRouteRequestKeyRef.current = "";
+      lastQuoteRequestKeyRef.current = "";
+      setRoutes([]);
+      setSelectedPaymentMethod("");
+      setQuotes([]);
+      setSelectedProvider("");
+      setRoutesLoading(false);
+      setQuotesLoading(false);
+      return;
+    }
+    if (lastRouteRequestKeyRef.current === rateRequestKey) return;
+    const routeRunId = routeRunIdRef.current + 1;
+    routeRunIdRef.current = routeRunId;
+    quoteRunIdRef.current += 1;
+    lastQuoteRequestKeyRef.current = "";
+    setRoutes([]);
+    setSelectedPaymentMethod("");
+    setQuotes([]);
+    setSelectedProvider("");
     let cancelled = false;
 
     const loadRoutes = async () => {
@@ -2382,34 +3406,51 @@ export function DepositOnrampFlow({
       try {
         const params = new URLSearchParams({
           countryCode,
-          destinationCurrencyCode,
+          destinationCurrencyCode:
+            destinationRequestDetails.destinationCurrencyCode,
           sourceCurrencyCode,
         });
+        if (destinationRequestDetails.destinationChainId) {
+          params.set(
+            "destinationChainId",
+            destinationRequestDetails.destinationChainId,
+          );
+        }
+        if (destinationRequestDetails.destinationToken) {
+          params.set(
+            "destinationToken",
+            destinationRequestDetails.destinationToken,
+          );
+        }
         const data = await fetchOnrampJson<OnrampRoutesResponse>(
           baseUrl,
           `/api/v1/onramp/routes?${params.toString()}`,
-          { method: "GET" }
+          { method: "GET" },
         );
-        if (cancelled) return;
+        if (cancelled || routeRunIdRef.current !== routeRunId) return;
         const nextRoutes = data.routes ?? [];
         setRoutes(nextRoutes);
-        const methods = nextRoutes.flatMap((route) => route.paymentMethods ?? []);
-        const preferred =
-          options?.selection?.defaultPaymentMethods?.find((method) =>
-            methods.some((candidate) => candidate.method === method)
-          ) ?? methods[0]?.method;
-        setSelectedPaymentMethod((current) =>
-          current && methods.some((method) => method.method === current)
-            ? current
-            : preferred ?? ""
-        );
+        const firstRoute = nextRoutes[0];
+        setSelectedProvider(firstRoute?.provider ?? "");
+        setSelectedPaymentMethod(firstRoute?.paymentMethods?.[0]?.method ?? "");
+        lastRouteRequestKeyRef.current = rateRequestKey;
       } catch (requestError) {
-        if (cancelled) return;
-        const message = getErrorMessage(requestError);
+        if (cancelled || routeRunIdRef.current !== routeRunId) return;
+        const message = getRequestErrorMessage(requestError);
+        quoteRunIdRef.current += 1;
+        if (isTerminalOnrampRateError(requestError)) {
+          setBlockedRateRequest({ key: rateRequestKey, message });
+        }
+        setRoutes([]);
+        setSelectedPaymentMethod("");
+        setQuotes([]);
+        setSelectedProvider("");
         setError(message);
         onError?.(message);
       } finally {
-        if (!cancelled) setRoutesLoading(false);
+        if (!cancelled && routeRunIdRef.current === routeRunId) {
+          setRoutesLoading(false);
+        }
       }
     };
 
@@ -2419,22 +3460,35 @@ export function DepositOnrampFlow({
     };
   }, [
     baseUrl,
+    blockedRateRequest?.key,
+    blockedRateRequest?.message,
     countryCode,
-    destinationCurrencyCode,
+    destinationRequestDetails.destinationChainId,
+    destinationRequestDetails.destinationCurrencyCode,
+    destinationRequestDetails.destinationToken,
+    getRequestErrorMessage,
+    isDestinationTokenUnsupported,
     onError,
-    options?.selection?.defaultPaymentMethods,
+    rateRequestKey,
     sourceCurrencyCode,
   ]);
 
   const fetchQuotes = React.useCallback(async () => {
     if (
+      !countryCode ||
       !ownerAddress ||
       !sourceCurrencyCode ||
-      !destinationCurrencyCode ||
+      !destinationRequestDetails.destinationCurrencyCode ||
       !selectedPaymentMethod ||
       !parsedSourceAmount?.gt(0) ||
-      amountLimitMessage
+      amountLimitMessage ||
+      isDestinationTokenUnsupported
     ) {
+      return;
+    }
+    if (blockedRateRequest?.key === rateRequestKey) {
+      setError(blockedRateRequest.message);
+      setQuotesLoading(false);
       return;
     }
 
@@ -2449,14 +3503,22 @@ export function DepositOnrampFlow({
         {
           body: JSON.stringify({
             countryCode,
-            destinationCurrencyCode,
+            destination: {
+              chainId: destinationRequestDetails.destinationChainId,
+              currencyCode: destinationRequestDetails.destinationCurrencyCode,
+              token: destinationRequestDetails.destinationToken,
+            },
+            destinationChainId: destinationRequestDetails.destinationChainId,
+            destinationCurrencyCode:
+              destinationRequestDetails.destinationCurrencyCode,
+            destinationToken: destinationRequestDetails.destinationToken,
             paymentMethodType: selectedPaymentMethod,
             sourceAmount,
             sourceCurrencyCode,
             walletAddress: ownerAddress,
           }),
           method: "POST",
-        }
+        },
       );
       if (quoteRunIdRef.current !== runId) return;
       const nextQuotes = sortQuotes(data.quotes ?? []);
@@ -2464,14 +3526,19 @@ export function DepositOnrampFlow({
       setSelectedProvider((current) =>
         current && nextQuotes.some((quote) => quote.provider === current)
           ? current
-          : nextQuotes[0]?.provider ?? ""
+          : (nextQuotes[0]?.provider ?? ""),
       );
       if (nextQuotes.length === 0) {
-        setError("No onramp quotes are available for this amount.");
+        setError(
+          "No local currency rates are available for this token and currency. Choose another deposit token or pay with wallet.",
+        );
       }
     } catch (requestError) {
       if (quoteRunIdRef.current !== runId) return;
-      const message = getErrorMessage(requestError);
+      const message = getRequestErrorMessage(requestError);
+      if (isTerminalOnrampRateError(requestError)) {
+        setBlockedRateRequest({ key: rateRequestKey, message });
+      }
       setQuotes([]);
       setError(message);
       onError?.(message);
@@ -2485,38 +3552,49 @@ export function DepositOnrampFlow({
     amountLimitMessage,
     baseUrl,
     countryCode,
-    destinationCurrencyCode,
+    destinationRequestDetails.destinationChainId,
+    destinationRequestDetails.destinationCurrencyCode,
+    destinationRequestDetails.destinationToken,
+    getRequestErrorMessage,
+    blockedRateRequest,
+    isDestinationTokenUnsupported,
     onError,
     ownerAddress,
     parsedSourceAmount,
+    rateRequestKey,
     selectedPaymentMethod,
     sourceAmount,
     sourceCurrencyCode,
   ]);
 
   React.useEffect(() => {
-    setRoutes([]);
-    setSelectedPaymentMethod("");
-    setQuotes([]);
-    setSelectedProvider("");
+    setSessionCallbackReceived(false);
     setSession(null);
-  }, [destinationCurrencyCode]);
+  }, [
+    destinationRequestDetails.destinationChainId,
+    destinationRequestDetails.destinationCurrencyCode,
+    destinationRequestDetails.destinationToken,
+  ]);
 
   React.useEffect(() => {
     if (session?.sessionId) return;
-    setQuotes([]);
-    setSelectedProvider("");
     if (
       !ownerAddress ||
       !sourceCurrencyCode ||
-      !destinationCurrencyCode ||
+      !destinationRequestDetails.destinationCurrencyCode ||
       !selectedPaymentMethod ||
       !parsedSourceAmount?.gt(0) ||
-      amountLimitMessage
+      amountLimitMessage ||
+      isDestinationTokenUnsupported
     ) {
+      lastQuoteRequestKeyRef.current = "";
+      setQuotes([]);
       return;
     }
+    if (lastQuoteRequestKeyRef.current === quoteRequestKey) return;
+    setQuotes([]);
     const timer = window.setTimeout(() => {
+      lastQuoteRequestKeyRef.current = quoteRequestKey;
       void fetchQuotes();
     }, 350);
     return () => {
@@ -2524,24 +3602,28 @@ export function DepositOnrampFlow({
     };
   }, [
     amountLimitMessage,
-    destinationCurrencyCode,
+    destinationRequestDetails.destinationChainId,
+    destinationRequestDetails.destinationCurrencyCode,
+    destinationRequestDetails.destinationToken,
     fetchQuotes,
+    isDestinationTokenUnsupported,
     ownerAddress,
     parsedSourceAmount,
+    quoteRequestKey,
     selectedPaymentMethod,
     session?.sessionId,
     sourceCurrencyCode,
   ]);
 
   React.useEffect(() => {
-    if (session?.sessionId || !selectedQuote || quotesLoading || sessionLoading) {
+    if (session?.sessionId || !selectedQuote || sessionLoading) {
       return;
     }
     setQuoteRefreshSeconds(QUOTE_REFRESH_SECONDS);
     const interval = window.setInterval(() => {
       setQuoteRefreshSeconds((current) => {
         if (current <= 1) {
-          void fetchQuotes();
+          if (!quotesLoadingRef.current) void fetchQuotes();
           return QUOTE_REFRESH_SECONDS;
         }
         return current - 1;
@@ -2550,21 +3632,20 @@ export function DepositOnrampFlow({
     return () => {
       window.clearInterval(interval);
     };
-  }, [
-    fetchQuotes,
-    quotesLoading,
-    selectedQuote,
-    session?.sessionId,
-    sessionLoading,
-  ]);
+  }, [fetchQuotes, selectedQuote, session?.sessionId, sessionLoading]);
 
   React.useEffect(() => {
-    onSessionStateChange?.(
-      session?.sessionId
-        ? normalizedSessionState || "AWAITING_USER"
-        : null
-    );
+    const derivedSessionState =
+      depositExecution.status === "running"
+        ? "COMPLETING_DEPOSIT"
+        : depositExecution.status === "success"
+          ? "DEPOSIT_SUCCESS"
+          : depositExecution.status === "failed"
+            ? "DEPOSIT_FAILED"
+            : normalizedSessionState || "AWAITING_USER";
+    onSessionStateChange?.(session?.sessionId ? derivedSessionState : null);
   }, [
+    depositExecution.status,
     normalizedSessionState,
     onSessionStateChange,
     session?.sessionId,
@@ -2574,8 +3655,79 @@ export function DepositOnrampFlow({
     () => () => {
       onSessionStateChange?.(null);
     },
-    [onSessionStateChange]
+    [onSessionStateChange],
   );
+
+  const applyOnrampCallback = React.useCallback((payload: unknown) => {
+    if (payload === ONRAMP_CALLBACK_SUCCESS_MESSAGE) {
+      setSessionCallbackReceived(true);
+      setError(null);
+      return;
+    }
+    if (!isOnrampCallbackPayload(payload)) return;
+    setSessionCallbackReceived(true);
+    setSession((current) => {
+      if (current?.sessionId && current.sessionId !== payload.sessionId) {
+        return current;
+      }
+      return {
+        ...current,
+        ...payload.session,
+        sessionId: payload.sessionId,
+        state:
+          payload.session?.state ??
+          (payload.state || undefined) ??
+          current?.state,
+      };
+    });
+    setError(null);
+  }, []);
+
+  const applyManualOnrampSessionId = React.useCallback((sessionId: string) => {
+    const normalizedSessionId = sessionId.trim();
+    if (!normalizedSessionId) return;
+    setSessionCallbackReceived(true);
+    setSession({
+      sessionId: normalizedSessionId,
+      state: "AWAITING_USER",
+    });
+    setError(null);
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleMessage = (event: MessageEvent) => {
+      applyOnrampCallback(event.data);
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== ONRAMP_CALLBACK_STORAGE_KEY || !event.newValue) return;
+      try {
+        applyOnrampCallback(JSON.parse(event.newValue));
+      } catch {
+        // Ignore malformed callback payloads from storage.
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    window.addEventListener("storage", handleStorage);
+    window.setRampSessionId = applyManualOnrampSessionId;
+
+    let channel: BroadcastChannel | null = null;
+    if ("BroadcastChannel" in window) {
+      channel = new BroadcastChannel(ONRAMP_CALLBACK_CHANNEL);
+      channel.onmessage = (event) => applyOnrampCallback(event.data);
+    }
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      window.removeEventListener("storage", handleStorage);
+      if (window.setRampSessionId === applyManualOnrampSessionId) {
+        delete window.setRampSessionId;
+      }
+      channel?.close();
+    };
+  }, [applyManualOnrampSessionId, applyOnrampCallback]);
 
   React.useEffect(() => {
     const sessionId = session?.sessionId;
@@ -2591,11 +3743,11 @@ export function DepositOnrampFlow({
         const data = await fetchOnrampJson<OnrampSessionResponse>(
           baseUrl,
           `/api/v1/onramp/sessions/${encodeURIComponent(sessionId)}`,
-          { method: "GET" }
+          { method: "GET" },
         );
         if (cancelled) return;
         setSession((current) =>
-          current?.sessionId === sessionId ? { ...current, ...data } : current
+          current?.sessionId === sessionId ? { ...current, ...data } : current,
         );
       } catch (requestError) {
         if (cancelled) return;
@@ -2613,32 +3765,83 @@ export function DepositOnrampFlow({
       cancelled = true;
       window.clearInterval(interval);
     };
+  }, [baseUrl, normalizedSessionState, onError, session?.sessionId]);
+
+  React.useEffect(() => {
+    if (!session?.sessionId) {
+      depositExecutionSessionRef.current = "";
+      setDepositExecution({ status: "idle" });
+      return;
+    }
+    if (
+      depositExecutionSessionRef.current &&
+      depositExecutionSessionRef.current !== session.sessionId
+    ) {
+      depositExecutionSessionRef.current = "";
+      setDepositExecution({ status: "idle" });
+    }
+  }, [session?.sessionId]);
+
+  React.useEffect(() => {
+    if (
+      !session?.sessionId ||
+      normalizedSessionState !== "SETTLED" ||
+      depositExecution.status !== "idle"
+    ) {
+      return;
+    }
+    void executeOnrampDeposit();
   }, [
-    baseUrl,
+    depositExecution.status,
+    executeOnrampDeposit,
     normalizedSessionState,
-    onError,
     session?.sessionId,
   ]);
 
   const createSession = async () => {
-    if (!selectedQuote || !ownerAddress || !selectedPaymentMethod) return;
+    if (
+      !selectedQuote ||
+      !ownerAddress ||
+      !selectedPaymentMethod ||
+      isDestinationTokenUnsupported
+    ) {
+      return;
+    }
     setSessionLoading(true);
     setError(null);
+    setSessionCallbackReceived(false);
+    depositExecutionSessionRef.current = "";
+    setDepositExecution({ status: "idle" });
+    const providerWindow = openOnrampProviderWindow();
+    if (!providerWindow) {
+      setSessionLoading(false);
+      setError(
+        "Payment provider popup was blocked. Allow popups and try again.",
+      );
+      return;
+    }
     try {
-      const returnUrl =
-        typeof window !== "undefined"
-          ? window.location.href
-          : "http://localhost:8000/onramp/complete";
       const data = await fetchOnrampJson<OnrampSessionResponse>(
         baseUrl,
         "/api/v1/onramp/sessions",
         {
           body: JSON.stringify({
             countryCode,
-            destinationCurrencyCode: selectedQuote.destinationCurrencyCode,
+            destination: {
+              chainId: destinationRequestDetails.destinationChainId,
+              currencyCode:
+                selectedQuote.destinationCurrencyCode ??
+                destinationRequestDetails.destinationCurrencyCode,
+              token: destinationRequestDetails.destinationToken,
+            },
+            destinationChainId: destinationRequestDetails.destinationChainId,
+            destinationCurrencyCode:
+              selectedQuote.destinationCurrencyCode ??
+              destinationRequestDetails.destinationCurrencyCode,
+            destinationToken: destinationRequestDetails.destinationToken,
             paymentMethodType: selectedPaymentMethod,
             provider: selectedQuote.provider,
-            returnUrl,
+            returnUrl: getOnrampReturnUrl(),
             sourceAmount: selectedQuote.sourceAmount,
             sourceCurrencyCode: selectedQuote.sourceCurrencyCode,
             walletAddress: ownerAddress,
@@ -2647,18 +3850,19 @@ export function DepositOnrampFlow({
             "Idempotency-Key": createIdempotencyKey(),
           },
           method: "POST",
-        }
+        },
       );
       setSession(data);
       const widgetUrl = data.widgetUrl ?? data.fallbackWidgetUrl;
-      if (widgetUrl && typeof window !== "undefined") {
-        const opened = window.open(widgetUrl, "_blank", "noopener,noreferrer");
-        if (!opened) {
-          window.location.assign(widgetUrl);
-        }
+      if (widgetUrl) {
+        providerWindow.location.href = widgetUrl;
+      } else {
+        providerWindow.close();
+        setError("Payment provider URL was not returned. Try again.");
       }
     } catch (requestError) {
-      const message = getErrorMessage(requestError);
+      providerWindow?.close();
+      const message = getRequestErrorMessage(requestError);
       setError(message);
       onError?.(message);
     } finally {
@@ -2668,11 +3872,17 @@ export function DepositOnrampFlow({
 
   const resetSession = () => {
     setError(null);
+    setSessionCallbackReceived(false);
+    depositExecutionSessionRef.current = "";
+    setDepositExecution({ status: "idle" });
     setSession(null);
   };
 
   const completeSession = () => {
     setError(null);
+    setSessionCallbackReceived(false);
+    depositExecutionSessionRef.current = "";
+    setDepositExecution({ status: "idle" });
     setQuotes([]);
     setSelectedProvider("");
     setSession(null);
@@ -2695,14 +3905,37 @@ export function DepositOnrampFlow({
       setSelectedProvider("");
       setQuotes([]);
       setRoutes([]);
+      setSessionCallbackReceived(false);
       setSession(null);
     }
     setActiveSheet(null);
   };
 
+  const handleProviderSelect = (option: OnrampProviderOption) => {
+    setSelectedProvider(option.provider);
+    if (option.paymentMethodType) {
+      setSelectedPaymentMethod(option.paymentMethodType);
+    }
+    if (!option.quote) {
+      setQuotes([]);
+    }
+    setActiveSheet(null);
+  };
+
   const handleMethodSelect = (method: string) => {
+    const nextRoute =
+      routes.find(
+        (route) =>
+          route.provider === selectedProvider &&
+          route.paymentMethods?.some(
+            (candidate) => candidate.method === method,
+          ),
+      ) ??
+      routes.find((route) =>
+        route.paymentMethods?.some((candidate) => candidate.method === method),
+      );
     setSelectedPaymentMethod(method);
-    setSelectedProvider("");
+    setSelectedProvider(nextRoute?.provider ?? selectedProvider);
     setQuotes([]);
     setActiveSheet(null);
   };
@@ -2710,22 +3943,36 @@ export function DepositOnrampFlow({
   const receiveAmount = selectedQuote?.destinationAmount;
   const receiveUsd = selectedQuote?.destinationAmount;
   const feeTotal = selectedQuote?.fees?.total;
+  const displayProvider = selectedQuote?.provider ?? selectedProvider;
+  const providerSubtitle = selectedQuote ? "Best available quote" : "";
+  const hasRouteDetails = Boolean(
+    selectedPaymentMethodDetails || selectedPaymentMethod || displayProvider,
+  );
+  const rateRequestLoading = routesLoading || quotesLoading;
   const fetchingBestRates =
     hasPositiveSourceAmount &&
     !selectedQuote &&
     !amountLimitMessage &&
     !error &&
-    Boolean(destinationCurrencyCode) &&
-    (isLoading || Boolean(selectedPaymentMethod));
-  const ctaRateLoading = fetchingBestRates || (hasPositiveSourceAmount && isLoading);
-  const quoteDetailsLoading = fetchingBestRates;
+    !destinationTokenUnsupportedMessage &&
+    Boolean(destinationRequestDetails.destinationCurrencyCode) &&
+    (rateRequestLoading || Boolean(selectedPaymentMethod));
+  const ctaRateLoading =
+    !error &&
+    !destinationTokenUnsupportedMessage &&
+    !selectedQuote &&
+    (fetchingBestRates || (hasPositiveSourceAmount && rateRequestLoading));
+  const quoteDetailsLoading =
+    fetchingBestRates || (routesLoading && !hasRouteDetails);
   const shouldShowQuoteDetails =
-    hasPositiveSourceAmount && (quoteDetailsLoading || Boolean(selectedQuote));
+    !destinationTokenUnsupportedMessage &&
+    (quoteDetailsLoading || hasRouteDetails || Boolean(selectedQuote));
   const shouldShowQuoteTimer = Boolean(selectedQuote);
   const ctaDisabled =
     !ownerAddress ||
     !hasPositiveSourceAmount ||
     !selectedQuote ||
+    Boolean(destinationTokenUnsupportedMessage) ||
     Boolean(amountLimitMessage) ||
     ctaRateLoading ||
     sessionLoading;
@@ -2790,13 +4037,16 @@ export function DepositOnrampFlow({
   if (session?.sessionId) {
     return (
       <OnrampSessionStatusPanel
+        depositExecution={depositExecution}
         onCancel={resetSession}
         onDone={completeSession}
+        onRetryDeposit={() => void executeOnrampDeposit(true)}
         onRetryPayment={() => void createSession()}
         opportunity={opportunity}
         primaryButtonForeground={primaryButtonForeground}
         quote={selectedQuote}
         session={session}
+        sessionCallbackReceived={sessionCallbackReceived}
         sourceAmount={sourceAmount}
         sourceCurrencyCode={sourceCurrencyCode}
         toToken={toToken}
@@ -2839,7 +4089,9 @@ export function DepositOnrampFlow({
           }}
         >
           <Loader2
-            className={quotesLoading || routesLoading ? "animate-spin" : undefined}
+            className={
+              quotesLoading || routesLoading ? "animate-spin" : undefined
+            }
             size={16}
             style={
               quotesLoading || routesLoading
@@ -2879,7 +4131,11 @@ export function DepositOnrampFlow({
             >
               <div style={sectionLabelStyle}>You Pay</div>
               <input
+                aria-invalid={Boolean(amountLimitMessage)}
+                disabled={Boolean(destinationTokenUnsupportedMessage)}
                 inputMode="decimal"
+                max={selectedPaymentMethodDetails?.limits?.max}
+                min={selectedPaymentMethodDetails?.limits?.min}
                 onChange={(event) =>
                   setSourceAmount(normalizeAmountInput(event.target.value))
                 }
@@ -2895,6 +4151,9 @@ export function DepositOnrampFlow({
                   lineHeight: "36px",
                   outline: "none",
                   padding: 0,
+                  cursor: destinationTokenUnsupportedMessage
+                    ? "not-allowed"
+                    : undefined,
                   width: "100%",
                 }}
                 value={sourceAmount}
@@ -2907,18 +4166,22 @@ export function DepositOnrampFlow({
                   lineHeight: "18px",
                 }}
               >
-                {selectedQuote
-                  ? `${formatUsdDisplay(sourceAmount)} USD`
-                  : hasPositiveSourceAmount
-                    ? `${formatUsdDisplay(sourceAmount)} USD`
-                    : "Select currency"}
+                {hasPositiveSourceAmount
+                  ? formatCurrencyAmount(
+                      selectedQuote?.sourceAmount ?? sourceAmount,
+                      selectedQuote?.sourceCurrencyCode ?? sourceCurrencyCode,
+                    )
+                  : "Select currency"}
               </div>
             </div>
             <SelectPill
               disabled={!hasMultipleCurrencies}
               onClick={() => setActiveSheet("currency")}
             >
-              <CurrencyMark code={sourceCurrencyCode} />
+              <CurrencyMark
+                code={sourceCurrencyCode}
+                currency={selectedFiatCurrency}
+              />
               <span
                 style={{
                   fontFamily: theme.fonts.sans,
@@ -2941,25 +4204,25 @@ export function DepositOnrampFlow({
                 color: theme.colors.textSubtle,
                 display: "flex",
                 fontFamily: theme.fonts.sans,
-                fontSize: "13px",
-                gap: "8px",
-                lineHeight: "17px",
-                padding: "10px 12px",
+                fontSize: "12px",
+                gap: "6px",
+                lineHeight: "15px",
+                padding: "7px 10px",
               }}
             >
-              <Info aria-hidden="true" size={15} strokeWidth={1.8} />
+              <Info aria-hidden="true" size={13} strokeWidth={1.8} />
               <span>
                 Limits
                 {selectedPaymentMethodDetails.limits.min
                   ? ` · Min ${formatCurrencyAmount(
                       selectedPaymentMethodDetails.limits.min,
-                      sourceCurrencyCode
+                      sourceCurrencyCode,
                     )}`
                   : ""}
                 {selectedPaymentMethodDetails.limits.max
                   ? ` · Max ${formatCurrencyAmount(
                       selectedPaymentMethodDetails.limits.max,
-                      sourceCurrencyCode
+                      sourceCurrencyCode,
                     )}`
                   : ""}
               </span>
@@ -3037,8 +4300,8 @@ export function DepositOnrampFlow({
 
       {shouldShowQuoteDetails &&
         (quoteDetailsLoading ? (
-          <QuoteDetailsSkeleton />
-        ) : selectedQuote ? (
+          <QuoteDetailsSkeleton showFees={hasPositiveSourceAmount} />
+        ) : hasRouteDetails ? (
           <div style={panelStyle}>
             <DetailRow
               action={
@@ -3049,7 +4312,9 @@ export function DepositOnrampFlow({
               }
               label="Payment Method"
             >
-              <div style={{ alignItems: "center", display: "flex", gap: "10px" }}>
+              <div
+                style={{ alignItems: "center", display: "flex", gap: "10px" }}
+              >
                 <MethodMark method={selectedPaymentMethod} />
                 <div
                   style={{
@@ -3075,8 +4340,10 @@ export function DepositOnrampFlow({
               divider
               label="Payment Partner"
             >
-              <div style={{ alignItems: "center", display: "flex", gap: "10px" }}>
-                <ProviderMark provider={selectedQuote.provider} />
+              <div
+                style={{ alignItems: "center", display: "flex", gap: "10px" }}
+              >
+                <ProviderMark provider={displayProvider} />
                 <div
                   style={{
                     display: "flex",
@@ -3093,7 +4360,53 @@ export function DepositOnrampFlow({
                       lineHeight: "19px",
                     }}
                   >
-                    {getProviderLabel(selectedQuote.provider)}
+                    {getProviderLabel(displayProvider)}
+                  </div>
+                  {providerSubtitle && (
+                    <div
+                      style={{
+                        color: theme.colors.textSubtle,
+                        fontFamily: theme.fonts.sans,
+                        fontSize: "13px",
+                        lineHeight: "17px",
+                      }}
+                    >
+                      {providerSubtitle}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </DetailRow>
+
+            {selectedQuote && (
+              <button
+                onClick={() => setActiveSheet("fees")}
+                style={{
+                  alignItems: "center",
+                  backgroundColor: "transparent",
+                  border: "none",
+                  borderTop: `1px solid ${theme.colors.divider}`,
+                  boxSizing: "border-box",
+                  cursor: "pointer",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "14px",
+                  textAlign: "left",
+                  width: "100%",
+                }}
+                type="button"
+              >
+                <div>
+                  <div
+                    style={{
+                      color: theme.colors.textStrong,
+                      fontFamily: theme.fonts.sans,
+                      fontSize: "15px",
+                      fontWeight: 600,
+                      lineHeight: "19px",
+                    }}
+                  >
+                    Total Fees
                   </div>
                   <div
                     style={{
@@ -3103,101 +4416,69 @@ export function DepositOnrampFlow({
                       lineHeight: "17px",
                     }}
                   >
-                    Best available quote
+                    Inclusive of fees
                   </div>
                 </div>
-              </div>
-            </DetailRow>
-
-            <button
-              onClick={() => setActiveSheet("fees")}
-              style={{
-                alignItems: "center",
-                backgroundColor: "transparent",
-                border: "none",
-                borderTop: `1px solid ${theme.colors.divider}`,
-                boxSizing: "border-box",
-                cursor: "pointer",
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "14px",
-                textAlign: "left",
-                width: "100%",
-              }}
-              type="button"
-            >
-              <div>
                 <div
                   style={{
-                    color: theme.colors.textStrong,
-                    fontFamily: theme.fonts.sans,
-                    fontSize: "15px",
-                    fontWeight: 600,
-                    lineHeight: "19px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "2px",
+                    textAlign: "right",
                   }}
                 >
-                  Total Fees
+                  <div
+                    style={{
+                      color: theme.colors.textStrong,
+                      fontFamily: theme.fonts.display,
+                      fontSize: "15px",
+                      fontWeight: 500,
+                      lineHeight: "19px",
+                    }}
+                  >
+                    {feeTotal
+                      ? formatCurrencyAmount(feeTotal, sourceCurrencyCode)
+                      : "--"}
+                  </div>
+                  <div
+                    style={{
+                      color: brand,
+                      fontFamily: theme.fonts.sans,
+                      fontSize: "13px",
+                      lineHeight: "17px",
+                    }}
+                  >
+                    View breakdown
+                  </div>
                 </div>
-                <div
-                  style={{
-                    color: theme.colors.textSubtle,
-                    fontFamily: theme.fonts.sans,
-                    fontSize: "13px",
-                    lineHeight: "17px",
-                  }}
-                >
-                  Inclusive of fees
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "2px",
-                  textAlign: "right",
-                }}
-              >
-                <div
-                  style={{
-                    color: theme.colors.textStrong,
-                    fontFamily: theme.fonts.display,
-                    fontSize: "15px",
-                    fontWeight: 500,
-                    lineHeight: "19px",
-                  }}
-                >
-                  {feeTotal
-                    ? formatCurrencyAmount(feeTotal, sourceCurrencyCode)
-                    : "--"}
-                </div>
-                <div
-                  style={{
-                    color: brand,
-                    fontFamily: theme.fonts.sans,
-                    fontSize: "13px",
-                    lineHeight: "17px",
-                  }}
-                >
-                  View breakdown
-                </div>
-              </div>
-            </button>
+              </button>
+            )}
           </div>
         ) : null)}
 
-      {(error || amountLimitMessage || session?.state) && (
+      {(destinationTokenUnsupportedMessage ||
+        error ||
+        amountLimitMessage ||
+        session?.state) && (
         <div
           style={{
-            backgroundColor: error || amountLimitMessage ? "#FCEEED" : "#E8F5E9",
+            backgroundColor:
+              destinationTokenUnsupportedMessage || error || amountLimitMessage
+                ? "#FCEEED"
+                : "#E8F5E9",
             borderRadius: "8px",
-            color: error || amountLimitMessage ? "#D32F2F" : "#2E7D32",
+            color:
+              destinationTokenUnsupportedMessage || error || amountLimitMessage
+                ? "#D32F2F"
+                : "#2E7D32",
             fontFamily: theme.fonts.sans,
             fontSize: "13px",
             lineHeight: "18px",
             padding: "10px 12px",
           }}
         >
-          {error ??
+          {destinationTokenUnsupportedMessage ??
+            error ??
             amountLimitMessage ??
             `Onramp session ${session?.state?.toLowerCase() ?? "created"}.`}
         </div>
@@ -3238,14 +4519,19 @@ export function DepositOnrampFlow({
         {sessionLoading
           ? "Opening provider..."
           : ctaRateLoading
-            ? "fetching best rates..."
-            : selectedQuote
-              ? `Pay ${formatCurrencyAmount(sourceAmount, sourceCurrencyCode)}`
-              : "Enter amount"}
+            ? "Fetching best rates..."
+            : destinationTokenUnsupportedMessage
+              ? "Token not supported"
+              : selectedQuote
+                ? `Pay ${formatCurrencyAmount(sourceAmount, sourceCurrencyCode)}`
+                : "Enter amount"}
       </button>
 
       {activeSheet === "fees" && (
-        <Sheet onClose={() => setActiveSheet(null)} title={`Buying ${formatNumberDisplay(receiveAmount, 6)} ${toToken?.symbol ?? ""}`}>
+        <Sheet
+          onClose={() => setActiveSheet(null)}
+          title={`Buying ${formatNumberDisplay(receiveAmount, 6)} ${toToken?.symbol ?? ""}`}
+        >
           <div
             style={{
               color: theme.colors.textSubtle,
@@ -3255,12 +4541,14 @@ export function DepositOnrampFlow({
             }}
           >
             1 {toToken?.symbol ?? "token"} ≈{" "}
-            {selectedQuote && parseDecimal(selectedQuote.destinationAmount)?.gt(0)
+            {selectedQuote &&
+            parseDecimal(selectedQuote.destinationAmount)?.gt(0)
               ? formatCurrencyAmount(
                   parseDecimal(selectedQuote.sourceAmount)?.div(
-                    parseDecimal(selectedQuote.destinationAmount) ?? new Decimal(1)
+                    parseDecimal(selectedQuote.destinationAmount) ??
+                      new Decimal(1),
                   ),
-                  sourceCurrencyCode
+                  sourceCurrencyCode,
                 )
               : "--"}
           </div>
@@ -3300,7 +4588,9 @@ export function DepositOnrampFlow({
                     lineHeight: "18px",
                   }}
                 >
-                  {value ? formatCurrencyAmount(value, sourceCurrencyCode) : "--"}
+                  {value
+                    ? formatCurrencyAmount(value, sourceCurrencyCode)
+                    : "--"}
                 </span>
               </div>
             ))}
@@ -3347,27 +4637,36 @@ export function DepositOnrampFlow({
             placeholder="Search payment partner"
             value={partnerSearch}
           />
-          {filteredQuotes.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {filteredQuotes.map((quote) => {
-                const quoteIndex = quotes.findIndex(
+          {filteredProviderOptions.length > 0 ? (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
+              {filteredProviderOptions.map((option) => {
+                const optionIndex = providerOptions.findIndex(
                   (candidate) =>
-                    candidate.provider === quote.provider &&
-                    candidate.paymentMethodType === quote.paymentMethodType
+                    candidate.provider === option.provider &&
+                    candidate.paymentMethodType === option.paymentMethodType,
                 );
+                const methodSubtitle = getMethodSubtitle(option.paymentMethod);
+                const optionSubtitle = option.paymentMethodType
+                  ? [getMethodLabel(option.paymentMethodType), methodSubtitle]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : "Available route";
                 return (
                   <SelectRow
-                    icon={<ProviderMark provider={quote.provider} />}
-                    key={`${quote.provider}-${quote.paymentMethodType}`}
-                    onClick={() => {
-                      setSelectedProvider(quote.provider);
-                      setActiveSheet(null);
-                    }}
-                    primary={quoteIndex === 0}
-                    selected={quote.provider === selectedQuote?.provider}
-                    subtitle={`${getMethodLabel(quote.paymentMethodType)} · ${getMethodSubtitle(quote.paymentMethodType)}`}
-                    title={getProviderLabel(quote.provider)}
-                    value={`${formatNumberDisplay(quote.destinationAmount, 6)} ${toToken?.symbol ?? ""}`}
+                    icon={<ProviderMark provider={option.provider} />}
+                    key={`${option.provider}-${option.paymentMethodType ?? "route"}`}
+                    onClick={() => handleProviderSelect(option)}
+                    primary={optionIndex === 0}
+                    selected={option.provider === displayProvider}
+                    subtitle={optionSubtitle}
+                    title={getProviderLabel(option.provider)}
+                    value={
+                      option.destinationAmount
+                        ? `${formatNumberDisplay(option.destinationAmount, 6)} ${toToken?.symbol ?? ""}`
+                        : undefined
+                    }
                   />
                 );
               })}
@@ -3386,16 +4685,21 @@ export function DepositOnrampFlow({
             value={currencySearch}
           />
           <div style={sectionLabelStyle}>Fiat currencies</div>
-          {filteredFiatCurrencies.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {filteredFiatCurrencies.map((currencyCode) => (
+          {filteredFiatCurrencyOptions.length > 0 ? (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
+              {filteredFiatCurrencyOptions.map((currency) => (
                 <SelectRow
-                  icon={<CurrencyMark code={currencyCode} />}
-                  key={currencyCode}
-                  onClick={() => handleCurrencySelect(currencyCode)}
-                  selected={currencyCode === sourceCurrencyCode}
-                  subtitle={getFiatCurrencyName(currencyCode)}
-                  title={currencyCode}
+                  icon={<CurrencyMark currency={currency} />}
+                  key={currency.currencyCode}
+                  onClick={() => handleCurrencySelect(currency.currencyCode)}
+                  selected={currency.currencyCode === sourceCurrencyCode}
+                  subtitle={getFiatCurrencyName(
+                    currency.currencyCode,
+                    currency,
+                  )}
+                  title={currency.currencyCode}
                 />
               ))}
             </div>
@@ -3413,14 +4717,16 @@ export function DepositOnrampFlow({
             value={methodSearch}
           />
           {filteredPaymentMethods.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
               {filteredPaymentMethods.map((method) => (
                 <SelectRow
                   icon={<MethodMark method={method.method} />}
                   key={method.method}
                   onClick={() => handleMethodSelect(method.method)}
                   selected={method.method === selectedPaymentMethod}
-                  subtitle={getMethodSubtitle(method.method)}
+                  subtitle={getMethodSubtitle(method)}
                   title={getMethodLabel(method.method)}
                 />
               ))}
@@ -3439,7 +4745,9 @@ export function DepositOnrampFlow({
             value={destinationSearch}
           />
           {filteredDestinationTokens.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
               {filteredDestinationTokens.map((token) => (
                 <SelectRow
                   icon={<TokenLogoPair token={token} />}
