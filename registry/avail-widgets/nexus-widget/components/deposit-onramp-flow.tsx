@@ -226,6 +226,7 @@ const QUOTE_REFRESH_SECONDS = 60;
 const ONRAMP_SESSION_POLL_MS = 3000;
 const ONRAMP_CALLBACK_MESSAGE_TYPE = "nexus-widgets:onramp:session";
 const ONRAMP_CALLBACK_SUCCESS_MESSAGE = "nexus-onramp-success";
+const ONRAMP_CALLBACK_SUCCESS_ACK_MESSAGE = "nexus-onramp-success-received";
 const ONRAMP_CALLBACK_CHANNEL = "nexus-widgets:onramp";
 const ONRAMP_CALLBACK_STORAGE_KEY = "nexus-widgets:onramp:session";
 const ONRAMP_PROGRESS_ARTWORK_URL =
@@ -3698,6 +3699,16 @@ export function DepositOnrampFlow({
     if (typeof window === "undefined") return;
 
     const handleMessage = (event: MessageEvent) => {
+      if (event.data === ONRAMP_CALLBACK_SUCCESS_MESSAGE) {
+        try {
+          (event.source as Window | null)?.postMessage(
+            ONRAMP_CALLBACK_SUCCESS_ACK_MESSAGE,
+            "*",
+          );
+        } catch {
+          // The callback page will close itself if the ack cannot be sent.
+        }
+      }
       applyOnrampCallback(event.data);
     };
     const handleStorage = (event: StorageEvent) => {
