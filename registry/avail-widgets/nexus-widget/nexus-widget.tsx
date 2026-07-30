@@ -11511,7 +11511,6 @@ function NexusWidgetInner({
                     ownerAddress={ownerAddress}
                     opportunity={selectedOpportunity}
                     primaryButtonForeground={primaryButtonForeground}
-                    publicClient={publicClient}
                     toToken={toTokenWithFetchedBalance}
                   />
                 )}

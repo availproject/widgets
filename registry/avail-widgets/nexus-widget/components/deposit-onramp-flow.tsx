@@ -15,13 +15,11 @@ import {
 } from "lucide-react";
 import React from "react";
 import {
-  erc20Abi,
   formatUnits,
   parseUnits,
   zeroAddress,
   type Address,
   type Hex,
-  type PublicClient,
 } from "viem";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE, nexusWidgetTheme } from "../theme";
 import type { NexusWidgetDepositOpportunityConfig } from "../types";
@@ -208,7 +206,6 @@ interface DepositOnrampFlowProps {
   ownerAddress?: string;
   opportunity?: NexusWidgetDepositOpportunityConfig;
   primaryButtonForeground: string;
-  publicClient?: PublicClient | null;
   toToken?: SwapTokenOption;
 }
 
@@ -877,6 +874,43 @@ const getRawTokenAmount = (amount: unknown, decimals: number) => {
   if (!parsed?.gt(0)) return null;
   return parseUnits(
     parsed.toDecimalPlaces(decimals, Decimal.ROUND_DOWN).toFixed(),
+    decimals,
+  );
+};
+
+const isMatchingOnrampToken = (
+  token: SwapTokenOption,
+  chainId: number,
+  tokenAddress: string,
+) => {
+  if (token.chainId !== chainId) return false;
+  const candidateAddress = token.contractAddress?.toLowerCase();
+  const targetAddress = tokenAddress.toLowerCase();
+  return (
+    candidateAddress === targetAddress ||
+    (isNativeAddress(candidateAddress) && isNativeAddress(targetAddress))
+  );
+};
+
+const getOnrampTokenBalanceRaw = (
+  token: SwapTokenOption,
+  decimals: number,
+  chainId: number,
+  tokenAddress: string,
+) => {
+  const matchingToken =
+    token.sourceTokens?.find((sourceToken) =>
+      isMatchingOnrampToken(sourceToken, chainId, tokenAddress),
+    ) ?? (isMatchingOnrampToken(token, chainId, tokenAddress) ? token : null);
+  if (!matchingToken) return null;
+
+  const balanceAmount = parseDecimal(
+    matchingToken.userAmount ?? matchingToken.balance,
+  );
+  if (!balanceAmount?.gt(0)) return null;
+
+  return parseUnits(
+    balanceAmount.toDecimalPlaces(decimals, Decimal.ROUND_DOWN).toFixed(),
     decimals,
   );
 };
@@ -1824,13 +1858,11 @@ const getExplorerBaseUrl = (chainId?: number) => {
 
 const getOnrampExplorerUrl = (
   session: OnrampSessionResponse,
-  opportunity?: NexusWidgetDepositOpportunityConfig,
   token?: SwapTokenOption,
 ) => {
   if (session.deposit?.explorerUrl) return session.deposit.explorerUrl;
-  if (opportunity?.explorerUrl) return opportunity.explorerUrl;
-  const txHash = session.deposit?.txHash ?? session.transaction?.txHash;
-  const baseUrl = getExplorerBaseUrl(token?.chainId ?? opportunity?.chainId);
+  const txHash = session.deposit?.txHash;
+  const baseUrl = getExplorerBaseUrl(token?.chainId);
   return txHash && baseUrl ? `${baseUrl}${txHash}` : undefined;
 };
 
@@ -2659,8 +2691,7 @@ function OnrampSessionStatusPanel({
   const destinationChainName = getDepositChainName(opportunity, toToken);
   const targetLabel = getDepositTargetLabel(opportunity);
   const explorerUrl =
-    depositExecution.explorerUrl ??
-    getOnrampExplorerUrl(session, opportunity, toToken);
+    depositExecution.explorerUrl ?? getOnrampExplorerUrl(session, toToken);
   const containerStyle: React.CSSProperties = {
     boxSizing: "border-box",
     display: "flex",
@@ -2839,7 +2870,6 @@ export function DepositOnrampFlow({
   ownerAddress,
   opportunity,
   primaryButtonForeground,
-  publicClient,
   toToken,
 }: DepositOnrampFlowProps) {
   const [countryCode, setCountryCode] = React.useState("");
@@ -3120,21 +3150,12 @@ export function DepositOnrampFlow({
         }
 
         if (isSandbox) {
-          let balanceRaw: bigint | null = null;
-          if (publicClient) {
-            try {
-              balanceRaw = isNativeAddress(opportunity.tokenAddress)
-                ? await publicClient.getBalance({ address: account })
-                : ((await publicClient.readContract({
-                    abi: erc20Abi,
-                    address: opportunity.tokenAddress,
-                    args: [account],
-                    functionName: "balanceOf",
-                  })) as bigint);
-            } catch {
-              balanceRaw = null;
-            }
-          }
+          const balanceRaw = getOnrampTokenBalanceRaw(
+            toToken,
+            decimals,
+            opportunity.chainId,
+            opportunity.tokenAddress,
+          );
 
           if (balanceRaw === null || balanceRaw <= sandboxAmountRaw) {
             const displayAmount = formatUnits(amountRaw, decimals);
@@ -3233,7 +3254,6 @@ export function DepositOnrampFlow({
       onError,
       opportunity,
       ownerAddress,
-      publicClient,
       nexusSDK,
       selectedQuote,
       session,
