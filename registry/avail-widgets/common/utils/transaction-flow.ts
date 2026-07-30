@@ -1,7 +1,4 @@
-import {
-  type NexusNetwork,
-  type NexusClient,
-} from "@avail-project/nexus-core";
+import { type NexusNetwork, type NexusClient } from "@avail-project/nexus-core";
 import { formatUnits } from "@avail-project/nexus-core/utils";
 import { SUPPORTED_CHAINS } from "./constant";
 import { type Address } from "viem";

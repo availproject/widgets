@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 import React from "react";
 import {
+  erc20Abi,
   formatUnits,
   parseUnits,
   zeroAddress,
   type Address,
   type Hex,
+  type WalletClient,
 } from "viem";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE, nexusWidgetTheme } from "../theme";
 import type { NexusWidgetDepositOpportunityConfig } from "../types";
@@ -184,7 +186,18 @@ type OnrampDepositExecutionState = {
 };
 
 type OnrampNexusSDK = {
-  execute: (params: any, options?: any) => Promise<any>;
+  chainList?: {
+    getChainByID?: (chainId: number) =>
+      | {
+          blockExplorers?: {
+            default?: {
+              url?: string;
+            };
+          };
+        }
+      | null
+      | undefined;
+  };
 };
 
 type OnrampSheet =
@@ -207,6 +220,7 @@ interface DepositOnrampFlowProps {
   opportunity?: NexusWidgetDepositOpportunityConfig;
   primaryButtonForeground: string;
   toToken?: SwapTokenOption;
+  walletClient?: WalletClient | null;
 }
 
 const ONRAMP_CLIENT_HEADER = "nexus-widgets";
@@ -923,46 +937,45 @@ const getTransactionExplorerUrl = (chainId?: number, txHash?: string) => {
 const getSandboxDepositAmountRaw = (decimals: number) =>
   BigInt(new Decimal(0.1).mul(Decimal.pow(10, decimals)).toFixed());
 
-const getSdkExecuteTransactionHash = (result: any): Hex | undefined => {
-  const candidates = [
-    result?.execute?.txHash,
-    result?.execute?.transactionHash,
-    result?.execute?.hash,
-    result?.executeResponse?.txHash,
-    result?.executeResponse?.transactionHash,
-    result?.executeResponse?.hash,
-    result?.receipt?.transactionHash,
-    result?.txHash,
-    result?.transactionHash,
-    result?.hash,
-  ];
-
-  return candidates.find(
-    (candidate): candidate is Hex =>
-      typeof candidate === "string" && candidate.startsWith("0x"),
-  );
+const getNexusChainTransactionExplorerUrl = (
+  nexusSDK: OnrampNexusSDK | null | undefined,
+  chainId?: number,
+  txHash?: string,
+) => {
+  if (!chainId || !txHash) return undefined;
+  try {
+    const baseUrl =
+      nexusSDK?.chainList?.getChainByID?.(chainId)?.blockExplorers?.default
+        ?.url;
+    if (baseUrl) return `${baseUrl.replace(/\/+$/, "")}/tx/${txHash}`;
+  } catch {
+    return getTransactionExplorerUrl(chainId, txHash);
+  }
+  return getTransactionExplorerUrl(chainId, txHash);
 };
 
-const getSdkExecuteExplorerUrl = (result: any): string | undefined => {
-  const candidates = [
-    result?.execute?.explorerUrl,
-    result?.execute?.explorerURL,
-    result?.execute?.txExplorerUrl,
-    result?.execute?.transactionExplorerUrl,
-    result?.executeResponse?.explorerUrl,
-    result?.executeResponse?.explorerURL,
-    result?.executeResponse?.txExplorerUrl,
-    result?.executeResponse?.transactionExplorerUrl,
-    result?.explorerUrl,
-    result?.explorerURL,
-    result?.txExplorerUrl,
-    result?.transactionExplorerUrl,
-  ];
+const waitForWalletTransactionSuccess = async (
+  walletClient: WalletClient,
+  txHash: Hex,
+) => {
+  const timeoutAt = Date.now() + 120_000;
+  while (Date.now() < timeoutAt) {
+    const receipt = (await walletClient.request({
+      method: "eth_getTransactionReceipt",
+      params: [txHash],
+    } as any)) as { status?: Hex } | null;
 
-  return candidates.find(
-    (candidate): candidate is string =>
-      typeof candidate === "string" && candidate.length > 0,
-  );
+    if (receipt) {
+      if (receipt.status === "0x0") {
+        throw new Error("Transaction failed.");
+      }
+      return receipt;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+
+  throw new Error("Timed out waiting for deposit transaction.");
 };
 
 const getOnrampTokenKey = (token?: SwapTokenOption) => {
@@ -2871,6 +2884,7 @@ export function DepositOnrampFlow({
   opportunity,
   primaryButtonForeground,
   toToken,
+  walletClient,
 }: DepositOnrampFlowProps) {
   const [countryCode, setCountryCode] = React.useState("");
   const [sourceCurrencyCode, setSourceCurrencyCode] = React.useState("");
@@ -3182,11 +3196,19 @@ export function DepositOnrampFlow({
           amountRaw = sandboxAmountRaw;
         }
 
-        if (!nexusSDK) {
-          throw new Error("Nexus SDK is not available for deposit.");
+        if (!walletClient) {
+          throw new Error("Wallet client is not available for deposit.");
         }
 
         const toChainId = toToken.chainId ?? opportunity.chainId;
+        if (!toChainId) {
+          throw new Error("Unable to resolve the deposit chain.");
+        }
+
+        if (walletClient.chain?.id !== toChainId) {
+          await walletClient.switchChain({ id: toChainId });
+        }
+
         const executeParams = opportunity.executeDeposit(
           opportunity.tokenSymbol,
           opportunity.tokenAddress,
@@ -3194,6 +3216,16 @@ export function DepositOnrampFlow({
           opportunity.chainId,
           account,
         );
+        console.log("[NexusWidget Onramp] executeDeposit output", {
+          executeParams,
+          walletTransaction: {
+            account,
+            data: executeParams.data,
+            gas: executeParams.gas,
+            to: executeParams.to,
+            value: executeParams.value,
+          },
+        });
 
         if (!isPositiveGasLimit(executeParams.gas)) {
           throw new Error(
@@ -3201,15 +3233,36 @@ export function DepositOnrampFlow({
           );
         }
 
-        const executionResult = await nexusSDK.execute({
-          ...executeParams,
-          toChainId,
+        if (executeParams.tokenApproval) {
+          const approvalHash = await walletClient.writeContract({
+            abi: erc20Abi,
+            account,
+            address: executeParams.tokenApproval.toTokenAddress,
+            args: [
+              executeParams.tokenApproval.spender,
+              executeParams.tokenApproval.amount,
+            ],
+            chain: null,
+            functionName: "approve",
+          });
+          await waitForWalletTransactionSuccess(walletClient, approvalHash);
+        }
+
+        const txHash = await walletClient.sendTransaction({
+          account,
+          chain: null,
+          data: executeParams.data,
+          gas: executeParams.gas,
+          to: executeParams.to,
+          value: executeParams.value,
         });
-        const txHash = getSdkExecuteTransactionHash(executionResult);
+        await waitForWalletTransactionSuccess(walletClient, txHash);
         const displayAmount = formatUnits(amountRaw, decimals);
-        const explorerUrl =
-          getSdkExecuteExplorerUrl(executionResult) ??
-          getTransactionExplorerUrl(toChainId, txHash);
+        const explorerUrl = getNexusChainTransactionExplorerUrl(
+          nexusSDK,
+          toChainId,
+          txHash,
+        );
         setDepositExecution({
           amount: displayAmount,
           explorerUrl,
@@ -3258,6 +3311,7 @@ export function DepositOnrampFlow({
       selectedQuote,
       session,
       toToken,
+      walletClient,
     ],
   );
 
@@ -3663,12 +3717,15 @@ export function DepositOnrampFlow({
           ? "DEPOSIT_SUCCESS"
           : depositExecution.status === "failed"
             ? "DEPOSIT_FAILED"
-            : normalizedSessionState || "AWAITING_USER";
+            : sessionCallbackReceived
+              ? "ONRAMP_CALLBACK_RECEIVED"
+              : normalizedSessionState || "AWAITING_USER";
     onSessionStateChange?.(session?.sessionId ? derivedSessionState : null);
   }, [
     depositExecution.status,
     normalizedSessionState,
     onSessionStateChange,
+    sessionCallbackReceived,
     session?.sessionId,
   ]);
 

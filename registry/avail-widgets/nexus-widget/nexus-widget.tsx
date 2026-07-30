@@ -10069,6 +10069,9 @@ function NexusWidgetInner({
     ) {
       return "Processing your payment";
     }
+    if (normalizedDepositOnrampSessionState === "ONRAMP_CALLBACK_RECEIVED") {
+      return "Deposit";
+    }
     return "Continue on Other Window";
   };
 
@@ -11512,6 +11515,7 @@ function NexusWidgetInner({
                     opportunity={selectedOpportunity}
                     primaryButtonForeground={primaryButtonForeground}
                     toToken={toTokenWithFetchedBalance}
+                    walletClient={walletClient}
                   />
                 )}
 
