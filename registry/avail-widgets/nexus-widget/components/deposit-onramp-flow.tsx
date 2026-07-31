@@ -2897,8 +2897,6 @@ export function DepositOnrampFlow({
   const [quotes, setQuotes] = React.useState<OnrampQuote[]>([]);
   const [selectedProvider, setSelectedProvider] = React.useState("");
   const [activeSheet, setActiveSheet] = React.useState<OnrampSheet>(null);
-  const [currencySearch, setCurrencySearch] = React.useState("");
-  const [destinationSearch, setDestinationSearch] = React.useState("");
   const [methodSearch, setMethodSearch] = React.useState("");
   const [partnerSearch, setPartnerSearch] = React.useState("");
   const [optionsLoading, setOptionsLoading] = React.useState(false);
@@ -2960,7 +2958,6 @@ export function DepositOnrampFlow({
       const key = getOnrampTokenKey(token);
       if (!key) continue;
       const onrampCurrency = getOnrampCryptoCurrency(options, token);
-      if (hasBackendCryptoCurrencyList && !onrampCurrency) continue;
       byKey.set(key, {
         ...token,
         logo: onrampCurrency?.symbolUrl ?? token.logo,
@@ -2968,7 +2965,7 @@ export function DepositOnrampFlow({
       });
     }
     return Array.from(byKey.values());
-  }, [destinationTokens, hasBackendCryptoCurrencyList, options, toToken]);
+  }, [destinationTokens, options, toToken]);
   const destinationRequestDetails = React.useMemo(
     () => getDestinationRequestDetails(options, toToken),
     [options, toToken],
@@ -3030,29 +3027,6 @@ export function DepositOnrampFlow({
     quotes.find((quote) => quote.provider === selectedProvider) ??
     quotes.find((quote) => quote.paymentMethodType === selectedPaymentMethod) ??
     quotes[0];
-  const filteredFiatCurrencyOptions = React.useMemo(
-    () =>
-      fiatCurrencyOptions.filter((currency) =>
-        matchesSearch(currencySearch, [
-          currency.currencyCode,
-          currency.name,
-          currency.symbol,
-        ]),
-      ),
-    [currencySearch, fiatCurrencyOptions],
-  );
-  const filteredDestinationTokens = React.useMemo(
-    () =>
-      availableDestinationTokens.filter((token) =>
-        matchesSearch(destinationSearch, [
-          token.symbol,
-          token.name,
-          token.chainName,
-          token.contractAddress,
-        ]),
-      ),
-    [availableDestinationTokens, destinationSearch],
-  );
   const filteredPaymentMethods = React.useMemo(
     () =>
       availablePaymentMethods.filter((method) =>
@@ -3412,8 +3386,6 @@ export function DepositOnrampFlow({
   }, [rateRequestKey]);
 
   React.useEffect(() => {
-    if (activeSheet !== "currency") setCurrencySearch("");
-    if (activeSheet !== "destination") setDestinationSearch("");
     if (activeSheet !== "method") setMethodSearch("");
     if (activeSheet !== "partner") setPartnerSearch("");
   }, [activeSheet]);
@@ -4767,17 +4739,12 @@ export function DepositOnrampFlow({
 
       {activeSheet === "currency" && (
         <Sheet onClose={() => setActiveSheet(null)} title="Select currency">
-          <SheetSearchInput
-            onChange={setCurrencySearch}
-            placeholder="Search currency"
-            value={currencySearch}
-          />
           <div style={sectionLabelStyle}>Fiat currencies</div>
-          {filteredFiatCurrencyOptions.length > 0 ? (
+          {fiatCurrencyOptions.length > 0 ? (
             <div
               style={{ display: "flex", flexDirection: "column", gap: "8px" }}
             >
-              {filteredFiatCurrencyOptions.map((currency) => (
+              {fiatCurrencyOptions.map((currency) => (
                 <SelectRow
                   icon={<CurrencyMark currency={currency} />}
                   key={currency.currencyCode}
@@ -4827,16 +4794,11 @@ export function DepositOnrampFlow({
 
       {activeSheet === "destination" && (
         <Sheet onClose={() => setActiveSheet(null)} title="Select token">
-          <SheetSearchInput
-            onChange={setDestinationSearch}
-            placeholder="Search token or chain"
-            value={destinationSearch}
-          />
-          {filteredDestinationTokens.length > 0 ? (
+          {availableDestinationTokens.length > 0 ? (
             <div
               style={{ display: "flex", flexDirection: "column", gap: "8px" }}
             >
-              {filteredDestinationTokens.map((token) => (
+              {availableDestinationTokens.map((token) => (
                 <SelectRow
                   icon={<TokenLogoPair token={token} />}
                   key={getOnrampTokenKey(token)}
