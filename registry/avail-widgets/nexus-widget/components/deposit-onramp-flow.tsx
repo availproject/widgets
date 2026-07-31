@@ -247,6 +247,8 @@ const ONRAMP_CALLBACK_STORAGE_KEY = "nexus-widgets:onramp:session";
 const ONRAMP_PROGRESS_ARTWORK_URL =
   "https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif";
 const ONRAMP_SHEET_EDGE_OFFSET = "-16px";
+const ONRAMP_GENERIC_QUOTE_ERROR_MESSAGE =
+  "We are facing some issues at the moment, try again later";
 const theme = nexusWidgetTheme;
 const brand = "var(--foreground-brand)";
 
@@ -2962,6 +2964,8 @@ export function DepositOnrampFlow({
   const [error, setError] = React.useState<string | null>(null);
   const [blockedRateRequest, setBlockedRateRequest] =
     React.useState<OnrampBlockedRequest | null>(null);
+  const [failedQuoteRequest, setFailedQuoteRequest] =
+    React.useState<OnrampBlockedRequest | null>(null);
   const [session, setSession] = React.useState<OnrampSessionResponse | null>(
     null,
   );
@@ -3453,6 +3457,12 @@ export function DepositOnrampFlow({
   }, [rateRequestKey]);
 
   React.useEffect(() => {
+    setFailedQuoteRequest((current) =>
+      current && current.key !== quoteRequestKey ? null : current,
+    );
+  }, [quoteRequestKey]);
+
+  React.useEffect(() => {
     if (activeSheet !== "method") setMethodSearch("");
     if (activeSheet !== "partner") setPartnerSearch("");
   }, [activeSheet]);
@@ -3608,6 +3618,7 @@ export function DepositOnrampFlow({
     const runId = quoteRunIdRef.current + 1;
     quoteRunIdRef.current = runId;
     setQuotesLoading(true);
+    setFailedQuoteRequest(null);
     setError(null);
     try {
       const data = await fetchOnrampJson<OnrampQuoteResponse>(
@@ -3649,10 +3660,14 @@ export function DepositOnrampFlow({
       }
     } catch (requestError) {
       if (quoteRunIdRef.current !== runId) return;
-      const message = getRequestErrorMessage(requestError);
-      if (isTerminalOnrampRateError(requestError)) {
+      const isTerminalError = isTerminalOnrampRateError(requestError);
+      const message = isTerminalError
+        ? getRequestErrorMessage(requestError)
+        : ONRAMP_GENERIC_QUOTE_ERROR_MESSAGE;
+      if (isTerminalError) {
         setBlockedRateRequest({ key: rateRequestKey, message });
       }
+      setFailedQuoteRequest({ key: quoteRequestKey, message });
       setQuotesRequestKey("");
       setQuotes([]);
       setError(message);
@@ -3707,6 +3722,12 @@ export function DepositOnrampFlow({
       setQuotes([]);
       return;
     }
+    if (failedQuoteRequest?.key === quoteRequestKey) {
+      lastQuoteRequestKeyRef.current = quoteRequestKey;
+      setError(failedQuoteRequest.message);
+      setQuotesLoading(false);
+      return;
+    }
     if (lastQuoteRequestKeyRef.current === quoteRequestKey) return;
     setQuotes([]);
     const timer = window.setTimeout(() => {
@@ -3722,6 +3743,7 @@ export function DepositOnrampFlow({
     destinationRequestDetails.destinationCurrencyCode,
     destinationRequestDetails.destinationToken,
     fetchQuotes,
+    failedQuoteRequest,
     isDestinationTokenUnsupported,
     parsedSourceAmount,
     quoteRequestKey,
@@ -4095,6 +4117,8 @@ export function DepositOnrampFlow({
   const feeTotal = selectedQuote?.fees?.total;
   const displayProvider = selectedQuote?.provider ?? selectedProvider;
   const providerSubtitle = selectedQuote ? "Best available quote" : "";
+  const activeQuoteRequestFailure =
+    failedQuoteRequest?.key === quoteRequestKey ? failedQuoteRequest : null;
   const hasRouteDetails = Boolean(
     selectedPaymentMethodDetails || selectedPaymentMethod || displayProvider,
   );
@@ -4104,11 +4128,13 @@ export function DepositOnrampFlow({
     !selectedQuote &&
     !amountLimitMessage &&
     !error &&
+    !activeQuoteRequestFailure &&
     !destinationTokenUnsupportedMessage &&
     Boolean(destinationRequestDetails.destinationCurrencyCode) &&
     (rateRequestLoading || Boolean(selectedPaymentMethod));
   const ctaRateLoading =
     !error &&
+    !activeQuoteRequestFailure &&
     !destinationTokenUnsupportedMessage &&
     !selectedQuote &&
     (fetchingBestRates || (hasPositiveSourceAmount && rateRequestLoading));

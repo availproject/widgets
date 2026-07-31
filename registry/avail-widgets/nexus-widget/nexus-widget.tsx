@@ -5358,14 +5358,17 @@ function NexusWidgetInner({
   };
 
   const getPredictiveExactInSourceTokens = () => {
-    const expanded = getExpandedSourceTokens(fromTokens);
-    if (expanded.length === 0) return [];
+    const allocatedSources = getExactInSourceTokens(
+      fromTokens,
+      hasPositiveDecimalInput(amount) ? amount : undefined,
+    );
+    if (allocatedSources.length === 0) return [];
 
-    return expanded
+    return allocatedSources
       .map((token) => {
         const userAmount =
           token.userAmount ||
-          (expanded.length === 1 && hasPositiveDecimalInput(amount)
+          (allocatedSources.length === 1 && hasPositiveDecimalInput(amount)
             ? amount
             : "");
         return { ...token, userAmount };
