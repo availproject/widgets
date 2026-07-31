@@ -11466,13 +11466,7 @@ function NexusWidgetInner({
                 {swapStep === "idle" && depositFundingStep === "method" && (
                   <DepositFundingMethod
                     isBalanceLoading={isSwapBalancePending}
-                    onSelectLocalCurrency={() => {
-                      if (needsWalletConnection) {
-                        void handleConnectWallet();
-                        return;
-                      }
-                      setDepositFundingStep("onramp");
-                    }}
+                    onSelectLocalCurrency={() => setDepositFundingStep("onramp")}
                     onSelectWallet={() => setDepositFundingStep("wallet")}
                     primaryButtonForeground={primaryButtonForeground}
                     totalBalance={totalSwapBalanceUsd}

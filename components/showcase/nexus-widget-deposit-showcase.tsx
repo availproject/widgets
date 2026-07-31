@@ -222,29 +222,15 @@ const resolveDepositAddress = (opportunity: DepositShowcaseOpportunity) => {
 const OPPORTUNITIES = {
   // 1. Aave on Arbitrum
   "aave-arbitrum": {
-    label: "Aave - Polygon",
+    label: "Aave - Optimism",
     protocol: "Aave",
     depositTargetLogo:
       "https://files.availproject.org/uploads/2026-04-16/aave.svg",
-    chainId: 137,
-    tokenSymbol: "USDT0",
-    tokenAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" as const,
+    chainId: 10,
+    tokenSymbol: "USDC",
+    tokenAddress: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" as const,
     tokenDecimals: 6,
-    tokenLogo: "https://polygonscan.com/token/images/usdt0_64.png",
-    tokens: [
-      {
-        address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
-        decimals: 6,
-        logo: "https://polygonscan.com/token/images/usdt0_64.png",
-        symbol: "USDT0",
-      },
-      {
-        address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-        decimals: 6,
-        logo: "https://polygonscan.com/token/images/usdc_32.png",
-        symbol: "USDC",
-      },
-    ],
+    tokenLogo: "https://optimistic.etherscan.io/token/images/usdc_32.png",
     executeDeposit: (
       symbol: string,
       tokenAddress: `0x${string}`,

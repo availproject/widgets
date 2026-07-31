@@ -17,6 +17,7 @@ import React from "react";
 import {
   erc20Abi,
   formatUnits,
+  isAddress,
   parseUnits,
   zeroAddress,
   type Address,
@@ -227,6 +228,8 @@ const ONRAMP_CLIENT_HEADER = "nexus-widgets";
 const ONRAMP_DEFAULT_BASE_URL = "https://nexus-v2.canary.avail.so/middleware";
 const ONRAMP_RETURN_PATH = "/onramp/complete";
 const ONRAMP_IP_COUNTRY_URL = "https://api.country.is/";
+const ONRAMP_DISCONNECTED_QUOTE_WALLET_ADDRESS =
+  "0xd733d48f2a7f57d4559f98ae07f87dab595e3523" as Address;
 const ONRAMP_OPTIONS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const ONRAMP_COUNTRY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const ONRAMP_COUNTRY_CACHE_KEY = "nexus-widgets:onramp:country:v1";
@@ -234,6 +237,7 @@ const ONRAMP_OPTIONS_CACHE_KEY_PREFIX = "nexus-widgets:onramp:options:v1";
 const ONRAMP_SANDBOX_FALLBACK_COUNTRY = "FR";
 const ONRAMP_PRODUCTION_FALLBACK_COUNTRY = "US";
 const QUOTE_REFRESH_SECONDS = 60;
+const QUOTE_REFRESH_MS = QUOTE_REFRESH_SECONDS * 1000;
 const ONRAMP_SESSION_POLL_MS = 3000;
 const ONRAMP_CALLBACK_MESSAGE_TYPE = "nexus-widgets:onramp:session";
 const ONRAMP_CALLBACK_SUCCESS_MESSAGE = "nexus-onramp-success";
@@ -281,6 +285,37 @@ const compactBodyStyle: React.CSSProperties = {
   fontSize: "13px",
   lineHeight: "18px",
 };
+
+function OnrampQuoteCountdownIcon({ progress }: { progress: number }) {
+  const radius = 7;
+  const circumference = 2 * Math.PI * radius;
+  const clampedProgress = Math.max(0, Math.min(1, progress));
+
+  return (
+    <svg
+      fill="none"
+      height="16"
+      style={{
+        transform: "rotate(-90deg)",
+      }}
+      viewBox="0 0 18 18"
+      width="16"
+    >
+      <circle cx="9" cy="9" r={radius} stroke="#E8E8E7" strokeWidth="2" />
+      <circle
+        cx="9"
+        cy="9"
+        r={radius}
+        stroke="var(--foreground-brand)"
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference * (1 - clampedProgress)}
+        strokeLinecap="round"
+        strokeWidth="2"
+        style={{ transition: "stroke-dashoffset 0.25s linear" }}
+      />
+    </svg>
+  );
+}
 
 const parseDecimal = (value: unknown) => {
   if (value === null || value === undefined || value === "") return undefined;
@@ -2230,6 +2265,7 @@ function OnrampExpandableTimelineCard({
       }}
     >
       <button
+        aria-expanded={expanded}
         onClick={() => setExpanded((current) => !current)}
         style={{
           alignItems: "center",
@@ -2266,31 +2302,50 @@ function OnrampExpandableTimelineCard({
             color={theme.colors.icon}
             size={15}
             strokeWidth={1.8}
-            style={{ transform: expanded ? "rotate(180deg)" : undefined }}
+            style={{
+              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s ease",
+            }}
           />
         </span>
       </button>
-      {expanded && (
+      <div
+        style={{
+          backgroundColor: "#EFEFEF",
+          display: "grid",
+          gridTemplateRows: expanded ? "1fr" : "0fr",
+          opacity: expanded ? 1 : 0,
+          overflow: "hidden",
+          transition:
+            "grid-template-rows 0.22s ease, opacity 0.18s ease-out",
+        }}
+      >
         <div
           style={{
-            backgroundColor: "#EFEFEF",
-            display: "flex",
-            flexDirection: "column",
-            padding: "14px",
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
-          {steps.map((step, index) => (
-            <TimelineStep
-              isComplete={step.complete}
-              isLast={index === steps.length - 1}
-              isPending={step.pending}
-              key={`${step.title}-${index}`}
-              subtitle={step.subtitle}
-              title={step.title}
-            />
-          ))}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              padding: "14px",
+            }}
+          >
+            {steps.map((step, index) => (
+              <TimelineStep
+                isComplete={step.complete}
+                isLast={index === steps.length - 1}
+                isPending={step.pending}
+                key={`${step.title}-${index}`}
+                subtitle={step.subtitle}
+                title={step.title}
+              />
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -2895,6 +2950,7 @@ export function DepositOnrampFlow({
   const [routes, setRoutes] = React.useState<OnrampRoute[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState("");
   const [quotes, setQuotes] = React.useState<OnrampQuote[]>([]);
+  const [quotesRequestKey, setQuotesRequestKey] = React.useState("");
   const [selectedProvider, setSelectedProvider] = React.useState("");
   const [activeSheet, setActiveSheet] = React.useState<OnrampSheet>(null);
   const [methodSearch, setMethodSearch] = React.useState("");
@@ -2916,6 +2972,7 @@ export function DepositOnrampFlow({
   const [quoteRefreshSeconds, setQuoteRefreshSeconds] = React.useState(
     QUOTE_REFRESH_SECONDS,
   );
+  const [quoteRefreshProgress, setQuoteRefreshProgress] = React.useState(1);
   const quoteRunIdRef = React.useRef(0);
   const routeRunIdRef = React.useRef(0);
   const lastRouteRequestKeyRef = React.useRef("");
@@ -2923,6 +2980,10 @@ export function DepositOnrampFlow({
   const quotesLoadingRef = React.useRef(false);
   const depositExecutionSessionRef = React.useRef("");
   const normalizedSessionState = getNormalizedOnrampState(session?.state);
+  const hasConnectedWallet = Boolean(ownerAddress && isAddress(ownerAddress));
+  const quoteWalletAddress = hasConnectedWallet
+    ? (ownerAddress as Address)
+    : ONRAMP_DISCONNECTED_QUOTE_WALLET_ADDRESS;
 
   const fiatCurrencyOptions = React.useMemo(
     () => getFiatCurrencyOptions(options),
@@ -2992,11 +3053,11 @@ export function DepositOnrampFlow({
     () =>
       [
         rateRequestKey,
-        ownerAddress?.toLowerCase() ?? "",
+        quoteWalletAddress.toLowerCase(),
         selectedPaymentMethod,
         sourceAmount.trim(),
       ].join("|"),
-    [ownerAddress, rateRequestKey, selectedPaymentMethod, sourceAmount],
+    [quoteWalletAddress, rateRequestKey, selectedPaymentMethod, sourceAmount],
   );
   const selectedRoute = React.useMemo(
     () =>
@@ -3017,16 +3078,22 @@ export function DepositOnrampFlow({
   const selectedPaymentMethodDetails = availablePaymentMethods.find(
     (method) => method.method === selectedPaymentMethod,
   );
+  const currentQuotes = React.useMemo(
+    () => (quotesRequestKey === quoteRequestKey ? quotes : []),
+    [quoteRequestKey, quotes, quotesRequestKey],
+  );
   const selectedQuote =
-    quotes.find(
+    currentQuotes.find(
       (quote) =>
         quote.provider === selectedProvider &&
         (!selectedPaymentMethod ||
           quote.paymentMethodType === selectedPaymentMethod),
     ) ??
-    quotes.find((quote) => quote.provider === selectedProvider) ??
-    quotes.find((quote) => quote.paymentMethodType === selectedPaymentMethod) ??
-    quotes[0];
+    currentQuotes.find((quote) => quote.provider === selectedProvider) ??
+    currentQuotes.find(
+      (quote) => quote.paymentMethodType === selectedPaymentMethod,
+    ) ??
+    currentQuotes[0];
   const filteredPaymentMethods = React.useMemo(
     () =>
       availablePaymentMethods.filter((method) =>
@@ -3039,8 +3106,8 @@ export function DepositOnrampFlow({
     [availablePaymentMethods, methodSearch],
   );
   const providerOptions = React.useMemo<OnrampProviderOption[]>(() => {
-    if (quotes.length > 0) {
-      return quotes.map((quote) => {
+    if (currentQuotes.length > 0) {
+      return currentQuotes.map((quote) => {
         const route = routes.find(
           (candidate) => candidate.provider === quote.provider,
         );
@@ -3065,7 +3132,7 @@ export function DepositOnrampFlow({
         provider: route.provider,
         route,
       }));
-  }, [quotes, routes]);
+  }, [currentQuotes, routes]);
   const filteredProviderOptions = React.useMemo(
     () =>
       providerOptions.filter((option) =>
@@ -3523,7 +3590,6 @@ export function DepositOnrampFlow({
   const fetchQuotes = React.useCallback(async () => {
     if (
       !countryCode ||
-      !ownerAddress ||
       !sourceCurrencyCode ||
       !destinationRequestDetails.destinationCurrencyCode ||
       !selectedPaymentMethod ||
@@ -3562,13 +3628,14 @@ export function DepositOnrampFlow({
             paymentMethodType: selectedPaymentMethod,
             sourceAmount,
             sourceCurrencyCode,
-            walletAddress: ownerAddress,
+            walletAddress: quoteWalletAddress,
           }),
           method: "POST",
         },
       );
       if (quoteRunIdRef.current !== runId) return;
       const nextQuotes = sortQuotes(data.quotes ?? []);
+      setQuotesRequestKey(quoteRequestKey);
       setQuotes(nextQuotes);
       setSelectedProvider((current) =>
         current && nextQuotes.some((quote) => quote.provider === current)
@@ -3586,6 +3653,7 @@ export function DepositOnrampFlow({
       if (isTerminalOnrampRateError(requestError)) {
         setBlockedRateRequest({ key: rateRequestKey, message });
       }
+      setQuotesRequestKey("");
       setQuotes([]);
       setError(message);
       onError?.(message);
@@ -3606,8 +3674,9 @@ export function DepositOnrampFlow({
     blockedRateRequest,
     isDestinationTokenUnsupported,
     onError,
-    ownerAddress,
     parsedSourceAmount,
+    quoteRequestKey,
+    quoteWalletAddress,
     rateRequestKey,
     selectedPaymentMethod,
     sourceAmount,
@@ -3626,7 +3695,6 @@ export function DepositOnrampFlow({
   React.useEffect(() => {
     if (session?.sessionId) return;
     if (
-      !ownerAddress ||
       !sourceCurrencyCode ||
       !destinationRequestDetails.destinationCurrencyCode ||
       !selectedPaymentMethod ||
@@ -3635,6 +3703,7 @@ export function DepositOnrampFlow({
       isDestinationTokenUnsupported
     ) {
       lastQuoteRequestKeyRef.current = "";
+      setQuotesRequestKey("");
       setQuotes([]);
       return;
     }
@@ -3654,7 +3723,6 @@ export function DepositOnrampFlow({
     destinationRequestDetails.destinationToken,
     fetchQuotes,
     isDestinationTokenUnsupported,
-    ownerAddress,
     parsedSourceAmount,
     quoteRequestKey,
     selectedPaymentMethod,
@@ -3664,18 +3732,31 @@ export function DepositOnrampFlow({
 
   React.useEffect(() => {
     if (session?.sessionId || !selectedQuote || sessionLoading) {
+      setQuoteRefreshSeconds(0);
+      setQuoteRefreshProgress(0);
       return;
     }
+    let cycleStartedAt = Date.now();
+
+    const updateRefreshCountdown = () => {
+      const elapsed = Date.now() - cycleStartedAt;
+      const remainingMs = Math.max(0, QUOTE_REFRESH_MS - elapsed);
+      setQuoteRefreshSeconds(Math.ceil(remainingMs / 1000));
+      setQuoteRefreshProgress(remainingMs / QUOTE_REFRESH_MS);
+
+      if (remainingMs > 0 || quotesLoadingRef.current) return;
+      cycleStartedAt = Date.now();
+      setQuoteRefreshSeconds(QUOTE_REFRESH_SECONDS);
+      setQuoteRefreshProgress(1);
+      void fetchQuotes();
+    };
+
     setQuoteRefreshSeconds(QUOTE_REFRESH_SECONDS);
+    setQuoteRefreshProgress(1);
+    updateRefreshCountdown();
     const interval = window.setInterval(() => {
-      setQuoteRefreshSeconds((current) => {
-        if (current <= 1) {
-          if (!quotesLoadingRef.current) void fetchQuotes();
-          return QUOTE_REFRESH_SECONDS;
-        }
-        return current - 1;
-      });
-    }, 1000);
+      updateRefreshCountdown();
+    }, 250);
     return () => {
       window.clearInterval(interval);
     };
@@ -3861,6 +3942,7 @@ export function DepositOnrampFlow({
   const createSession = async () => {
     if (
       !selectedQuote ||
+      !hasConnectedWallet ||
       !ownerAddress ||
       !selectedPaymentMethod ||
       isDestinationTokenUnsupported
@@ -3928,6 +4010,14 @@ export function DepositOnrampFlow({
     } finally {
       setSessionLoading(false);
     }
+  };
+
+  const handlePrimaryAction = async () => {
+    if (!hasConnectedWallet) {
+      await onConnectWallet();
+      return;
+    }
+    await createSession();
   };
 
   const resetSession = () => {
@@ -4029,70 +4119,12 @@ export function DepositOnrampFlow({
     (quoteDetailsLoading || hasRouteDetails || Boolean(selectedQuote));
   const shouldShowQuoteTimer = Boolean(selectedQuote);
   const ctaDisabled =
-    !ownerAddress ||
     !hasPositiveSourceAmount ||
     !selectedQuote ||
     Boolean(destinationTokenUnsupportedMessage) ||
     Boolean(amountLimitMessage) ||
     ctaRateLoading ||
     sessionLoading;
-
-  if (!ownerAddress) {
-    return (
-      <div style={panelStyle}>
-        <div
-          style={{
-            alignItems: "center",
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-            padding: "18px",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              color: theme.colors.textStrong,
-              fontFamily: theme.fonts.sans,
-              fontSize: "15px",
-              fontWeight: 500,
-              lineHeight: "19px",
-            }}
-          >
-            Connect wallet to continue
-          </div>
-          <div
-            style={{
-              color: theme.colors.textSubtle,
-              fontFamily: theme.fonts.sans,
-              fontSize: "13px",
-              lineHeight: "18px",
-            }}
-          >
-            Your wallet address is required for the hosted onramp session.
-          </div>
-          <button
-            onClick={() => void onConnectWallet()}
-            style={{
-              backgroundColor: brand,
-              border: "none",
-              borderRadius: theme.radius.primaryButton,
-              color: primaryButtonForeground,
-              cursor: "pointer",
-              fontFamily: theme.fonts.sans,
-              fontSize: "14px",
-              fontWeight: 500,
-              height: "40px",
-              paddingInline: "16px",
-            }}
-            type="button"
-          >
-            Connect Wallet
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (session?.sessionId) {
     return (
@@ -4148,17 +4180,15 @@ export function DepositOnrampFlow({
             pointerEvents: "none",
           }}
         >
-          <Loader2
-            className={
-              quotesLoading || routesLoading ? "animate-spin" : undefined
-            }
-            size={16}
-            style={
-              quotesLoading || routesLoading
-                ? NEXUS_WIDGET_FAST_SPINNER_STYLE
-                : undefined
-            }
-          />
+          {quotesLoading || routesLoading ? (
+            <Loader2
+              className="animate-spin"
+              size={16}
+              style={NEXUS_WIDGET_FAST_SPINNER_STYLE}
+            />
+          ) : (
+            <OnrampQuoteCountdownIcon progress={quoteRefreshProgress} />
+          )}
           {quotesLoading || routesLoading ? "..." : `${quoteRefreshSeconds}s`}
         </div>
       )}
@@ -4546,7 +4576,7 @@ export function DepositOnrampFlow({
 
       <button
         disabled={ctaDisabled}
-        onClick={() => void createSession()}
+        onClick={() => void handlePrimaryAction()}
         style={{
           alignItems: "center",
           backgroundColor: ctaDisabled ? theme.colors.surfaceCool : brand,
@@ -4573,7 +4603,7 @@ export function DepositOnrampFlow({
             size={16}
             style={NEXUS_WIDGET_FAST_SPINNER_STYLE}
           />
-        ) : selectedQuote ? (
+        ) : selectedQuote && hasConnectedWallet ? (
           <ExternalLink aria-hidden="true" size={16} strokeWidth={1.8} />
         ) : null}
         {sessionLoading
@@ -4583,7 +4613,9 @@ export function DepositOnrampFlow({
             : destinationTokenUnsupportedMessage
               ? "Token not supported"
               : selectedQuote
-                ? `Pay ${formatCurrencyAmount(sourceAmount, sourceCurrencyCode)}`
+                ? hasConnectedWallet
+                  ? `Pay ${formatCurrencyAmount(sourceAmount, sourceCurrencyCode)}`
+                  : "Connect Wallet"
                 : "Enter amount"}
       </button>
 
