@@ -145,6 +145,7 @@ Deposit requires a fixed destination chain, at least one destination token, a de
 ```ts
 type NexusWidgetDepositConfig = {
   mode: "deposit";
+  transport?: "swap" | "bridge";
   destination: {
     chain: number;
     tokens: {

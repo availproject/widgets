@@ -48,11 +48,11 @@ Use `config.mode` to select `swap`, `send`, or `deposit`. Optional config fields
 |---|---|---|
 | `swap` | `swapWithExactIn` / `swapWithExactOut` | Users choose source and receive assets |
 | `send` | exact-out transfer path | Exact-out, users choose token/amount to send |
-| `deposit` | `swapAndExecute` | Exact-out, with a configured deposit execute builder |
+| `deposit` | `swapAndExecute` / `bridgeAndExecute` | Exact-out, with a configured deposit execute builder. Supports `transport: "swap"` (default) or `transport: "bridge"`. |
 
 ## 8) Deposit Config
 
-`deposit` is required only when `mode` is `"deposit"`. It describes the destination asset and the contract execution Nexus performs after the swap settles.
+`deposit` is required only when `mode` is `"deposit"`. It describes the destination asset and the contract execution Nexus performs after the swap/bridge settles. Deposit supports `transport: "swap"` (default) using `swapAndExecute` or `transport: "bridge"` using `bridgeAndExecute`.
 
 ## 9) Architecture
 

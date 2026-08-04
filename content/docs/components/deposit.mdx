@@ -71,6 +71,7 @@ const APP_DEPOSIT_ABI = [
 
 const depositConfig = {
   mode: "deposit",
+  transport: "swap", // "swap" (default) or "bridge"
   destination: {
     chain: DESTINATION_CHAIN_ID,
     tokens: [
@@ -118,11 +119,12 @@ const depositConfig = {
 
 ## Configuration
 
-Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the destination deposit amount, pay-with sources are selected, and the flow submits through `swapAndExecute`.
+Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the destination deposit amount, pay-with sources are selected, and the flow submits through `swapAndExecute` (or `bridgeAndExecute` when `transport: "bridge"`).
 
 | Prop                                                                               | Required | Description                                                                                                                                 |
 | ---------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `config.mode`                                                                      | Yes      | Must be `"deposit"`.                                                                                                                        |
+| `config.transport`                                                                 | Optional | Set to `"swap"` (default) or `"bridge"`. `"bridge"` mode uses `bridgeAndExecute` and filters balances strictly to bridgable assets for the unified token. |
 | `config.destination.chain`                                                         | Yes      | Chain ID of the fixed destination network. Deposit destination chain cannot be changed by the user.                                         |
 | `config.destination.tokens`                                                        | Yes      | One or more accepted destination tokens. The token dropdown is limited to this list and is editable only when multiple tokens are supplied. |
 | `config.depositAddress`                                                            | Yes      | Smart contract address for the deposit target.                                                                                              |

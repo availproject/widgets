@@ -25,6 +25,7 @@ Deposit config requires:
 - `destination.tokens`: one or more accepted destination tokens. The token selector is limited to this list.
 - `depositAddress`: smart contract address for the destination action.
 - `executeDeposit`: transaction builder called as `(tokenSymbol, tokenAddress, amount, chainId, user)`.
+- Optional `transport`: `"swap"` (default) or `"bridge"`.
 - Optional `prefill.amount`, `validation.minAmount`, `validation.maxAmount`, and `appearance`.
 
 ```tsx
@@ -54,6 +55,7 @@ export function DepositWidget({ address }: { address?: `0x${string}` }) {
       connectedAddress={address}
       config={{
         mode: "deposit",
+        transport: "bridge", // "swap" or "bridge"
         destination: {
           chain: 42161,
           tokens: [
