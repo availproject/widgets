@@ -1873,20 +1873,28 @@ const getDisplayDestinationSourceRow = (
   const destinationBalanceAmount = parseDecimalLoose(
     entry.toToken.balance?.replace(entry.toToken.symbol, "")
   );
-  if (
-    !requestedAmount ||
-    !destinationBalanceAmount ||
-    requestedAmount.lte(0) ||
-    destinationBalanceAmount.lte(0)
-  ) {
+  if (!requestedAmount || requestedAmount.lte(0)) {
     return null;
   }
 
-  const intentCoversAmount = intentDestinationAmount ?? new Decimal(0);
-  const displayAmount = Decimal.min(
-    destinationBalanceAmount,
-    Decimal.max(0, requestedAmount.minus(intentCoversAmount))
+  // intentData.destination.amount mirrors the total destination amount even when
+  // sources=[]. Only treat it as "bridged from external sources" when sources exist.
+  // When sources is empty, the full requestedAmount came from destination balance.
+  const intentCoversAmount =
+    (entry.intentData?.sources ?? []).length > 0
+      ? (intentDestinationAmount ?? new Decimal(0))
+      : new Decimal(0);
+  // How much the destination balance contributed = requested - what the intent bridged.
+  // We know the transaction succeeded, so this difference was definitely paid from the
+  // existing destination balance. Cap by the stored balance when available to avoid
+  // over-counting in edge cases.
+  const balanceCoveredAmount = Decimal.max(
+    0,
+    requestedAmount.minus(intentCoversAmount)
   );
+  const displayAmount = destinationBalanceAmount
+    ? Decimal.min(destinationBalanceAmount, balanceCoveredAmount)
+    : balanceCoveredAmount;
   if (displayAmount.lte(0)) return null;
 
   const requestedValue = parseDecimalLoose(entry.requestedToValue);
@@ -9302,20 +9310,29 @@ function NexusWidgetInner({
                   }
                 );
 
+
           const swapResult = result?.swapResult ?? result?.result ?? null;
           const swapSkipped = Boolean((result as any)?.swapSkipped);
           if (swapSkipped) {
             appendSkippedSwapProgress();
           }
+          const executeTxHash = getSdkTransactionHash(result);
+          const hasSuccessfulExecution = Boolean(
+            swapResult ||
+              swapSkipped ||
+              executeTxHash ||
+              (result as any)?.sendResult ||
+              (result as any)?.txHash ||
+              (result as any)?.receipt
+          );
           if (
-            !swapResult &&
-            !swapSkipped &&
+            !hasSuccessfulExecution &&
             activeMode !== "send" &&
             !hasCustomSwapRecipient
           ) {
             throw new Error("Swap failed");
           }
-          const executeTxHash = getSdkTransactionHash(result);
+
           const intentExplorerUrl = getSdkIntentExplorerUrlForNetwork(
             appConfig.nexusNetwork,
             result,
