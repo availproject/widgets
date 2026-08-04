@@ -42,8 +42,10 @@ import type {
 } from "../common/types/transaction-flow";
 import {
   CHAIN_METADATA,
+  filterBridgableBalanceForDestination,
   getShortChainName,
   isSwapSupportedBySdkChainList,
+  normalizeBridgeTokenSymbol,
   SUPPORTED_CHAINS,
   TOKEN_CONTRACT_ADDRESSES,
   TOKEN_METADATA,
@@ -493,6 +495,7 @@ type RuntimeNexusWidgetConfig = {
   deposits?: NexusWidgetDepositOpportunityConfig[];
   mode: NexusWidgetMode;
   prefill?: NexusWidgetRuntimePrefill;
+  transport?: "swap" | "bridge";
 };
 
 type RuntimeNexusWidgetAmountInput = {
@@ -878,6 +881,7 @@ const toDepositConfigFromDestination = (
     chainId,
     depositTargetLogo: appearance?.logoUrl,
     executeDeposit: config.executeDeposit,
+    transport: config.transport,
     logo: appearance?.logoUrl ?? token.logo ?? undefined,
     protocol:
       appearance?.appName ??
@@ -1013,6 +1017,7 @@ const normalizeNexusWidgetConfig = (
     appearance,
     mode: activeMode,
     prefill,
+    transport: rawConfig.mode === "deposit" ? rawConfig.transport : undefined,
   };
 
   return {
@@ -2321,14 +2326,29 @@ const normalizeSdkIntentDestination = (
 };
 
 const normalizeSwapIntentData = (intent: any): SwapIntentData | null => {
-  const destination = normalizeSdkIntentDestination(intent?.destination);
+  if (!intent) return null;
+
+  const bridgeObj = intent?.bridge ?? (intent?.selectedSources ? intent : null);
+  const destinationRaw = intent?.destination ?? bridgeObj?.destination;
+  const sourcesRaw =
+    intent?.sources ??
+    bridgeObj?.selectedSources ??
+    bridgeObj?.availableSources;
+
+  const destination = normalizeSdkIntentDestination(destinationRaw);
   if (!destination) return null;
+
+  const bridgeFees = bridgeObj?.fees ?? intent?.feesAndBuffer?.bridge;
+  const feesAndBuffer =
+    intent?.feesAndBuffer ??
+    (bridgeFees ? { bridge: bridgeFees, buffer: "0" } : undefined);
 
   return {
     ...intent,
     destination,
-    sources: Array.isArray(intent?.sources)
-      ? intent.sources
+    feesAndBuffer,
+    sources: Array.isArray(sourcesRaw)
+      ? sourcesRaw
           .map(normalizeSdkIntentSource)
           .filter(
             (source: SwapIntentSource | undefined): source is SwapIntentSource =>
@@ -3551,6 +3571,7 @@ function NexusWidgetInner({
     swapSupportedChainsAndTokens,
     supportedChainsAndTokens,
     fetchSwapBalance,
+    fetchBridgableBalance,
     handleInit,
     swapIntent: providerSwapIntent,
     network,
@@ -3901,7 +3922,8 @@ function NexusWidgetInner({
   useEffect(() => {
     if (!nexusSDK) return;
     void fetchSwapBalance();
-  }, [fetchSwapBalance, nexusSDK]);
+    void fetchBridgableBalance();
+  }, [fetchSwapBalance, fetchBridgableBalance, nexusSDK]);
 
   useEffect(() => {
     setSourceSelectionTouched(false);
@@ -4729,8 +4751,10 @@ function NexusWidgetInner({
     }
   };
 
-  const getSwapBalanceTotalUsd = () =>
-    (swapBalance ?? []).reduce((sum, asset) => {
+  const getSwapBalanceTotalUsd = () => {
+    const activeBalanceArray =
+      activeMode === "deposit" ? activeDepositBalance : swapBalance;
+    return (activeBalanceArray ?? []).reduce((sum, asset) => {
       const breakdown = asset.breakdown ?? [];
       if (breakdown.length > 0) {
         return sum.plus(
@@ -4746,6 +4770,7 @@ function NexusWidgetInner({
       const value = parseFiatNumber(asset.balanceInFiat) ?? new Decimal(0);
       return value.gte(minimumSourceUsd) ? sum.plus(value) : sum;
     }, new Decimal(0));
+  };
 
   const getTokenUsdRate = (token: SwapTokenOption) => {
     const tokenBalance = parseFiatNumber(token.balance) ?? new Decimal(0);
@@ -5556,18 +5581,23 @@ function NexusWidgetInner({
     return getExpandedSourceTokens(tokens).filter(hasGasForSource);
   };
 
-  const getMinimumBalanceSourceTokens = () =>
-    filterMinimumSourceUsdTokens(
+  const getMinimumBalanceSourceTokens = () => {
+    const activeBalanceArray =
+      activeMode === "deposit" ? activeDepositBalance : swapBalance;
+    return filterMinimumSourceUsdTokens(
       getExpandedSourceTokens(
-        swapBalance
-          ? deriveTokenOptions(swapBalance, swapSupportedChainsAndTokens)
+        activeBalanceArray
+          ? deriveTokenOptions(activeBalanceArray, swapSupportedChainsAndTokens)
           : []
       )
     );
+  };
   const getHeldDestinationTokenOption = () => {
     if (!toToken?.chainId || !toToken.contractAddress) return undefined;
+    const activeBalanceArray =
+      activeMode === "deposit" ? activeDepositBalance : swapBalance;
 
-    for (const asset of swapBalance ?? []) {
+    for (const asset of activeBalanceArray ?? []) {
       for (const breakdown of asset.breakdown ?? []) {
         const chainId = breakdown.chain?.id;
         if (chainId !== toToken.chainId) continue;
@@ -5670,9 +5700,11 @@ function NexusWidgetInner({
 
   const getDepositTokenOptionsBySourceId = () => {
     const map = new Map<string, SwapTokenOption>();
+    const effectiveBalance =
+      activeMode === "deposit" ? activeDepositBalance : swapBalance;
     const sourceTokens = [
-      ...(swapBalance
-        ? deriveTokenOptions(swapBalance, swapSupportedChainsAndTokens)
+      ...(effectiveBalance
+        ? deriveTokenOptions(effectiveBalance, swapSupportedChainsAndTokens)
         : []),
       ...fromTokens,
     ];
@@ -5726,7 +5758,7 @@ function NexusWidgetInner({
           : undefined);
 
     return resolveDepositSourceSelection({
-      swapBalance,
+      swapBalance: activeDepositBalance,
       destination,
       filter: manualSelection
         ? "custom"
@@ -6686,15 +6718,19 @@ function NexusWidgetInner({
 
   const handleSwapIntentCallback = useCallback(
     (data: any, runId: number, quoteInputKey: string) => {
-      const { intent, allow, deny, refresh } = data;
+      const rawIntent = data?.intent ?? data?.normalizedIntent ?? data?.swap ?? data;
+      const allow = data?.allow ?? data?.intent?.allow;
+      const deny = data?.deny ?? data?.intent?.deny ?? (() => {});
+      const refresh = data?.refresh ?? data?.intent?.refresh;
       const bridgeProvider = normalizeBridgeProvider(
         data?.bridgeProvider ??
-          intent?.bridgeProvider ??
-          intent?.normalizedIntent?.bridgeProvider ??
-          intent?.swap?.bridgeProvider
+          data?.intent?.bridgeProvider ??
+          data?.normalizedIntent?.bridgeProvider ??
+          data?.swap?.bridgeProvider ??
+          data?.bridge?.provider
       );
       const intentWithBridgeProvider = normalizeRenderableSwapIntentData(
-        intent,
+        rawIntent,
         bridgeProvider
       );
       logSdkIntentEvent("onIntent", data, {
@@ -6725,7 +6761,7 @@ function NexusWidgetInner({
       }
       if (!intentWithBridgeProvider) {
         console.warn("[NexusWidget SDK][intent] Unsupported intent shape", {
-          intent,
+          intent: rawIntent,
           raw: data,
         });
         finishIntentFetchTiming(runId, "failed");
@@ -6788,6 +6824,36 @@ function NexusWidgetInner({
   >(() => (activeMode === "deposit" ? configuredDeposit : undefined));
   const selectedOpportunityIdentity =
     getDepositConfigIdentity(selectedOpportunity);
+
+  const depositTransport =
+    selectedOpportunity?.transport ??
+    (config.mode === "deposit" ? config.transport : undefined) ??
+    "swap";
+
+  const activeDepositBalance = useMemo(() => {
+    if (activeMode !== "deposit") return swapBalance;
+    if (depositTransport === "bridge") {
+      const targetSymbol = selectedOpportunity?.tokenSymbol ?? toToken?.symbol;
+      const filtered = filterBridgableBalanceForDestination(
+        bridgableBalance,
+        targetSymbol
+      );
+      return filtered ?? bridgableBalance ?? swapBalance;
+    }
+    return swapBalance;
+  }, [
+    activeMode,
+    depositTransport,
+    bridgableBalance,
+    swapBalance,
+    selectedOpportunity?.tokenSymbol,
+    toToken?.symbol,
+  ]);
+
+  useEffect(() => {
+    setSourceSelectionTouched(false);
+    setExactOutQuoteSourceModeValue("all");
+  }, [activeMode, depositTransport, setExactOutQuoteSourceModeValue]);
   const [depositAmountMode, setDepositAmountMode] = useState<"token" | "usd">(
     "token"
   );
@@ -7882,7 +7948,7 @@ function NexusWidgetInner({
   ]);
 
   const resolvedDepositSourceTokens = useMemo<SwapTokenOption[]>(() => {
-    if (activeMode !== "deposit" || !swapBalance) return [];
+    if (activeMode !== "deposit" || !activeDepositBalance) return [];
     const selection = getResolvedDepositSourceSelection();
     return getDepositSourceTokensForIds(selection.selectedSourceIds);
   }, [
@@ -7897,7 +7963,7 @@ function NexusWidgetInner({
     selectedOpportunity?.tokenSymbol,
     sourceSelectionRevision,
     sourceSelectionTouched,
-    swapBalance,
+    activeDepositBalance,
     toToken?.chainId,
     toToken?.contractAddress,
     toToken?.symbol,
@@ -8110,9 +8176,6 @@ function NexusWidgetInner({
     }
 
     setFromTokens((current) => {
-      const canInitialize = current.length === 0;
-      if (!canInitialize) return current;
-
       const next: SwapTokenOption[] = [];
       const seen = new Set<string>();
       for (const token of resolvedDepositSourceTokens) {
@@ -9145,6 +9208,15 @@ function NexusWidgetInner({
           const isTransferExactOut =
             (activeMode === "send" || hasCustomSwapRecipient) &&
             typeof sdkWithOptionalTransfer.swapAndTransfer === "function";
+          const depositTransport =
+            selectedOpportunity?.transport ??
+            (config.mode === "deposit" ? config.transport : undefined) ??
+            "swap";
+          const isBridgeDeposit =
+            activeMode === "deposit" && depositTransport === "bridge";
+
+          const bridgeTokenSymbol = normalizeBridgeTokenSymbol(toToken.symbol);
+
           const exactOutOperationInput = isTransferExactOut
             ? {
                 mode: "exactOut",
@@ -9154,39 +9226,70 @@ function NexusWidgetInner({
                 recipient: resolvedRecipientAddress as `0x${string}`,
                 ...fromSourcesPayload,
               }
-            : {
-                toChainId: toToken.chainId!,
-                toTokenAddress: toToken.contractAddress as `0x${string}`,
-                toAmountRaw: amountBigInt,
-                execute: executeConfig,
-                ...fromSourcesPayload,
-              };
-          logSdkIntentInput(
-            isTransferExactOut
-              ? "swapAndTransfer exactOut"
-              : "swapAndExecute exactOut",
-            exactOutOperationInput,
-            {
-              activeMode,
-              quoteInputKey,
-              runId,
-            }
-          );
-          startIntentFetchTiming({
-            background,
-            operation: isTransferExactOut
-              ? "swapAndTransfer exactOut"
-              : "swapAndExecute exactOut",
+            : isBridgeDeposit
+              ? {
+                  toChainId: toToken.chainId!,
+                  toTokenSymbol: bridgeTokenSymbol,
+                  toAmountRaw: amountBigInt,
+                  sources: Array.from(
+                    new Set(
+                      ((fromSourcesPayload as any).sources ?? []).map((s: any) =>
+                        typeof s === "number" ? s : s.chainId
+                      )
+                    )
+                  ),
+                  execute: executeConfig?.tokenApproval
+                    ? {
+                        ...executeConfig,
+                        tokenApproval: {
+                          toTokenSymbol: bridgeTokenSymbol,
+                          amount: executeConfig.tokenApproval.amount,
+                          spender: executeConfig.tokenApproval.spender,
+                        },
+                      }
+                    : executeConfig,
+                  waitForReceipt: true,
+                }
+              : {
+                  toChainId: toToken.chainId!,
+                  toTokenAddress: toToken.contractAddress as `0x${string}`,
+                  toAmountRaw: amountBigInt,
+                  execute: executeConfig,
+                  ...fromSourcesPayload,
+                };
+
+          const operationName = isTransferExactOut
+            ? "swapAndTransfer exactOut"
+            : isBridgeDeposit
+              ? "bridgeAndExecute exactOut"
+              : "swapAndExecute exactOut";
+
+          logSdkIntentInput(operationName, exactOutOperationInput, {
+            activeMode,
             quoteInputKey,
             runId,
           });
-          const result =
-            isTransferExactOut
-              ? await sdkWithOptionalTransfer.swapAndTransfer(
-                  exactOutOperationInput,
+          startIntentFetchTiming({
+            background,
+            operation: operationName,
+            quoteInputKey,
+            runId,
+          });
+          const result = isTransferExactOut
+            ? await sdkWithOptionalTransfer.swapAndTransfer(
+                exactOutOperationInput,
+                {
+                  onEvent,
+                  onIntent: (data: any) =>
+                    handleSwapIntentCallback(data, runId, quoteInputKey),
+                }
+              )
+            : isBridgeDeposit
+              ? await nexusSDK.bridgeAndExecute(
+                  exactOutOperationInput as any,
                   {
                     onEvent,
-                    onIntent: (data: any) =>
+                    onIntent: (data) =>
                       handleSwapIntentCallback(data, runId, quoteInputKey),
                   }
                 )
@@ -11091,6 +11194,7 @@ function NexusWidgetInner({
                       toAmountUsd={previewToAmountUsd}
                       toToken={toTokenWithFetchedBalance}
                       totalFeeUsd={intentFeeUsd}
+                      transport={depositTransport}
                     />
                   </div>
                 )}
@@ -11109,6 +11213,7 @@ function NexusWidgetInner({
                     toAmount={previewDestinationAmount}
                     toAmountUsd={previewToAmountUsd}
                     toToken={toTokenWithFetchedBalance}
+                    transport={depositTransport}
                   />
                 )}
 

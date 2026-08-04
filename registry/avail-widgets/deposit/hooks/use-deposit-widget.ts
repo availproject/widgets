@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   WidgetStep,
   DepositWidgetContextValue,
@@ -22,6 +22,8 @@ import {
   useTransactionSteps,
   type SwapStepType,
   CHAIN_METADATA,
+  normalizeBridgeTokenSymbol,
+  filterBridgableBalanceForDestination,
 } from "../../common";
 import { type Address, type Hex, formatEther, parseUnits } from "viem";
 import { useAccount } from "wagmi";
@@ -51,6 +53,7 @@ interface UseDepositProps {
     user: Address,
   ) => ExecuteDepositResult;
   destination: DestinationConfig;
+  transport?: "swap" | "bridge";
   onSuccess?: () => void;
   onError?: (error: string) => void;
 }
@@ -86,19 +89,35 @@ export function useDepositWidget(
   props: UseDepositProps,
 ): DepositWidgetContextValue {
   const { executeDeposit, destination, onSuccess, onError } = props;
+  const transport = props.transport ?? destination.transport ?? "swap";
+  const isBridgeTransport = transport === "bridge";
 
   // External dependencies
   const {
     nexusSDK,
     swapIntent,
     swapBalance,
+    bridgableBalance,
     fetchSwapBalance,
+    fetchBridgableBalance,
     getFiatValue,
     exchangeRate,
     resolveTokenUsdRate,
   } = useNexus();
   const { address } = useAccount();
   const handleNexusError = useNexusError();
+
+  const activeBalance = useMemo(() => {
+    if (!isBridgeTransport) return swapBalance;
+    return filterBridgableBalanceForDestination(
+      bridgableBalance,
+      destination?.tokenSymbol,
+    );
+  }, [isBridgeTransport, bridgableBalance, swapBalance, destination?.tokenSymbol]);
+  const activeFetchBalance = useCallback(
+    () => (isBridgeTransport ? fetchBridgableBalance() : fetchSwapBalance()),
+    [isBridgeTransport, fetchBridgableBalance, fetchSwapBalance],
+  );
 
   // Core state management
   const { state, dispatch } = useDepositState();
@@ -110,7 +129,7 @@ export function useDepositWidget(
     isManualSelection,
     setAssetSelection,
     resetAssetSelection,
-  } = useAssetSelection(swapBalance, destination, state.inputs.amount);
+  } = useAssetSelection(activeBalance, destination, state.inputs.amount);
 
   // Refs for tracking
   const hasAutoSelected = useRef(false);
@@ -174,7 +193,7 @@ export function useDepositWidget(
     confirmationDetails,
     feeBreakdown,
   } = useDepositComputed({
-    swapBalance,
+    swapBalance: activeBalance,
     assetSelection,
     activeIntent,
     destination,
@@ -203,7 +222,7 @@ export function useDepositWidget(
   );
 
   /**
-   * Start the swap and execute flow with the SDK
+   * Start the swap/bridge and execute flow with the SDK
    */
   const start = useCallback(
     (inputs: SwapAndExecuteParams, targetAmountUsd?: number) => {
@@ -214,7 +233,7 @@ export function useDepositWidget(
         targetAmountUsd ?? parseUsdAmount(state.inputs.amount);
       const { sourcePoolIds, selectedSourceIds, fromSources } =
         resolveDepositSourceSelection({
-          swapBalance,
+          swapBalance: activeBalance,
           destination,
           filter: assetSelection.filter,
           selectedSourceIds: assetSelection.selectedChainIds,
@@ -237,69 +256,77 @@ export function useDepositWidget(
         sources: fromSources,
       };
       let transactionSucceeded = false;
-      nexusSDK
-        .swapAndExecute(inputsWithSources, {
-          onEvent: (event) => {
-            if (
-              event.type === "plan_preview" ||
-              event.type === "plan_confirmed"
-            ) {
-              const list = event.plan.steps.map((step) => ({
-                ...step,
-                type: step.type.toUpperCase(),
-                typeID: step.type.toUpperCase(),
-                completed: false,
-              }));
-              seed(list as any);
 
-              // If swap is not required, handle as skipped
-              if (event.plan && !event.plan.swapRequired) {
-                dispatch({ type: "setSkipSwap", payload: true });
-                dispatch({ type: "setStatus", payload: "executing" });
-                dispatch({
-                  type: "setStep",
-                  payload: { step: "transaction-status", direction: "forward" },
-                });
-                stopwatch.start();
-              }
+      const onEvent = (event: any) => {
+        if (
+          event.type === "plan_preview" ||
+          event.type === "plan_confirmed"
+        ) {
+          const list = event.plan.steps.map((step: any) => ({
+            ...step,
+            type: step.type.toUpperCase(),
+            typeID: step.type.toUpperCase(),
+            completed: false,
+          }));
+          seed(list as any);
+
+          // If swap/bridge is not required, handle as skipped
+          if (event.plan && !event.plan.swapRequired && !event.plan.bridgeRequired) {
+            dispatch({ type: "setSkipSwap", payload: true });
+            dispatch({ type: "setStatus", payload: "executing" });
+            dispatch({
+              type: "setStep",
+              payload: { step: "transaction-status", direction: "forward" },
+            });
+            stopwatch.start();
+          }
+        }
+        if (event.type === "plan_progress") {
+          const completed =
+            event.state === "completed" ||
+            event.state === "confirmed" ||
+            event.state === "submitted";
+          if (completed) {
+            const step = {
+              ...event.step,
+              type: event.stepType.toUpperCase(),
+              typeID: event.stepType.toUpperCase(),
+              completed: true,
+            };
+            if (
+              (event.stepType === "source_swap" || event.stepType === "source_bridge") &&
+              (event as any).txHash
+            ) {
+              dispatch({
+                type: "addSourceSwap",
+                payload: {
+                  chainId: (event as any).step.chainId,
+                  chainName:
+                    CHAIN_METADATA[
+                      (event as any).step
+                        .chainId as keyof typeof CHAIN_METADATA
+                    ]?.name ?? `Chain ${(event as any).step.chainId}`,
+                  explorerUrl: (event as any).explorerUrl,
+                },
+              });
             }
-            if (event.type === "plan_progress") {
-              const completed =
-                event.state === "completed" ||
-                event.state === "confirmed" ||
-                event.state === "submitted";
-              if (completed) {
-                const step = {
-                  ...event.step,
-                  type: event.stepType.toUpperCase(),
-                  typeID: event.stepType.toUpperCase(),
-                  completed: true,
-                };
-                if (event.stepType === "source_swap" && (event as any).txHash) {
-                  dispatch({
-                    type: "addSourceSwap",
-                    payload: {
-                      chainId: (event as any).step.chainId,
-                      chainName:
-                        CHAIN_METADATA[
-                          (event as any).step
-                            .chainId as keyof typeof CHAIN_METADATA
-                        ]?.name ?? `Chain ${(event as any).step.chainId}`,
-                      explorerUrl: (event as any).explorerUrl,
-                    },
-                  });
-                }
-                if ((event.stepType as string) === "determining_swap") {
-                  determiningSwapComplete.current = true;
-                  stopwatch.start();
-                  dispatch({ type: "setIntentReady", payload: true });
-                }
-                onStepComplete(step as any);
-              }
+            if (
+              (event.stepType as string) === "determining_swap" ||
+              (event.stepType as string) === "determining_bridge"
+            ) {
+              determiningSwapComplete.current = true;
+              stopwatch.start();
+              dispatch({ type: "setIntentReady", payload: true });
             }
-          },
-          onIntent: (data) => {
-            const swapIntentData = data.intent.swapRequired
+            onStepComplete(step as any);
+          }
+        }
+      };
+
+      const onIntent = (data: any) => {
+        const swapIntentData =
+          data?.intent?.swapRequired !== undefined
+            ? data.intent.swapRequired
               ? {
                   allow: data.allow,
                   deny: data.deny,
@@ -312,140 +339,185 @@ export function useDepositWidget(
                       : (refreshed as any);
                   },
                 }
-              : null;
-            swapIntent.current = swapIntentData as any;
-            dispatch({ type: "setIntentReady", payload: true });
-          },
-        })
-        .then((data: SwapAndExecuteResult) => {
-          suppressNextWidgetPreviewCancelError.current = false;
+              : null
+            : data;
+        swapIntent.current = swapIntentData as any;
+        dispatch({ type: "setIntentReady", payload: true });
+      };
 
-          // Extract source swaps from the result
-          const sourceSwapsFromResult = data.swapResult?.sourceSwaps ?? [];
-          sourceSwapsFromResult.forEach((sourceSwap) => {
-            const chainMeta =
-              CHAIN_METADATA[sourceSwap.chainId as keyof typeof CHAIN_METADATA];
-            const baseUrl = chainMeta?.blockExplorerUrls?.[0] ?? "";
-            const explorerUrl = baseUrl
+      const handleResult = (data: any) => {
+        suppressNextWidgetPreviewCancelError.current = false;
+
+        // Extract source swaps / bridge txs from the result
+        const sourceSwapsFromResult =
+          data.swapResult?.sourceSwaps ?? data.bridgeResult?.sourceTxs ?? [];
+        sourceSwapsFromResult.forEach((sourceSwap: any) => {
+          const chainId = sourceSwap.chainId ?? sourceSwap.chain;
+          const chainMeta =
+            CHAIN_METADATA[chainId as keyof typeof CHAIN_METADATA];
+          const baseUrl = chainMeta?.blockExplorerUrls?.[0] ?? "";
+          const explorerUrl =
+            sourceSwap.txExplorerUrl ??
+            (sourceSwap.txHash && baseUrl
               ? `${baseUrl}/tx/${sourceSwap.txHash}`
-              : "";
-            dispatch({
-              type: "addSourceSwap",
-              payload: {
-                chainId: sourceSwap.chainId,
-                chainName: chainMeta?.name ?? `Chain ${sourceSwap.chainId}`,
-                explorerUrl,
-              },
-            });
+              : "");
+          dispatch({
+            type: "addSourceSwap",
+            payload: {
+              chainId,
+              chainName: chainMeta?.name ?? `Chain ${chainId}`,
+              explorerUrl,
+            },
           });
+        });
 
-          // Set explorer URLs from the result
-          if (sourceSwapsFromResult.length > 0) {
-            const firstSourceSwap = sourceSwapsFromResult[0];
-            const chainMeta =
-              CHAIN_METADATA[
-                firstSourceSwap.chainId as keyof typeof CHAIN_METADATA
-              ];
-            const baseUrl = chainMeta?.blockExplorerUrls?.[0] ?? "";
-            const sourceExplorerUrl = baseUrl
+        // Set explorer URLs from the result
+        if (sourceSwapsFromResult.length > 0) {
+          const firstSourceSwap: any = sourceSwapsFromResult[0];
+          const chainId = firstSourceSwap.chainId ?? firstSourceSwap.chain;
+          const chainMeta =
+            CHAIN_METADATA[chainId as keyof typeof CHAIN_METADATA];
+          const baseUrl = chainMeta?.blockExplorerUrls?.[0] ?? "";
+          const sourceExplorerUrl =
+            firstSourceSwap.txExplorerUrl ??
+            (firstSourceSwap.txHash && baseUrl
               ? `${baseUrl}/tx/${firstSourceSwap.txHash}`
-              : "";
-            dispatch({
-              type: "setExplorerUrls",
-              payload: { sourceExplorerUrl },
-            });
-          }
-
-          // Destination explorer URL
-          const destChainMeta =
-            CHAIN_METADATA[destination.chainId as keyof typeof CHAIN_METADATA];
-          const destBaseUrl = destChainMeta?.blockExplorerUrls?.[0] ?? "";
-          const destinationExplorerUrl =
-            data.swapResult?.intentExplorerUrl ??
-            (data.execute?.txHash && destBaseUrl
-              ? `${destBaseUrl}/tx/${data.execute.txHash}`
-              : null);
-
-          if (destinationExplorerUrl) {
-            dispatch({
-              type: "setExplorerUrls",
-              payload: { destinationExplorerUrl },
-            });
-          }
-
-          // Store Nexus intent URL and deposit tx hash
+              : "");
           dispatch({
-            type: "setNexusIntentUrl",
-            payload: data.swapResult?.intentExplorerUrl ?? null,
+            type: "setExplorerUrls",
+            payload: { sourceExplorerUrl },
           });
-          dispatch({
-            type: "setDepositTxHash",
-            payload: data.execute?.txHash ?? null,
-          });
+        }
 
-          // Calculate actual gas fee from receipt
-          const receipt = data.execute?.receipt;
-          if (receipt?.gasUsed && receipt?.effectiveGasPrice) {
-            const gasUsed = BigInt(receipt.gasUsed);
-            const effectiveGasPrice = BigInt(receipt.effectiveGasPrice);
-            const gasCostWei = gasUsed * effectiveGasPrice;
-            const gasCostNative = parseFloat(formatEther(gasCostWei));
-            const gasTokenSymbol = destination.gasTokenSymbol ?? "ETH";
-            const gasCostUsd = getFiatValue(gasCostNative, gasTokenSymbol);
-            dispatch({
-              type: "setActualGasFeeUsd",
-              payload: gasCostUsd,
-            });
-          }
+        // Destination explorer URL
+        const destChainMeta =
+          CHAIN_METADATA[destination.chainId as keyof typeof CHAIN_METADATA];
+        const destBaseUrl = destChainMeta?.blockExplorerUrls?.[0] ?? "";
+        const intentUrl =
+          data.swapResult?.intentExplorerUrl ??
+          data.bridgeResult?.intentExplorerUrl ??
+          data.intentExplorerUrl ??
+          null;
+        const destinationExplorerUrl =
+          intentUrl ??
+          (data.execute?.txHash && destBaseUrl
+            ? `${destBaseUrl}/tx/${data.execute.txHash}`
+            : null);
 
+        if (destinationExplorerUrl) {
           dispatch({
-            type: "setReceiveAmount",
-            payload: swapIntent.current?.intent?.destination?.amount ?? "",
+            type: "setExplorerUrls",
+            payload: { destinationExplorerUrl },
           });
-          onSuccess?.();
-          dispatch({ type: "setStatus", payload: "success" });
-          transactionSucceeded = true;
+        }
+
+        // Store Nexus intent URL and deposit tx hash
+        dispatch({
+          type: "setNexusIntentUrl",
+          payload: intentUrl,
+        });
+        dispatch({
+          type: "setDepositTxHash",
+          payload: data.execute?.txHash ?? null,
+        });
+
+        // Calculate actual gas fee from receipt
+        const receipt = data.execute?.receipt;
+        if (receipt?.gasUsed && receipt?.effectiveGasPrice) {
+          const gasUsed = BigInt(receipt.gasUsed);
+          const effectiveGasPrice = BigInt(receipt.effectiveGasPrice);
+          const gasCostWei = gasUsed * effectiveGasPrice;
+          const gasCostNative = parseFloat(formatEther(gasCostWei));
+          const gasTokenSymbol = destination.gasTokenSymbol ?? "ETH";
+          const gasCostUsd = getFiatValue(gasCostNative, gasTokenSymbol);
+          dispatch({
+            type: "setActualGasFeeUsd",
+            payload: gasCostUsd,
+          });
+        }
+
+        dispatch({
+          type: "setReceiveAmount",
+          payload: swapIntent.current?.intent?.destination?.amount ?? "",
+        });
+        onSuccess?.();
+        dispatch({ type: "setStatus", payload: "success" });
+        transactionSucceeded = true;
+        dispatch({
+          type: "setStep",
+          payload: { step: "transaction-complete", direction: "forward" },
+        });
+      };
+
+      const handleError = (error: any) => {
+        console.log("ERROR IN DEPOSIT EXECUTION", error);
+        const { code, message } = handleNexusError(error);
+        const isUserRejectedError =
+          code === ERROR_CODES.USER_INTENT_HOOK_DENIED ||
+          code === ERROR_CODES.USER_INTENT_SIGNATURE_DENIED ||
+          code === ERROR_CODES.USER_ALLOWANCE_APPROVAL_DENIED ||
+          code === ERROR_CODES.USER_SIWE_SIGNATURE_DENIED;
+        const shouldSuppressWidgetError =
+          suppressNextWidgetPreviewCancelError.current && isUserRejectedError;
+
+        suppressNextWidgetPreviewCancelError.current = false;
+
+        if (shouldSuppressWidgetError) {
+          onError?.(message);
+          return;
+        }
+
+        dispatch({ type: "setError", payload: message });
+        dispatch({ type: "setStatus", payload: "error" });
+
+        if (initialSimulationDone.current) {
           dispatch({
             type: "setStep",
-            payload: { step: "transaction-complete", direction: "forward" },
+            payload: { step: "transaction-failed", direction: "forward" },
           });
-        })
-        .catch((error) => {
-          console.log("ERROR IN SWAP AND EXECUTE", error);
-          const { code, message } = handleNexusError(error);
-          const isUserRejectedError =
-            code === ERROR_CODES.USER_INTENT_HOOK_DENIED ||
-            code === ERROR_CODES.USER_INTENT_SIGNATURE_DENIED ||
-            code === ERROR_CODES.USER_ALLOWANCE_APPROVAL_DENIED ||
-            code === ERROR_CODES.USER_SIWE_SIGNATURE_DENIED;
-          const shouldSuppressWidgetError =
-            suppressNextWidgetPreviewCancelError.current && isUserRejectedError;
+        } else {
+          dispatch({
+            type: "setStep",
+            payload: { step: "amount", direction: "backward" },
+          });
+        }
+        onError?.(message);
+      };
 
-          suppressNextWidgetPreviewCancelError.current = false;
+      const bridgeTokenSymbol = normalizeBridgeTokenSymbol(destination.tokenSymbol);
 
-          if (shouldSuppressWidgetError) {
-            onError?.(message);
-            return;
-          }
+      const executionPromise = isBridgeTransport
+        ? nexusSDK.bridgeAndExecute(
+            {
+              toChainId: destination.chainId,
+              toTokenSymbol: bridgeTokenSymbol,
+              toAmountRaw: inputs.toAmountRaw,
+              sources: Array.from(new Set(fromSources.map((s) => s.chainId))),
+              execute: {
+                to: inputs.execute.to,
+                value: inputs.execute.value,
+                data: inputs.execute.data,
+                gas: inputs.execute.gas,
+                gasPrice: inputs.execute.gasPrice,
+                tokenApproval: inputs.execute.tokenApproval
+                  ? {
+                      toTokenSymbol: bridgeTokenSymbol,
+                      amount: inputs.execute.tokenApproval.amount,
+                      spender: inputs.execute.tokenApproval.spender,
+                    }
+                  : undefined,
+              },
+              waitForReceipt: true,
+            },
+            { onEvent, onIntent },
+          )
+        : nexusSDK.swapAndExecute(inputsWithSources, { onEvent, onIntent });
 
-          dispatch({ type: "setError", payload: message });
-          dispatch({ type: "setStatus", payload: "error" });
-
-          if (initialSimulationDone.current) {
-            dispatch({
-              type: "setStep",
-              payload: { step: "transaction-failed", direction: "forward" },
-            });
-          } else {
-            dispatch({
-              type: "setStep",
-              payload: { step: "amount", direction: "backward" },
-            });
-          }
-          onError?.(message);
-        })
+      executionPromise
+        .then(handleResult)
+        .catch(handleError)
         .finally(async () => {
-          await fetchSwapBalance();
+          await activeFetchBalance();
         });
     },
     [
@@ -648,7 +720,7 @@ export function useDepositWidget(
       setPollingEnabled(false);
       stopwatch.stop();
       stopwatch.reset();
-      await fetchSwapBalance();
+      await activeFetchBalance();
     }
   }, [
     state.step,
@@ -656,7 +728,7 @@ export function useDepositWidget(
     stopwatch,
     dispatch,
     denyActiveSwapIntent,
-    fetchSwapBalance,
+    activeFetchBalance,
   ]);
 
   /**
@@ -673,14 +745,14 @@ export function useDepositWidget(
     setPollingEnabled(false);
     stopwatch.stop();
     stopwatch.reset();
-    await fetchSwapBalance();
+    await activeFetchBalance();
   }, [
     resetSteps,
     stopwatch,
     dispatch,
     resetAssetSelection,
     denyActiveSwapIntent,
-    fetchSwapBalance,
+    activeFetchBalance,
     state.step,
     isProcessing,
   ]);
@@ -742,19 +814,16 @@ export function useDepositWidget(
     setPollingEnabled(true);
   }, [state.intentReady, swapIntent, dispatch]);
 
-  // Effect: Fetch swap balance on mount
+  // Effect: Fetch balance on mount or transport mode change
   useEffect(() => {
     if (!nexusSDK) return;
 
-    if (!swapBalance) {
-      void fetchSwapBalance();
-      return;
-    }
+    void activeFetchBalance();
 
     if (!hasAutoSelected.current && availableAssets.length > 0) {
       hasAutoSelected.current = true;
     }
-  }, [nexusSDK, swapBalance, availableAssets, fetchSwapBalance]);
+  }, [nexusSDK, isBridgeTransport, availableAssets, activeFetchBalance]);
 
   // Polling for simulation refresh
   usePolling(

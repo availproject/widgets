@@ -283,7 +283,16 @@ export function useDepositComputed(props: UseDepositComputedProps) {
       isDestinationBalance?: boolean;
     }> = [];
 
-    activeIntent.intent.sources.forEach((source) => {
+    const rawIntent = activeIntent?.intent ?? (activeIntent as any)?.bridge ?? activeIntent;
+    const bridgeObj = (rawIntent as any)?.bridge ?? ((rawIntent as any)?.selectedSources ? rawIntent : null);
+    const intentSources: any[] =
+      (rawIntent as any)?.sources ??
+      bridgeObj?.selectedSources ??
+      [];
+    const intentDestination =
+      (rawIntent as any)?.destination ?? bridgeObj?.destination;
+
+    intentSources.forEach((source) => {
       const sourcePricingSymbol = resolvePricingSymbol({
         chainId: source.chain.id,
         contractAddress: source.token.contractAddress,
@@ -323,17 +332,17 @@ export function useDepositComputed(props: UseDepositComputedProps) {
     });
 
     // Calculate total spent from cross-chain sources
-    const totalAmountSpentUsd = activeIntent.intent.sources?.reduce(
+    const totalAmountSpentUsd = intentSources.reduce(
       (acc: number, source: any) => acc + parseNonNegativeNumber(source.value),
       0,
     );
 
     // Get the actual amount arriving on destination (AFTER fees)
     const destinationAmountUsd = parseNonNegativeNumber(
-      activeIntent.intent.destination?.value,
+      intentDestination?.value,
     );
 
-    const intentFeesAndBuffer = activeIntent.intent.feesAndBuffer;
+    const intentFeesAndBuffer = (rawIntent as any)?.feesAndBuffer ?? (bridgeObj?.fees ? { bridge: bridgeObj.fees } : undefined);
     const bridgeFeeEntries = Object.entries(intentFeesAndBuffer?.bridge ?? {})
       .filter(([key]) => key !== "total")
       .map(([key, value]) => ({
@@ -422,6 +431,11 @@ export function useDepositComputed(props: UseDepositComputedProps) {
     let gasUsd = 0;
 
     // Use actual gas fee from receipt if available
+    const rawIntent = activeIntent?.intent ?? (activeIntent as any)?.bridge ?? activeIntent;
+    const bridgeObj = (rawIntent as any)?.bridge ?? (rawIntent?.selectedSources ? rawIntent : null);
+    const intentDestination = (rawIntent as any)?.destination ?? bridgeObj?.destination;
+    const intentSources: any[] = (rawIntent as any)?.sources ?? bridgeObj?.selectedSources ?? [];
+
     if (actualGasFeeUsd !== null) {
       gasUsd = actualGasFeeUsd;
     } else if (swapSkippedData && skipSwap) {
@@ -433,13 +447,13 @@ export function useDepositComputed(props: UseDepositComputedProps) {
         estimatedFeeEth,
         destination.gasTokenSymbol ?? "ETH",
       );
-    } else if (activeIntent?.intent?.destination?.gas) {
+    } else if (intentDestination?.gas) {
       // Otherwise use estimated gas from intent
-      const gas = activeIntent.intent.destination.gas;
+      const gas = intentDestination.gas;
       gasUsd = parseNonNegativeNumber(gas.value);
     }
 
-    const bridgeRaw = activeIntent?.intent?.feesAndBuffer?.bridge;
+    const bridgeRaw = (rawIntent as any)?.feesAndBuffer?.bridge ?? bridgeObj?.fees;
     const caGasUsd = parseNonNegativeNumber(bridgeRaw?.caGas);
     const gasSuppliedUsd = parseNonNegativeNumber(
       (bridgeRaw as Record<string, string | undefined> | undefined)
@@ -475,7 +489,7 @@ export function useDepositComputed(props: UseDepositComputedProps) {
 
     // Intent buffer can be displayed for transparency but is not added to total fee.
     const bufferUsd = parseNonNegativeNumber(
-      activeIntent?.intent?.feesAndBuffer?.buffer,
+      (rawIntent as any)?.feesAndBuffer?.buffer,
     );
 
     const totalFeeUsd =
@@ -486,13 +500,13 @@ export function useDepositComputed(props: UseDepositComputedProps) {
       otherBridgeFeeUsd;
     const gasFormatted = usdFormatter.format(gasUsd);
 
-    const sourceValueUsd = (activeIntent?.intent?.sources ?? []).reduce(
+    const sourceValueUsd = intentSources.reduce(
       (sum: number, source: any) => sum + parseNonNegativeNumber(source.value),
       0,
     );
 
     const destinationValueUsd = parseNonNegativeNumber(
-      activeIntent?.intent?.destination?.value,
+      intentDestination?.value,
     );
 
     const totalSomething = destinationValueUsd + totalFeeUsd + bufferUsd;

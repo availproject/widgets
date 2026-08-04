@@ -439,3 +439,44 @@ export const TOKEN_CONTRACT_ADDRESSES = {
     4326: "0xFAfDdbb3FC7688494971a79cc65DCa3EF82079E7",
   },
 } as Record<string, Record<number, `0x${string}`>>;
+
+/**
+ * Normalizes destination token symbols for bridge operations (bridge / bridgeAndExecute).
+ *
+ * Mappings:
+ * - USDC, USDC.e, USDM, USDm, ctUSD -> "USDC"
+ * - USDT, USDT.e, USDT0, USD₮0, USD₮ -> "USDT"
+ * - All other symbols remain unchanged.
+ */
+export function normalizeBridgeTokenSymbol(symbol: string): string {
+  if (!symbol) return symbol;
+  const s = symbol.trim();
+  const usdcVariants = new Set(["USDC", "USDC.e", "USDM", "USDm", "ctUSD"]);
+  const usdtVariants = new Set(["USDT", "USDT.e", "USDT0", "USD₮0", "USD₮"]);
+
+  if (usdcVariants.has(s)) {
+    return "USDC";
+  }
+  if (usdtVariants.has(s)) {
+    return "USDT";
+  }
+  return s;
+}
+
+/**
+ * Filters a list of user assets (from getBalancesForBridge) to keep only the unified asset
+ * matching the destination token symbol.
+ */
+export function filterBridgableBalanceForDestination<T extends { symbol: string }>(
+  bridgableBalance: T[] | null,
+  destinationTokenSymbol: string | undefined,
+): T[] | null {
+  if (!bridgableBalance || !destinationTokenSymbol) return bridgableBalance;
+  const targetUnifiedSymbol = normalizeBridgeTokenSymbol(destinationTokenSymbol);
+
+  return bridgableBalance.filter((asset) => {
+    if (!asset || !asset.symbol) return false;
+    const assetUnifiedSymbol = normalizeBridgeTokenSymbol(asset.symbol);
+    return assetUnifiedSymbol === targetUnifiedSymbol;
+  });
+}

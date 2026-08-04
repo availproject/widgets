@@ -30,6 +30,7 @@ import {
   usePolling,
   useStopwatch,
   useTransactionSteps,
+  normalizeBridgeTokenSymbol,
 } from "../../common";
 
 export type DepositStatus =
@@ -363,12 +364,23 @@ const useDeposit = ({
         executeBuilder
           ? executeBuilder(token, inputs.amount, inputs.chain, address)
           : executeConfig;
+      const bridgeTokenSymbol = normalizeBridgeTokenSymbol(token);
       const params: BridgeAndExecuteParams = {
-        toTokenSymbol: token,
+        toTokenSymbol: bridgeTokenSymbol,
         toAmountRaw: amountBigInt,
         toChainId: inputs.chain,
         sources: inputs.selectedSources,
-        execute: executeParams as Omit<ExecuteParams, "toChainId">,
+        execute: (executeParams
+          ? {
+              ...executeParams,
+              tokenApproval: (executeParams as any)?.tokenApproval
+                ? {
+                    ...(executeParams as any).tokenApproval,
+                    toTokenSymbol: bridgeTokenSymbol,
+                  }
+                : undefined,
+            }
+          : undefined) as Omit<ExecuteParams, "toChainId">,
         waitForReceipt: true,
       };
 
@@ -478,12 +490,23 @@ const useDeposit = ({
         executeBuilder
           ? executeBuilder(token, amountToUse, inputs.chain, address)
           : executeConfig;
+      const bridgeTokenSymbol = normalizeBridgeTokenSymbol(token);
       const params: BridgeAndExecuteParams = {
-        toTokenSymbol: token,
+        toTokenSymbol: bridgeTokenSymbol,
         toAmountRaw: amountBigInt,
         toChainId: inputs.chain,
         sources: inputs.selectedSources,
-        execute: executeParams as Omit<ExecuteParams, "toChainId">,
+        execute: (executeParams
+          ? {
+              ...executeParams,
+              tokenApproval: (executeParams as any)?.tokenApproval
+                ? {
+                    ...(executeParams as any).tokenApproval,
+                    toTokenSymbol: bridgeTokenSymbol,
+                  }
+                : undefined,
+            }
+          : undefined) as Omit<ExecuteParams, "toChainId">,
       };
       const sim = await nexusSDK.simulateBridgeAndExecute(params);
       if (activeSimulationIdRef.current !== requestId) {

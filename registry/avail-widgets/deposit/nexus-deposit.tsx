@@ -85,6 +85,7 @@ const NexusDeposit = ({
   onError,
   executeDeposit,
   destination,
+  transport,
   open: controlledOpen,
   onOpenChange,
   defaultOpen = false,
@@ -92,6 +93,7 @@ const NexusDeposit = ({
   const widget = useDepositWidget({
     executeDeposit,
     destination,
+    transport,
     onSuccess,
     onError,
   });

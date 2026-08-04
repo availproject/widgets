@@ -103,6 +103,7 @@ export interface SwapIntentPreviewProps {
   toAmountUsd?: string;
   toToken?: SwapTokenOption;
   totalFeeUsd?: string;
+  transport?: "swap" | "bridge";
 }
 
 const fontFamily = '"Geist", var(--font-geist-sans), system-ui, sans-serif';
@@ -702,6 +703,7 @@ export function SwapIntentPreview({
   activeMode,
   steps,
   explorerUrls,
+  transport,
   onAccept,
   onTransitionChange,
 }: SwapIntentPreviewProps) {
@@ -740,10 +742,14 @@ export function SwapIntentPreview({
   const flowMode = mode ?? activeMode ?? "swap";
   const isDepositMode = flowMode === "deposit";
   const isSendMode = flowMode === "send";
+  const isBridgeTransport =
+    transport === "bridge" ||
+    opportunity?.transport === "bridge" ||
+    (intentData?.bridgeProvider === "nexus" && isDepositMode);
   const hasRecipientTransfer = Boolean(recipientAddress) && !isDepositMode;
   const isExactOutDisplayFlow =
     (isDepositMode || isSendMode) && swapType === "exactOut";
-  const shouldShowSwapBuffer = swapType !== "exactIn";
+  const shouldShowSwapBuffer = swapType !== "exactIn" && !isBridgeTransport;
   const intentSources = intentData?.sources ?? [];
   const intentDest = intentData?.destination;
   const normalizedIntentSources = intentSources.map((source) => ({

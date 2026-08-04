@@ -78,6 +78,7 @@ export interface DestinationConfig {
   estimatedTime?: string;
   gasTokenSymbol?: string;
   explorerUrl?: string;
+  transport?: "swap" | "bridge";
 }
 
 export interface ExecuteDepositParams {
@@ -101,6 +102,7 @@ export interface UseDepositWidgetProps {
     user: Address,
   ) => ExecuteDepositResult;
   destination: DestinationConfig;
+  transport?: "swap" | "bridge";
   onSuccess?: () => void;
   onError?: (error: string) => void;
 }

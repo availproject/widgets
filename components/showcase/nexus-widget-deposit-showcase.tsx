@@ -473,6 +473,7 @@ const NexusWidgetDepositShowcase = () => {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [renderMode, setRenderMode] =
     useState<NexusWidgetRenderMode>("inline");
+  const [transportMode, setTransportMode] = useState<"swap" | "bridge">("swap");
   const isPopupMode = renderMode === "popup";
 
   // Default sandbox configuration state
@@ -751,57 +752,36 @@ const NexusWidgetDepositShowcase = () => {
       }
     >
       <div className="flex flex-col gap-6 w-full items-center">
-        {/* Custom Dropdown Selector */}
-        <div className="w-full max-w-sm flex flex-col gap-1.5 relative">
-          <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-            Select Deposit Protocol
-          </label>
+        {/* Protocol & Transport Selector Controls */}
+        <div className="w-full max-w-md flex flex-col sm:flex-row gap-4 items-stretch sm:items-end justify-center">
+          {/* Custom Dropdown Selector */}
+          <div className="flex-1 flex flex-col gap-1.5 relative">
+            <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              Deposit Protocol
+            </label>
 
-          <div className="flex gap-2 w-full">
-            {/* Trigger Button */}
-            <button
-              type="button"
-              onClick={() => setIsOpen(!isOpen)}
-              className="flex items-center justify-between flex-1 h-11 px-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer transition-all shadow-sm"
-            >
-              <div className="flex items-center gap-2">
-                {currentOpportunity.depositTargetLogo && (
-                  <img
-                    src={currentOpportunity.depositTargetLogo}
-                    alt="Deposit target logo"
-                    className="w-5 h-5 rounded-full object-contain"
-                  />
-                )}
-                <span className="font-semibold text-sm">
-                  {getOpportunityLabel(currentOpportunity)}
-                </span>
-              </div>
-
-              <svg
-                className={`w-4 h-4 text-zinc-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-
-            {/* Configure Sandbox Button */}
-            {selectedOpt === "sandbox" && (
+            <div className="flex gap-2 w-full">
+              {/* Trigger Button */}
               <button
                 type="button"
-                onClick={() => openSandboxModal()}
-                className="flex items-center justify-center h-11 w-11 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800/50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm font-semibold cursor-pointer transition-all shadow-sm"
-                title="Configure Sandbox"
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center justify-between flex-1 h-11 px-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer transition-all shadow-sm"
               >
+                <div className="flex items-center gap-2 truncate">
+                  {currentOpportunity.depositTargetLogo && (
+                    <img
+                      src={currentOpportunity.depositTargetLogo}
+                      alt="Deposit target logo"
+                      className="w-5 h-5 rounded-full object-contain shrink-0"
+                    />
+                  )}
+                  <span className="font-semibold text-sm truncate">
+                    {getOpportunityLabel(currentOpportunity)}
+                  </span>
+                </div>
+
                 <svg
-                  className="w-5 h-5"
+                  className={`w-4 h-4 text-zinc-500 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -810,49 +790,126 @@ const NexusWidgetDepositShowcase = () => {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth="2"
-                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                    d="M19 9l-7 7-7-7"
                   />
                 </svg>
               </button>
-            )}
-          </div>
 
-          {/* Dropdown Menu */}
-          {isOpen && (
-            <>
-              {/* Click outside overlay */}
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setIsOpen(false)}
-              />
+              {/* Configure Sandbox Button */}
+              {selectedOpt === "sandbox" && (
+                <button
+                  type="button"
+                  onClick={() => openSandboxModal()}
+                  className="flex items-center justify-center h-11 w-11 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800/50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm font-semibold cursor-pointer transition-all shadow-sm shrink-0"
+                  title="Configure Sandbox"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
 
-              <div className="absolute top-[68px] left-0 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg py-1.5 z-20 max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-100">
-                {Object.entries(OPPORTUNITIES).map(([key, opt]) => (
+            {/* Dropdown Menu */}
+            {isOpen && (
+              <>
+                {/* Click outside overlay */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsOpen(false)}
+                />
+
+                <div className="absolute top-[68px] left-0 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg py-1.5 z-20 max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-100">
+                  {Object.entries(OPPORTUNITIES).map(([key, opt]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setSelectedOpt(key as any);
+                        setIsOpen(false);
+                      }}
+                      className={`flex items-center justify-between w-full px-3.5 py-2.5 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all ${
+                        selectedOpt === key
+                          ? "bg-zinc-50 dark:bg-zinc-800/80 font-medium text-blue-600 dark:text-blue-400"
+                          : "text-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {opt.depositTargetLogo && (
+                          <img
+                            src={opt.depositTargetLogo}
+                            alt="deposit target logo"
+                            className="w-5 h-5 rounded-full object-contain"
+                          />
+                        )}
+                        <span>{getOpportunityLabel(opt)}</span>
+                      </div>
+
+                      {selectedOpt === key && (
+                        <svg
+                          className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+
+                  <div className="border-t border-zinc-200 dark:border-zinc-800 my-1.5" />
+
                   <button
-                    key={key}
                     type="button"
                     onClick={() => {
-                      setSelectedOpt(key as any);
+                      openSandboxModal();
                       setIsOpen(false);
                     }}
                     className={`flex items-center justify-between w-full px-3.5 py-2.5 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all ${
-                      selectedOpt === key
+                      selectedOpt === "sandbox"
                         ? "bg-zinc-50 dark:bg-zinc-800/80 font-medium text-blue-600 dark:text-blue-400"
-                        : "text-zinc-700 dark:text-zinc-300"
+                        : "text-blue-600 dark:text-blue-400 font-semibold"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      {opt.depositTargetLogo && (
-                        <img
-                          src={opt.depositTargetLogo}
-                          alt="deposit target logo"
-                          className="w-5 h-5 rounded-full object-contain"
+                      <svg
+                        className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
                         />
-                      )}
-                      <span>{getOpportunityLabel(opt)}</span>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                      <span>Test your own (Sandbox)</span>
                     </div>
-
-                    {selectedOpt === key && (
+                    {selectedOpt === "sandbox" && (
                       <svg
                         className="w-4 h-4 text-blue-600 dark:text-blue-400"
                         fill="none"
@@ -868,63 +925,41 @@ const NexusWidgetDepositShowcase = () => {
                       </svg>
                     )}
                   </button>
-                ))}
+                </div>
+              </>
+            )}
+          </div>
 
-                <div className="border-t border-zinc-200 dark:border-zinc-800 my-1.5" />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    openSandboxModal();
-                    setIsOpen(false);
-                  }}
-                  className={`flex items-center justify-between w-full px-3.5 py-2.5 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all ${
-                    selectedOpt === "sandbox"
-                      ? "bg-zinc-50 dark:bg-zinc-800/80 font-medium text-blue-600 dark:text-blue-400"
-                      : "text-blue-600 dark:text-blue-400 font-semibold"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <span>Test your own (Sandbox)</span>
-                  </div>
-                  {selectedOpt === "sandbox" && (
-                    <svg
-                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </>
-          )}
+          {/* Transport Mode Toggle */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              Transport Mode
+            </label>
+            <div className="flex items-center h-11 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/50">
+              <button
+                type="button"
+                onClick={() => setTransportMode("swap")}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  transportMode === "swap"
+                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs"
+                    : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                }`}
+              >
+                Swap
+              </button>
+              <button
+                type="button"
+                onClick={() => setTransportMode("bridge")}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  transportMode === "bridge"
+                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs"
+                    : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                }`}
+              >
+                Bridge
+              </button>
+            </div>
+          </div>
         </div>
 
         <div
@@ -934,11 +969,12 @@ const NexusWidgetDepositShowcase = () => {
           }}
         >
           <NexusWidget
-            key={`${selectedOpt}-${renderMode}`}
+            key={`${selectedOpt}-${renderMode}-${transportMode}`}
             embed={!isPopupMode}
             defaultOpen={isPopupMode}
             config={{
               mode: "deposit",
+              transport: transportMode,
               destination: {
                 chain: currentOpportunity.chainId,
                 tokens: getRequiredOpportunityTokens(currentOpportunity),

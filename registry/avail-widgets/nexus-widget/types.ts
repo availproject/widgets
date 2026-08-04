@@ -36,6 +36,7 @@ export interface NexusWidgetDepositOpportunityConfig {
   gasTokenSymbol?: string;
   label?: string;
   logo?: string;
+  transport?: "swap" | "bridge";
 
   /** Optional labels used by Nexus Widget history/progress copy. */
   protocol?: string;
@@ -140,6 +141,7 @@ export interface NexusWidgetDepositConfig extends NexusWidgetConfigBase {
   mode: "deposit";
   prefill?: NexusWidgetAmountPrefill;
   validation?: NexusWidgetValidation;
+  transport?: "swap" | "bridge";
 }
 
 export interface NexusWidgetSendConfig extends NexusWidgetConfigBase {

@@ -239,25 +239,27 @@ const ConfirmationContainer = ({
                     </div>
                   }
                   subText={
-                    <div className="flex flex-col items-start gap-y-4 py-4">
-                      <div className="flex w-full items-center justify-between">
-                        <div className="flex items-center gap-x-4">
-                          <ShieldCheck className="size-5 text-muted-foreground stroke-[1.8]" />
-                          <span className="font-sans text-sm text-card-foreground">
-                            Swap buffer
+                    feeBreakdown.bufferUsd > 0 ? (
+                      <div className="flex flex-col items-start gap-y-4 py-4">
+                        <div className="flex w-full items-center justify-between">
+                          <div className="flex items-center gap-x-4">
+                            <ShieldCheck className="size-5 text-muted-foreground stroke-[1.8]" />
+                            <span className="font-sans text-sm text-card-foreground">
+                              Swap buffer
+                            </span>
+                          </div>
+                          <span className="font-display text-card-foreground tracking-[0.36px] leading-4.5 font-medium">
+                            {formatFeeUsd(feeBreakdown.bufferUsd)}
                           </span>
                         </div>
-                        <span className="font-display text-card-foreground tracking-[0.36px] leading-4.5 font-medium">
-                          {formatFeeUsd(feeBreakdown.bufferUsd)}
-                        </span>
-                      </div>
 
-                      <p className="font-sans text-xs leading-4.5 text-muted-foreground ml-8.5">
-                        Temporary buffer collected to ensure swaps succeed.{" "}
-                        <br />
-                        Excess funds are refunded.
-                      </p>
-                    </div>
+                        <p className="font-sans text-xs leading-4.5 text-muted-foreground ml-8.5">
+                          Temporary buffer collected to ensure swaps succeed.{" "}
+                          <br />
+                          Excess funds are refunded.
+                        </p>
+                      </div>
+                    ) : undefined
                   }
                   value={`${formatSignedUsd(feeBreakdown.swapImpactUsd)} (${formatImpactPercent(feeBreakdown.swapImpactPercent)})`}
                   showBreakdown={false}

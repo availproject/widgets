@@ -48,6 +48,7 @@ interface NexusWidgetProgressScreenProps {
   toAmountUsd?: string;
   toToken?: SwapTokenOption;
   totalFeeUsd?: string;
+  transport?: "swap" | "bridge";
 }
 
 const fontFamily = '"Geist", var(--font-geist-sans), system-ui, sans-serif';
@@ -430,8 +431,9 @@ const buildStatusRows = ({
     destinationSymbol?: string;
     opportunityName?: string;
     recipientAddress?: string;
+    transport?: "swap" | "bridge";
   };
-}): ProgressStatusRow[] => {
+}) => {
   const hasTransferAction =
     mode === "send" || (mode === "swap" && Boolean(context.recipientAddress));
   const failedStatus = failedStep
@@ -559,20 +561,27 @@ const buildStatusRows = ({
       ? (currentApprovalStep as any).symbol
       : undefined;
 
+    const isBridge = context.transport === "bridge";
+
     pushRow({
       id: "approveTokens",
       state,
       description: state === "preapproval" ? approvalDescription : undefined,
       label:
         state === "completed"
-          ? `Approved Swaps (${immutableApprovalTotal} of ${immutableApprovalTotal})`
+          ? isBridge
+            ? `Approved Bridge (${immutableApprovalTotal} of ${immutableApprovalTotal})`
+            : `Approved Swaps (${immutableApprovalTotal} of ${immutableApprovalTotal})`
           : state === "error"
             ? "Collection failed"
-            : `Approve Swaps (${approvalCurrent} of ${immutableApprovalTotal})`,
+            : isBridge
+              ? `Approve Bridge (${approvalCurrent} of ${immutableApprovalTotal})`
+              : `Approve Swaps (${approvalCurrent} of ${immutableApprovalTotal})`,
     });
   }
 
   if (shouldShowSwapRows) {
+    const isBridge = context.transport === "bridge";
     const approvalsSatisfied =
       immutableApprovalTotal === 0 ||
       approvalCompletedCount >= immutableApprovalTotal;
@@ -600,14 +609,24 @@ const buildStatusRows = ({
       state,
       label:
         state === "completed"
-          ? "Swaps completed"
+          ? isBridge
+            ? "Bridge completed"
+            : "Swaps completed"
           : state === "error"
             ? refundEligibleFailure
-              ? "Swap failed. Refund initiated"
-              : "Swap failed"
+              ? isBridge
+                ? "Bridge failed. Refund initiated"
+                : "Swap failed. Refund initiated"
+              : isBridge
+                ? "Bridge failed"
+                : "Swap failed"
             : state === "inProgress"
-              ? "Swaps in progress"
-              : "Swap tokens",
+              ? isBridge
+                ? "Bridging in progress"
+                : "Swaps in progress"
+              : isBridge
+                ? "Bridge tokens"
+                : "Swap tokens",
     });
 
     if (hasReceiveTokenStep) {
@@ -698,7 +717,7 @@ const buildStatusRows = ({
 
   return orderedRows.map((row, index) => {
     if (index !== nextActiveIndex) return row;
-    const nextState =
+    const nextState: ProgressStatusState =
       row.id === "approveTokens" || row.id === "action"
         ? "preapproval"
         : "inProgress";
@@ -708,7 +727,9 @@ const buildStatusRows = ({
         nextState === "preapproval" ? "Approve in wallet" : undefined,
       label:
         row.id === "swapTokens"
-          ? "Swaps in progress"
+          ? context.transport === "bridge"
+            ? "Bridging in progress"
+            : "Swaps in progress"
           : row.id === "receiveToken"
             ? `Receiving ${destinationSymbol} on ${destinationChain}`
             : row.label,
@@ -827,6 +848,7 @@ export function NexusWidgetProgressScreen({
   progressEvents = [],
   failedStep,
   recipientAddress,
+  transport,
 }: NexusWidgetProgressScreenProps) {
   const intentSources = intentData?.sources ?? [];
   const intentDestination = intentData?.destination;
@@ -979,6 +1001,12 @@ export function NexusWidgetProgressScreen({
       destinationSymbol,
       opportunityName: opportunity?.title || opportunity?.protocol,
       recipientAddress,
+      transport:
+        transport ??
+        opportunity?.transport ??
+        (intentData?.bridgeProvider === "nexus" && mode === "deposit"
+          ? "bridge"
+          : undefined),
     },
   });
   const [stepsExpanded, setStepsExpanded] = useState(true);
