@@ -3836,6 +3836,9 @@ function NexusWidgetInner({
     "all" | "selected"
   >("all");
   const exactOutQuoteSourceModeRef = useRef<"all" | "selected">("all");
+  // Tracks the current depositTransport so balance-refresh callbacks (defined before
+  // depositTransport is computed) can pick the correct SDK fetch function.
+  const depositTransportRef = useRef<"swap" | "bridge">("swap");
   const [toToken, setToToken] = useState<SwapTokenOption | undefined>(
     undefined
   );
@@ -6338,8 +6341,11 @@ function NexusWidgetInner({
   );
 
   const refreshSelectedSourceBalances = useCallback(async () => {
-    const refreshedBalance = await fetchSwapBalance();
-    const balances = refreshedBalance ?? swapBalance;
+    const isBridgeMode = depositTransportRef.current === "bridge";
+    const refreshedBalance = isBridgeMode
+      ? await fetchBridgableBalance()
+      : await fetchSwapBalance();
+    const balances = refreshedBalance ?? (isBridgeMode ? bridgableBalance : swapBalance);
     if (!balances) return;
 
     setFromTokens((current) =>
@@ -6348,7 +6354,7 @@ function NexusWidgetInner({
         : patchSourceTokensWithBalances(current, balances)
     );
     setSourceSelectionRevision((current) => current + 1);
-  }, [fetchSwapBalance, patchSourceTokensWithBalances, swapBalance]);
+  }, [fetchSwapBalance, fetchBridgableBalance, patchSourceTokensWithBalances, swapBalance, bridgableBalance]);
 
   const receiveMaxSafetyMultiplier = new Decimal("0.9");
   const currentSwapEntry =
@@ -6363,7 +6369,11 @@ function NexusWidgetInner({
 
     terminalBalanceRefreshTimerRef.current = setTimeout(() => {
       terminalBalanceRefreshTimerRef.current = null;
-      void fetchSwapBalance();
+      if (depositTransportRef.current === "bridge") {
+        void fetchBridgableBalance();
+      } else {
+        void fetchSwapBalance();
+      }
     }, BALANCE_REFRESH_AFTER_TERMINAL_MS);
   };
 
@@ -6837,6 +6847,8 @@ function NexusWidgetInner({
     selectedOpportunity?.transport ??
     (config.mode === "deposit" ? config.transport : undefined) ??
     "swap";
+  // Keep the ref in sync so callbacks defined earlier can read the latest value.
+  depositTransportRef.current = depositTransport;
 
   const activeDepositBalance = useMemo(() => {
     if (activeMode !== "deposit") return swapBalance;
