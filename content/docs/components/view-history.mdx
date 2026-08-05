@@ -17,7 +17,7 @@ For programmatic access to intent history, use the Nexus SDK directly.
 
 </Callout>
 
-## Migration
+## Remove ViewHistory
 
 Remove `ViewHistory` from your app. For programmatic intent history access:
 
@@ -28,7 +28,7 @@ const intents = await sdk.getMyIntents();
 ## Install Nexus Widget
 
 ```bash
-npx shadcn@latest add availproject/widgets/nexus
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
 ```
 
 See the [Nexus Widget](/docs/components/nexus) page for the unified element documentation.

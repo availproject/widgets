@@ -5,7 +5,7 @@
   "title": "Fast Transfer",
   "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable cross chain transfer.",
   "dependencies": [
-    "@avail-project/nexus-core@2.0.0",
+    "@avail-project/nexus-core@2.2.3",
     "lucide-react",
     "viem"
   ],

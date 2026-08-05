@@ -1,5 +1,5 @@
 ---
-name: nexus-widget-send
+name: nexus-widget-send-legacy
 description: Legacy alias for Nexus Widget send guidance. Prefer nexus-widget-send.
 ---
 
@@ -7,7 +7,21 @@ description: Legacy alias for Nexus Widget send guidance. Prefer nexus-widget-se
 
 Use `NexusWidget` with `config.mode = "send"`. A supplied `recipientAddress` is locked; if it is omitted, users enter the recipient.
 
+## Installation
+
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn:**
+```bash
+npx shadcn@latest add availproject/widgets/nexus
+```
+
 ```tsx
+import { NexusWidget } from "@avail-project/widgets";
+
 <NexusWidget
   config={{
     mode: "send",

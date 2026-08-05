@@ -1,5 +1,5 @@
 ---
-name: nexus-widget-deposit
+name: nexus-widget-deposit-legacy
 description: Legacy alias for Nexus Widget deposit guidance. Prefer nexus-widget-deposit.
 ---
 
@@ -7,14 +7,23 @@ description: Legacy alias for Nexus Widget deposit guidance. Prefer nexus-widget
 
 Use `NexusWidget` with `config.mode = "deposit"` when the app owns the final smart-contract action. Nexus routes funds into one configured destination token/chain and then calls `executeDeposit`.
 
-Required config:
+For deposit config generation, use the [Avail Configurator](https://configurator.availproject.org/).
 
-- `destination.chain`
-- `destination.tokens` with at least one `{ address, symbol, decimals, logo? }`
-- `depositAddress`
-- `executeDeposit`
+## Installation
+
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn:**
+```bash
+npx shadcn@latest add availproject/widgets/nexus
+```
 
 ```tsx
+import { NexusWidget } from "@avail-project/widgets";
+
 <NexusWidget
   config={{
     mode: "deposit",
@@ -31,7 +40,8 @@ Required config:
     depositAddress: "0xDepositContract",
     executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) => ({
       to: "0xDepositContract",
-      data,
+      gas: 400_000n,
+      data: "0xCalldata",
       tokenApproval: {
         toTokenAddress: tokenAddress,
         amount,
@@ -51,5 +61,3 @@ Required config:
   onConnectClick={openWalletModal}
 />
 ```
-
-Do not use the old `deposit`, `amountInput`, `allowedSourcePairs`, or `destination.type` config fields.

@@ -5,7 +5,7 @@
   "title": "Deposit",
   "description": "Deprecated: use Nexus Widget instead. A legacy component built with Nexus to enable deposits.",
   "dependencies": [
-    "@avail-project/nexus-core@2.0.0",
+    "@avail-project/nexus-core@2.2.3",
     "clsx",
     "lucide-react",
     "tailwind-merge",

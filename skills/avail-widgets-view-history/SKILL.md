@@ -15,6 +15,12 @@ const intents = await sdk.getMyIntents();
 
 ## Install Nexus Widget
 
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn:**
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
@@ -26,7 +32,3 @@ For SDK APIs, refer to the **Nexus SDK agent skills** (`.agents/skills/`):
 - `nexus-sdk-balances-metadata-utils` — balances, supported chains/tokens, intent history
 - `nexus-sdk-setup` — SDK initialization and wallet wiring
 - `nexus-sdk-integration` — end-to-end integration guide
-
-## Documentation
-
-- [Nexus Widget component docs](https://elements.nexus.availproject.org/docs/components/nexus)

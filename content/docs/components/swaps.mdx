@@ -13,39 +13,73 @@ links:
 
 > **Network support:** Mainnet only. Testnet is not supported at the moment.
 
-## Build with Agent Skills
-
-<span className="block mt-6" />
-
-Avail Widgets ships with agent skills that help you set up providers, integrate components, and ship faster.
-
-Install the skill pack once in your environment:
-
-```bash
-npx skills add availproject/avail-widgets
-```
-
-<span className="block mt-6" />
-
-For more information, view [skills.sh/availproject/avail-widgets](https://skills.sh/availproject/avail-widgets).
-
-<span className="block mt-6" />
-
-Recommended skills for this component:
-
-- `avail-widgets-overview`
-- `avail-widgets-nexus-provider`
-- `nexus-widget-swaps`
+<Callout type="info">
+  **Get the exact config for your bridge setup** using the [Avail Configurator](https://configurator.availproject.org/). It generates the complete config object for deposit and bridge modes based on your token and chain selection.
+</Callout>
 
 ## Installation
+
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">NPM (Recommended)</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui (Power Users)</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm" className="mt-4">
+
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
 
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
 
+  </TabsContent>
+</Tabs>
+
 ## Usage
 
 Wrap your app with the Nexus provider first. See [Get Started](/docs/get-started) for provider setup.
+
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">NPM</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm" className="mt-4">
+
+```tsx showLineNumbers
+import { NexusWidget } from "@avail-project/widgets";
+
+const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
+
+export function SwapAndBridgeExample({ address }: { address?: `0x${string}` }) {
+  return (
+    <NexusWidget
+      connectedAddress={address}
+      config={{
+        mode: "swap",
+        destination: {
+          chain: 8453,
+          tokens: [
+            {
+              address: USDC_BASE,
+              symbol: "USDC",
+              decimals: 6,
+            },
+          ],
+        },
+      }}
+    />
+  );
+}
+```
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
 
 ```tsx showLineNumbers
 import { NexusWidget } from "@/components/nexus/nexus";
@@ -73,6 +107,9 @@ export function SwapAndBridgeExample({ address }: { address?: `0x${string}` }) {
   );
 }
 ```
+
+  </TabsContent>
+</Tabs>
 
 ## Configuration
 

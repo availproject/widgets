@@ -5,7 +5,7 @@
   "title": "View History",
   "description": "Deprecated: use Nexus Widget instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
   "dependencies": [
-    "@avail-project/nexus-core@2.0.0",
+    "@avail-project/nexus-core@2.2.3",
     "lucide-react"
   ],
   "registryDependencies": [

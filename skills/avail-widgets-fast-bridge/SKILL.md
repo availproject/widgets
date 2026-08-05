@@ -14,15 +14,15 @@ All cross-chain bridging is now handled by **Nexus Widget** with `config.mode = 
 Replace any `FastBridge` usage with `NexusWidget`:
 
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 
 // Bridge USDC to Base — Nexus Widget resolves the optimal route automatically
 <NexusWidget
   config={{
     mode: "swap",
-    prefill: {
-      source: { token: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", chain: 42161 },
-      destination: { token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", chain: 8453 },
+    destination: {
+      chain: 8453,
+      tokens: [{ address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", symbol: "USDC", decimals: 6 }],
     },
   }}
   connectedAddress={address}
@@ -31,6 +31,12 @@ import { NexusWidget } from "@/components/nexus/nexus";
 
 ## Install Nexus Widget
 
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn:**
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
@@ -40,8 +46,3 @@ npx shadcn@latest add availproject/widgets/nexus
 For integration guidance, refer to the **Nexus Widget Swaps agent skill**:
 
 - `nexus-widget-swaps` — Setup, prefill config, and callbacks for swaps and bridging with Nexus Widget.
-
-## Documentation
-
-- [Nexus Widget component docs](https://elements.nexus.availproject.org/docs/components/nexus)
-- [Swap and Bridge docs](https://elements.nexus.availproject.org/docs/components/swaps)

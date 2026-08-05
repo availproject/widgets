@@ -14,16 +14,18 @@ All cross-chain transfers to a recipient are now handled by **Nexus Widget** wit
 Replace any `FastTransfer` usage with `NexusWidget`:
 
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 
 <NexusWidget
   config={{
     mode: "send",
+    destination: {
+      chain: 8453,
+      tokens: [{ address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", symbol: "USDC", decimals: 6 }],
+    },
+    recipientAddress: "0xRecipientAddress",
     prefill: {
-      token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      chain: 8453, // USDC on Base
       amount: "10",
-      recipient: "0xRecipientAddress",
     },
   }}
   connectedAddress={address}
@@ -32,6 +34,12 @@ import { NexusWidget } from "@/components/nexus/nexus";
 
 ## Install Nexus Widget
 
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn:**
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
@@ -41,8 +49,3 @@ npx shadcn@latest add availproject/widgets/nexus
 For integration guidance, refer to the **Nexus Widget Send agent skill**:
 
 - `nexus-widget-send` — Setup, prefill config, and callbacks for recipient transfers with Nexus Widget.
-
-## Documentation
-
-- [Nexus Widget component docs](https://elements.nexus.availproject.org/docs/components/nexus)
-- [Send docs](https://elements.nexus.availproject.org/docs/components/transfer)

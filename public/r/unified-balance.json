@@ -5,7 +5,7 @@
   "title": "Unified Balance",
   "description": "Deprecated: use Nexus Widget instead. Unified Balance has been removed in favor of Nexus Widget's inline balance views.",
   "dependencies": [
-    "@avail-project/nexus-core@2.0.0",
+    "@avail-project/nexus-core@2.2.3",
     "lucide-react"
   ],
   "registryDependencies": [
