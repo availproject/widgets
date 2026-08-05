@@ -5,7 +5,7 @@
   "title": "Nexus Widget",
   "description": "The unified Avail Nexus widget for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
   "dependencies": [
-    "@avail-project/nexus-core@2.0.0",
+    "@avail-project/nexus-core@2.2.3",
     "decimal.js",
     "lucide-react",
     "viem",

@@ -1,28 +1,43 @@
 ---
 name: avail-widgets-nexus-provider
-description: Install and configure NexusProvider for Avail Widgets with full SDK lifecycle wiring. NexusProvider is required by Nexus Widget — the single unified element for all swap, send, and deposit flows. All other standalone widget skills are deprecated.
+description: Install and configure NexusProvider for Avail Widgets with full SDK lifecycle wiring. NexusProvider is required by Nexus Widget — the single unified element for all swap, send, and deposit flows.
 ---
 
 # Avail Widgets - NexusProvider
 
 > **Note:** NexusProvider is the foundation required by **Nexus Widget** — the single unified element for all flows.
-> All legacy standalone widget skills (fast-bridge, transfer, swaps, deposit, bridge-deposit, unified-balance, view-history, common) are **deprecated and removed**.
-> Use `npx shadcn@latest add availproject/widgets/nexus` to install the unified element.
-> For detailed SDK integration, refer to the Nexus SDK agent skills (`.agents/skills/nexus-sdk-*`).
 
 ## Install and wire provider
 
-- Install:
-  - `npx shadcn@latest add availproject/widgets/nexus-provider`
-- Ensure dependencies exist:
-  - `@avail-project/nexus-core`
-  - `wagmi`
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn (source files):**
+```bash
+npx shadcn@latest add availproject/widgets/nexus-provider
+```
 
 ## Wrap your app
 
+**npm:**
 ```tsx
 "use client";
+import { NexusProvider } from "@avail-project/widgets";
 
+export function AppNexusProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <NexusProvider config={{ network: "mainnet", debug: false }}>
+      {children}
+    </NexusProvider>
+  );
+}
+```
+
+**shadcn:**
+```tsx
+"use client";
 import NexusProvider from "@/components/nexus/NexusProvider";
 
 export function AppNexusProvider({ children }: { children: React.ReactNode }) {
@@ -46,7 +61,9 @@ export function AppNexusProvider({ children }: { children: React.ReactNode }) {
 import { useEffect } from "react";
 import { useAccount, useConnectorClient } from "wagmi";
 import type { EthereumProvider } from "@avail-project/nexus-core";
-import { useNexus } from "@/components/nexus/NexusProvider";
+// npm path:
+import { useNexus } from "@avail-project/widgets";
+// shadcn path: import { useNexus } from "@/components/nexus/NexusProvider";
 
 export function InitNexusOnConnect() {
   const { status, connector } = useAccount();

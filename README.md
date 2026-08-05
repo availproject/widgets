@@ -2,24 +2,18 @@
 
 A unified component for **swap**, **send**, and **deposit** flows powered by [Avail Nexus](https://www.availproject.org/) intents.
 
-> **Migrating from legacy standalone elements?** If you are already using elements like `Swap`, `FastBridge`, `FastTransfer`, or `Deposit`, refer to the [Migration Guide](https://elements.nexus.availproject.org/docs/migration-guide) to upgrade to Nexus Widget.
-
 > **Network support:** Nexus Widget currently supports mainnet only. Testnet is not supported at the moment.
 
 ## Installation
 
 Choose one of the two supported install paths.
 
-### NPM Package
+### NPM Package (Recommended)
 
 Install the compiled package from npm:
 
 ```bash
-npm install @avail-project/widgets
-```
-
-```bash
-pnpm add @avail-project/widgets
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
 ```
 
 Then import the provider and widget from the package:
@@ -28,7 +22,7 @@ Then import the provider and widget from the package:
 import { NexusProvider, NexusWidget } from "@avail-project/widgets";
 ```
 
-### Shadcn Registry
+### Shadcn Registry (Power Users)
 
 Install the source into your app from the public shadcn registry:
 
@@ -37,19 +31,16 @@ npx shadcn@latest add availproject/widgets/nexus
 ```
 
 This uses the public GitHub shadcn registry at
-`https://github.com/availproject/widgets`. The `@avail-widgets/nexus`
-namespace install will be documented after the registry is listed in shadcn.
+`https://github.com/availproject/widgets`.
 
-The examples below use shadcn-style local imports such as
-`@/components/nexus/nexus`. If you install from npm, replace those imports with
-`@avail-project/widgets`.
+The examples below use npm imports (`@avail-project/widgets`). If you install from shadcn, replace imports with local paths such as `@/components/nexus/nexus`.
 
 ### Manual Installation
 
 1. Install dependencies:
 
 ```bash
-npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
+npm install @avail-project/nexus-core@2.2.3 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
 ```
 
 2. Copy the component source code into your project.
@@ -94,7 +85,7 @@ NexusWidget supports three public modes: `swap`, `send`, and `deposit`.
 Swap between any supported token pairs across chains. Nexus Widget switches between exact-in and exact-out quoting based on which amount field the user changes.
 
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 
 export function SwapExample({ address }: { address?: `0x${string}` }) {
   return (
@@ -123,7 +114,7 @@ export function SwapExample({ address }: { address?: `0x${string}` }) {
 Cross-chain send flow. Users choose the token and amount to send, then Nexus resolves the pay-with sources.
 
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 
 export function SendExample({ address }: { address?: `0x${string}` }) {
   return (
@@ -160,7 +151,7 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
 Deposit into a configured protocol or app action with a single intent. A single `deposit` config is required when `mode` is `"deposit"`.
 
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 import { encodeFunctionData } from "viem";
 
 const APP_DEPOSIT_CONTRACT = "0x...";
@@ -242,7 +233,7 @@ function buildDepositExecuteConfig(
 Use lifecycle callbacks to integrate with your app's toast, analytics, or navigation.
 
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 
 export function SwapWithCallbacks({ address }: { address?: `0x${string}` }) {
   return (
@@ -266,7 +257,7 @@ export function SwapWithCallbacks({ address }: { address?: `0x${string}` }) {
 Limit which destination chain and token users can select.
 
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 
 export function RestrictedSwap({ address }: { address?: `0x${string}` }) {
   return (

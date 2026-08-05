@@ -1,5 +1,5 @@
 ---
-name: nexus-widget-swaps
+name: nexus-widget-swaps-legacy
 description: Legacy alias for Nexus Widget swap guidance. Prefer nexus-widget-swaps.
 ---
 
@@ -7,7 +7,21 @@ description: Legacy alias for Nexus Widget swap guidance. Prefer nexus-widget-sw
 
 Use `NexusWidget` with `config.mode = "swap"` for the unified swap and bridge flow.
 
+## Installation
+
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn:**
+```bash
+npx shadcn@latest add availproject/widgets/nexus
+```
+
 ```tsx
+import { NexusWidget } from "@avail-project/widgets";
+
 <NexusWidget
   config={{
     mode: "swap",

@@ -49,21 +49,29 @@ Locks the element to the deposit flow. A single `deposit` config is required.
 
 ## Installation
 
-<CodeTabs>
+<Tabs defaultValue="npm">
   <TabsList>
-    <TabsTrigger value="cli">CLI</TabsTrigger>
-    <TabsTrigger value="manual">Manual</TabsTrigger>
+    <TabsTrigger value="npm">NPM (Recommended)</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui (Power Users)</TabsTrigger>
   </TabsList>
-  <TabsContent value="cli">
-    ```bash
-    npx shadcn@latest add availproject/widgets/nexus
-    ```
-  </TabsContent>
-  <TabsContent value="manual">
-    <Steps>
-      <Step>Install dependencies</Step>
+  <TabsContent value="npm" className="mt-4">
+
 ```bash
-npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+The package ships pre-compiled with all UI dependencies bundled. No additional file copying required.
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
+    <Steps>
+      <Step>Install via CLI</Step>
+```bash
+npx shadcn@latest add availproject/widgets/nexus
+```
+      <Step>Install peer dependencies</Step>
+```bash
+npm install @avail-project/nexus-core decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
 ```
       <Step>Copy and paste the component code into your project.</Step>
       <div
@@ -75,7 +83,7 @@ npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi c
       <Step>Update import paths to match your project setup.</Step>
     </Steps>
   </TabsContent>
-</CodeTabs>
+</Tabs>
 
 ## Usage
 
@@ -90,6 +98,24 @@ npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi c
   .
 </Step>
 
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">NPM</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm" className="mt-4">
+
+```tsx showLineNumbers
+import { NexusWidget } from "@avail-project/widgets";
+
+export function App({ address }: { address?: `0x${string}` }) {
+  return <NexusWidget config={{ mode: "swap" }} connectedAddress={address} />;
+}
+```
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
+
 ```tsx showLineNumbers
 import { NexusWidget } from "@/components/nexus/nexus";
 
@@ -97,6 +123,9 @@ export function App({ address }: { address?: `0x${string}` }) {
   return <NexusWidget config={{ mode: "swap" }} connectedAddress={address} />;
 }
 ```
+
+  </TabsContent>
+</Tabs>
 
 ## Configuration
 
@@ -182,6 +211,41 @@ type NexusWidgetDepositConfig = {
 
 ### Swap
 
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">NPM</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm" className="mt-4">
+
+```tsx showLineNumbers
+import { NexusWidget } from "@avail-project/widgets";
+
+export function SwapExample({ address }: { address?: `0x${string}` }) {
+  return (
+    <NexusWidget
+      config={{
+        mode: "swap",
+        destination: {
+          chain: 8453,
+          tokens: [
+            {
+              address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              symbol: "USDC",
+              decimals: 6,
+            },
+          ],
+        },
+      }}
+      connectedAddress={address}
+    />
+  );
+}
+```
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
+
 ```tsx showLineNumbers
 import { NexusWidget } from "@/components/nexus/nexus";
 
@@ -207,7 +271,49 @@ export function SwapExample({ address }: { address?: `0x${string}` }) {
 }
 ```
 
+  </TabsContent>
+</Tabs>
+
 ### Send
+
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">NPM</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm" className="mt-4">
+
+```tsx showLineNumbers
+import { NexusWidget } from "@avail-project/widgets";
+
+export function SendExample({ address }: { address?: `0x${string}` }) {
+  return (
+    <NexusWidget
+      config={{
+        mode: "send",
+        destination: {
+          chain: 8453,
+          tokens: [
+            {
+              address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              symbol: "USDC",
+              decimals: 6,
+            },
+          ],
+        },
+        recipientAddress: "0xF3a15b38e63dBb1a1b2d7842CcD9B9dD8fB9b2E",
+        prefill: {
+          amount: "0.1",
+        },
+      }}
+      connectedAddress={address}
+    />
+  );
+}
+```
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
 
 ```tsx showLineNumbers
 import { NexusWidget } from "@/components/nexus/nexus";
@@ -238,7 +344,91 @@ export function SendExample({ address }: { address?: `0x${string}` }) {
 }
 ```
 
+  </TabsContent>
+</Tabs>
+
 ### Deposit
+
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">NPM</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm" className="mt-4">
+
+```tsx showLineNumbers
+import { NexusWidget } from "@avail-project/widgets";
+import { encodeFunctionData } from "viem";
+
+// Configure these for your app.
+const APP_DEPOSIT_CONTRACT = "0x...";
+const DESTINATION_TOKEN = "0x...";
+const DESTINATION_CHAIN_ID = 42161;
+const DESTINATION_TOKEN_SYMBOL = "USDT";
+const DESTINATION_TOKEN_DECIMALS = 6;
+
+const APP_DEPOSIT_ABI = [
+  {
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "user", type: "address" },
+    ],
+    name: "deposit",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
+function buildDepositExecuteConfig(
+  tokenAddress: `0x${string}`,
+  amount: bigint,
+  user: `0x${string}`,
+) {
+  return {
+    to: APP_DEPOSIT_CONTRACT,
+    gas: 400_000n,
+    data: encodeFunctionData({
+      abi: APP_DEPOSIT_ABI,
+      functionName: "deposit",
+      args: [tokenAddress, amount, user],
+    }),
+    tokenApproval: {
+      toTokenAddress: tokenAddress,
+      amount,
+      spender: APP_DEPOSIT_CONTRACT,
+    },
+  };
+}
+
+const depositConfig = {
+  mode: "deposit",
+  destination: {
+    chain: DESTINATION_CHAIN_ID,
+    tokens: [
+      {
+        address: DESTINATION_TOKEN,
+        symbol: DESTINATION_TOKEN_SYMBOL,
+        decimals: DESTINATION_TOKEN_DECIMALS,
+      },
+    ],
+  },
+  depositAddress: APP_DEPOSIT_CONTRACT,
+  executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) =>
+    buildDepositExecuteConfig(tokenAddress, amount, user),
+  appearance: {
+    appName: "Your App",
+    heading: "Deposit",
+    mode: "system",
+  },
+} as const;
+
+<NexusWidget config={depositConfig} connectedAddress={address} />;
+```
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
 
 ```tsx showLineNumbers
 import { NexusWidget } from "@/components/nexus/nexus";
@@ -277,7 +467,6 @@ function buildDepositExecuteConfig(
       abi: APP_DEPOSIT_ABI,
       functionName: "deposit",
       args: [tokenAddress, amount, user],
-      // Aave reference: supply(asset, amount, onBehalfOf, referralCode)
     }),
     tokenApproval: {
       toTokenAddress: tokenAddress,
@@ -312,7 +501,46 @@ const depositConfig = {
 <NexusWidget config={depositConfig} connectedAddress={address} />;
 ```
 
+  </TabsContent>
+</Tabs>
+
 ### Modal Deposit
+
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">NPM</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm" className="mt-4">
+
+```tsx showLineNumbers
+import { NexusWidget } from "@avail-project/widgets";
+
+<NexusWidget
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  defaultOpen={false}
+/>;
+```
+
+```tsx showLineNumbers
+import { useState } from "react";
+import { NexusWidget } from "@avail-project/widgets";
+
+const [open, setOpen] = useState(false);
+
+<NexusWidget
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  open={open}
+  onOpenChange={setOpen}
+/>;
+```
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
 
 ```tsx showLineNumbers
 import { NexusWidget } from "@/components/nexus/nexus";
@@ -339,3 +567,6 @@ const [open, setOpen] = useState(false);
   onOpenChange={setOpen}
 />;
 ```
+
+  </TabsContent>
+</Tabs>

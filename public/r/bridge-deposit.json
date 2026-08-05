@@ -5,7 +5,7 @@
   "title": "Bridge Deposit",
   "description": "Deprecated: use Nexus Widget instead. Bridge Deposit has been removed in favor of Nexus Widget deposit mode.",
   "dependencies": [
-    "@avail-project/nexus-core@2.0.0",
+    "@avail-project/nexus-core@2.2.3",
     "lucide-react",
     "viem"
   ],

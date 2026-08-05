@@ -9,12 +9,14 @@ Use `NexusWidget` with `config.mode = "send"` for recipient transfers. The recip
 
 ## Installation
 
+**npm (recommended):**
 ```bash
-npx shadcn@latest add availproject/widgets/nexus
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
 ```
 
+**shadcn (source files):**
 ```bash
-npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ## Config Shape
@@ -25,8 +27,9 @@ npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi c
 - `prefill.amount`, `prefill.token`, `validation.minAmount`, `validation.maxAmount`, and `appearance` are optional.
 - `prefill.token` sets the initial destination token but keeps the full token selector available. If `destination.tokens` is supplied, the first destination token wins and `prefill.token` is ignored.
 
+**npm:**
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const RECIPIENT = "0xRecipientWalletAddressHere" as const;
@@ -60,6 +63,8 @@ export function SendWidget({ address }: { address?: `0x${string}` }) {
   );
 }
 ```
+
+**shadcn:** Same config, change import to `import { NexusWidget } from "@/components/nexus/nexus"`.
 
 ## Notes
 
