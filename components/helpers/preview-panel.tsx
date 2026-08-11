@@ -63,18 +63,30 @@ export function PreviewPanel({
     }
   }, [connector, handleInit, initializing, loading, nexusSDK, walletClient]);
 
+  const autoInitAttemptedAddressRef = React.useRef<string | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
+    if (status !== "connected") {
+      autoInitAttemptedAddressRef.current = null;
+    }
+  }, [status]);
+
+  useEffect(() => {
+    const currentAddress = walletClient?.account?.address?.toLowerCase();
     if (
       status === "connected" &&
       !nexusSDK &&
       !loading &&
       !initializing &&
-      walletClient
+      walletClient &&
+      currentAddress &&
+      autoInitAttemptedAddressRef.current !== currentAddress
     ) {
+      autoInitAttemptedAddressRef.current = currentAddress;
       void initializeNexus(true);
     }
   }, [connector, initializeNexus, initializing, loading, nexusSDK, status, walletClient]);

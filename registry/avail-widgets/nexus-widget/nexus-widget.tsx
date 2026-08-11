@@ -3735,14 +3735,22 @@ function NexusWidgetInner({
     [connector, connectorClient, walletClient]
   );
   const historyStorageKey = getSwapHistoryStorageKey(ownerAddress);
+  const autoInitAttemptedAddressRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (walletStatus !== "connected" || !ownerAddress) {
+      autoInitAttemptedAddressRef.current = null;
+      return;
+    }
+
+    const normalizedAddress = ownerAddress.toLowerCase();
+    if (autoInitAttemptedAddressRef.current === normalizedAddress) {
       return;
     }
 
     let cancelled = false;
     void (async () => {
+      autoInitAttemptedAddressRef.current = normalizedAddress;
       const effectiveProvider = await getEffectiveWalletProvider();
       if (cancelled || !effectiveProvider) {
         return;
