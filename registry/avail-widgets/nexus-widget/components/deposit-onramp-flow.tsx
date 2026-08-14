@@ -2318,8 +2318,7 @@ function OnrampExpandableTimelineCard({
           gridTemplateRows: expanded ? "1fr" : "0fr",
           opacity: expanded ? 1 : 0,
           overflow: "hidden",
-          transition:
-            "grid-template-rows 0.22s ease, opacity 0.18s ease-out",
+          transition: "grid-template-rows 0.22s ease, opacity 0.18s ease-out",
         }}
       >
         <div
@@ -3985,6 +3984,7 @@ export function DepositOnrampFlow({
       return;
     }
     try {
+      console.log("Onramp return url", getOnrampReturnUrl());
       const data = await fetchOnrampJson<OnrampSessionResponse>(
         baseUrl,
         "/api/v1/onramp/sessions",
