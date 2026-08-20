@@ -14,8 +14,8 @@ importers:
   .:
     dependencies:
       '@avail-project/nexus-core':
-        specifier: 2.2.4
-        version: 2.2.4(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+        specifier: 2.4.0
+        version: 2.4.0(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.15(@types/react-dom@19.1.2(@types/react@19.1.2))(@types/react@19.1.2)(react-dom@19.2.2(react@19.2.2))(react@19.2.2)
@@ -177,8 +177,8 @@ importers:
   packages/widgets:
     dependencies:
       '@avail-project/nexus-core':
-        specifier: 2.2.4
-        version: 2.2.4(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+        specifier: 2.4.0
+        version: 2.4.0(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.18(@types/react-dom@19.1.2(@types/react@19.1.2))(@types/react@19.1.2)(react-dom@19.2.2(react@19.2.2))(react@19.2.2)
@@ -267,12 +267,12 @@ packages:
     resolution: {integrity: sha512-C90iyzm/jLV7Lomv2UzwWUzRv9WZr1oRsFRKsX5HjQL4EXrbi9H/RtBkjCP+NF+ABZXUKpAa4F1dkoTaea4zHg==}
     hasBin: true
 
-  '@avail-project/nexus-core@2.2.4':
-    resolution: {integrity: sha512-acD+gpk0XsZ+dMM+Zp6qcCCU6IsiTbld3LkHfdgonoKKv96R3nNP1VO7z8nFsHFv/H0+cR+l+JdpEB8f5coXMg==}
+  '@avail-project/nexus-core@2.4.0':
+    resolution: {integrity: sha512-uXksQFviSN/NJtQNmqeve0nbJRbYtOzACHsM4F9IVbqpc8TzutG6eh8lnFckXdWZxlGfrM9pwBlxkVenmw9Yfw==}
     engines: {node: '>=18.0.0'}
 
-  '@avail-project/nexus-types@0.1.21':
-    resolution: {integrity: sha512-GMn36KmRa71qZDgZ505eWHDxsfxPEBJcXuafe3/8EVRdCzdXXT/2xVkCaAC61pyUAnktSP2oL7sLHWoA6r+6Gg==}
+  '@avail-project/nexus-types@0.1.25':
+    resolution: {integrity: sha512-KDEFVSjfGmCW0tKiNGS/zrB8yl9m8IPt+HBvIlgYk1G4Nh45fxCEfi0vKHyfzdmy7Ya44HNZglf+R/l6YkGM5A==}
     peerDependencies:
       zod: '>=4.0.0'
 
@@ -6906,9 +6906,9 @@ snapshots:
 
   '@antfu/ni@23.3.1': {}
 
-  '@avail-project/nexus-core@2.2.4(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)':
+  '@avail-project/nexus-core@2.4.0(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)':
     dependencies:
-      '@avail-project/nexus-types': 0.1.21(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@avail-project/nexus-types': 0.1.25(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@opentelemetry/api-logs': 0.219.0
       '@opentelemetry/exporter-logs-otlp-http': 0.219.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/resources': 2.8.0(@opentelemetry/api@1.9.1)
@@ -6930,9 +6930,9 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@avail-project/nexus-core@2.2.4(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
+  '@avail-project/nexus-core@2.4.0(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
     dependencies:
-      '@avail-project/nexus-types': 0.1.21(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.4.3)
+      '@avail-project/nexus-types': 0.1.25(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.4.3)
       '@opentelemetry/api-logs': 0.219.0
       '@opentelemetry/exporter-logs-otlp-http': 0.219.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/resources': 2.8.0(@opentelemetry/api@1.9.1)
@@ -6954,7 +6954,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@avail-project/nexus-types@0.1.21(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)':
+  '@avail-project/nexus-types@0.1.25(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)':
     dependencies:
       '@mayanfinance/swap-sdk': 13.3.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
       viem: 2.54.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
@@ -6967,7 +6967,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@avail-project/nexus-types@0.1.21(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.4.3)':
+  '@avail-project/nexus-types@0.1.25(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.4.3)':
     dependencies:
       '@mayanfinance/swap-sdk': 13.3.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
       viem: 2.54.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.4.3)
