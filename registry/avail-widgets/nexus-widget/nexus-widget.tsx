@@ -5822,6 +5822,47 @@ function NexusWidgetInner({
     };
   };
 
+  const getDestinationGasTokenSource = () => {
+    const destChainId = toToken?.chainId;
+    if (!destChainId) {
+      return undefined;
+    }
+
+    const nativeSymbol =
+      CHAIN_METADATA[destChainId]?.nativeCurrency?.symbol?.toUpperCase();
+    let gasTokenAddress: `0x${string}` = zeroAddress;
+
+    for (const asset of swapBalance ?? []) {
+      for (const breakdown of asset.breakdown ?? []) {
+        if (breakdown.chain?.id !== destChainId) continue;
+        const breakdownSymbol = (
+          breakdown.symbol ??
+          asset.symbol ??
+          ""
+        ).toUpperCase();
+        const assetSymbol = (asset.symbol ?? "").toUpperCase();
+        const isNativeBalance =
+          isNativeTokenAddress(breakdown.contractAddress) ||
+          Boolean(
+            nativeSymbol &&
+              (breakdownSymbol === nativeSymbol || assetSymbol === nativeSymbol)
+          );
+
+        if (isNativeBalance && breakdown.contractAddress) {
+          gasTokenAddress = isNativeTokenAddress(breakdown.contractAddress)
+            ? zeroAddress
+            : (breakdown.contractAddress as `0x${string}`);
+          break;
+        }
+      }
+    }
+
+    return {
+      chainId: destChainId,
+      tokenAddress: gasTokenAddress,
+    };
+  };
+
   const shouldSendExactOutSourceAllowlist = () => {
     if (activeMode === "deposit") {
       return sourceSelectionTouched || depositSourceFilter !== "all";
@@ -5836,7 +5877,13 @@ function NexusWidgetInner({
 
   const buildExactOutSourcesPayload = (tokens: SwapTokenOption[]) => {
     if (activeMode !== "deposit" && activeMode !== "send") {
-      return buildExplicitSourcesPayload(tokens);
+      const explicitSources = buildExplicitSourcesPayload(tokens).sources;
+      const sources = dedupeSdkSources([
+        ...explicitSources,
+        getHeldDestinationTokenSource(),
+        getDestinationGasTokenSource(),
+      ]);
+      return sources.length > 0 ? { sources } : {};
     }
 
     const sourceTokens = shouldSendExactOutSourceAllowlist()
@@ -5846,6 +5893,7 @@ function NexusWidgetInner({
     const sources = dedupeSdkSources([
       ...explicitSources,
       getHeldDestinationTokenSource(),
+      getDestinationGasTokenSource(),
     ]);
 
     return sources.length > 0 ? { sources } : {};

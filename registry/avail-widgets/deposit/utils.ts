@@ -390,12 +390,55 @@ export function resolveDepositSourceSelection(params: {
         sourceIds: sourcePoolIds,
       });
 
-  const fromSources = buildSortedFromSources({
+  const sortedFromSources = buildSortedFromSources({
     sourceIds: resolvedSelectedSourceIds,
     swapBalance,
     destination,
     minimumBalanceUsd,
   });
+
+  const destChainId = destination.chainId;
+  const nativeSymbol = (CHAIN_METADATA as any)[destChainId]?.nativeCurrency?.symbol?.toUpperCase();
+  let destGasTokenAddress: Hex = ZERO_ADDRESS as Hex;
+  for (const asset of swapBalance ?? []) {
+    for (const breakdown of asset.breakdown ?? []) {
+      if (breakdown.chain?.id !== destChainId) continue;
+      const breakdownSymbol = (
+        breakdown.symbol ??
+        asset.symbol ??
+        ""
+      ).toUpperCase();
+      const assetSymbol = (asset.symbol ?? "").toUpperCase();
+      const isNativeBal =
+        breakdown.contractAddress?.toLowerCase() === ZERO_ADDRESS ||
+        breakdown.contractAddress?.toLowerCase() === EVM_NATIVE_PLACEHOLDER ||
+        Boolean(
+          nativeSymbol &&
+            (breakdownSymbol === nativeSymbol || assetSymbol === nativeSymbol)
+        );
+      if (isNativeBal && breakdown.contractAddress) {
+        destGasTokenAddress =
+          breakdown.contractAddress.toLowerCase() === EVM_NATIVE_PLACEHOLDER
+            ? (ZERO_ADDRESS as Hex)
+            : (breakdown.contractAddress as Hex);
+        break;
+      }
+    }
+  }
+
+  const hasDestGasToken = sortedFromSources.some(
+    (s) =>
+      s.chainId === destChainId &&
+      (s.tokenAddress.toLowerCase() === ZERO_ADDRESS ||
+        s.tokenAddress.toLowerCase() === EVM_NATIVE_PLACEHOLDER)
+  );
+
+  const fromSources = hasDestGasToken
+    ? sortedFromSources
+    : [
+        ...sortedFromSources,
+        { chainId: destChainId, tokenAddress: destGasTokenAddress },
+      ];
 
   return {
     sourcePoolIds,

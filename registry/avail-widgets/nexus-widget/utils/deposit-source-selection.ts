@@ -416,14 +416,57 @@ export const resolveDepositSourceSelection = (params: {
         sourceIds: sourcePoolIds,
       });
 
+  const sortedFromSources = buildSortedFromSources({
+    sourceIds: resolvedSelectedSourceIds,
+    swapBalance,
+    destination,
+    minimumBalanceUsd,
+  });
+
+  const destChainId = destination.chainId;
+  const nativeSymbol =
+    CHAIN_METADATA[destChainId]?.nativeCurrency?.symbol?.toUpperCase();
+  let destGasTokenAddress: Hex = ZERO_ADDRESS as Hex;
+  for (const asset of swapBalance ?? []) {
+    for (const breakdown of asset.breakdown ?? []) {
+      if (breakdown.chain?.id !== destChainId) continue;
+      const breakdownSymbol = (
+        breakdown.symbol ??
+        asset.symbol ??
+        ""
+      ).toUpperCase();
+      const assetSymbol = (asset.symbol ?? "").toUpperCase();
+      const isNativeBal =
+        isNativeAddress(breakdown.contractAddress) ||
+        Boolean(
+          nativeSymbol &&
+            (breakdownSymbol === nativeSymbol || assetSymbol === nativeSymbol)
+        );
+      if (isNativeBal && breakdown.contractAddress) {
+        destGasTokenAddress = isNativeAddress(breakdown.contractAddress)
+          ? (ZERO_ADDRESS as Hex)
+          : (breakdown.contractAddress as Hex);
+        break;
+      }
+    }
+  }
+
+  const hasDestGasToken = sortedFromSources.some(
+    (s) =>
+      s.chainId === destChainId &&
+      isNativeAddress(s.tokenAddress)
+  );
+
+  const fromSources = hasDestGasToken
+    ? sortedFromSources
+    : [
+        ...sortedFromSources,
+        { chainId: destChainId, tokenAddress: destGasTokenAddress },
+      ];
+
   return {
     sourcePoolIds,
     selectedSourceIds: resolvedSelectedSourceIds,
-    fromSources: buildSortedFromSources({
-      sourceIds: resolvedSelectedSourceIds,
-      swapBalance,
-      destination,
-      minimumBalanceUsd,
-    }),
+    fromSources,
   };
 };

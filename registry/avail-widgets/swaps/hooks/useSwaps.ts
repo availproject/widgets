@@ -519,8 +519,43 @@ const useSwaps = ({
       sources.push({ chainId: opt.chainId, tokenAddress: opt.tokenAddress });
     }
 
+    const destChainId = state.inputs.toChainID;
+    if (destChainId) {
+      const hasDestGasToken = sources.some(
+        (s) =>
+          s.chainId === destChainId &&
+          toComparableSdkAddress(s.tokenAddress) ===
+            toComparableSdkAddress(ZERO_ADDRESS),
+      );
+      if (!hasDestGasToken) {
+        let gasTokenAddress = ZERO_ADDRESS as `0x${string}`;
+        for (const asset of swapBalance ?? []) {
+          for (const breakdown of asset.breakdown ?? []) {
+            if (
+              breakdown.chain?.id === destChainId &&
+              toComparableSdkAddress(breakdown.contractAddress) ===
+                toComparableSdkAddress(ZERO_ADDRESS)
+            ) {
+              gasTokenAddress = breakdown.contractAddress as `0x${string}`;
+              break;
+            }
+          }
+        }
+        sources.push({
+          chainId: destChainId,
+          tokenAddress: gasTokenAddress,
+        });
+      }
+    }
+
     return sources.length > 0 ? sources : undefined;
-  }, [state.swapMode, effectiveExactOutSelectedKeys, exactOutSourceOptions]);
+  }, [
+    state.swapMode,
+    effectiveExactOutSelectedKeys,
+    exactOutSourceOptions,
+    state.inputs.toChainID,
+    swapBalance,
+  ]);
   const isExactOutSourceSelectionDirty = useMemo(() => {
     return (
       state.swapMode === "exactOut" &&
