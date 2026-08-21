@@ -3527,7 +3527,7 @@ export function NexusWidget(props: NexusWidgetProps) {
 
 function NexusWidgetInner({
   config: rawConfig,
-  embed = true,
+  embed = false,
   className,
   connectedAddress,
   open: controlledOpen,
@@ -9156,17 +9156,18 @@ function NexusWidgetInner({
             selectedOpportunity.chainId,
             user
           );
-          if (!isPositiveGasLimit(executeParams.gas)) {
-            throw new Error(
-              "Deposit config executeDeposit must return a positive gas limit."
-            );
-          }
+          const resolvedGas =
+            typeof executeParams?.gas === "bigint"
+              ? executeParams.gas
+              : executeParams?.gas !== undefined && executeParams?.gas !== null
+                ? BigInt(executeParams.gas)
+                : 1_000_000n;
           executeConfig = {
             to: executeParams.to,
             value: executeParams.value,
             data: executeParams.data,
             tokenApproval: executeParams.tokenApproval,
-            gas: executeParams.gas,
+            gas: resolvedGas,
           };
         } else if (
           (activeMode === "send" || hasCustomSwapRecipient) &&

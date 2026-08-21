@@ -88,8 +88,8 @@ export interface ExecuteDepositParams {
   user: Address;
 }
 
-export type ExecuteDepositResult = Omit<ExecuteParams, "toChainId"> & {
-  gas: bigint;
+export type ExecuteDepositResult = Omit<ExecuteParams, "toChainId" | "gas"> & {
+  gas?: bigint;
 };
 
 export interface UseDepositWidgetProps {
