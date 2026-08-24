@@ -2238,11 +2238,13 @@ const logSdkIntentEvent = (
   });
 };
 
+
 const logSdkIntentInput = (
   operation: string,
   input: unknown,
   meta?: Record<string, unknown>
 ) => {
+  console.log(`[NexusSDK] Calling ${operation} with config:`, input, meta);
   console.log(`[NexusWidget SDK][intent input] ${operation}`, {
     input,
     ...meta,
@@ -5967,44 +5969,41 @@ function NexusWidgetInner({
     };
   };
 
-  const getDestinationGasTokenSource = () => {
+  const getRelevantNativeGasTokenSources = (tokens?: SwapTokenOption[]) => {
+    const gasSources: Array<{
+      chainId: number;
+      tokenAddress: `0x${string}`;
+    }> = [];
+
+    // 1. Destination chain native gas token (e.g. ETH on Arbitrum/Optimism, POL on Polygon, etc.)
     const destChainId = toToken?.chainId;
-    if (!destChainId) {
-      return undefined;
+    if (destChainId) {
+      gasSources.push({
+        chainId: destChainId,
+        tokenAddress: zeroAddress,
+      });
     }
 
-    const nativeSymbol =
-      CHAIN_METADATA[destChainId]?.nativeCurrency?.symbol?.toUpperCase();
-    let gasTokenAddress: `0x${string}` = zeroAddress;
-
-    for (const asset of swapBalance ?? []) {
-      for (const breakdown of asset.breakdown ?? []) {
-        if (breakdown.chain?.id !== destChainId) continue;
-        const breakdownSymbol = (
-          breakdown.symbol ??
-          asset.symbol ??
-          ""
-        ).toUpperCase();
-        const assetSymbol = (asset.symbol ?? "").toUpperCase();
-        const isNativeBalance =
-          isNativeTokenAddress(breakdown.contractAddress) ||
-          Boolean(
-            nativeSymbol &&
-              (breakdownSymbol === nativeSymbol || assetSymbol === nativeSymbol)
-          );
-
-        if (isNativeBalance && breakdown.contractAddress) {
-          gasTokenAddress = isNativeTokenAddress(breakdown.contractAddress)
-            ? zeroAddress
-            : (breakdown.contractAddress as `0x${string}`);
-          break;
-        }
+    // 2. Source token(s) chains native gas token (e.g. ETH on Arbitrum if paying with Arbitrum USDT)
+    const relevantTokens = tokens ?? fromTokens;
+    for (const token of relevantTokens) {
+      if (token.chainId) {
+        gasSources.push({
+          chainId: token.chainId,
+          tokenAddress: zeroAddress,
+        });
       }
     }
 
+    return gasSources;
+  };
+
+  const getDestinationGasTokenSource = () => {
+    const destChainId = toToken?.chainId;
+    if (!destChainId) return undefined;
     return {
       chainId: destChainId,
-      tokenAddress: gasTokenAddress,
+      tokenAddress: zeroAddress,
     };
   };
 
@@ -6026,7 +6025,7 @@ function NexusWidgetInner({
       const sources = dedupeSdkSources([
         ...explicitSources,
         getHeldDestinationTokenSource(),
-        getDestinationGasTokenSource(),
+        ...getRelevantNativeGasTokenSources(tokens),
       ]);
       return sources.length > 0 ? { sources } : {};
     }
@@ -6038,7 +6037,7 @@ function NexusWidgetInner({
     const sources = dedupeSdkSources([
       ...explicitSources,
       getHeldDestinationTokenSource(),
-      getDestinationGasTokenSource(),
+      ...getRelevantNativeGasTokenSources(sourceTokens),
     ]);
 
     return sources.length > 0 ? { sources } : {};

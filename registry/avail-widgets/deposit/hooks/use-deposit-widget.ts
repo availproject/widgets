@@ -233,6 +233,7 @@ export function useDepositWidget(
         ...inputs,
         sources: fromSources,
       };
+      console.log("[NexusSDK] Calling swapAndExecute with config:", inputsWithSources);
       let transactionSucceeded = false;
       nexusSDK
         .swapAndExecute(inputsWithSources, {

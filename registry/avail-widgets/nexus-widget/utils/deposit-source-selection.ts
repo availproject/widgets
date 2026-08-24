@@ -423,46 +423,38 @@ export const resolveDepositSourceSelection = (params: {
     minimumBalanceUsd,
   });
 
-  const destChainId = destination.chainId;
-  const nativeSymbol =
-    CHAIN_METADATA[destChainId]?.nativeCurrency?.symbol?.toUpperCase();
-  let destGasTokenAddress: Hex = ZERO_ADDRESS as Hex;
-  for (const asset of swapBalance ?? []) {
-    for (const breakdown of asset.breakdown ?? []) {
-      if (breakdown.chain?.id !== destChainId) continue;
-      const breakdownSymbol = (
-        breakdown.symbol ??
-        asset.symbol ??
-        ""
-      ).toUpperCase();
-      const assetSymbol = (asset.symbol ?? "").toUpperCase();
-      const isNativeBal =
-        isNativeAddress(breakdown.contractAddress) ||
-        Boolean(
-          nativeSymbol &&
-            (breakdownSymbol === nativeSymbol || assetSymbol === nativeSymbol)
-        );
-      if (isNativeBal && breakdown.contractAddress) {
-        destGasTokenAddress = isNativeAddress(breakdown.contractAddress)
-          ? (ZERO_ADDRESS as Hex)
-          : (breakdown.contractAddress as Hex);
-        break;
-      }
+  const gasSources: Array<{ tokenAddress: Hex; chainId: number }> = [];
+
+  // Destination chain native gas token (e.g. ETH on Arbitrum/Optimism, POL on Polygon, etc.)
+  if (destination.chainId) {
+    gasSources.push({
+      chainId: destination.chainId,
+      tokenAddress: ZERO_ADDRESS as Hex,
+    });
+  }
+
+  // Active source chain(s) native gas tokens
+  for (const s of sortedFromSources) {
+    if (s.chainId) {
+      gasSources.push({
+        chainId: s.chainId,
+        tokenAddress: ZERO_ADDRESS as Hex,
+      });
     }
   }
 
-  const hasDestGasToken = sortedFromSources.some(
-    (s) =>
-      s.chainId === destChainId &&
-      isNativeAddress(s.tokenAddress)
-  );
+  const seen = new Set<string>();
+  const fromSources: Array<{ tokenAddress: Hex; chainId: number }> = [];
 
-  const fromSources = hasDestGasToken
-    ? sortedFromSources
-    : [
-        ...sortedFromSources,
-        { chainId: destChainId, tokenAddress: destGasTokenAddress },
-      ];
+  for (const source of [...sortedFromSources, ...gasSources]) {
+    const normalized = isNativeAddress(source.tokenAddress)
+      ? ZERO_ADDRESS
+      : source.tokenAddress.toLowerCase();
+    const key = `${source.chainId}:${normalized}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fromSources.push(source);
+  }
 
   return {
     sourcePoolIds,

@@ -519,32 +519,23 @@ const useSwaps = ({
       sources.push({ chainId: opt.chainId, tokenAddress: opt.tokenAddress });
     }
 
+    // Destination chain native gas token (e.g. ETH on Arbitrum/Optimism, POL on Polygon, etc.)
     const destChainId = state.inputs.toChainID;
     if (destChainId) {
-      const hasDestGasToken = sources.some(
-        (s) =>
-          s.chainId === destChainId &&
-          toComparableSdkAddress(s.tokenAddress) ===
-            toComparableSdkAddress(ZERO_ADDRESS),
-      );
-      if (!hasDestGasToken) {
-        let gasTokenAddress = ZERO_ADDRESS as `0x${string}`;
-        for (const asset of swapBalance ?? []) {
-          for (const breakdown of asset.breakdown ?? []) {
-            if (
-              breakdown.chain?.id === destChainId &&
-              toComparableSdkAddress(breakdown.contractAddress) ===
-                toComparableSdkAddress(ZERO_ADDRESS)
-            ) {
-              gasTokenAddress = breakdown.contractAddress as `0x${string}`;
-              break;
-            }
-          }
-        }
-        sources.push({
-          chainId: destChainId,
-          tokenAddress: gasTokenAddress,
-        });
+      const key = buildSourceOptionKey(destChainId, ZERO_ADDRESS as `0x${string}`);
+      if (!seen.has(key)) {
+        seen.add(key);
+        sources.push({ chainId: destChainId, tokenAddress: ZERO_ADDRESS as `0x${string}` });
+      }
+    }
+
+    // Selected source chain(s) native gas tokens
+    for (const opt of exactOutSourceOptions) {
+      if (!selectedSet.has(opt.key)) continue;
+      const key = buildSourceOptionKey(opt.chainId, ZERO_ADDRESS as `0x${string}`);
+      if (!seen.has(key)) {
+        seen.add(key);
+        sources.push({ chainId: opt.chainId, tokenAddress: ZERO_ADDRESS as `0x${string}` });
       }
     }
 
@@ -644,6 +635,8 @@ const useSwaps = ({
       toTokenAddress: toToken.tokenAddress,
     };
 
+    console.log("[NexusSDK] Calling swapWithExactIn with config:", swapInput);
+
     await nexusSDK.swapWithExactIn(swapInput, {
       onEvent: (event) => {
         if (swapRunIdRef.current !== runId) return;
@@ -725,6 +718,8 @@ const useSwaps = ({
       toTokenAddress: toToken.tokenAddress,
       sources: exactOutFromSources,
     };
+
+    console.log("[NexusSDK] Calling swapWithExactOut with config:", swapInput);
 
     await nexusSDK.swapWithExactOut(swapInput, {
       onEvent: (event) => {
