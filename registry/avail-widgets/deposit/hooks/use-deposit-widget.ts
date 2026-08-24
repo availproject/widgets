@@ -528,7 +528,7 @@ export function useDepositWidget(
           ? executeParams.gas
           : executeParams?.gas !== undefined && executeParams?.gas !== null
             ? BigInt(executeParams.gas)
-            : 1_000_000n;
+            : BigInt(1_000_000);
 
       const newInputs: SwapAndExecuteParams = {
         toChainId: destination.chainId,
