@@ -174,7 +174,12 @@ type SwapQuoteIssue = {
 type ReceiveAmountIssue = {
   ctaLabel: string;
   message: string;
-  type: "configuredAmountLimit" | "receiveLimitExceeded" | "unpricedReceiveToken";
+  type:
+    | "configuredAmountLimit"
+    | "receiveLimitExceeded"
+    | "sourceLimitExceeded"
+    | "unpricedReceiveToken"
+    | "unpricedSourceToken";
 };
 
 type CachedIntentUsdRate = {
@@ -212,8 +217,14 @@ type PredictiveQuoteBaseline = {
 };
 
 const DESTINATION_RECEIVE_LIMIT_USD_BY_CHAIN_ID: Record<number, number> = {
-  [SUPPORTED_CHAINS.MEGAETH]: 10_000,
+  [SUPPORTED_CHAINS.MEGAETH]: 5000,
   [SUPPORTED_CHAINS.CITREA]: 2000,
+  [SUPPORTED_CHAINS.SCROLL]: 500,
+};
+
+const SOURCE_SEND_LIMIT_USD_BY_CHAIN_ID: Record<number, number> = {
+  [SUPPORTED_CHAINS.MEGAETH]: 500,
+  [SUPPORTED_CHAINS.CITREA]: 500,
   [SUPPORTED_CHAINS.SCROLL]: 500,
 };
 
@@ -2227,11 +2238,13 @@ const logSdkIntentEvent = (
   });
 };
 
+
 const logSdkIntentInput = (
   operation: string,
   input: unknown,
   meta?: Record<string, unknown>
 ) => {
+  console.log(`[NexusSDK] Calling ${operation} with config:`, input, meta);
   console.log(`[NexusWidget SDK][intent input] ${operation}`, {
     input,
     ...meta,
@@ -3527,7 +3540,7 @@ export function NexusWidget(props: NexusWidgetProps) {
 
 function NexusWidgetInner({
   config: rawConfig,
-  embed = true,
+  embed = false,
   className,
   connectedAddress,
   open: controlledOpen,
@@ -5148,6 +5161,101 @@ function NexusWidgetInner({
     return limit ? new Decimal(limit) : undefined;
   };
 
+  const getSourceSendLimitUsd = (chainId?: number) => {
+    if (!chainId) return undefined;
+    const limit = SOURCE_SEND_LIMIT_USD_BY_CHAIN_ID[chainId];
+    return limit ? new Decimal(limit) : undefined;
+  };
+
+  const sortUnifiedSourceTokens = (tokens: SwapTokenOption[]) =>
+    [...tokens].sort((a, b) => {
+      const fiatDiff = getTokenBalanceUsd(b).cmp(getTokenBalanceUsd(a));
+      if (fiatDiff !== 0) return fiatDiff;
+      return getTokenBalanceAmount(b).cmp(getTokenBalanceAmount(a));
+    });
+
+  const allocateUnifiedExactInToken = (
+    token: SwapTokenOption,
+    fallbackAmount?: string
+  ) => {
+    if (!token.isUnified || !token.sourceTokens?.length) return [token];
+
+    const rawAmount =
+      parseFiatNumber(token.userAmount || fallbackAmount) ?? new Decimal(0);
+    if (rawAmount.lte(0)) return [];
+
+    const sortedSources = sortUnifiedSourceTokens(token.sourceTokens).filter(
+      (source) =>
+        source.chainId &&
+        source.contractAddress &&
+        getTokenBalanceAmount(source).gt(0) &&
+        hasMinimumSourceUsdBalance(source)
+    );
+    const allocated: SwapTokenOption[] = [];
+
+    if (token.userAmountMode === "usd") {
+      let remainingUsd = rawAmount;
+
+      for (const source of sortedSources) {
+        if (remainingUsd.lte(0)) break;
+
+        const availableUsd = getTokenBalanceUsd(source);
+        if (availableUsd.lte(0)) continue;
+
+        const targetUsd = Decimal.min(remainingUsd, availableUsd);
+        const tokenAmount = getTokenAmountForUsd(
+          source,
+          targetUsd
+        ).toDecimalPlaces(
+          Math.max(0, source.decimals || 18),
+          Decimal.ROUND_DOWN
+        );
+        if (tokenAmount.lte(0)) continue;
+
+        const actualUsd = getUsdForTokenAmount(source, tokenAmount);
+        allocated.push({
+          ...source,
+          userAmount: tokenAmount.toFixed(),
+          userAmountMode: "token",
+          userAmountUsd: actualUsd
+            .toDecimalPlaces(6, Decimal.ROUND_DOWN)
+            .toFixed(),
+        });
+        remainingUsd = remainingUsd.minus(targetUsd);
+      }
+
+      return allocated;
+    }
+
+    let remainingTokenAmount = rawAmount;
+
+    for (const source of sortedSources) {
+      if (remainingTokenAmount.lte(0)) break;
+
+      const availableTokenAmount = getTokenBalanceAmount(source);
+      if (availableTokenAmount.lte(0)) continue;
+
+      const tokenAmount = Decimal.min(
+        remainingTokenAmount,
+        availableTokenAmount
+      ).toDecimalPlaces(Math.max(0, source.decimals || 18), Decimal.ROUND_DOWN);
+      if (tokenAmount.lte(0)) continue;
+
+      const actualUsd = getUsdForTokenAmount(source, tokenAmount);
+      allocated.push({
+        ...source,
+        userAmount: tokenAmount.toFixed(),
+        userAmountMode: "token",
+        userAmountUsd: actualUsd
+          .toDecimalPlaces(6, Decimal.ROUND_DOWN)
+          .toFixed(),
+      });
+      remainingTokenAmount = remainingTokenAmount.minus(tokenAmount);
+    }
+
+    return allocated;
+  };
+
   const getImmediateDestinationReceiveUsdRate = (token?: SwapTokenOption) => {
     const priceUsd = parseFiatNumber(token?.priceUSD);
     if (priceUsd && priceUsd.gt(0)) return priceUsd;
@@ -5198,6 +5306,134 @@ function NexusWidgetInner({
     sourceTokens?: SwapTokenOption[];
     type?: SwapType;
   } = {}): ReceiveAmountIssue | null => {
+    // 1. Check Source (Send/Swap) Limits
+    if (mode === "swap" || type === "exactIn") {
+      const fallbackAmount =
+        sourceTokens.length === 1 ? inputAmount : undefined;
+      const candidateTokens: SwapTokenOption[] = [];
+      for (const token of sourceTokens) {
+        if (token.isUnified && token.sourceTokens?.length) {
+          candidateTokens.push(
+            ...allocateUnifiedExactInToken(token, fallbackAmount)
+          );
+        } else {
+          candidateTokens.push(token);
+        }
+      }
+
+      const chainUsdTotals = new Map<
+        number,
+        { chainName: string; totalUsd: Decimal }
+      >();
+
+      for (const token of candidateTokens) {
+        const tokenAmount = parseFiatNumber(
+          token.userAmount || fallbackAmount
+        );
+        if (!tokenAmount || tokenAmount.lte(0)) continue;
+        const chainId = token.chainId;
+        if (!chainId) continue;
+
+        const limit = getSourceSendLimitUsd(chainId);
+        if (!limit) continue;
+
+        const chainName = getShortChainName(chainId, token.chainName);
+        const tokenUsd = getTokenUsdValue(token, fallbackAmount);
+
+        if (tokenUsd.lte(0)) {
+          return {
+            ctaLabel: "Price unavailable",
+            message: `Unable to price ${token.symbol} on ${chainName}. Select another source token.`,
+            type: "unpricedSourceToken",
+          };
+        }
+
+        const existing = chainUsdTotals.get(chainId) ?? {
+          chainName,
+          totalUsd: new Decimal(0),
+        };
+        existing.totalUsd = existing.totalUsd.plus(tokenUsd);
+        chainUsdTotals.set(chainId, existing);
+      }
+
+      for (const [chainId, { chainName, totalUsd }] of chainUsdTotals.entries()) {
+        const limit = getSourceSendLimitUsd(chainId);
+        if (limit && totalUsd.gt(limit)) {
+          return {
+            ctaLabel: mode === "swap" ? "Swap limit exceeded" : "Send limit exceeded",
+            message:
+              mode === "swap"
+                ? `Maximum swap amount from ${chainName} is ${formatUsdDisplay(limit)}.`
+                : `Maximum send amount from ${chainName} is ${formatUsdDisplay(limit)}.`,
+            type: "sourceLimitExceeded",
+          };
+        }
+      }
+    } else {
+      // Exact-Out flows (Deposit / Send)
+      if (intentData?.sources && intentData.sources.length > 0) {
+        const chainUsdTotals = new Map<
+          number,
+          { chainName: string; totalUsd: Decimal }
+        >();
+        for (const source of intentData.sources) {
+          const chainId = source.chain?.id;
+          if (!chainId) continue;
+          const limit = getSourceSendLimitUsd(chainId);
+          if (!limit) continue;
+
+          const sourceUsd = parseFiatNumber(source.value);
+          if (!sourceUsd || sourceUsd.lte(0)) continue;
+
+          const chainName = getShortChainName(chainId, source.chain?.name);
+          const existing = chainUsdTotals.get(chainId) ?? {
+            chainName,
+            totalUsd: new Decimal(0),
+          };
+          existing.totalUsd = existing.totalUsd.plus(sourceUsd);
+          chainUsdTotals.set(chainId, existing);
+        }
+
+        for (const [chainId, { chainName, totalUsd }] of chainUsdTotals.entries()) {
+          const limit = getSourceSendLimitUsd(chainId);
+          if (limit && totalUsd.gt(limit)) {
+            return {
+              ctaLabel: "Send limit exceeded",
+              message: `Maximum send amount from ${chainName} is ${formatUsdDisplay(limit)}.`,
+              type: "sourceLimitExceeded",
+            };
+          }
+        }
+      } else if (sourceTokens.length === 1 && sourceTokens[0]?.chainId) {
+        const token = sourceTokens[0];
+        const chainId = token.chainId;
+        const limit = getSourceSendLimitUsd(chainId);
+        if (limit) {
+          const chainName = getShortChainName(chainId, token.chainName);
+          const parsedAmount = parseFiatNumber(inputAmount);
+          if (parsedAmount && parsedAmount.gt(0)) {
+            let estimatedSourceUsd: Decimal | undefined;
+            if (mode === "deposit" && depositAmountMode === "usd") {
+              estimatedSourceUsd = parsedAmount;
+            } else if (toToken) {
+              const rate = getImmediateDestinationReceiveUsdRate(toToken);
+              if (rate && rate.gt(0)) {
+                estimatedSourceUsd = parsedAmount.mul(rate);
+              }
+            }
+            if (estimatedSourceUsd && estimatedSourceUsd.gt(limit)) {
+              return {
+                ctaLabel: "Send limit exceeded",
+                message: `Maximum send amount from ${chainName} is ${formatUsdDisplay(limit)}.`,
+                type: "sourceLimitExceeded",
+              };
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Check Destination (Receive) Limits (UNCHANGED)
     const limit = getDestinationReceiveLimitUsd(destinationToken);
     if (!limit || !destinationToken) return null;
 
@@ -5322,95 +5558,6 @@ function NexusWidgetInner({
         return { ...token, userAmount };
       })
       .filter((token) => hasPositiveDecimalInput(token.userAmount));
-  };
-
-  const sortUnifiedSourceTokens = (tokens: SwapTokenOption[]) =>
-    [...tokens].sort((a, b) => {
-      const fiatDiff = getTokenBalanceUsd(b).cmp(getTokenBalanceUsd(a));
-      if (fiatDiff !== 0) return fiatDiff;
-      return getTokenBalanceAmount(b).cmp(getTokenBalanceAmount(a));
-    });
-
-  const allocateUnifiedExactInToken = (
-    token: SwapTokenOption,
-    fallbackAmount?: string
-  ) => {
-    if (!token.isUnified || !token.sourceTokens?.length) return [token];
-
-    const rawAmount =
-      parseFiatNumber(token.userAmount || fallbackAmount) ?? new Decimal(0);
-    if (rawAmount.lte(0)) return [];
-
-    const sortedSources = sortUnifiedSourceTokens(token.sourceTokens).filter(
-      (source) =>
-        source.chainId &&
-        source.contractAddress &&
-        getTokenBalanceAmount(source).gt(0) &&
-        hasMinimumSourceUsdBalance(source)
-    );
-    const allocated: SwapTokenOption[] = [];
-
-    if (token.userAmountMode === "usd") {
-      let remainingUsd = rawAmount;
-
-      for (const source of sortedSources) {
-        if (remainingUsd.lte(0)) break;
-
-        const availableUsd = getTokenBalanceUsd(source);
-        if (availableUsd.lte(0)) continue;
-
-        const targetUsd = Decimal.min(remainingUsd, availableUsd);
-        const tokenAmount = getTokenAmountForUsd(
-          source,
-          targetUsd
-        ).toDecimalPlaces(
-          Math.max(0, source.decimals || 18),
-          Decimal.ROUND_DOWN
-        );
-        if (tokenAmount.lte(0)) continue;
-
-        const actualUsd = getUsdForTokenAmount(source, tokenAmount);
-        allocated.push({
-          ...source,
-          userAmount: tokenAmount.toFixed(),
-          userAmountMode: "token",
-          userAmountUsd: actualUsd
-            .toDecimalPlaces(6, Decimal.ROUND_DOWN)
-            .toFixed(),
-        });
-        remainingUsd = remainingUsd.minus(targetUsd);
-      }
-
-      return allocated;
-    }
-
-    let remainingTokenAmount = rawAmount;
-
-    for (const source of sortedSources) {
-      if (remainingTokenAmount.lte(0)) break;
-
-      const availableTokenAmount = getTokenBalanceAmount(source);
-      if (availableTokenAmount.lte(0)) continue;
-
-      const tokenAmount = Decimal.min(
-        remainingTokenAmount,
-        availableTokenAmount
-      ).toDecimalPlaces(Math.max(0, source.decimals || 18), Decimal.ROUND_DOWN);
-      if (tokenAmount.lte(0)) continue;
-
-      const actualUsd = getUsdForTokenAmount(source, tokenAmount);
-      allocated.push({
-        ...source,
-        userAmount: tokenAmount.toFixed(),
-        userAmountMode: "token",
-        userAmountUsd: actualUsd
-          .toDecimalPlaces(6, Decimal.ROUND_DOWN)
-          .toFixed(),
-      });
-      remainingTokenAmount = remainingTokenAmount.minus(tokenAmount);
-    }
-
-    return allocated;
   };
 
   const getExactInSourceTokens = (
@@ -5822,6 +5969,44 @@ function NexusWidgetInner({
     };
   };
 
+  const getRelevantNativeGasTokenSources = (tokens?: SwapTokenOption[]) => {
+    const gasSources: Array<{
+      chainId: number;
+      tokenAddress: `0x${string}`;
+    }> = [];
+
+    // 1. Destination chain native gas token (e.g. ETH on Arbitrum/Optimism, POL on Polygon, etc.)
+    const destChainId = toToken?.chainId;
+    if (destChainId) {
+      gasSources.push({
+        chainId: destChainId,
+        tokenAddress: zeroAddress,
+      });
+    }
+
+    // 2. Source token(s) chains native gas token (e.g. ETH on Arbitrum if paying with Arbitrum USDT)
+    const relevantTokens = tokens ?? fromTokens;
+    for (const token of relevantTokens) {
+      if (token.chainId) {
+        gasSources.push({
+          chainId: token.chainId,
+          tokenAddress: zeroAddress,
+        });
+      }
+    }
+
+    return gasSources;
+  };
+
+  const getDestinationGasTokenSource = () => {
+    const destChainId = toToken?.chainId;
+    if (!destChainId) return undefined;
+    return {
+      chainId: destChainId,
+      tokenAddress: zeroAddress,
+    };
+  };
+
   const shouldSendExactOutSourceAllowlist = () => {
     if (activeMode === "deposit") {
       return sourceSelectionTouched || depositSourceFilter !== "all";
@@ -5836,7 +6021,13 @@ function NexusWidgetInner({
 
   const buildExactOutSourcesPayload = (tokens: SwapTokenOption[]) => {
     if (activeMode !== "deposit" && activeMode !== "send") {
-      return buildExplicitSourcesPayload(tokens);
+      const explicitSources = buildExplicitSourcesPayload(tokens).sources;
+      const sources = dedupeSdkSources([
+        ...explicitSources,
+        getHeldDestinationTokenSource(),
+        ...getRelevantNativeGasTokenSources(tokens),
+      ]);
+      return sources.length > 0 ? { sources } : {};
     }
 
     const sourceTokens = shouldSendExactOutSourceAllowlist()
@@ -5846,6 +6037,7 @@ function NexusWidgetInner({
     const sources = dedupeSdkSources([
       ...explicitSources,
       getHeldDestinationTokenSource(),
+      ...getRelevantNativeGasTokenSources(sourceTokens),
     ]);
 
     return sources.length > 0 ? { sources } : {};
@@ -9108,17 +9300,18 @@ function NexusWidgetInner({
             selectedOpportunity.chainId,
             user
           );
-          if (!isPositiveGasLimit(executeParams.gas)) {
-            throw new Error(
-              "Deposit config executeDeposit must return a positive gas limit."
-            );
-          }
+          const resolvedGas =
+            typeof executeParams?.gas === "bigint"
+              ? executeParams.gas
+              : executeParams?.gas !== undefined && executeParams?.gas !== null
+                ? BigInt(executeParams.gas)
+                : BigInt(1_000_000);
           executeConfig = {
             to: executeParams.to,
             value: executeParams.value,
             data: executeParams.data,
             tokenApproval: executeParams.tokenApproval,
-            gas: executeParams.gas,
+            gas: resolvedGas,
           };
         } else if (
           (activeMode === "send" || hasCustomSwapRecipient) &&

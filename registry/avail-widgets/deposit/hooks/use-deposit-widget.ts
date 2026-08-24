@@ -62,9 +62,6 @@ function parseUsdAmount(value?: string): number {
   return parsed;
 }
 
-function hasPositiveGasLimit(value: unknown): value is bigint {
-  return typeof value === "bigint" && value > BigInt(0);
-}
 
 function summarizeIntentSources(
   intentSources: OnSwapIntentHookData["intent"]["sources"] | undefined,
@@ -236,6 +233,7 @@ export function useDepositWidget(
         ...inputs,
         sources: fromSources,
       };
+      console.log("[NexusSDK] Calling swapAndExecute with config:", inputsWithSources);
       let transactionSucceeded = false;
       nexusSDK
         .swapAndExecute(inputsWithSources, {
@@ -526,14 +524,12 @@ export function useDepositWidget(
         address,
       );
 
-      if (!hasPositiveGasLimit(executeParams.gas)) {
-        const message =
-          "Deposit config executeDeposit must return a positive gas limit.";
-        dispatch({ type: "setError", payload: message });
-        dispatch({ type: "setStatus", payload: "error" });
-        onError?.(message);
-        return false;
-      }
+      const resolvedGas =
+        typeof executeParams?.gas === "bigint"
+          ? executeParams.gas
+          : executeParams?.gas !== undefined && executeParams?.gas !== null
+            ? BigInt(executeParams.gas)
+            : BigInt(1_000_000);
 
       const newInputs: SwapAndExecuteParams = {
         toChainId: destination.chainId,
@@ -554,7 +550,7 @@ export function useDepositWidget(
                 spender: executeParams.tokenApproval.spender,
               }
             : undefined,
-          gas: executeParams.gas,
+          gas: resolvedGas,
         },
       };
 

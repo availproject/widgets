@@ -416,14 +416,49 @@ export const resolveDepositSourceSelection = (params: {
         sourceIds: sourcePoolIds,
       });
 
+  const sortedFromSources = buildSortedFromSources({
+    sourceIds: resolvedSelectedSourceIds,
+    swapBalance,
+    destination,
+    minimumBalanceUsd,
+  });
+
+  const gasSources: Array<{ tokenAddress: Hex; chainId: number }> = [];
+
+  // Destination chain native gas token (e.g. ETH on Arbitrum/Optimism, POL on Polygon, etc.)
+  if (destination.chainId) {
+    gasSources.push({
+      chainId: destination.chainId,
+      tokenAddress: ZERO_ADDRESS as Hex,
+    });
+  }
+
+  // Active source chain(s) native gas tokens
+  for (const s of sortedFromSources) {
+    if (s.chainId) {
+      gasSources.push({
+        chainId: s.chainId,
+        tokenAddress: ZERO_ADDRESS as Hex,
+      });
+    }
+  }
+
+  const seen = new Set<string>();
+  const fromSources: Array<{ tokenAddress: Hex; chainId: number }> = [];
+
+  for (const source of [...sortedFromSources, ...gasSources]) {
+    const normalized = isNativeAddress(source.tokenAddress)
+      ? ZERO_ADDRESS
+      : source.tokenAddress.toLowerCase();
+    const key = `${source.chainId}:${normalized}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fromSources.push(source);
+  }
+
   return {
     sourcePoolIds,
     selectedSourceIds: resolvedSelectedSourceIds,
-    fromSources: buildSortedFromSources({
-      sourceIds: resolvedSelectedSourceIds,
-      swapBalance,
-      destination,
-      minimumBalanceUsd,
-    }),
+    fromSources,
   };
 };
