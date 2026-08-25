@@ -465,6 +465,176 @@ const getCountryFlagUrl = (
   );
 };
 
+const FIAT_CURRENCY_TO_COUNTRY_CODE: Record<string, string> = {
+  AED: "AE",
+  AFN: "AF",
+  ALL: "AL",
+  AMD: "AM",
+  ANG: "CW",
+  AOA: "AO",
+  ARS: "AR",
+  AUD: "AU",
+  AWG: "AW",
+  AZN: "AZ",
+  BAM: "BA",
+  BBD: "BB",
+  BDT: "BD",
+  BGN: "BG",
+  BHD: "BH",
+  BIF: "BI",
+  BMD: "BM",
+  BND: "BN",
+  BOB: "BO",
+  BRL: "BR",
+  BSD: "BS",
+  BTN: "BT",
+  BWP: "BW",
+  BYN: "BY",
+  BZD: "BZ",
+  CAD: "CA",
+  CDF: "CD",
+  CHF: "CH",
+  CLP: "CL",
+  CNY: "CN",
+  COP: "CO",
+  CRC: "CR",
+  CUP: "CU",
+  CVE: "CV",
+  CZK: "CZ",
+  DJF: "DJ",
+  DKK: "DK",
+  DOP: "DO",
+  DZD: "DZ",
+  EGP: "EG",
+  ERN: "ER",
+  ETB: "ET",
+  EUR: "EU",
+  FJD: "FJ",
+  FKP: "FK",
+  GBP: "GB",
+  GEL: "GE",
+  GHS: "GH",
+  GIP: "GI",
+  GMD: "GM",
+  GNF: "GN",
+  GTQ: "GT",
+  GYD: "GY",
+  HKD: "HK",
+  HNL: "HN",
+  HRK: "HR",
+  HTG: "HT",
+  HUF: "HU",
+  IDR: "ID",
+  ILS: "IL",
+  INR: "IN",
+  IQD: "IQ",
+  IRR: "IR",
+  ISK: "IS",
+  JMD: "JM",
+  JOD: "JO",
+  JPY: "JP",
+  KES: "KE",
+  KGS: "KG",
+  KHR: "KH",
+  KMF: "KM",
+  KPW: "KP",
+  KRW: "KR",
+  KWD: "KW",
+  KYD: "KY",
+  KZT: "KZ",
+  LAK: "LA",
+  LBP: "LB",
+  LKR: "LK",
+  LRD: "LR",
+  LSL: "LS",
+  LYD: "LY",
+  MAD: "MA",
+  MDL: "MD",
+  MGA: "MG",
+  MKD: "MK",
+  MMK: "MM",
+  MNT: "MN",
+  MOP: "MO",
+  MRU: "MR",
+  MUR: "MU",
+  MVR: "MV",
+  MWK: "MW",
+  MXN: "MX",
+  MYR: "MY",
+  MZN: "MZ",
+  NAD: "NA",
+  NGN: "NG",
+  NIO: "NI",
+  NOK: "NO",
+  NPR: "NP",
+  NZD: "NZ",
+  OMR: "OM",
+  PAB: "PA",
+  PEN: "PE",
+  PGK: "PG",
+  PHP: "PH",
+  PKR: "PK",
+  PLN: "PL",
+  PYG: "PY",
+  QAR: "QA",
+  RON: "RO",
+  RSD: "RS",
+  RUB: "RU",
+  RWF: "RW",
+  SAR: "SA",
+  SBD: "SB",
+  SCR: "SC",
+  SDG: "SD",
+  SEK: "SE",
+  SGD: "SG",
+  SHP: "SH",
+  SLL: "SL",
+  SOS: "SO",
+  SRD: "SR",
+  SSP: "SS",
+  STN: "ST",
+  SVC: "SV",
+  SYP: "SY",
+  SZL: "SZ",
+  THB: "TH",
+  TJS: "TJ",
+  TMT: "TM",
+  TND: "TN",
+  TOP: "TO",
+  TRY: "TR",
+  TTD: "TT",
+  TWD: "TW",
+  TZS: "TZ",
+  UAH: "UA",
+  UGX: "UG",
+  USD: "US",
+  UYU: "UY",
+  UZS: "UZ",
+  VES: "VE",
+  VND: "VN",
+  VUV: "VU",
+  WST: "WS",
+  XAF: "CM",
+  XCD: "AG",
+  XOF: "SN",
+  XPF: "PF",
+  YER: "YE",
+  ZAR: "ZA",
+  ZMW: "ZM",
+  ZWL: "ZW",
+};
+
+const getCurrencyFlagUrl = (
+  currencyCode?: string,
+  countries?: OnrampCountry[],
+) => {
+  if (!currencyCode) return undefined;
+  const normalized = currencyCode.toUpperCase();
+  const countryCode =
+    FIAT_CURRENCY_TO_COUNTRY_CODE[normalized] || normalized.slice(0, 2);
+  return getCountryFlagUrl(countries, countryCode);
+};
+
 const getFiatCurrencyOptions = (
   options: OnrampOptionsResponse | null,
 ): OnrampFiatCurrencyOption[] => {
@@ -480,16 +650,16 @@ const getFiatCurrencyOptions = (
     if (!currencyCode || byCode.has(currencyCode)) continue;
     const isDefaultFiat =
       currencyCode === selection?.defaultFiat?.toUpperCase();
+    const fallbackFlagUrl = isDefaultFiat
+      ? selectedCountryFlagUrl
+      : getCurrencyFlagUrl(currencyCode, options?.countries);
+
     byCode.set(currencyCode, {
       currencyCode,
       flagUrl:
         typeof currency === "string"
-          ? isDefaultFiat
-            ? selectedCountryFlagUrl
-            : undefined
-          : (currency.flagUrl ??
-            currency.symbolUrl ??
-            (isDefaultFiat ? selectedCountryFlagUrl : undefined)),
+          ? fallbackFlagUrl
+          : (currency.flagUrl ?? currency.symbolUrl ?? fallbackFlagUrl),
       name:
         typeof currency === "string"
           ? getIntlCurrencyName(currencyCode)
@@ -506,7 +676,9 @@ const getFiatCurrencyOptions = (
   if (defaultFiat && !byCode.has(defaultFiat)) {
     byCode.set(defaultFiat, {
       currencyCode: defaultFiat,
-      flagUrl: selectedCountryFlagUrl,
+      flagUrl:
+        selectedCountryFlagUrl ??
+        getCurrencyFlagUrl(defaultFiat, options?.countries),
       name: getIntlCurrencyName(defaultFiat),
       symbol: getIntlCurrencySymbol(defaultFiat),
     });
@@ -1456,7 +1628,10 @@ function CurrencyMark({
   currency?: OnrampFiatCurrencyOption;
 }) {
   const displayCode = currency?.currencyCode ?? code;
-  const imageUrl = currency?.flagUrl ?? currency?.symbolUrl;
+  const imageUrl =
+    currency?.flagUrl ??
+    currency?.symbolUrl ??
+    getCurrencyFlagUrl(displayCode);
 
   if (imageUrl) {
     return <TokenLogo label={displayCode} size={32} src={imageUrl} />;
@@ -3226,6 +3401,7 @@ export function DepositOnrampFlow({
   const [quotesRequestKey, setQuotesRequestKey] = React.useState("");
   const [selectedProvider, setSelectedProvider] = React.useState("");
   const [activeSheet, setActiveSheet] = React.useState<OnrampSheet>(null);
+  const [currencySearch, setCurrencySearch] = React.useState("");
   const [methodSearch, setMethodSearch] = React.useState("");
   const [partnerSearch, setPartnerSearch] = React.useState("");
   const [optionsLoading, setOptionsLoading] = React.useState(false);
@@ -3270,6 +3446,20 @@ export function DepositOnrampFlow({
   const selectedFiatCurrency = fiatCurrencyOptions.find(
     (currency) => currency.currencyCode === sourceCurrencyCode,
   );
+  const filteredFiatCurrencies = React.useMemo(() => {
+    const query = currencySearch.trim().toLowerCase();
+    if (!query) return fiatCurrencyOptions;
+    return fiatCurrencyOptions.filter((currency) => {
+      const code = currency.currencyCode.toLowerCase();
+      const name = (
+        currency.name ?? getFiatCurrencyName(currency.currencyCode, currency)
+      ).toLowerCase();
+      const symbol = (currency.symbol ?? "").toLowerCase();
+      return (
+        code.includes(query) || name.includes(query) || symbol.includes(query)
+      );
+    });
+  }, [fiatCurrencyOptions, currencySearch]);
   const selectedOnrampCryptoCurrency = React.useMemo(
     () => getOnrampCryptoCurrency(options, toToken),
     [options, toToken],
@@ -4004,6 +4194,7 @@ export function DepositOnrampFlow({
   }, [quoteRequestKey]);
 
   React.useEffect(() => {
+    if (activeSheet !== "currency") setCurrencySearch("");
     if (activeSheet !== "method") setMethodSearch("");
     if (activeSheet !== "partner") setPartnerSearch("");
   }, [activeSheet]);
@@ -5340,16 +5531,24 @@ export function DepositOnrampFlow({
 
       {activeSheet === "currency" && (
         <Sheet onClose={() => setActiveSheet(null)} title="Select currency">
+          <SheetSearchInput
+            onChange={setCurrencySearch}
+            placeholder="Search currency"
+            value={currencySearch}
+          />
           <div style={sectionLabelStyle}>Fiat currencies</div>
-          {fiatCurrencyOptions.length > 0 ? (
+          {filteredFiatCurrencies.length > 0 ? (
             <div
               style={{ display: "flex", flexDirection: "column", gap: "8px" }}
             >
-              {fiatCurrencyOptions.map((currency) => (
+              {filteredFiatCurrencies.map((currency) => (
                 <SelectRow
                   icon={<CurrencyMark currency={currency} />}
                   key={currency.currencyCode}
-                  onClick={() => handleCurrencySelect(currency.currencyCode)}
+                  onClick={() => {
+                    handleCurrencySelect(currency.currencyCode);
+                    setCurrencySearch("");
+                  }}
                   selected={currency.currencyCode === sourceCurrencyCode}
                   subtitle={getFiatCurrencyName(
                     currency.currencyCode,
