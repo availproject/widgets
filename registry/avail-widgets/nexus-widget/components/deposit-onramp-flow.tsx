@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import React from "react";
 import {
+  encodeFunctionData,
   erc20Abi,
   formatUnits,
   isAddress,
@@ -27,6 +28,7 @@ import {
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE, nexusWidgetTheme } from "../theme";
 import type { NexusWidgetDepositOpportunityConfig } from "../types";
 import type { SwapTokenOption } from "./swap-asset-selector";
+import { CHAIN_METADATA } from "../../common";
 
 type OnrampCryptoCurrency = {
   chainCode?: string;
@@ -183,6 +185,7 @@ type OnrampDepositExecutionState = {
   explorerUrl?: string;
   skipped?: boolean;
   status: "idle" | "running" | "success" | "failed";
+  step?: "swapping_gas" | "depositing";
   txHash?: Hex;
 };
 
@@ -195,10 +198,39 @@ type OnrampNexusSDK = {
               url?: string;
             };
           };
+          nativeCurrency?: {
+            decimals?: number;
+            name?: string;
+            symbol?: string;
+          };
+          rpcUrls?: {
+            default?: {
+              http?: string[];
+            };
+          };
         }
       | null
       | undefined;
   };
+  swapWithExactOut?: (
+    input: any,
+    options?: any,
+  ) => Promise<any>;
+  [key: string]: any;
+};
+
+export type OnrampGasShortfallInfo = {
+  estimatedGasUnits: bigint;
+  gasPriceWei: bigint;
+  hasApproval: boolean;
+  isErc20: boolean;
+  isShortfall: boolean;
+  requiredGasEth: string;
+  requiredGasWei: bigint;
+  shortfallAmountEth: string;
+  shortfallAmountRaw: bigint;
+  userGasBalanceEth: string;
+  userGasBalanceWei: bigint;
 };
 
 type OnrampSheet =
@@ -839,6 +871,7 @@ const ONRAMP_DEPOSIT_PROCESSING_STATES = new Set([
   "COMPLETING_DEPOSIT",
   "DEPOSIT_PROCESSING",
   "DEPOSITING",
+  "SWAPPING_GAS",
 ]);
 
 const ONRAMP_DEPOSIT_SUCCESS_STATES = new Set([
@@ -877,6 +910,206 @@ const isPositiveGasLimit = (value: unknown): value is bigint => {
   } catch {
     return false;
   }
+};
+
+const FALLBACK_CHAIN_RPCS: Record<number, string> = {
+  1: "https://ethereum-rpc.publicnode.com",
+  10: "https://mainnet.optimism.io",
+  56: "https://bsc-dataseed.binance.org",
+  137: "https://polygon-rpc.com",
+  8453: "https://mainnet.base.org",
+  42161: "https://arb1.arbitrum.io/rpc",
+  43114: "https://api.avax.network/ext/bc/C/rpc",
+  534352: "https://rpc.scroll.io",
+  11155111: "https://rpc.sepolia.org",
+  84532: "https://sepolia.base.org",
+  421614: "https://sepolia-rollup.arbitrum.io/rpc",
+  11155420: "https://sepolia.optimism.io",
+  80002: "https://rpc-amoy.polygon.technology",
+};
+
+const getChainRpcUrl = (
+  chainId?: number,
+  nexusSDK?: OnrampNexusSDK | null,
+): string | undefined => {
+  if (!chainId) return undefined;
+  const sdkRpc =
+    nexusSDK?.chainList?.getChainByID?.(chainId)?.rpcUrls?.default?.http?.[0];
+  if (sdkRpc) return sdkRpc;
+  const metaRpc = CHAIN_METADATA[chainId]?.rpcUrls?.[0];
+  if (metaRpc) return metaRpc;
+  return FALLBACK_CHAIN_RPCS[chainId];
+};
+
+const makeJsonRpcCall = async <T = any,>(
+  rpcUrl: string,
+  method: string,
+  params: any[] = [],
+): Promise<T> => {
+  const response = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: Date.now(),
+      jsonrpc: "2.0",
+      method,
+      params,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`RPC request failed with status ${response.status}`);
+  }
+  const json = await response.json();
+  if (json.error) {
+    throw new Error(json.error.message || "RPC call error");
+  }
+  return json.result as T;
+};
+
+const fetchDestinationGasPriceWei = async (
+  chainId: number,
+  walletClient?: WalletClient | null,
+  nexusSDK?: OnrampNexusSDK | null,
+): Promise<bigint> => {
+  const rpcUrl = getChainRpcUrl(chainId, nexusSDK);
+  const useWallet = walletClient?.chain?.id === chainId;
+
+  // 1. Try Type-2 EIP-1559 fee calculation
+  try {
+    let maxPriorityFeeHex: string | null = null;
+    let baseFeeHex: string | null = null;
+
+    if (useWallet && walletClient) {
+      try {
+        maxPriorityFeeHex = (await walletClient.request({
+          method: "eth_maxPriorityFeePerGas",
+        } as any)) as string;
+      } catch {}
+      try {
+        const block = (await walletClient.request({
+          method: "eth_getBlockByNumber",
+          params: ["latest", false],
+        } as any)) as { baseFeePerGas?: string } | null;
+        baseFeeHex = block?.baseFeePerGas ?? null;
+      } catch {}
+    }
+
+    if (!maxPriorityFeeHex && rpcUrl) {
+      try {
+        maxPriorityFeeHex = await makeJsonRpcCall<string>(
+          rpcUrl,
+          "eth_maxPriorityFeePerGas",
+        );
+      } catch {}
+    }
+
+    if (!baseFeeHex && rpcUrl) {
+      try {
+        const block = await makeJsonRpcCall<{ baseFeePerGas?: string }>(
+          rpcUrl,
+          "eth_getBlockByNumber",
+          ["latest", false],
+        );
+        baseFeeHex = block?.baseFeePerGas ?? null;
+      } catch {}
+    }
+
+    const priorityFee = maxPriorityFeeHex
+      ? BigInt(maxPriorityFeeHex)
+      : BigInt(0);
+    const baseFee = baseFeeHex ? BigInt(baseFeeHex) : BigInt(0);
+
+    if (priorityFee > BigInt(0) && baseFee > BigInt(0)) {
+      return baseFee + priorityFee;
+    }
+    if (priorityFee > BigInt(0)) {
+      return priorityFee;
+    }
+  } catch (err) {
+    console.warn(
+      "Error fetching type 2 gas fee, falling back to eth_gasPrice",
+      err,
+    );
+  }
+
+  // 2. Fallback to eth_gasPrice
+  try {
+    if (useWallet && walletClient) {
+      const gasPriceHex = (await walletClient.request({
+        method: "eth_gasPrice",
+      } as any)) as string;
+      if (gasPriceHex) {
+        const parsed = BigInt(gasPriceHex);
+        if (parsed > BigInt(0)) return parsed;
+      }
+    }
+
+    if (rpcUrl) {
+      const gasPriceHex = await makeJsonRpcCall<string>(
+        rpcUrl,
+        "eth_gasPrice",
+      );
+      if (gasPriceHex) {
+        const parsed = BigInt(gasPriceHex);
+        if (parsed > BigInt(0)) return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn("Error fetching eth_gasPrice", err);
+  }
+
+  // 3. Fallback default (1 Gwei)
+  return BigInt(1000000000);
+};
+
+const fetchUserNativeGasBalanceWei = async (
+  account: Address,
+  chainId: number,
+  walletClient?: WalletClient | null,
+  nexusSDK?: OnrampNexusSDK | null,
+): Promise<bigint> => {
+  const rpcUrl = getChainRpcUrl(chainId, nexusSDK);
+  const useWallet = walletClient?.chain?.id === chainId;
+
+  try {
+    if (useWallet && walletClient) {
+      const balanceHex = (await walletClient.request({
+        method: "eth_getBalance",
+        params: [account, "latest"],
+      } as any)) as string;
+      if (balanceHex) return BigInt(balanceHex);
+    }
+
+    if (rpcUrl) {
+      const balanceHex = await makeJsonRpcCall<string>(
+        rpcUrl,
+        "eth_getBalance",
+        [account, "latest"],
+      );
+      if (balanceHex) return BigInt(balanceHex);
+    }
+  } catch (err) {
+    console.warn("Failed to fetch user native gas balance", err);
+  }
+
+  return BigInt(0);
+};
+
+const isErc20Token = (token?: SwapTokenOption, chainId?: number) => {
+  if (!token?.contractAddress) return false;
+  if (isNativeAddress(token.contractAddress)) return false;
+  const effectiveChainId = token.chainId ?? chainId;
+  const nativeSymbol = effectiveChainId
+    ? CHAIN_METADATA[effectiveChainId]?.nativeCurrency?.symbol?.toUpperCase()
+    : undefined;
+  if (
+    nativeSymbol &&
+    token.symbol?.toUpperCase() === nativeSymbol &&
+    isNativeAddress(token.contractAddress)
+  ) {
+    return false;
+  }
+  return true;
 };
 
 const getOnrampChainIdNumber = (chainId?: number | string) => {
@@ -2432,17 +2665,23 @@ function OnrampProcessingTimelinePanel({
 }
 
 function OnrampCompletingDepositPanel({
+  depositExecution,
   destinationAmount,
   destinationChainName,
   destinationSymbol,
+  gasShortfallInfo,
+  gasTokenSymbol,
   provider,
   sourceAmount,
   sourceCurrencyCode,
   targetLabel,
 }: {
+  depositExecution?: OnrampDepositExecutionState;
   destinationAmount: string;
   destinationChainName: string;
   destinationSymbol?: string;
+  gasShortfallInfo?: OnrampGasShortfallInfo | null;
+  gasTokenSymbol?: string;
   provider?: string;
   sourceAmount: string;
   sourceCurrencyCode: string;
@@ -2453,6 +2692,42 @@ function OnrampCompletingDepositPanel({
     destinationSymbol,
   );
   const sourceDisplay = formatCurrencyAmount(sourceAmount, sourceCurrencyCode);
+  const isSwappingGas = depositExecution?.step === "swapping_gas";
+  const hasGasSwap = Boolean(
+    gasShortfallInfo?.isShortfall &&
+      gasShortfallInfo.shortfallAmountRaw > BigInt(0),
+  );
+  const gasSwapDone = hasGasSwap && depositExecution?.step === "depositing";
+
+  const steps = [
+    {
+      complete: true,
+      subtitle: `${sourceDisplay} by ${getProviderLabel(provider)}`,
+      title: "Payment received",
+    },
+    {
+      complete: true,
+      subtitle: `On ${destinationChainName}`,
+      title: `Sent ${destinationDisplay} to your wallet`,
+    },
+    ...(hasGasSwap
+      ? [
+          {
+            complete: gasSwapDone,
+            subtitle: `Swapping ${gasShortfallInfo?.shortfallAmountEth ?? ""} ${
+              gasTokenSymbol ?? "gas"
+            } on ${destinationChainName}`,
+            title: `Swap for gas (${gasTokenSymbol ?? "gas"})`,
+          },
+        ]
+      : []),
+    {
+      complete: false,
+      subtitle: `On ${destinationChainName}`,
+      title: `Depositing on ${targetLabel}`,
+    },
+  ];
+
   return (
     <>
       <div
@@ -2465,7 +2740,7 @@ function OnrampCompletingDepositPanel({
           textAlign: "center",
         }}
       >
-        Usually takes 20 seconds
+        {isSwappingGas ? "Swapping for gas..." : "Usually takes 20 seconds"}
       </div>
       <div
         style={{
@@ -2479,24 +2754,13 @@ function OnrampCompletingDepositPanel({
       >
         <OnrampStatusArtwork />
         <OnrampExpandableTimelineCard
-          steps={[
-            {
-              complete: true,
-              subtitle: `${sourceDisplay} by ${getProviderLabel(provider)}`,
-              title: "Payment received",
-            },
-            {
-              complete: true,
-              subtitle: `On ${destinationChainName}`,
-              title: `Sent ${destinationDisplay} to your wallet`,
-            },
-            {
-              subtitle: `On ${destinationChainName}`,
-              title: `Depositing on ${targetLabel}`,
-            },
-          ]}
+          steps={steps}
           summaryAmount={destinationDisplay}
-          summaryLabel={`Depositing to ${targetLabel}`}
+          summaryLabel={
+            isSwappingGas
+              ? `Swapping for ${gasTokenSymbol ?? "gas"}`
+              : `Depositing to ${targetLabel}`
+          }
         />
         <SafeCloseNotice />
       </div>
@@ -2714,6 +2978,7 @@ function OnrampHandoffPanel({
 
 function OnrampSessionStatusPanel({
   depositExecution,
+  gasShortfallInfo,
   onCancel,
   onDone,
   onRetryDeposit,
@@ -2728,6 +2993,7 @@ function OnrampSessionStatusPanel({
   toToken,
 }: {
   depositExecution: OnrampDepositExecutionState;
+  gasShortfallInfo?: OnrampGasShortfallInfo | null;
   onCancel: () => void;
   onDone: () => void;
   onRetryDeposit: () => void;
@@ -2759,6 +3025,9 @@ function OnrampSessionStatusPanel({
     sourceCurrencyCode;
   const destinationChainName = getDepositChainName(opportunity, toToken);
   const targetLabel = getDepositTargetLabel(opportunity);
+  const destinationChainId = toToken?.chainId ?? opportunity?.chainId ?? 0;
+  const gasTokenSymbol =
+    CHAIN_METADATA[destinationChainId]?.nativeCurrency?.symbol ?? "ETH";
   const explorerUrl =
     depositExecution.explorerUrl ?? getOnrampExplorerUrl(session, toToken);
   const containerStyle: React.CSSProperties = {
@@ -2867,9 +3136,12 @@ function OnrampSessionStatusPanel({
     return (
       <div style={containerStyle}>
         <OnrampCompletingDepositPanel
+          depositExecution={depositExecution}
           destinationAmount={destinationAmount}
           destinationChainName={destinationChainName}
           destinationSymbol={destinationSymbol}
+          gasShortfallInfo={gasShortfallInfo}
+          gasTokenSymbol={gasTokenSymbol}
           provider={provider}
           sourceAmount={sourceDisplayAmount}
           sourceCurrencyCode={sourceDisplayCurrency}
@@ -2972,6 +3244,9 @@ export function DepositOnrampFlow({
     React.useState(false);
   const [depositExecution, setDepositExecution] =
     React.useState<OnrampDepositExecutionState>({ status: "idle" });
+  const [gasShortfallInfo, setGasShortfallInfo] =
+    React.useState<OnrampGasShortfallInfo | null>(null);
+  const [gasShortfallLoading, setGasShortfallLoading] = React.useState(false);
   const [quoteRefreshSeconds, setQuoteRefreshSeconds] = React.useState(
     QUOTE_REFRESH_SECONDS,
   );
@@ -3172,6 +3447,139 @@ export function DepositOnrampFlow({
     return null;
   })();
 
+  const targetChainId = toToken?.chainId ?? opportunity?.chainId;
+  const isErc20 = isErc20Token(toToken, targetChainId);
+
+  React.useEffect(() => {
+    if (!targetChainId || !isErc20) {
+      setGasShortfallInfo(null);
+      setGasShortfallLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setGasShortfallLoading(true);
+
+    const runGasShortfallCheck = async () => {
+      try {
+        // 1. Gas units from opportunity executeDeposit:
+        let configGas = BigInt(1000000);
+        let hasApproval = false;
+        if (opportunity?.executeDeposit) {
+          try {
+            const dummyAmountRaw = BigInt(1000000);
+            const dummyUser =
+              ownerAddress && isAddress(ownerAddress)
+                ? (ownerAddress as Address)
+                : ONRAMP_DISCONNECTED_QUOTE_WALLET_ADDRESS;
+            const executeParams = opportunity.executeDeposit(
+              opportunity.tokenSymbol,
+              opportunity.tokenAddress,
+              dummyAmountRaw,
+              targetChainId,
+              dummyUser,
+            );
+            if (executeParams?.gas && executeParams.gas > BigInt(0)) {
+              configGas = executeParams.gas;
+            }
+            if (executeParams?.tokenApproval) {
+              hasApproval = true;
+            }
+          } catch (e) {
+            console.warn(
+              "Could not simulate executeDeposit for gas estimation, using default 1M gas",
+              e,
+            );
+          }
+        }
+        const estimatedGasUnits =
+          configGas + (hasApproval ? BigInt(50000) : BigInt(0));
+
+        // 2. Fetch destination gas price:
+        const gasPriceWei = await fetchDestinationGasPriceWei(
+          targetChainId,
+          walletClient,
+          nexusSDK,
+        );
+
+        // 3. Wei calculation with 20% safety margin:
+        const rawGasCostWei = estimatedGasUnits * gasPriceWei;
+        const requiredGasWei =
+          (rawGasCostWei * BigInt(120)) / BigInt(100);
+
+        // 4. Native decimals & ETH conversion:
+        const nativeDecimals =
+          CHAIN_METADATA[targetChainId]?.nativeCurrency?.decimals ?? 18;
+        const requiredGasEth = new Decimal(requiredGasWei.toString())
+          .div(Decimal.pow(10, nativeDecimals))
+          .toFixed();
+
+        // 5. User balance & shortfall:
+        let userGasBalanceWei = BigInt(0);
+        if (ownerAddress && isAddress(ownerAddress)) {
+          userGasBalanceWei = await fetchUserNativeGasBalanceWei(
+            ownerAddress as Address,
+            targetChainId,
+            walletClient,
+            nexusSDK,
+          );
+        }
+        const userGasBalanceEth = new Decimal(userGasBalanceWei.toString())
+          .div(Decimal.pow(10, nativeDecimals))
+          .toFixed();
+
+        const gasDiffWei = userGasBalanceWei - requiredGasWei;
+        const isShortfall = isErc20 && gasDiffWei < BigInt(0);
+        const shortfallAmountRaw = isShortfall
+          ? requiredGasWei - userGasBalanceWei
+          : BigInt(0);
+        const shortfallAmountEth = isShortfall
+          ? new Decimal(shortfallAmountRaw.toString())
+              .div(Decimal.pow(10, nativeDecimals))
+              .toFixed()
+          : "0";
+
+        if (!cancelled) {
+          setGasShortfallInfo({
+            estimatedGasUnits,
+            gasPriceWei,
+            hasApproval,
+            isErc20: true,
+            isShortfall,
+            requiredGasEth,
+            requiredGasWei,
+            shortfallAmountEth,
+            shortfallAmountRaw,
+            userGasBalanceEth,
+            userGasBalanceWei,
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to check gas shortfall:", err);
+        if (!cancelled) {
+          setGasShortfallInfo(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setGasShortfallLoading(false);
+        }
+      }
+    };
+
+    void runGasShortfallCheck();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    targetChainId,
+    isErc20,
+    opportunity,
+    ownerAddress,
+    walletClient,
+    nexusSDK,
+  ]);
+
   const executeOnrampDeposit = React.useCallback(
     async (force = false) => {
       const sessionId = session?.sessionId;
@@ -3247,6 +3655,140 @@ export function DepositOnrampFlow({
         const toChainId = toToken.chainId ?? opportunity.chainId;
         if (!toChainId) {
           throw new Error("Unable to resolve the deposit chain.");
+        }
+
+        // If the token is an ERC20 token and a gas shortfall is detected, perform swapWithExactOut for native gas
+        const isErc20DepositToken = isErc20Token(toToken, toChainId);
+        if (
+          isErc20DepositToken &&
+          gasShortfallInfo?.isShortfall &&
+          gasShortfallInfo.shortfallAmountRaw > BigInt(0) &&
+          nexusSDK?.swapWithExactOut
+        ) {
+          console.log(
+            "[NexusWidget Onramp] Gas shortfall detected, executing swapWithExactOut for gas",
+            {
+              shortfallAmountEth: gasShortfallInfo.shortfallAmountEth,
+              shortfallAmountRaw: gasShortfallInfo.shortfallAmountRaw,
+              toChainId,
+              tokenAddress: toToken.contractAddress,
+            },
+          );
+
+          setSession((current) =>
+            current?.sessionId === sessionId
+              ? { ...current, state: "SWAPPING_GAS" }
+              : current,
+          );
+          setDepositExecution({ status: "running", step: "swapping_gas" });
+
+          let swapSourceSpentRaw: bigint | null = null;
+          const exactOutSwapInput = {
+            sources: [
+              {
+                chainId: toChainId,
+                tokenAddress: toToken.contractAddress as Hex,
+              },
+            ],
+            toAmountRaw: gasShortfallInfo.shortfallAmountRaw,
+            toChainId,
+            toTokenAddress: zeroAddress as Hex,
+          };
+
+          try {
+            await nexusSDK.swapWithExactOut(exactOutSwapInput, {
+              hooks: {
+                onIntent: (data: any) => {
+                  try {
+                    const sourceAmount = data?.intent?.sources?.[0]?.amount;
+                    if (sourceAmount) {
+                      swapSourceSpentRaw = parseUnits(sourceAmount, decimals);
+                    }
+                  } catch (e) {
+                    console.warn("Could not parse swap source amount", e);
+                  }
+                  data.allow?.();
+                },
+              },
+              onEvent: (event: any) => {
+                console.log("[NexusWidget Onramp] Swap exact out event:", event);
+              },
+            });
+
+            setDepositExecution({ status: "running", step: "depositing" });
+
+            // Update remaining ERC20 balance
+            try {
+              const callData = encodeFunctionData({
+                abi: erc20Abi,
+                args: [account],
+                functionName: "balanceOf",
+              });
+
+              let updatedBalanceRaw: bigint | null = null;
+              const rpcUrl = getChainRpcUrl(toChainId, nexusSDK);
+
+              if (walletClient && walletClient.chain?.id === toChainId) {
+                try {
+                  const resultHex = (await walletClient.request({
+                    method: "eth_call",
+                    params: [
+                      { data: callData, to: toToken.contractAddress },
+                      "latest",
+                    ],
+                  } as any)) as string;
+                  if (resultHex) {
+                    updatedBalanceRaw = BigInt(resultHex);
+                  }
+                } catch {}
+              }
+
+              if (updatedBalanceRaw === null && rpcUrl) {
+                try {
+                  const resultHex = await makeJsonRpcCall<string>(
+                    rpcUrl,
+                    "eth_call",
+                    [
+                      { data: callData, to: toToken.contractAddress },
+                      "latest",
+                    ],
+                  );
+                  if (resultHex) {
+                    updatedBalanceRaw = BigInt(resultHex);
+                  }
+                } catch {}
+              }
+
+              if (
+                updatedBalanceRaw !== null &&
+                updatedBalanceRaw > BigInt(0)
+              ) {
+                amountRaw = updatedBalanceRaw;
+              } else if (
+                swapSourceSpentRaw &&
+                swapSourceSpentRaw < amountRaw
+              ) {
+                amountRaw = amountRaw - swapSourceSpentRaw;
+              }
+            } catch (balanceErr) {
+              if (
+                swapSourceSpentRaw &&
+                swapSourceSpentRaw < amountRaw
+              ) {
+                amountRaw = amountRaw - swapSourceSpentRaw;
+              }
+            }
+          } catch (swapErr) {
+            console.error(
+              "[NexusWidget Onramp] Gas shortfall swap failed",
+              swapErr,
+            );
+            throw new Error(
+              `Failed to swap for gas: ${
+                swapErr instanceof Error ? swapErr.message : String(swapErr)
+              }`,
+            );
+          }
         }
 
         if (walletClient.chain?.id !== toChainId) {
@@ -4156,6 +4698,7 @@ export function DepositOnrampFlow({
     return (
       <OnrampSessionStatusPanel
         depositExecution={depositExecution}
+        gasShortfallInfo={gasShortfallInfo}
         onCancel={resetSession}
         onDone={completeSession}
         onRetryDeposit={() => void executeOnrampDeposit(true)}
