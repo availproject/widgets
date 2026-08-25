@@ -212,10 +212,7 @@ type OnrampNexusSDK = {
       | null
       | undefined;
   };
-  swapWithExactOut?: (
-    input: any,
-    options?: any,
-  ) => Promise<any>;
+  swapWithExactOut?: (input: any, options?: any) => Promise<any>;
   [key: string]: any;
 };
 
@@ -508,7 +505,7 @@ const FIAT_CURRENCY_TO_COUNTRY_CODE: Record<string, string> = {
   EGP: "EG",
   ERN: "ER",
   ETB: "ET",
-  EUR: "EU",
+  EUR: "FR",
   FJD: "FJ",
   FKP: "FK",
   GBP: "GB",
@@ -1217,10 +1214,7 @@ const fetchDestinationGasPriceWei = async (
     }
 
     if (rpcUrl) {
-      const gasPriceHex = await makeJsonRpcCall<string>(
-        rpcUrl,
-        "eth_gasPrice",
-      );
+      const gasPriceHex = await makeJsonRpcCall<string>(rpcUrl, "eth_gasPrice");
       if (gasPriceHex) {
         const parsed = BigInt(gasPriceHex);
         if (parsed > BigInt(0)) return parsed;
@@ -1629,9 +1623,7 @@ function CurrencyMark({
 }) {
   const displayCode = currency?.currencyCode ?? code;
   const imageUrl =
-    currency?.flagUrl ??
-    currency?.symbolUrl ??
-    getCurrencyFlagUrl(displayCode);
+    currency?.flagUrl ?? currency?.symbolUrl ?? getCurrencyFlagUrl(displayCode);
 
   if (imageUrl) {
     return <TokenLogo label={displayCode} size={32} src={imageUrl} />;
@@ -2870,7 +2862,7 @@ function OnrampCompletingDepositPanel({
   const isSwappingGas = depositExecution?.step === "swapping_gas";
   const hasGasSwap = Boolean(
     gasShortfallInfo?.isShortfall &&
-      gasShortfallInfo.shortfallAmountRaw > BigInt(0),
+    gasShortfallInfo.shortfallAmountRaw > BigInt(0),
   );
   const gasSwapDone = hasGasSwap && depositExecution?.step === "depositing";
 
@@ -3694,8 +3686,7 @@ export function DepositOnrampFlow({
 
         // 3. Wei calculation with 20% safety margin:
         const rawGasCostWei = estimatedGasUnits * gasPriceWei;
-        const requiredGasWei =
-          (rawGasCostWei * BigInt(120)) / BigInt(100);
+        const requiredGasWei = (rawGasCostWei * BigInt(120)) / BigInt(100);
 
         // 4. Native decimals & ETH conversion:
         const nativeDecimals =
@@ -3901,7 +3892,10 @@ export function DepositOnrampFlow({
                 },
               },
               onEvent: (event: any) => {
-                console.log("[NexusWidget Onramp] Swap exact out event:", event);
+                console.log(
+                  "[NexusWidget Onramp] Swap exact out event:",
+                  event,
+                );
               },
             });
 
@@ -3938,10 +3932,7 @@ export function DepositOnrampFlow({
                   const resultHex = await makeJsonRpcCall<string>(
                     rpcUrl,
                     "eth_call",
-                    [
-                      { data: callData, to: toToken.contractAddress },
-                      "latest",
-                    ],
+                    [{ data: callData, to: toToken.contractAddress }, "latest"],
                   );
                   if (resultHex) {
                     updatedBalanceRaw = BigInt(resultHex);
@@ -3949,22 +3940,13 @@ export function DepositOnrampFlow({
                 } catch {}
               }
 
-              if (
-                updatedBalanceRaw !== null &&
-                updatedBalanceRaw > BigInt(0)
-              ) {
+              if (updatedBalanceRaw !== null && updatedBalanceRaw > BigInt(0)) {
                 amountRaw = updatedBalanceRaw;
-              } else if (
-                swapSourceSpentRaw &&
-                swapSourceSpentRaw < amountRaw
-              ) {
+              } else if (swapSourceSpentRaw && swapSourceSpentRaw < amountRaw) {
                 amountRaw = amountRaw - swapSourceSpentRaw;
               }
             } catch (balanceErr) {
-              if (
-                swapSourceSpentRaw &&
-                swapSourceSpentRaw < amountRaw
-              ) {
+              if (swapSourceSpentRaw && swapSourceSpentRaw < amountRaw) {
                 amountRaw = amountRaw - swapSourceSpentRaw;
               }
             }
