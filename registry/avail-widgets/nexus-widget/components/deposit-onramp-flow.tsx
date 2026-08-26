@@ -377,15 +377,80 @@ const normalizeAmountInput = (raw: string) => {
 
 const formatNumberDisplay = (value: unknown, maxDecimals = 2) => {
   const parsed = parseDecimal(value) ?? new Decimal(0);
-  return parsed
+  const fixed = parsed
     .toDecimalPlaces(maxDecimals, Decimal.ROUND_DOWN)
-    .toFixed()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    .toFixed();
+  const [intPart, decPart] = fixed.split(".");
+  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
 };
 
-const formatCurrencyAmount = (value: unknown, currencyCode?: string) => {
-  const suffix = currencyCode ? ` ${currencyCode}` : "";
-  return `${formatNumberDisplay(value)}${suffix}`;
+const formatPlainNumberDisplay = (value: unknown, maxDecimals = 6) => {
+  const parsed = parseDecimal(value);
+  if (!parsed || parsed.isZero()) return "0";
+  return parsed.toDecimalPlaces(maxDecimals, Decimal.ROUND_DOWN).toFixed();
+};
+
+const ONRAMP_FOREX_RATES_CACHE_KEY = "nexus_onramp_forex_rates_usd";
+const ONRAMP_FOREX_RATES_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+const fetchOnrampForexRates = async (): Promise<Record<string, number>> => {
+  const cached = readOnrampCache<Record<string, number>>(
+    ONRAMP_FOREX_RATES_CACHE_KEY,
+  );
+  if (cached && typeof cached === "object" && Object.keys(cached).length > 0) {
+    return cached;
+  }
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/USD");
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.rates && typeof data.rates === "object") {
+        const rates = data.rates as Record<string, number>;
+        writeOnrampCache(
+          ONRAMP_FOREX_RATES_CACHE_KEY,
+          rates,
+          ONRAMP_FOREX_RATES_TTL_MS,
+        );
+        return rates;
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to fetch onramp forex rates", e);
+  }
+  return {};
+};
+
+const FIAT_EXCLUSIVE_SYMBOLS: Record<string, string> = {
+  CNY: "¥",
+  EUR: "€",
+  GBP: "£",
+  ILS: "₪",
+  INR: "₹",
+  JPY: "¥",
+  KPW: "₩",
+  KRW: "₩",
+  NGN: "₦",
+  PHP: "₱",
+  RUB: "₽",
+  THB: "฿",
+  TRY: "₺",
+  USD: "$",
+  VND: "₫",
+};
+
+const formatCurrencyAmount = (
+  value: unknown,
+  currencyCode?: string,
+  maxDecimals = 2,
+) => {
+  const code = (currencyCode ?? "").toUpperCase();
+  const symbol = code ? FIAT_EXCLUSIVE_SYMBOLS[code] : undefined;
+  const formatted = formatNumberDisplay(value, maxDecimals);
+  if (symbol) {
+    return `${symbol}${formatted}`;
+  }
+  return code ? `${formatted} ${code}` : formatted;
 };
 
 const formatUsdDisplay = (value: unknown) => {
@@ -409,9 +474,13 @@ const getIntlCurrencyName = (currencyCode?: string) => {
 
 const getIntlCurrencySymbol = (currencyCode?: string) => {
   if (!currencyCode) return undefined;
+  const normalized = currencyCode.toUpperCase();
+  if (FIAT_EXCLUSIVE_SYMBOLS[normalized]) {
+    return FIAT_EXCLUSIVE_SYMBOLS[normalized];
+  }
   try {
     return new Intl.NumberFormat("en", {
-      currency: currencyCode.toUpperCase(),
+      currency: normalized,
       currencyDisplay: "narrowSymbol",
       style: "currency",
     })
@@ -3415,6 +3484,7 @@ export function DepositOnrampFlow({
   const [gasShortfallInfo, setGasShortfallInfo] =
     React.useState<OnrampGasShortfallInfo | null>(null);
   const [gasShortfallLoading, setGasShortfallLoading] = React.useState(false);
+  const [forexRates, setForexRates] = React.useState<Record<string, number>>({});
   const [quoteRefreshSeconds, setQuoteRefreshSeconds] = React.useState(
     QUOTE_REFRESH_SECONDS,
   );
@@ -4186,6 +4256,20 @@ export function DepositOnrampFlow({
   }, [quotesLoading]);
 
   React.useEffect(() => {
+    let cancelled = false;
+    const loadForex = async () => {
+      const rates = await fetchOnrampForexRates();
+      if (!cancelled && rates && Object.keys(rates).length > 0) {
+        setForexRates(rates);
+      }
+    };
+    void loadForex();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
     if (blockedRateRequest?.key === rateRequestKey) {
       quoteRunIdRef.current += 1;
       lastRouteRequestKeyRef.current = rateRequestKey;
@@ -4832,6 +4916,98 @@ export function DepositOnrampFlow({
   const feeTotal = selectedQuote?.fees?.total;
   const displayProvider = selectedQuote?.provider ?? selectedProvider;
   const providerSubtitle = selectedQuote ? "Best available quote" : "";
+
+  const receiveFiatSubtitle = React.useMemo(() => {
+    if (!receiveAmount) return "$0.00 USD";
+    const usdDisplay = formatUsdDisplay(receiveUsd);
+    const upperCurrency = sourceCurrencyCode.toUpperCase();
+    if (!upperCurrency || upperCurrency === "USD") {
+      return usdDisplay;
+    }
+
+    // Try converting USD to selected fiat currency using live forex rate
+    let fiatAmount: Decimal | null = null;
+    const rate = forexRates[upperCurrency];
+    if (rate && typeof rate === "number" && rate > 0) {
+      const parsedUsd = parseDecimal(receiveUsd);
+      if (parsedUsd) {
+        fiatAmount = parsedUsd.mul(rate);
+      }
+    }
+
+    // Fallback: estimate from quote (sourceAmount minus fees)
+    if (!fiatAmount && selectedQuote?.sourceAmount) {
+      const sourceDec = parseDecimal(selectedQuote.sourceAmount);
+      const feeDec = parseDecimal(selectedQuote.fees?.total) ?? new Decimal(0);
+      if (sourceDec && sourceDec.gt(0)) {
+        fiatAmount = Decimal.max(0, sourceDec.minus(feeDec));
+      }
+    }
+
+    if (fiatAmount && fiatAmount.gt(0)) {
+      const formattedFiat = formatCurrencyAmount(fiatAmount, upperCurrency, 2);
+      return `${usdDisplay} ≈ ${formattedFiat}`;
+    }
+
+    return usdDisplay;
+  }, [
+    forexRates,
+    receiveAmount,
+    receiveUsd,
+    selectedQuote?.fees?.total,
+    selectedQuote?.sourceAmount,
+    sourceCurrencyCode,
+  ]);
+
+  const minReceivedFiatValue = React.useMemo(() => {
+    if (!receiveAmount) return null;
+    const upperCurrency = sourceCurrencyCode.toUpperCase();
+    const parsedUsd = parseDecimal(receiveUsd);
+    if (!parsedUsd || parsedUsd.lte(0)) return null;
+
+    if (!upperCurrency || upperCurrency === "USD") {
+      return parsedUsd;
+    }
+
+    const rate = forexRates[upperCurrency];
+    if (rate && typeof rate === "number" && rate > 0) {
+      return parsedUsd.mul(rate);
+    }
+
+    if (selectedQuote?.sourceAmount) {
+      const sourceDec = parseDecimal(selectedQuote.sourceAmount);
+      const feeDec = parseDecimal(selectedQuote.fees?.total) ?? new Decimal(0);
+      if (sourceDec && sourceDec.gt(0)) {
+        return Decimal.max(0, sourceDec.minus(feeDec));
+      }
+    }
+
+    return null;
+  }, [
+    forexRates,
+    receiveAmount,
+    receiveUsd,
+    selectedQuote?.fees?.total,
+    selectedQuote?.sourceAmount,
+    sourceCurrencyCode,
+  ]);
+
+  const slippageFiatValue = React.useMemo(() => {
+    if (!minReceivedFiatValue || !selectedQuote?.sourceAmount) return null;
+    const sourceDec = parseDecimal(selectedQuote.sourceAmount);
+    if (!sourceDec || sourceDec.lte(0)) return null;
+    const feeDec = parseDecimal(selectedQuote.fees?.total) ?? new Decimal(0);
+    const netPaid = Decimal.max(0, sourceDec.minus(feeDec));
+    const diff = netPaid.minus(minReceivedFiatValue);
+    if (diff.gt(0.0001)) {
+      return diff;
+    }
+    return null;
+  }, [
+    minReceivedFiatValue,
+    selectedQuote?.fees?.total,
+    selectedQuote?.sourceAmount,
+  ]);
   const activeQuoteRequestFailure =
     failedQuoteRequest?.key === quoteRequestKey ? failedQuoteRequest : null;
   const hasRouteDetails = Boolean(
@@ -5097,7 +5273,7 @@ export function DepositOnrampFlow({
                   lineHeight: "36px",
                 }}
               >
-                {receiveAmount ? formatNumberDisplay(receiveAmount, 6) : "0"}
+                {receiveAmount ? formatPlainNumberDisplay(receiveAmount, 6) : "0"}
               </div>
               <div
                 style={{
@@ -5107,7 +5283,7 @@ export function DepositOnrampFlow({
                   lineHeight: "18px",
                 }}
               >
-                {receiveAmount ? formatUsdDisplay(receiveUsd) : "$0.00 USD"}
+                {receiveFiatSubtitle}
               </div>
             </div>
             <SelectPill
@@ -5364,7 +5540,7 @@ export function DepositOnrampFlow({
       {activeSheet === "fees" && (
         <Sheet
           onClose={() => setActiveSheet(null)}
-          title={`Buying ${formatNumberDisplay(receiveAmount, 6)} ${toToken?.symbol ?? ""}`}
+          title={`Buying ${formatPlainNumberDisplay(receiveAmount, 6)} ${toToken?.symbol ?? ""}`}
         >
           <div
             style={{
@@ -5428,6 +5604,74 @@ export function DepositOnrampFlow({
                 </span>
               </div>
             ))}
+            {slippageFiatValue && slippageFiatValue.gt(0) && (
+              <div
+                style={{
+                  alignItems: "center",
+                  borderTop: `1px solid ${theme.colors.divider}`,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "12px 14px",
+                }}
+              >
+                <span
+                  style={{
+                    color: theme.colors.textSubtle,
+                    fontFamily: theme.fonts.sans,
+                    fontSize: "14px",
+                    lineHeight: "18px",
+                  }}
+                >
+                  Slippage
+                </span>
+                <span
+                  style={{
+                    color: theme.colors.textStrong,
+                    fontFamily: theme.fonts.sans,
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    lineHeight: "18px",
+                  }}
+                >
+                  {formatCurrencyAmount(slippageFiatValue, sourceCurrencyCode)}
+                </span>
+              </div>
+            )}
+            <div
+              style={{
+                alignItems: "center",
+                borderTop: `1px solid ${theme.colors.divider}`,
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "12px 14px",
+              }}
+            >
+              <span
+                style={{
+                  color: theme.colors.textSubtle,
+                  fontFamily: theme.fonts.sans,
+                  fontSize: "14px",
+                  lineHeight: "18px",
+                }}
+              >
+                Min. Received
+              </span>
+              <span
+                style={{
+                  color: theme.colors.textStrong,
+                  fontFamily: theme.fonts.sans,
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  lineHeight: "18px",
+                }}
+              >
+                {minReceivedFiatValue
+                  ? formatCurrencyAmount(minReceivedFiatValue, sourceCurrencyCode)
+                  : selectedQuote?.destinationAmount
+                    ? `${formatPlainNumberDisplay(selectedQuote.destinationAmount, 6)} ${toToken?.symbol ?? ""}`
+                    : "--"}
+              </span>
+            </div>
             <div
               style={{
                 alignItems: "center",
@@ -5498,7 +5742,7 @@ export function DepositOnrampFlow({
                     title={getProviderLabel(option.provider)}
                     value={
                       option.destinationAmount
-                        ? `${formatNumberDisplay(option.destinationAmount, 6)} ${toToken?.symbol ?? ""}`
+                        ? `${formatPlainNumberDisplay(option.destinationAmount, 6)} ${toToken?.symbol ?? ""}`
                         : undefined
                     }
                   />
