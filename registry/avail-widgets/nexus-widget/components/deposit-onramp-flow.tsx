@@ -293,6 +293,7 @@ const panelStyle: React.CSSProperties = {
 
 const sectionLabelStyle: React.CSSProperties = {
   color: theme.colors.textSubtle,
+  flexShrink: 0,
   fontFamily: theme.fonts.sans,
   fontSize: "12px",
   fontWeight: 600,
@@ -1495,13 +1496,12 @@ const isSameOnrampToken = (left?: SwapTokenOption, right?: SwapTokenOption) =>
 
 const sortQuotes = (quotes: OnrampQuote[]) =>
   [...quotes].sort((a, b) => {
+    const aAmount = parseDecimal(a.destinationAmount) ?? new Decimal(0);
+    const bAmount = parseDecimal(b.destinationAmount) ?? new Decimal(0);
+    const destinationDelta = bAmount.cmp(aAmount);
+    if (destinationDelta !== 0) return destinationDelta;
     const scoreDelta = (b.rampScore ?? 0) - (a.rampScore ?? 0);
-    if (scoreDelta !== 0) return scoreDelta;
-    const destinationDelta =
-      parseDecimal(b.destinationAmount)?.cmp(
-        parseDecimal(a.destinationAmount) ?? new Decimal(0),
-      ) ?? 0;
-    return destinationDelta;
+    return scoreDelta;
   });
 
 const matchesSearch = (query: string, values: Array<string | undefined>) => {
@@ -2011,13 +2011,22 @@ function SheetSearchInput({
         border: `1px solid ${focused ? "#A8C9FF" : theme.colors.border}`,
         borderRadius: "12px",
         boxShadow: focused ? "0 0 0 1px rgba(0,107,244,0.16)" : "none",
+        boxSizing: "border-box",
         display: "flex",
+        flexShrink: 0,
         gap: "8px",
         height: "42px",
+        minHeight: "42px",
         padding: "0 8px 0 14px",
+        width: "100%",
       }}
     >
-      <Search aria-hidden="true" color={theme.colors.textSubtle} size={18} />
+      <Search
+        aria-hidden="true"
+        color={theme.colors.textSubtle}
+        size={18}
+        style={{ flexShrink: 0 }}
+      />
       <input
         onBlur={() => setFocused(false)}
         onChange={(event) => onChange(event.target.value)}
@@ -2026,10 +2035,12 @@ function SheetSearchInput({
         style={{
           backgroundColor: "transparent",
           border: "none",
+          boxSizing: "border-box",
           color: theme.colors.textStrong,
           flex: "1 1 0%",
           fontFamily: theme.fonts.sans,
           fontSize: "14px",
+          height: "100%",
           lineHeight: "18px",
           minWidth: 0,
           outline: "none",
@@ -2047,6 +2058,7 @@ function SheetSearchInput({
             border: "none",
             cursor: "pointer",
             display: "flex",
+            flexShrink: 0,
             padding: "2px",
           }}
           type="button"
@@ -2086,6 +2098,7 @@ function SelectRow({
         boxSizing: "border-box",
         cursor: "pointer",
         display: "flex",
+        flexShrink: 0,
         gap: "10px",
         minHeight: "60px",
         padding: "10px 12px",
@@ -4446,11 +4459,7 @@ export function DepositOnrampFlow({
       const nextQuotes = sortQuotes(data.quotes ?? []);
       setQuotesRequestKey(quoteRequestKey);
       setQuotes(nextQuotes);
-      setSelectedProvider((current) =>
-        current && nextQuotes.some((quote) => quote.provider === current)
-          ? current
-          : (nextQuotes[0]?.provider ?? ""),
-      );
+      setSelectedProvider(nextQuotes[0]?.provider ?? "");
       if (nextQuotes.length === 0) {
         setError(
           "No local currency rates are available for this token and currency. Choose another deposit token or pay with wallet.",
@@ -4959,8 +4968,16 @@ export function DepositOnrampFlow({
     sourceCurrencyCode,
   ]);
 
-  const minReceivedFiatValue = React.useMemo(() => {
+  const tokenCostFiatValue = React.useMemo(() => {
     if (!receiveAmount) return null;
+    if (selectedQuote?.sourceAmount) {
+      const sourceDec = parseDecimal(selectedQuote.sourceAmount);
+      const feeDec = parseDecimal(selectedQuote.fees?.total) ?? new Decimal(0);
+      if (sourceDec && sourceDec.gt(0)) {
+        return Decimal.max(0, sourceDec.minus(feeDec));
+      }
+    }
+
     const upperCurrency = sourceCurrencyCode.toUpperCase();
     const parsedUsd = parseDecimal(receiveUsd);
     if (!parsedUsd || parsedUsd.lte(0)) return null;
@@ -4974,14 +4991,6 @@ export function DepositOnrampFlow({
       return parsedUsd.mul(rate);
     }
 
-    if (selectedQuote?.sourceAmount) {
-      const sourceDec = parseDecimal(selectedQuote.sourceAmount);
-      const feeDec = parseDecimal(selectedQuote.fees?.total) ?? new Decimal(0);
-      if (sourceDec && sourceDec.gt(0)) {
-        return Decimal.max(0, sourceDec.minus(feeDec));
-      }
-    }
-
     return null;
   }, [
     forexRates,
@@ -4992,22 +5001,6 @@ export function DepositOnrampFlow({
     sourceCurrencyCode,
   ]);
 
-  const slippageFiatValue = React.useMemo(() => {
-    if (!minReceivedFiatValue || !selectedQuote?.sourceAmount) return null;
-    const sourceDec = parseDecimal(selectedQuote.sourceAmount);
-    if (!sourceDec || sourceDec.lte(0)) return null;
-    const feeDec = parseDecimal(selectedQuote.fees?.total) ?? new Decimal(0);
-    const netPaid = Decimal.max(0, sourceDec.minus(feeDec));
-    const diff = netPaid.minus(minReceivedFiatValue);
-    if (diff.gt(0.0001)) {
-      return diff;
-    }
-    return null;
-  }, [
-    minReceivedFiatValue,
-    selectedQuote?.fees?.total,
-    selectedQuote?.sourceAmount,
-  ]);
   const activeQuoteRequestFailure =
     failedQuoteRequest?.key === quoteRequestKey ? failedQuoteRequest : null;
   const hasRouteDetails = Boolean(
@@ -5563,17 +5556,55 @@ export function DepositOnrampFlow({
               : "--"}
           </div>
           <div style={panelStyle}>
+            <div
+              style={{
+                alignItems: "center",
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "12px 14px",
+              }}
+            >
+              <span
+                style={{
+                  color: theme.colors.textSubtle,
+                  fontFamily: theme.fonts.sans,
+                  fontSize: "14px",
+                  lineHeight: "18px",
+                }}
+              >
+                {receiveAmount
+                  ? `Cost of ${formatPlainNumberDisplay(receiveAmount, 6)} ${toToken?.symbol ?? ""}`.trim()
+                  : `Cost of ${toToken?.symbol ?? "tokens"}`}
+              </span>
+              <span
+                style={{
+                  color: theme.colors.textStrong,
+                  fontFamily: theme.fonts.sans,
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  lineHeight: "18px",
+                }}
+              >
+                {tokenCostFiatValue
+                  ? formatCurrencyAmount(tokenCostFiatValue, sourceCurrencyCode)
+                  : "--"}
+              </span>
+            </div>
             {[
-              ["Provider fee", selectedQuote?.fees?.provider],
+              [
+                selectedQuote?.provider
+                  ? `${getProviderLabel(selectedQuote.provider)} fee`
+                  : "Provider fee",
+                selectedQuote?.fees?.provider,
+              ],
               ["Network fee", selectedQuote?.fees?.network],
               ["Partner fee", selectedQuote?.fees?.partner],
-            ].map(([label, value], index) => (
+            ].map(([label, value]) => (
               <div
                 key={label}
                 style={{
                   alignItems: "center",
-                  borderTop:
-                    index > 0 ? `1px solid ${theme.colors.divider}` : undefined,
+                  borderTop: `1px solid ${theme.colors.divider}`,
                   display: "flex",
                   justifyContent: "space-between",
                   padding: "12px 14px",
@@ -5604,74 +5635,6 @@ export function DepositOnrampFlow({
                 </span>
               </div>
             ))}
-            {slippageFiatValue && slippageFiatValue.gt(0) && (
-              <div
-                style={{
-                  alignItems: "center",
-                  borderTop: `1px solid ${theme.colors.divider}`,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "12px 14px",
-                }}
-              >
-                <span
-                  style={{
-                    color: theme.colors.textSubtle,
-                    fontFamily: theme.fonts.sans,
-                    fontSize: "14px",
-                    lineHeight: "18px",
-                  }}
-                >
-                  Slippage
-                </span>
-                <span
-                  style={{
-                    color: theme.colors.textStrong,
-                    fontFamily: theme.fonts.sans,
-                    fontSize: "14px",
-                    fontWeight: 500,
-                    lineHeight: "18px",
-                  }}
-                >
-                  {formatCurrencyAmount(slippageFiatValue, sourceCurrencyCode)}
-                </span>
-              </div>
-            )}
-            <div
-              style={{
-                alignItems: "center",
-                borderTop: `1px solid ${theme.colors.divider}`,
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "12px 14px",
-              }}
-            >
-              <span
-                style={{
-                  color: theme.colors.textSubtle,
-                  fontFamily: theme.fonts.sans,
-                  fontSize: "14px",
-                  lineHeight: "18px",
-                }}
-              >
-                Min. Received
-              </span>
-              <span
-                style={{
-                  color: theme.colors.textStrong,
-                  fontFamily: theme.fonts.sans,
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  lineHeight: "18px",
-                }}
-              >
-                {minReceivedFiatValue
-                  ? formatCurrencyAmount(minReceivedFiatValue, sourceCurrencyCode)
-                  : selectedQuote?.destinationAmount
-                    ? `${formatPlainNumberDisplay(selectedQuote.destinationAmount, 6)} ${toToken?.symbol ?? ""}`
-                    : "--"}
-              </span>
-            </div>
             <div
               style={{
                 alignItems: "center",
