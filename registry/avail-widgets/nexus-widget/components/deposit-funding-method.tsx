@@ -3,10 +3,13 @@
 import { CreditCard, Wallet } from "lucide-react";
 import React from "react";
 import { nexusWidgetTheme } from "../theme";
+import type { NexusWidgetDappConfig } from "../types";
 
-type FundingMethod = "wallet" | "local-currency";
+type FundingMethod = "wallet" | "local-currency" | `dapp-${number}`;
 
 interface DepositFundingMethodProps {
+  dapps?: NexusWidgetDappConfig[];
+  enableOnRamp?: boolean;
   isBalanceLoading?: boolean;
   onSelectLocalCurrency: () => void;
   onSelectWallet: () => void;
@@ -222,6 +225,8 @@ function FundingOption({
 }
 
 export function DepositFundingMethod({
+  dapps,
+  enableOnRamp = false,
   isBalanceLoading = false,
   onSelectLocalCurrency,
   onSelectWallet,
@@ -231,13 +236,35 @@ export function DepositFundingMethod({
   const [selectedMethod, setSelectedMethod] =
     React.useState<FundingMethod | null>(null);
 
+  const validDapps = React.useMemo(
+    () =>
+      (dapps ?? []).filter(
+        (dapp) => dapp.title && dapp.targetUrl,
+      ),
+    [dapps],
+  );
+
   const handleContinue = () => {
     if (!selectedMethod) return;
     if (selectedMethod === "wallet") {
       onSelectWallet();
       return;
     }
-    onSelectLocalCurrency();
+    if (selectedMethod === "local-currency") {
+      onSelectLocalCurrency();
+      return;
+    }
+    // Handle dapp selection – open targetUrl in new tab
+    if (selectedMethod.startsWith("dapp-")) {
+      const dappIndex = Number.parseInt(
+        selectedMethod.replace("dapp-", ""),
+        10,
+      );
+      const dapp = validDapps[dappIndex];
+      if (dapp?.targetUrl) {
+        window.open(dapp.targetUrl, "_blank", "noopener,noreferrer");
+      }
+    }
   };
 
   return (
@@ -285,23 +312,48 @@ export function DepositFundingMethod({
             setSelectedMethod("wallet");
           }}
         />
-        <FundingOption
-          active={selectedMethod === "local-currency"}
-          description="Card, Apple Pay, UPI"
-          icon={
-            <CreditCard
-              aria-hidden="true"
-              color={theme.colors.textStrong}
-              size={20}
-              strokeWidth={1.7}
-            />
-          }
-          label="Pay with Local Currency"
-          onClick={() => {
-            setSelectedMethod("local-currency");
-          }}
-          recommended
-        />
+        {enableOnRamp && (
+          <FundingOption
+            active={selectedMethod === "local-currency"}
+            description="Card, Apple Pay, UPI"
+            icon={
+              <CreditCard
+                aria-hidden="true"
+                color={theme.colors.textStrong}
+                size={20}
+                strokeWidth={1.7}
+              />
+            }
+            label="Pay with Local Currency"
+            onClick={() => {
+              setSelectedMethod("local-currency");
+            }}
+            recommended
+          />
+        )}
+        {validDapps.map((dapp, index) => (
+          <FundingOption
+            active={selectedMethod === `dapp-${index}`}
+            description={dapp.description}
+            icon={
+              <img
+                alt=""
+                src={dapp.logo}
+                style={{
+                  borderRadius: "4px",
+                  height: "24px",
+                  objectFit: "contain",
+                  width: "24px",
+                }}
+              />
+            }
+            key={`dapp-${index}`}
+            label={dapp.title}
+            onClick={() => {
+              setSelectedMethod(`dapp-${index}`);
+            }}
+          />
+        ))}
       </div>
       <button
         disabled={!selectedMethod}

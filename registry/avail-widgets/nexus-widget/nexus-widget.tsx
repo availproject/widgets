@@ -84,6 +84,7 @@ import {
 import {
   type NexusWidgetAppearance,
   type NexusWidgetConfig,
+  type NexusWidgetDappConfig,
   type NexusWidgetDepositConfig,
   type NexusWidgetDestination,
   type NexusWidgetDestinationToken,
@@ -514,7 +515,9 @@ type NormalizedNexusWidgetConfig = {
   amountInput?: RuntimeNexusWidgetAmountInput;
   appearance?: RuntimeNexusWidgetAppearance;
   config: RuntimeNexusWidgetConfig;
+  dapps?: NexusWidgetDappConfig[];
   depositOptions: NexusWidgetDepositOpportunityConfig[];
+  enableOnRamp?: boolean;
   isAmountFixed: boolean;
   isRecipientLocked: boolean;
 };
@@ -1039,7 +1042,13 @@ const normalizeNexusWidgetConfig = (
     amountInput,
     appearance,
     config: runtimeConfig,
+    dapps:
+      rawConfig.mode === "deposit" ? rawConfig.dapps : undefined,
     depositOptions,
+    enableOnRamp:
+      rawConfig.mode === "deposit"
+        ? rawConfig.enableOnRamp ?? false
+        : undefined,
     isAmountFixed: false,
     isRecipientLocked,
   };
@@ -3613,6 +3622,8 @@ function NexusWidgetInner({
   const amountInputConfig = normalizedWidgetConfig.amountInput;
   const appearanceConfig = normalizedWidgetConfig.appearance;
   const configuredDepositOptions = normalizedWidgetConfig.depositOptions;
+  const configuredDapps = normalizedWidgetConfig.dapps;
+  const configuredEnableOnRamp = normalizedWidgetConfig.enableOnRamp;
   const isConfiguredAmountFixed = normalizedWidgetConfig.isAmountFixed;
   const isConfiguredRecipientLocked = normalizedWidgetConfig.isRecipientLocked;
   const primaryColor = normalizeNexusWidgetPrimaryColor(
@@ -3854,8 +3865,15 @@ function NexusWidgetInner({
   const [fromTokensQuoteKey, setFromTokensQuoteKey] = useState("");
 
   useEffect(() => {
-    setDepositFundingStep(activeMode === "deposit" ? "method" : "wallet");
-  }, [activeMode]);
+    if (activeMode === "deposit") {
+      const hasOnRamp = configuredEnableOnRamp === true;
+      const hasDapps = Array.isArray(configuredDapps) && configuredDapps.length > 0;
+      // Skip the method selection screen when only wallet is available
+      setDepositFundingStep(hasOnRamp || hasDapps ? "method" : "wallet");
+    } else {
+      setDepositFundingStep("wallet");
+    }
+  }, [activeMode, configuredEnableOnRamp, configuredDapps]);
 
   useEffect(() => {
     const key = getSourceTokensQuoteKey(
@@ -10078,6 +10096,11 @@ function NexusWidgetInner({
     return "Continue on Other Window";
   };
 
+  const hasFundingMethodChoice =
+    activeMode === "deposit" &&
+    (configuredEnableOnRamp === true ||
+      (Array.isArray(configuredDapps) && configuredDapps.length > 0));
+
   const getTitle = () => {
     const configuredWidgetHeading = normalizeConfiguredString(
       appearanceConfig?.widgetHeading,
@@ -10104,6 +10127,9 @@ function NexusWidgetInner({
       return configuredWidgetHeading ?? "Swap and Bridge";
     }
     if (activeMode === "deposit") {
+      if (isDepositMethodScreen) {
+        return "Payment Method";
+      }
       if (isDepositOnrampScreen) {
         return hasDepositOnrampSession
           ? getDepositOnrampSessionTitle()
@@ -10139,7 +10165,7 @@ function NexusWidgetInner({
   const canGoBack =
     swapStep === "preview-intent" ||
     swapStep === "history" ||
-    isDepositWalletScreen ||
+    (isDepositWalletScreen && hasFundingMethodChoice) ||
     (isDepositOnrampScreen && !hasDepositOnrampSession);
   const showHistoryButton = !(isDepositMethodScreen || isDepositOnrampScreen);
   const handleBack = () => {
@@ -10148,8 +10174,10 @@ function NexusWidgetInner({
       swapStep === "idle" &&
       depositFundingStep !== "method"
     ) {
-      setDepositFundingStep("method");
-      return;
+      if (hasFundingMethodChoice) {
+        setDepositFundingStep("method");
+        return;
+      }
     }
     if (swapStep === "history") {
       setSwapStep("idle");
@@ -11468,6 +11496,8 @@ function NexusWidgetInner({
               <>
                 {swapStep === "idle" && depositFundingStep === "method" && (
                   <DepositFundingMethod
+                    dapps={configuredDapps}
+                    enableOnRamp={configuredEnableOnRamp}
                     isBalanceLoading={isSwapBalancePending}
                     onSelectLocalCurrency={() => setDepositFundingStep("onramp")}
                     onSelectWallet={() => setDepositFundingStep("wallet")}

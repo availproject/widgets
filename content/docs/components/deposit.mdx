@@ -83,6 +83,15 @@ const depositConfig = {
     ],
   },
   depositAddress: APP_DEPOSIT_CONTRACT,
+  enableOnRamp: true,
+  dapps: [
+    {
+      title: "Deposit with hyperliquid",
+      logo: "https://avatars.githubusercontent.com/u/129421375?s=200&v=4",
+      description: "Spend your USDC from Hyperliquid",
+      targetUrl: "https://app.hyperliquid.xyz/trade",
+    },
+  ],
   executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) => ({
     to: APP_DEPOSIT_CONTRACT,
     gas: 400_000n,
@@ -127,6 +136,8 @@ Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the des
 | `config.destination.tokens`                                                        | Yes      | One or more accepted destination tokens. The token dropdown is limited to this list and is editable only when multiple tokens are supplied. |
 | `config.depositAddress`                                                            | Yes      | Smart contract address for the deposit target.                                                                                              |
 | `config.executeDeposit`                                                            | Yes      | Callback builder returning `{ to, gas, data?, value?, tokenApproval? }` for the final app transaction. `gas` must be a positive `bigint`.   |
+| `config.enableOnRamp`                                                              | Optional | Boolean (defaults to `false`). When enabled, displays the "Pay with Local Currency" funding option.                                         |
+| `config.dapps`                                                                     | Optional | Array of external dApp funding options (`{ title, logo, description, targetUrl }[]`). Selecting an option redirects to its URL in a new tab.  |
 | `config.prefill.amount`                                                            | Optional | Prefills the exact output deposit amount. Must be greater than `0`.                                                                         |
 | `config.validation.minAmount`                                                      | Optional | Minimum deposit amount. Must be `0` or greater.                                                                                             |
 | `config.validation.maxAmount`                                                      | Optional | Maximum deposit amount. Must be greater than `0`.                                                                                           |

@@ -69,7 +69,7 @@ writeFileSync(
   path.join(sourceRoot, "index.ts"),
   [
     'export { NexusWidget, default } from "./nexus-widget/nexus-widget";',
-    'export type { NexusWidgetConfig, NexusWidgetProps } from "./nexus-widget/types";',
+    'export type { NexusWidgetConfig, NexusWidgetDappConfig, NexusWidgetProps } from "./nexus-widget/types";',
     'export { default as NexusProvider, NexusContext, useNexus } from "./nexus/NexusProvider";',
     'export type { UserAsset } from "./nexus/NexusProvider";',
     "",

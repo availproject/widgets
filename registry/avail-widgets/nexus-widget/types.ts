@@ -133,9 +133,18 @@ export interface NexusWidgetConfigBase {
   appearance?: NexusWidgetAppearance;
 }
 
+export interface NexusWidgetDappConfig {
+  description: string;
+  logo: string;
+  targetUrl: string;
+  title: string;
+}
+
 export interface NexusWidgetDepositConfig extends NexusWidgetConfigBase {
+  dapps?: NexusWidgetDappConfig[];
   depositAddress: Address;
   destination: NexusWidgetDepositDestination;
+  enableOnRamp?: boolean;
   executeDeposit: NexusWidgetDepositOpportunityConfig["executeDeposit"];
   mode: "deposit";
   prefill?: NexusWidgetAmountPrefill;

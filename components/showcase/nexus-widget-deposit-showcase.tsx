@@ -912,6 +912,15 @@ const NexusWidgetDepositShowcase = () => {
               },
               depositAddress: resolveDepositAddress(currentOpportunity),
               executeDeposit: currentOpportunity.executeDeposit,
+              enableOnRamp: true,
+              dapps: [
+                {
+                  title: "Deposit with hyperliquid",
+                  logo: "https://avatars.githubusercontent.com/u/129421375?s=200&v=4",
+                  description: "Spend your USDC from Hyperliquid",
+                  targetUrl: "https://app.hyperliquid.xyz/trade",
+                },
+              ],
               appearance: {
                 appLogoURL: currentOpportunity.depositTargetLogo,
                 appName: currentOpportunity.protocol,
