@@ -1,6 +1,5 @@
 // biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
-import { CreditCard, Wallet } from "lucide-react";
 import React from "react";
 import { nexusWidgetTheme } from "../theme";
 import type { NexusWidgetDappConfig } from "../types";
@@ -20,80 +19,29 @@ interface DepositFundingMethodProps {
 const theme = nexusWidgetTheme;
 const brand = "var(--foreground-brand)";
 
-const optionBaseStyle: React.CSSProperties = {
-  alignItems: "center",
-  backgroundColor: theme.colors.surface,
-  borderRadius: "12px",
-  borderStyle: "solid",
-  borderWidth: "1px",
-  boxSizing: "border-box",
-  cursor: "pointer",
-  display: "flex",
-  gap: "10px",
-  minHeight: "66px",
-  padding: "12px",
-  textAlign: "left",
-  width: "100%",
-};
-
-function MethodIcon({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        alignItems: "center",
-        backgroundColor: theme.colors.surface,
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: "7px",
-        boxSizing: "border-box",
-        display: "flex",
-        flexShrink: 0,
-        height: "36px",
-        justifyContent: "center",
-        width: "36px",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function RadioMark({ selected }: { selected: boolean }) {
   return (
-    <span
+    <div
       aria-hidden="true"
       style={{
-        alignItems: "center",
-        border: `1.5px solid ${selected ? brand : theme.colors.border}`,
+        backgroundColor: "#FFFFFE",
+        borderColor: selected ? brand : "#E8E8E7",
         borderRadius: "999px",
+        borderStyle: "solid",
+        borderWidth: selected ? "5px" : "1.5px",
         boxSizing: "border-box",
-        display: "flex",
         flexShrink: 0,
-        height: "20px",
-        justifyContent: "center",
-        width: "20px",
+        height: "18px",
+        width: "18px",
+        transition: "border-color 0.15s ease, border-width 0.15s ease",
       }}
-    >
-      {selected && (
-        <span
-          style={{
-            backgroundColor: brand,
-            borderRadius: "999px",
-            height: "10px",
-            width: "10px",
-          }}
-        />
-      )}
-    </span>
+    />
   );
 }
 
 function AmountSkeleton({
-  height = "16px",
-  width = "64px",
+  height = "14px",
+  width = "48px",
 }: {
   height?: string;
   width?: string;
@@ -117,109 +65,412 @@ function AmountSkeleton({
   );
 }
 
-function FundingOption({
+function WalletIcons() {
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        borderRadius: "999px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexShrink: 0,
+        height: "36px",
+        justifyContent: "center",
+        overflow: "clip",
+        width: "89px",
+      }}
+    >
+      <div
+        style={{
+          alignItems: "start",
+          boxSizing: "border-box",
+          display: "flex",
+        }}
+      >
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#F2F2F2",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid #FFFFFE",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQRK3NFSCFRWJQXF2Y6477G.png)",
+              backgroundPosition: "57.143% 33.333%",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "116.667%",
+              boxSizing: "border-box",
+              height: "23px",
+              left: 5,
+              position: "absolute",
+              top: 5,
+              width: "21px",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQSM9DRH7GN3W78VRTVSZXJ.png)",
+              backgroundPosition: "50%",
+              backgroundSize: "cover",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid #FFFFFE",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQTS1TFZAJFD945BFM8ZDC0.png)",
+              backgroundPosition: "50%",
+              backgroundSize: "cover",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid #FFFFFE",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CashIcons() {
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        borderRadius: "999px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexShrink: 0,
+        height: "36px",
+        justifyContent: "center",
+        overflow: "clip",
+        width: "89px",
+      }}
+    >
+      <div
+        style={{
+          alignItems: "start",
+          boxSizing: "border-box",
+          display: "flex",
+        }}
+      >
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#F2F2F2",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid #FFFFFE",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQV6GH49YDFT560SEYR63SA.png)",
+              backgroundPosition: "50%",
+              backgroundSize: "cover",
+              boxSizing: "border-box",
+              height: "15px",
+              left: "50%",
+              position: "absolute",
+              top: "50%",
+              translate: "-50% -50%",
+              width: "26px",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#F2F2F2",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid #FFFFFE",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQV8WWM08Y64A73CV3J8A20.png)",
+              backgroundPosition: "50%",
+              backgroundSize: "cover",
+              boxSizing: "border-box",
+              height: "20px",
+              left: 7.5,
+              position: "absolute",
+              top: 6,
+              width: "16px",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#F2F2F2",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid #FFFFFE",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQVBJFAG0P2T8S1KY38PVTT.png)",
+              backgroundPosition: "33.333%",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "contain",
+              boxSizing: "border-box",
+              height: "20px",
+              left: "50%",
+              position: "absolute",
+              top: "50%",
+              translate: "-50% -50%",
+              width: "21px",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DappIcon({ logo }: { logo?: string }) {
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        borderRadius: "999px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexShrink: 0,
+        height: "36px",
+        justifyContent: "center",
+        overflow: "clip",
+        width: "36px",
+      }}
+    >
+      {logo ? (
+        <img
+          alt=""
+          src={logo}
+          style={{
+            borderRadius: "999px",
+            height: "32px",
+            objectFit: "cover",
+            width: "32px",
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function FundingOptionRow({
   active,
-  amount,
-  amountLoading = false,
-  description,
-  icon,
-  label,
+  icons,
+  isLast,
   onClick,
   recommended,
+  subtitle,
+  title,
 }: {
   active: boolean;
-  amount?: string;
-  amountLoading?: boolean;
-  description: string;
-  icon: React.ReactNode;
-  label: string;
+  icons: React.ReactNode;
+  isLast: boolean;
   onClick: () => void;
   recommended?: boolean;
+  subtitle: React.ReactNode;
+  title: string;
 }) {
+  const [isHovered, setIsHovered] = React.useState(false);
+
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
-        ...optionBaseStyle,
-        borderColor: active ? brand : theme.colors.divider,
+        alignItems: "center",
+        backgroundColor: isHovered ? "#F8F8F7" : "#FFFFFE",
+        border: "none",
+        borderBottomColor: isLast ? "transparent" : "#F0F0EF",
+        borderBottomStyle: "solid",
+        borderBottomWidth: isLast ? 0 : "1px",
+        boxSizing: "border-box",
+        cursor: "pointer",
+        display: "flex",
+        gap: "12px",
+        paddingBlock: "14px",
+        paddingInline: "16px",
+        textAlign: "left",
+        transition: "background-color 0.15s ease",
+        width: "100%",
       }}
       type="button"
     >
-      <MethodIcon>{icon}</MethodIcon>
+      <RadioMark selected={active} />
       <div
         style={{
+          boxSizing: "border-box",
           display: "flex",
-          flex: "1 1 0%",
+          flexBasis: "0%",
           flexDirection: "column",
-          gap: "4px",
-          minWidth: 0,
+          flexGrow: 1,
+          gap: "2px",
         }}
       >
         <div
           style={{
             alignItems: "center",
+            boxSizing: "border-box",
             display: "flex",
-            flexWrap: "wrap",
-            gap: "7px",
+            gap: "8px",
           }}
         >
-          <span
+          <div
             style={{
-              color: theme.colors.textStrong,
-              fontFamily: theme.fonts.sans,
-              fontSize: "15px",
+              boxSizing: "border-box",
+              color: "#161615",
+              fontFamily: '"Geist", system-ui, sans-serif',
+              fontSize: "16px",
               fontWeight: 500,
-              letterSpacing: "0",
-              lineHeight: "19px",
+              lineHeight: "20px",
             }}
           >
-            {label}
-          </span>
+            {title}
+          </div>
           {recommended && (
-            <span
+            <div
               style={{
                 backgroundColor: "#E8F5E9",
                 borderRadius: "999px",
-                color: "#2E7D32",
-                fontFamily: theme.fonts.sans,
-                fontSize: "11px",
-                fontWeight: 500,
-                lineHeight: "14px",
-                padding: "2px 8px",
+                boxSizing: "border-box",
+                flexShrink: 0,
+                paddingBlock: "2px",
+                paddingInline: "8px",
               }}
             >
-              Recommended
-            </span>
+              <div
+                style={{
+                  boxSizing: "border-box",
+                  color: "#2E7D32",
+                  fontFamily: '"Geist", system-ui, sans-serif',
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  lineHeight: "14px",
+                }}
+              >
+                Recommended
+              </div>
+            </div>
           )}
         </div>
-        <span
+        <div
           style={{
-            color: theme.colors.textSubtle,
-            fontFamily: theme.fonts.sans,
+            boxSizing: "border-box",
+            color: "#848483",
+            fontFamily: '"Geist", system-ui, sans-serif',
             fontSize: "13px",
-            letterSpacing: "0",
-            lineHeight: "17px",
+            lineHeight: "16px",
           }}
         >
-          {description}
-        </span>
+          {subtitle}
+        </div>
       </div>
-      {(amount || amountLoading) && (
-        <span
-          style={{
-            color: theme.colors.textStrong,
-            flexShrink: 0,
-            fontFamily: theme.fonts.display,
-            fontSize: "15px",
-            fontWeight: 500,
-            letterSpacing: "0",
-            lineHeight: "20px",
-          }}
-        >
-          {amountLoading ? <AmountSkeleton /> : `$${amount}`}
-        </span>
-      )}
-      <RadioMark selected={active} />
+      {icons}
     </button>
   );
 }
@@ -234,7 +485,7 @@ export function DepositFundingMethod({
   totalBalance,
 }: DepositFundingMethodProps) {
   const [selectedMethod, setSelectedMethod] =
-    React.useState<FundingMethod | null>(null);
+    React.useState<FundingMethod | null>("wallet");
 
   const validDapps = React.useMemo(
     () =>
@@ -267,6 +518,49 @@ export function DepositFundingMethod({
     }
   };
 
+  const options: Array<{
+    id: FundingMethod;
+    title: string;
+    subtitle: React.ReactNode;
+    recommended?: boolean;
+    icons: React.ReactNode;
+  }> = [];
+
+  // 1. Wallet option
+  options.push({
+    id: "wallet",
+    title: "Deposit with Wallet",
+    subtitle: isBalanceLoading ? (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+        Wallet balance: <AmountSkeleton height="14px" width="48px" />
+      </span>
+    ) : (
+      `Wallet balance: $${totalBalance || "0.00"}`
+    ),
+    icons: <WalletIcons />,
+  });
+
+  // 2. OnRamp option (only if explicitly enabled)
+  if (enableOnRamp) {
+    options.push({
+      id: "local-currency",
+      title: "Deposit with Cash",
+      subtitle: "Card, Apple Pay, Bank Transfer",
+      recommended: true,
+      icons: <CashIcons />,
+    });
+  }
+
+  // 3. Dapps (e.g. Hyperliquid)
+  validDapps.forEach((dapp, index) => {
+    options.push({
+      id: `dapp-${index}`,
+      title: dapp.title,
+      subtitle: dapp.description || "Spend your crypto",
+      icons: <DappIcon logo={dapp.logo} />,
+    });
+  });
+
   return (
     <div
       style={{
@@ -279,108 +573,73 @@ export function DepositFundingMethod({
     >
       <div
         style={{
-          color: theme.colors.textSubtle,
-          fontFamily: theme.fonts.sans,
-          fontSize: "13px",
-          lineHeight: "17px",
-        }}
-      >
-        Select a funding method
-      </div>
-      <div
-        style={{
+          alignSelf: "stretch",
+          backgroundColor: "#FFFFFE",
+          borderColor: "#E8E8E7",
+          borderRadius: "14px",
+          borderStyle: "solid",
+          borderWidth: "1px",
+          boxShadow: "#5B5B5B0D 0px 1px 12px",
+          boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
-          gap: "8px",
+          overflow: "clip",
+          width: "100%",
         }}
       >
-        <FundingOption
-          active={selectedMethod === "wallet"}
-          amount={totalBalance}
-          amountLoading={isBalanceLoading}
-          description="Wallet balance"
-          icon={
-            <Wallet
-              aria-hidden="true"
-              color={theme.colors.textStrong}
-              size={20}
-              strokeWidth={1.7}
-            />
-          }
-          label="Pay with Wallet"
-          onClick={() => {
-            setSelectedMethod("wallet");
-          }}
-        />
-        {enableOnRamp && (
-          <FundingOption
-            active={selectedMethod === "local-currency"}
-            description="Card, Apple Pay, UPI"
-            icon={
-              <CreditCard
-                aria-hidden="true"
-                color={theme.colors.textStrong}
-                size={20}
-                strokeWidth={1.7}
-              />
-            }
-            label="Pay with Local Currency"
-            onClick={() => {
-              setSelectedMethod("local-currency");
-            }}
-            recommended
-          />
-        )}
-        {validDapps.map((dapp, index) => (
-          <FundingOption
-            active={selectedMethod === `dapp-${index}`}
-            description={dapp.description}
-            icon={
-              <img
-                alt=""
-                src={dapp.logo}
-                style={{
-                  borderRadius: "4px",
-                  height: "24px",
-                  objectFit: "contain",
-                  width: "24px",
-                }}
-              />
-            }
-            key={`dapp-${index}`}
-            label={dapp.title}
-            onClick={() => {
-              setSelectedMethod(`dapp-${index}`);
-            }}
+        {options.map((option, index) => (
+          <FundingOptionRow
+            active={selectedMethod === option.id}
+            icons={option.icons}
+            isLast={index === options.length - 1}
+            key={option.id}
+            onClick={() => setSelectedMethod(option.id)}
+            recommended={option.recommended}
+            subtitle={option.subtitle}
+            title={option.title}
           />
         ))}
       </div>
-      <button
-        disabled={!selectedMethod}
-        onClick={handleContinue}
+
+      <div
         style={{
-          alignItems: "center",
-          backgroundColor: selectedMethod ? brand : theme.colors.surfaceCool,
-          border: "none",
-          borderRadius: theme.radius.primaryButton,
-          boxShadow: selectedMethod ? theme.shadows.primaryButton : "none",
+          alignSelf: "stretch",
           boxSizing: "border-box",
-          color: selectedMethod ? primaryButtonForeground : theme.colors.muted,
-          cursor: selectedMethod ? "pointer" : "default",
           display: "flex",
-          fontFamily: theme.fonts.sans,
-          fontSize: "14px",
-          fontWeight: 500,
-          height: "44px",
-          justifyContent: "center",
-          lineHeight: "18px",
+          flexDirection: "column",
           marginTop: "4px",
           width: "100%",
         }}
-        type="button"
       >
-        Continue
-      </button>
+        <button
+          disabled={!selectedMethod}
+          onClick={handleContinue}
+          style={{
+            alignItems: "center",
+            backgroundColor: selectedMethod ? brand : theme.colors.surfaceCool,
+            border: "none",
+            borderRadius: "12px",
+            boxShadow: selectedMethod ? theme.shadows.primaryButton : "none",
+            boxSizing: "border-box",
+            color: selectedMethod ? primaryButtonForeground : theme.colors.muted,
+            cursor: selectedMethod ? "pointer" : "default",
+            display: "flex",
+            flexShrink: 0,
+            fontFamily: theme.fonts.sans,
+            fontSize: "16px",
+            fontWeight: 500,
+            height: "52px",
+            justifyContent: "center",
+            letterSpacing: "-0.005em",
+            lineHeight: "20px",
+            transition: "all 0.15s ease",
+            width: "100%",
+          }}
+          type="button"
+        >
+          Continue
+        </button>
+      </div>
     </div>
   );
 }

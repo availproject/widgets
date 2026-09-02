@@ -10128,7 +10128,7 @@ function NexusWidgetInner({
     }
     if (activeMode === "deposit") {
       if (isDepositMethodScreen) {
-        return "Payment Method";
+        return configuredWidgetHeading ?? "Deposit";
       }
       if (isDepositOnrampScreen) {
         return hasDepositOnrampSession
@@ -11055,15 +11055,62 @@ function NexusWidgetInner({
                 />
               </button>
             )}
-            <div
-              style={{
-                boxSizing: "border-box",
-                color: theme.colors.text,
-                ...theme.typography.headingPanel,
-              }}
-            >
-              {getTitle()}
-            </div>
+            {isDepositMethodScreen ? (
+              <div
+                style={{
+                  alignItems: "flex-start",
+                  boxSizing: "border-box",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                }}
+              >
+                <div
+                  style={{
+                    alignItems: "center",
+                    boxSizing: "border-box",
+                    display: "flex",
+                    gap: "8px",
+                  }}
+                >
+                  <div
+                    style={{
+                      boxSizing: "border-box",
+                      color: "#161615",
+                      fontFamily: '"Geist", system-ui, sans-serif',
+                      fontSize: "16px",
+                      fontWeight: 500,
+                      lineHeight: "18px",
+                      whiteSpaceCollapse: "preserve",
+                      width: "fit-content",
+                    }}
+                  >
+                    {getTitle()}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    boxSizing: "border-box",
+                    color: "#9A9A99",
+                    fontFamily: '"Geist", system-ui, sans-serif',
+                    fontSize: "12px",
+                    lineHeight: "16px",
+                  }}
+                >
+                  Select a funding method
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  boxSizing: "border-box",
+                  color: theme.colors.text,
+                  ...theme.typography.headingPanel,
+                }}
+              >
+                {getTitle()}
+              </div>
+            )}
 
             {/* Sub-screen asset counts */}
             {!isTitleCentered() &&

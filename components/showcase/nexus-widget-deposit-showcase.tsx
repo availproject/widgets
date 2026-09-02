@@ -11,6 +11,7 @@ import {
 } from "viem";
 import { useAccount } from "wagmi";
 import { useConnectWalletClick } from "../helpers/use-connect-wallet-click";
+import { cn } from "@/lib/utils";
 import {
   NexusWidgetRenderModeToggle,
   type NexusWidgetRenderMode,
@@ -195,7 +196,10 @@ const getOpportunityLabel = (opportunity: DepositShowcaseOpportunity) =>
   `${opportunity.protocol} - ${getOpportunityTokenLabel(opportunity)} (${getChainLabel(opportunity.chainId)})`;
 
 const getOpportunityHeading = (opportunity: DepositShowcaseOpportunity) =>
-  opportunity.title ?? "Deposit";
+  opportunity.title ??
+  (opportunity.protocol
+    ? `Deposit ${getOpportunityTokenLabel(opportunity)} into ${opportunity.protocol}`
+    : "Deposit");
 
 const resolveDepositAddress = (opportunity: DepositShowcaseOpportunity) => {
   const token = getOpportunityTokens(opportunity)[0];
@@ -365,7 +369,7 @@ const OPPORTUNITIES = {
 
   // 5. Mystic on Citrea (ctUSD)
   "mystic-citrea-ctusd": {
-    label: "Mystic ctUSD (onramp not supported)",
+    label: "Mystic ctUSD",
     protocol: "Mystic",
     depositTargetLogo:
       "https://files.availproject.org/nexus-elements/mystic.png",
@@ -398,7 +402,7 @@ const OPPORTUNITIES = {
 
   // 6. Zentra on Citrea (wcBTC)
   "zentra-citrea-wcbtc": {
-    label: "Zentra wcBTC (onramp not supported)",
+    label: "Zentra wcBTC",
     protocol: "Zentra",
     depositTargetLogo:
       "https://zentrafinance.gitbook.io/zentra/~gitbook/image?url=https%3A%2F%2F2899070418-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Forganizations%252F1jzW9aBSq190MuRJKgIj%252Fsites%252Fsite_2l6Ro%252Ficon%252Fb8adwB6RA7Y6VJH3vGjh%252FZentra%2520%284%29.png%3Falt%3Dmedia%26token%3D8aa44578-e817-4c2f-b20e-abd25827d4fe&width=32&dpr=3&quality=100&sign=d18163fe&sv=2",
@@ -441,6 +445,8 @@ const NexusWidgetDepositShowcase = () => {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [renderMode, setRenderMode] = useState<NexusWidgetRenderMode>("inline");
   const isPopupMode = renderMode === "popup";
+  const [enableOnRamp, setEnableOnRamp] = useState(false);
+  const [enableDapps, setEnableDapps] = useState(true);
 
   // Default sandbox configuration state
   const [sandboxConfig, setSandboxConfig] = useState<{
@@ -711,10 +717,56 @@ const NexusWidgetDepositShowcase = () => {
       type="nexus-widget"
       connectLabel="Connect wallet to use Deposit"
       controls={
-        <NexusWidgetRenderModeToggle
-          value={renderMode}
-          onValueChange={setRenderMode}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            aria-pressed={enableOnRamp}
+            onClick={() => setEnableOnRamp((prev) => !prev)}
+            className={cn(
+              "inline-flex items-center gap-1.5 h-9 rounded-md border px-3 text-xs font-medium transition-colors shadow-sm cursor-pointer",
+              enableOnRamp
+                ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
+                : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            )}
+          >
+            <span
+              className={cn(
+                "w-2 h-2 rounded-full transition-colors",
+                enableOnRamp
+                  ? "bg-emerald-400 dark:bg-emerald-500"
+                  : "bg-zinc-300 dark:bg-zinc-600"
+              )}
+            />
+            Onramp
+          </button>
+
+          <button
+            type="button"
+            aria-pressed={enableDapps}
+            onClick={() => setEnableDapps((prev) => !prev)}
+            className={cn(
+              "inline-flex items-center gap-1.5 h-9 rounded-md border px-3 text-xs font-medium transition-colors shadow-sm cursor-pointer",
+              enableDapps
+                ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
+                : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            )}
+          >
+            <span
+              className={cn(
+                "w-2 h-2 rounded-full transition-colors",
+                enableDapps
+                  ? "bg-emerald-400 dark:bg-emerald-500"
+                  : "bg-zinc-300 dark:bg-zinc-600"
+              )}
+            />
+            DApps
+          </button>
+
+          <NexusWidgetRenderModeToggle
+            value={renderMode}
+            onValueChange={setRenderMode}
+          />
+        </div>
       }
     >
       <div className="flex flex-col gap-6 w-full items-center">
@@ -901,7 +953,7 @@ const NexusWidgetDepositShowcase = () => {
           }}
         >
           <NexusWidget
-            key={`${selectedOpt}-${renderMode}`}
+            key={`${selectedOpt}-${renderMode}-${enableOnRamp}-${enableDapps}`}
             embed={!isPopupMode}
             defaultOpen={isPopupMode}
             config={{
@@ -912,15 +964,17 @@ const NexusWidgetDepositShowcase = () => {
               },
               depositAddress: resolveDepositAddress(currentOpportunity),
               executeDeposit: currentOpportunity.executeDeposit,
-              enableOnRamp: true,
-              dapps: [
-                {
-                  title: "Deposit with hyperliquid",
-                  logo: "https://avatars.githubusercontent.com/u/129421375?s=200&v=4",
-                  description: "Spend your USDC from Hyperliquid",
-                  targetUrl: "https://app.hyperliquid.xyz/trade",
-                },
-              ],
+              enableOnRamp,
+              dapps: enableDapps
+                ? [
+                    {
+                      title: "Deposit from Hyperliquid",
+                      logo: "https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/4RQEH0TV7F8T0V0WSTWQ2CF7MS.png",
+                      description: "Spend your USDC from Hyperliquid",
+                      targetUrl: "https://app.hyperliquid.xyz/trade",
+                    },
+                  ]
+                : undefined,
               appearance: {
                 appLogoURL: currentOpportunity.depositTargetLogo,
                 appName: currentOpportunity.protocol,
@@ -930,6 +984,7 @@ const NexusWidgetDepositShowcase = () => {
             }}
             connectedAddress={address}
             onConnectClick={openConnectWallet}
+            onClose={() => setRenderMode("inline")}
           />
         </div>
       </div>
