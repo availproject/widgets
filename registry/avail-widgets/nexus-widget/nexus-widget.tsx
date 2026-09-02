@@ -7945,8 +7945,35 @@ function NexusWidgetInner({
       return autoIntentTokens;
     }
 
+    if (activeMode === "deposit") {
+      const selection = getResolvedDepositSourceSelection({
+        filter: "all",
+        isManualSelection: false,
+      });
+      const resolvedTokens = getDepositSourceTokensForIds(
+        selection.selectedSourceIds
+      );
+      if (resolvedTokens.length > 0) {
+        return resolvedTokens;
+      }
+    }
+
+    if (activeMode === "send") {
+      const gasCapable = getGasCapableBalanceSourceTokens();
+      if (gasCapable.length > 0) {
+        return gasCapable;
+      }
+    }
+
     return sourceSelectionTouched ? [] : fromTokens;
-  }, [fromTokens, sourceSelectionTouched]);
+  }, [
+    activeMode,
+    fromTokens,
+    getDepositSourceTokensForIds,
+    getGasCapableBalanceSourceTokens,
+    getResolvedDepositSourceSelection,
+    sourceSelectionTouched,
+  ]);
 
   const resetSourcePickerDraft = useCallback(() => {
     sourcePickerDraftTokensRef.current = null;
