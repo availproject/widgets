@@ -498,7 +498,7 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "all", label: "All" },
   { key: "native", label: "Native" },
   { key: "stables", label: "Stables" },
-  { key: "custom", label: "Custom" },
+  { key: "custom", label: "Manual" },
 ];
 const STABLE_SYMBOLS = new Set([
   "AUSD",
@@ -2167,6 +2167,14 @@ export function SwapAssetSelector({
       ? "All chains"
       : selectedChainToken?.chainName || "Chain";
 
+  const handleAutoSelectTokens = () => {
+    handleFilterTabClick("all");
+  };
+
+  const handleSelectManually = () => {
+    setActiveTab("custom");
+  };
+
   const handleDone = () => {
     if (hasSelectionShortfall) return;
     onDone?.(
@@ -2417,7 +2425,6 @@ export function SwapAssetSelector({
           <button
             key={tab.key}
             onClick={() => handleFilterTabClick(tab.key)}
-            disabled={tab.key === "custom" && autoSelectFilterTabs}
             style={{
               flex: 1,
               padding: "6px 0",
@@ -2435,7 +2442,7 @@ export function SwapAssetSelector({
               transition: "all 0.15s",
             }}
           >
-            {autoSelectFilterTabs && tab.key === "all" ? "Any" : tab.label}
+            {autoSelectFilterTabs && tab.key === "all" ? "Any token" : tab.label}
           </button>
         ))}
       </div>
@@ -2759,62 +2766,154 @@ export function SwapAssetSelector({
           {shouldShowSelectionProgress && requiredUsdAmount && (
             <div
               style={{
-                borderTop: "1px solid #E8E8E7",
                 boxSizing: "border-box",
                 marginBottom: 12,
-                paddingTop: 12,
               }}
             >
-              <div
-                style={{
-                  alignItems: "baseline",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginBottom: 8,
-                }}
-              >
-                <span
+              {autoSelectFilterTabs && hasSelectionShortfall && (
+                <div
                   style={{
-                    color: "#848483",
-                    fontFamily: '"Geist", system-ui, sans-serif',
-                    fontSize: 13,
-                    lineHeight: "20px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    marginBottom: 14,
+                    paddingTop: 4,
                   }}
                 >
-                  Required
-                </span>
-                <span
-                  style={{
-                    color: "#848483",
-                    fontFamily: '"Geist", system-ui, sans-serif',
-                    fontSize: 13,
-                    lineHeight: "20px",
-                  }}
-                >
-                  <strong style={{ color: "#161615", fontWeight: 600 }}>
-                    {formatUsdBalanceLabel(selectionDeficitUsdAmount)}
-                  </strong>{" "}
-                  more
-                </span>
-              </div>
+                  <span
+                    style={{
+                      fontFamily: '"Geist", system-ui, sans-serif',
+                      fontSize: 15,
+                      fontWeight: 500,
+                      color: "var(--foreground-primary, #161615)",
+                      lineHeight: "20px",
+                    }}
+                  >
+                    {activeTab === "all"
+                      ? "You don't have enough balances to meet this requirement"
+                      : activeTab === "native"
+                        ? "Your nativecoins don't cover the full amount"
+                        : activeTab === "stables"
+                          ? "Your stablecoins don't cover the full amount"
+                          : "Your selection don't cover the full amount"}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: '"Geist", system-ui, sans-serif',
+                      fontSize: 13,
+                      color: "var(--foreground-muted, #848483)",
+                      lineHeight: "18px",
+                    }}
+                  >
+                    {activeTab === "all"
+                      ? "Add more tokens to your wallet"
+                      : `${formatUsdBalanceLabel(selectionDeficitUsdAmount)} more is needed.`}
+                  </span>
+                  {activeTab !== "all" && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 16,
+                        marginTop: 8,
+                      }}
+                    >
+                      <button
+                        onClick={handleAutoSelectTokens}
+                        style={{
+                          backgroundColor: "transparent",
+                          border: "none",
+                          color: brand,
+                          cursor: "pointer",
+                          fontFamily: '"Geist", system-ui, sans-serif',
+                          fontSize: 14,
+                          fontWeight: 500,
+                          lineHeight: "18px",
+                          padding: 0,
+                        }}
+                        type="button"
+                      >
+                        Auto-select tokens
+                      </button>
+                      <button
+                        onClick={handleSelectManually}
+                        style={{
+                          backgroundColor: "transparent",
+                          border: "none",
+                          color: "var(--foreground-primary, #161615)",
+                          cursor: "pointer",
+                          fontFamily: '"Geist", system-ui, sans-serif',
+                          fontSize: 14,
+                          fontWeight: 500,
+                          lineHeight: "18px",
+                          padding: 0,
+                        }}
+                        type="button"
+                      >
+                        Select manually
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               <div
                 style={{
-                  backgroundColor: "#F0F0EF",
-                  borderRadius: "999px",
-                  height: 6,
-                  overflow: "hidden",
-                  width: "100%",
+                  borderTop: "1px solid #E8E8E7",
+                  boxSizing: "border-box",
+                  paddingTop: 12,
                 }}
               >
                 <div
                   style={{
-                    backgroundColor: brand,
-                    borderRadius: "999px",
-                    height: "100%",
-                    transition: "width 240ms ease",
-                    width: `${selectionProgressPercent}%`,
+                    alignItems: "baseline",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
                   }}
-                />
+                >
+                  <span
+                    style={{
+                      color: "#848483",
+                      fontFamily: '"Geist", system-ui, sans-serif',
+                      fontSize: 13,
+                      lineHeight: "20px",
+                    }}
+                  >
+                    Required
+                  </span>
+                  <span
+                    style={{
+                      color: "#848483",
+                      fontFamily: '"Geist", system-ui, sans-serif',
+                      fontSize: 13,
+                      lineHeight: "20px",
+                    }}
+                  >
+                    <strong style={{ color: "#161615", fontWeight: 600 }}>
+                      {formatUsdBalanceLabel(selectionDeficitUsdAmount)}
+                    </strong>{" "}
+                    more
+                  </span>
+                </div>
+                <div
+                  style={{
+                    backgroundColor: "#F0F0EF",
+                    borderRadius: "999px",
+                    height: 6,
+                    overflow: "hidden",
+                    width: "100%",
+                  }}
+                >
+                  <div
+                    style={{
+                      backgroundColor: brand,
+                      borderRadius: "999px",
+                      height: "100%",
+                      transition: "width 240ms ease",
+                      width: `${selectionProgressPercent}%`,
+                    }}
+                  />
+                </div>
               </div>
             </div>
           )}
