@@ -10046,9 +10046,7 @@ function NexusWidgetInner({
     isDepositOnrampScreen && Boolean(depositOnrampSessionState);
   const getDepositOnrampSessionTitle = () => {
     if (
-      normalizedDepositOnrampSessionState === "SETTLED" ||
       [
-        "COMPLETED",
         "DEPOSIT_COMPLETE",
         "DEPOSIT_SUCCESS",
         "DEPOSITED",
@@ -10078,9 +10076,14 @@ function NexusWidgetInner({
       return "Payment expired";
     }
     if (
-      ["COMPLETING_DEPOSIT", "DEPOSIT_PROCESSING", "DEPOSITING"].includes(
-        normalizedDepositOnrampSessionState,
-      )
+      [
+        "SETTLED",
+        "COMPLETED",
+        "COMPLETING_DEPOSIT",
+        "DEPOSIT_PROCESSING",
+        "DEPOSITING",
+        "SWAPPING_GAS",
+      ].includes(normalizedDepositOnrampSessionState)
     ) {
       return "Completing your deposit";
     }

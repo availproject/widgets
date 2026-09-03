@@ -1085,16 +1085,25 @@ const getOnrampRateRequestKey = ({
     destinationToken?.toLowerCase() ?? "",
   ].join("|");
 
+const ONRAMP_SETTLED_STATES = new Set([
+  "SETTLED",
+  "COMPLETED",
+]);
+
 const ONRAMP_TERMINAL_STATES = new Set([
   "CANCELLED",
   "EXPIRED",
   "FAILED",
   "REFUNDED",
   "SETTLED",
+  "COMPLETED",
 ]);
 
 const getNormalizedOnrampState = (state?: string | null) =>
   (state ?? "").trim().toUpperCase();
+
+const isOnrampSettledState = (state?: string | null) =>
+  ONRAMP_SETTLED_STATES.has(getNormalizedOnrampState(state));
 
 const isOnrampTerminalState = (state?: string | null) =>
   ONRAMP_TERMINAL_STATES.has(getNormalizedOnrampState(state)) ||
@@ -1114,7 +1123,6 @@ const ONRAMP_DEPOSIT_PROCESSING_STATES = new Set([
 ]);
 
 const ONRAMP_DEPOSIT_SUCCESS_STATES = new Set([
-  "COMPLETED",
   "DEPOSIT_COMPLETE",
   "DEPOSIT_SUCCESS",
   "DEPOSITED",
@@ -1346,6 +1354,109 @@ const isErc20Token = (token?: SwapTokenOption, chainId?: number) => {
     return false;
   }
   return true;
+};
+
+const computeGasShortfall = async ({
+  opportunity,
+  ownerAddress,
+  targetChainId,
+  isErc20,
+  walletClient,
+  nexusSDK,
+}: {
+  opportunity?: NexusWidgetDepositOpportunityConfig;
+  ownerAddress?: string;
+  targetChainId?: number;
+  isErc20: boolean;
+  walletClient?: WalletClient | null;
+  nexusSDK?: OnrampNexusSDK | null;
+}): Promise<OnrampGasShortfallInfo | null> => {
+  if (!targetChainId || !isErc20 || !opportunity) return null;
+
+  let configGas = BigInt(1000000);
+  let hasApproval = false;
+  if (opportunity.executeDeposit) {
+    try {
+      const dummyAmountRaw = BigInt(1000000);
+      const dummyUser =
+        ownerAddress && isAddress(ownerAddress)
+          ? (ownerAddress as Address)
+          : ONRAMP_DISCONNECTED_QUOTE_WALLET_ADDRESS;
+      const executeParams = opportunity.executeDeposit(
+        opportunity.tokenSymbol,
+        opportunity.tokenAddress,
+        dummyAmountRaw,
+        targetChainId,
+        dummyUser,
+      );
+      if (executeParams?.gas && executeParams.gas > BigInt(0)) {
+        configGas = executeParams.gas;
+      }
+      if (executeParams?.tokenApproval) {
+        hasApproval = true;
+      }
+    } catch (e) {
+      console.warn(
+        "Could not simulate executeDeposit for gas estimation, using default 1M gas",
+        e,
+      );
+    }
+  }
+  const estimatedGasUnits =
+    configGas + (hasApproval ? BigInt(50000) : BigInt(0));
+
+  const gasPriceWei = await fetchDestinationGasPriceWei(
+    targetChainId,
+    walletClient,
+    nexusSDK,
+  );
+
+  const rawGasCostWei = estimatedGasUnits * gasPriceWei;
+  const requiredGasWei = (rawGasCostWei * BigInt(120)) / BigInt(100);
+
+  const nativeDecimals =
+    CHAIN_METADATA[targetChainId]?.nativeCurrency?.decimals ?? 18;
+  const requiredGasEth = new Decimal(requiredGasWei.toString())
+    .div(Decimal.pow(10, nativeDecimals))
+    .toFixed();
+
+  let userGasBalanceWei = BigInt(0);
+  if (ownerAddress && isAddress(ownerAddress)) {
+    userGasBalanceWei = await fetchUserNativeGasBalanceWei(
+      ownerAddress as Address,
+      targetChainId,
+      walletClient,
+      nexusSDK,
+    );
+  }
+  const userGasBalanceEth = new Decimal(userGasBalanceWei.toString())
+    .div(Decimal.pow(10, nativeDecimals))
+    .toFixed();
+
+  const gasDiffWei = userGasBalanceWei - requiredGasWei;
+  const isShortfall = isErc20 && gasDiffWei < BigInt(0);
+  const shortfallAmountRaw = isShortfall
+    ? requiredGasWei - userGasBalanceWei
+    : BigInt(0);
+  const shortfallAmountEth = isShortfall
+    ? new Decimal(shortfallAmountRaw.toString())
+        .div(Decimal.pow(10, nativeDecimals))
+        .toFixed()
+    : "0";
+
+  return {
+    estimatedGasUnits,
+    gasPriceWei,
+    hasApproval,
+    isErc20: true,
+    isShortfall,
+    requiredGasEth,
+    requiredGasWei,
+    shortfallAmountEth,
+    shortfallAmountRaw,
+    userGasBalanceEth,
+    userGasBalanceWei,
+  };
 };
 
 const getOnrampChainIdNumber = (chainId?: number | string) => {
@@ -2319,8 +2430,11 @@ const getOnrampSessionSubtitle = (
   opportunity?: NexusWidgetDepositOpportunityConfig,
 ) => {
   const normalized = getNormalizedOnrampState(state);
-  if (normalized === "SETTLED" || isOnrampDepositSuccessState(normalized)) {
+  if (isOnrampDepositSuccessState(normalized)) {
     return `The amount was deposited on ${getDepositTargetLabel(opportunity)}`;
+  }
+  if (isOnrampSettledState(normalized)) {
+    return `Completing deposit on ${getDepositTargetLabel(opportunity)}`;
   }
   if (isOnrampDepositFailedState(normalized)) {
     return "The funds are in your wallet, but the deposit transaction could not be performed automatically.";
@@ -3378,7 +3492,7 @@ function OnrampSessionStatusPanel({
   }
 
   if (
-    normalizedState === "SETTLED" ||
+    isOnrampSettledState(normalizedState) ||
     depositExecution.status === "running" ||
     isOnrampDepositProcessingState(normalizedState)
   ) {
@@ -3727,96 +3841,16 @@ export function DepositOnrampFlow({
 
     const runGasShortfallCheck = async () => {
       try {
-        // 1. Gas units from opportunity executeDeposit:
-        let configGas = BigInt(1000000);
-        let hasApproval = false;
-        if (opportunity?.executeDeposit) {
-          try {
-            const dummyAmountRaw = BigInt(1000000);
-            const dummyUser =
-              ownerAddress && isAddress(ownerAddress)
-                ? (ownerAddress as Address)
-                : ONRAMP_DISCONNECTED_QUOTE_WALLET_ADDRESS;
-            const executeParams = opportunity.executeDeposit(
-              opportunity.tokenSymbol,
-              opportunity.tokenAddress,
-              dummyAmountRaw,
-              targetChainId,
-              dummyUser,
-            );
-            if (executeParams?.gas && executeParams.gas > BigInt(0)) {
-              configGas = executeParams.gas;
-            }
-            if (executeParams?.tokenApproval) {
-              hasApproval = true;
-            }
-          } catch (e) {
-            console.warn(
-              "Could not simulate executeDeposit for gas estimation, using default 1M gas",
-              e,
-            );
-          }
-        }
-        const estimatedGasUnits =
-          configGas + (hasApproval ? BigInt(50000) : BigInt(0));
-
-        // 2. Fetch destination gas price:
-        const gasPriceWei = await fetchDestinationGasPriceWei(
+        const shortfall = await computeGasShortfall({
+          opportunity,
+          ownerAddress,
           targetChainId,
+          isErc20,
           walletClient,
           nexusSDK,
-        );
-
-        // 3. Wei calculation with 20% safety margin:
-        const rawGasCostWei = estimatedGasUnits * gasPriceWei;
-        const requiredGasWei = (rawGasCostWei * BigInt(120)) / BigInt(100);
-
-        // 4. Native decimals & ETH conversion:
-        const nativeDecimals =
-          CHAIN_METADATA[targetChainId]?.nativeCurrency?.decimals ?? 18;
-        const requiredGasEth = new Decimal(requiredGasWei.toString())
-          .div(Decimal.pow(10, nativeDecimals))
-          .toFixed();
-
-        // 5. User balance & shortfall:
-        let userGasBalanceWei = BigInt(0);
-        if (ownerAddress && isAddress(ownerAddress)) {
-          userGasBalanceWei = await fetchUserNativeGasBalanceWei(
-            ownerAddress as Address,
-            targetChainId,
-            walletClient,
-            nexusSDK,
-          );
-        }
-        const userGasBalanceEth = new Decimal(userGasBalanceWei.toString())
-          .div(Decimal.pow(10, nativeDecimals))
-          .toFixed();
-
-        const gasDiffWei = userGasBalanceWei - requiredGasWei;
-        const isShortfall = isErc20 && gasDiffWei < BigInt(0);
-        const shortfallAmountRaw = isShortfall
-          ? requiredGasWei - userGasBalanceWei
-          : BigInt(0);
-        const shortfallAmountEth = isShortfall
-          ? new Decimal(shortfallAmountRaw.toString())
-              .div(Decimal.pow(10, nativeDecimals))
-              .toFixed()
-          : "0";
-
+        });
         if (!cancelled) {
-          setGasShortfallInfo({
-            estimatedGasUnits,
-            gasPriceWei,
-            hasApproval,
-            isErc20: true,
-            isShortfall,
-            requiredGasEth,
-            requiredGasWei,
-            shortfallAmountEth,
-            shortfallAmountRaw,
-            userGasBalanceEth,
-            userGasBalanceWei,
-          });
+          setGasShortfallInfo(shortfall);
         }
       } catch (err) {
         console.warn("Failed to check gas shortfall:", err);
@@ -3870,46 +3904,11 @@ export function DepositOnrampFlow({
         session.transaction?.destinationAmount ??
         selectedQuote?.destinationAmount ??
         "";
-      const isSandbox = getOnrampRuntimeEnvironment(baseUrl) !== "production";
-      const sandboxAmountRaw = getSandboxDepositAmountRaw(decimals);
       let amountRaw = getRawTokenAmount(receivedAmount, decimals);
 
       try {
         if (!amountRaw || amountRaw <= BigInt(0)) {
           throw new Error("Unable to resolve the onramp received amount.");
-        }
-
-        if (isSandbox) {
-          const balanceRaw = getOnrampTokenBalanceRaw(
-            toToken,
-            decimals,
-            opportunity.chainId,
-            opportunity.tokenAddress,
-          );
-
-          if (balanceRaw === null || balanceRaw <= sandboxAmountRaw) {
-            const displayAmount = formatUnits(amountRaw, decimals);
-            setDepositExecution({
-              amount: displayAmount,
-              skipped: true,
-              status: "success",
-            });
-            setSession((current) =>
-              current?.sessionId === sessionId
-                ? {
-                    ...current,
-                    deposit: {
-                      ...current.deposit,
-                      state: "DEPOSIT_SUCCESS",
-                    },
-                    state: "DEPOSIT_SUCCESS",
-                  }
-                : current,
-            );
-            return;
-          }
-
-          amountRaw = sandboxAmountRaw;
         }
 
         if (!walletClient) {
@@ -3921,19 +3920,38 @@ export function DepositOnrampFlow({
           throw new Error("Unable to resolve the deposit chain.");
         }
 
-        // If the token is an ERC20 token and a gas shortfall is detected, perform swapWithExactOut for native gas
         const isErc20DepositToken = isErc20Token(toToken, toChainId);
+
+        // Ensure we have active gas shortfall info before deposit
+        let activeGasShortfall = gasShortfallInfo;
+        if (isErc20DepositToken && !activeGasShortfall) {
+          try {
+            activeGasShortfall = await computeGasShortfall({
+              opportunity,
+              ownerAddress,
+              targetChainId: toChainId,
+              isErc20: isErc20DepositToken,
+              walletClient,
+              nexusSDK,
+            });
+            setGasShortfallInfo(activeGasShortfall);
+          } catch (e) {
+            console.warn("[NexusWidget Onramp] Live gas shortfall check failed", e);
+          }
+        }
+
+        // If the token is an ERC20 token and a gas shortfall is detected, perform swapWithExactOut for native gas
         if (
           isErc20DepositToken &&
-          gasShortfallInfo?.isShortfall &&
-          gasShortfallInfo.shortfallAmountRaw > BigInt(0) &&
+          activeGasShortfall?.isShortfall &&
+          activeGasShortfall.shortfallAmountRaw > BigInt(0) &&
           nexusSDK?.swapWithExactOut
         ) {
           console.log(
             "[NexusWidget Onramp] Gas shortfall detected, executing swapWithExactOut for gas",
             {
-              shortfallAmountEth: gasShortfallInfo.shortfallAmountEth,
-              shortfallAmountRaw: gasShortfallInfo.shortfallAmountRaw,
+              shortfallAmountEth: activeGasShortfall.shortfallAmountEth,
+              shortfallAmountRaw: activeGasShortfall.shortfallAmountRaw,
               toChainId,
               tokenAddress: toToken.contractAddress,
             },
@@ -3954,7 +3972,7 @@ export function DepositOnrampFlow({
                 tokenAddress: toToken.contractAddress as Hex,
               },
             ],
-            toAmountRaw: gasShortfallInfo.shortfallAmountRaw,
+            toAmountRaw: activeGasShortfall.shortfallAmountRaw,
             toChainId,
             toTokenAddress: zeroAddress as Hex,
           };
@@ -3983,6 +4001,11 @@ export function DepositOnrampFlow({
             });
 
             setDepositExecution({ status: "running", step: "depositing" });
+            setSession((current) =>
+              current?.sessionId === sessionId
+                ? { ...current, state: "COMPLETING_DEPOSIT" }
+                : current,
+            );
 
             // Update remaining ERC20 balance
             try {
@@ -4044,6 +4067,59 @@ export function DepositOnrampFlow({
               }`,
             );
           }
+        } else {
+          setDepositExecution({ status: "running", step: "depositing" });
+          setSession((current) =>
+            current?.sessionId === sessionId
+              ? { ...current, state: "COMPLETING_DEPOSIT" }
+              : current,
+          );
+        }
+
+        // Check on-chain token balance if ERC20 to ensure amountRaw does not exceed available balance
+        if (isErc20DepositToken && toToken.contractAddress) {
+          try {
+            const callData = encodeFunctionData({
+              abi: erc20Abi,
+              args: [account],
+              functionName: "balanceOf",
+            });
+            const rpcUrl = getChainRpcUrl(toChainId, nexusSDK);
+            let onChainBalanceRaw: bigint | null = null;
+            if (walletClient && walletClient.chain?.id === toChainId) {
+              try {
+                const resultHex = (await walletClient.request({
+                  method: "eth_call",
+                  params: [
+                    { data: callData, to: toToken.contractAddress },
+                    "latest",
+                  ],
+                } as any)) as string;
+                if (resultHex) {
+                  onChainBalanceRaw = BigInt(resultHex);
+                }
+              } catch {}
+            }
+            if (onChainBalanceRaw === null && rpcUrl) {
+              try {
+                const resultHex = await makeJsonRpcCall<string>(
+                  rpcUrl,
+                  "eth_call",
+                  [{ data: callData, to: toToken.contractAddress }, "latest"],
+                );
+                if (resultHex) {
+                  onChainBalanceRaw = BigInt(resultHex);
+                }
+              } catch {}
+            }
+            if (
+              onChainBalanceRaw !== null &&
+              onChainBalanceRaw > BigInt(0) &&
+              onChainBalanceRaw < amountRaw
+            ) {
+              amountRaw = onChainBalanceRaw;
+            }
+          } catch {}
         }
 
         if (walletClient.chain?.id !== toChainId) {
@@ -4145,6 +4221,7 @@ export function DepositOnrampFlow({
     [
       baseUrl,
       depositExecution.status,
+      gasShortfallInfo,
       onError,
       opportunity,
       ownerAddress,
@@ -4594,17 +4671,22 @@ export function DepositOnrampFlow({
   React.useEffect(() => {
     const derivedSessionState =
       depositExecution.status === "running"
-        ? "COMPLETING_DEPOSIT"
+        ? depositExecution.step === "swapping_gas"
+          ? "SWAPPING_GAS"
+          : "COMPLETING_DEPOSIT"
         : depositExecution.status === "success"
           ? "DEPOSIT_SUCCESS"
           : depositExecution.status === "failed"
             ? "DEPOSIT_FAILED"
-            : sessionCallbackReceived
-              ? "ONRAMP_CALLBACK_RECEIVED"
-              : normalizedSessionState || "AWAITING_USER";
+            : isOnrampSettledState(normalizedSessionState)
+              ? "COMPLETING_DEPOSIT"
+              : sessionCallbackReceived
+                ? "ONRAMP_CALLBACK_RECEIVED"
+                : normalizedSessionState || "AWAITING_USER";
     onSessionStateChange?.(session?.sessionId ? derivedSessionState : null);
   }, [
     depositExecution.status,
+    depositExecution.step,
     normalizedSessionState,
     onSessionStateChange,
     sessionCallbackReceived,
@@ -4755,7 +4837,7 @@ export function DepositOnrampFlow({
   React.useEffect(() => {
     if (
       !session?.sessionId ||
-      normalizedSessionState !== "SETTLED" ||
+      !isOnrampSettledState(normalizedSessionState) ||
       depositExecution.status !== "idle"
     ) {
       return;
