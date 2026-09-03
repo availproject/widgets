@@ -363,7 +363,6 @@ function FundingOptionRow({
   icons,
   isLast,
   onClick,
-  recommended,
   subtitle,
   title,
 }: {
@@ -371,7 +370,6 @@ function FundingOptionRow({
   icons: React.ReactNode;
   isLast: boolean;
   onClick: () => void;
-  recommended?: boolean;
   subtitle: React.ReactNode;
   title: string;
 }) {
@@ -432,31 +430,6 @@ function FundingOptionRow({
           >
             {title}
           </div>
-          {recommended && (
-            <div
-              style={{
-                backgroundColor: "#E8F5E9",
-                borderRadius: "999px",
-                boxSizing: "border-box",
-                flexShrink: 0,
-                paddingBlock: "2px",
-                paddingInline: "8px",
-              }}
-            >
-              <div
-                style={{
-                  boxSizing: "border-box",
-                  color: "#2E7D32",
-                  fontFamily: '"Geist", system-ui, sans-serif',
-                  fontSize: "11px",
-                  fontWeight: 500,
-                  lineHeight: "14px",
-                }}
-              >
-                Recommended
-              </div>
-            </div>
-          )}
         </div>
         <div
           style={{
@@ -522,7 +495,6 @@ export function DepositFundingMethod({
     id: FundingMethod;
     title: string;
     subtitle: React.ReactNode;
-    recommended?: boolean;
     icons: React.ReactNode;
   }> = [];
 
@@ -546,7 +518,6 @@ export function DepositFundingMethod({
       id: "local-currency",
       title: "Deposit with Cash",
       subtitle: "Card, Apple Pay, Bank Transfer",
-      recommended: true,
       icons: <CashIcons />,
     });
   }
@@ -594,7 +565,6 @@ export function DepositFundingMethod({
             isLast={index === options.length - 1}
             key={option.id}
             onClick={() => setSelectedMethod(option.id)}
-            recommended={option.recommended}
             subtitle={option.subtitle}
             title={option.title}
           />
