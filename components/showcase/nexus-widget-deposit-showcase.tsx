@@ -11,6 +11,7 @@ import {
 } from "viem";
 import { useAccount } from "wagmi";
 import { useConnectWalletClick } from "../helpers/use-connect-wallet-click";
+import { cn } from "@/lib/utils";
 import {
   NexusWidgetRenderModeToggle,
   type NexusWidgetRenderMode,
@@ -441,6 +442,7 @@ const NexusWidgetDepositShowcase = () => {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [renderMode, setRenderMode] = useState<NexusWidgetRenderMode>("inline");
   const isPopupMode = renderMode === "popup";
+  const [enableOnRamp, setEnableOnRamp] = useState(false);
 
   // Default sandbox configuration state
   const [sandboxConfig, setSandboxConfig] = useState<{
@@ -711,10 +713,33 @@ const NexusWidgetDepositShowcase = () => {
       type="nexus-widget"
       connectLabel="Connect wallet to use Deposit"
       controls={
-        <NexusWidgetRenderModeToggle
-          value={renderMode}
-          onValueChange={setRenderMode}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            aria-pressed={enableOnRamp}
+            onClick={() => setEnableOnRamp((prev) => !prev)}
+            className={cn(
+              "inline-flex items-center gap-1.5 h-9 rounded-md border px-3 text-xs font-medium transition-colors shadow-sm cursor-pointer",
+              enableOnRamp
+                ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
+                : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
+            )}
+          >
+            <span
+              className={cn(
+                "w-2 h-2 rounded-full transition-colors",
+                enableOnRamp
+                  ? "bg-emerald-400 dark:bg-emerald-500"
+                  : "bg-zinc-300 dark:bg-zinc-600",
+              )}
+            />
+            Onramp
+          </button>
+          <NexusWidgetRenderModeToggle
+            value={renderMode}
+            onValueChange={setRenderMode}
+          />
+        </div>
       }
     >
       <div className="flex flex-col gap-6 w-full items-center">
@@ -901,7 +926,7 @@ const NexusWidgetDepositShowcase = () => {
           }}
         >
           <NexusWidget
-            key={`${selectedOpt}-${renderMode}`}
+            key={`${selectedOpt}-${renderMode}-${enableOnRamp}`}
             embed={!isPopupMode}
             defaultOpen={isPopupMode}
             config={{
@@ -912,6 +937,7 @@ const NexusWidgetDepositShowcase = () => {
               },
               depositAddress: resolveDepositAddress(currentOpportunity),
               executeDeposit: currentOpportunity.executeDeposit,
+              enableOnRamp,
               appearance: {
                 appLogoURL: currentOpportunity.depositTargetLogo,
                 appName: currentOpportunity.protocol,

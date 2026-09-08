@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { logOnramp } from "@/registry/avail-widgets/nexus-widget/utils/onramp-session";
 
 const ONRAMP_SUCCESS_MESSAGE = "nexus-onramp-success";
 const ONRAMP_SUCCESS_ACK_MESSAGE = "nexus-onramp-success-received";
@@ -8,15 +9,22 @@ const ONRAMP_SUCCESS_ACK_MESSAGE = "nexus-onramp-success-received";
 export default function OnrampCompletePage() {
   React.useEffect(() => {
     let closed = false;
+    logOnramp("provider.return_page", { hasOpener: Boolean(window.opener) });
 
     const closePage = () => {
       if (closed) return;
       closed = true;
+      logOnramp("provider.return_page.close");
       window.close();
     };
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.data !== ONRAMP_SUCCESS_ACK_MESSAGE) return;
+      if (
+        event.source !== window.opener ||
+        event.data !== ONRAMP_SUCCESS_ACK_MESSAGE
+      )
+        return;
+      logOnramp("provider.return_page.acknowledged");
       closePage();
     };
 
@@ -48,7 +56,8 @@ export default function OnrampCompletePage() {
         textAlign: "center",
       }}
     >
-      Transaction success. Redirecting back to status page...
+      Returning to payment status. Keep the original page open to finish your
+      deposit.
     </main>
   );
 }

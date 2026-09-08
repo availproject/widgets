@@ -71,6 +71,7 @@ const APP_DEPOSIT_ABI = [
 
 const depositConfig = {
   mode: "deposit",
+  enableOnRamp: true, // Optional; defaults to false (wallet funding only).
   destination: {
     chain: DESTINATION_CHAIN_ID,
     tokens: [
@@ -127,6 +128,7 @@ Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the des
 | `config.destination.tokens`                                                        | Yes      | One or more accepted destination tokens. The token dropdown is limited to this list and is editable only when multiple tokens are supplied. |
 | `config.depositAddress`                                                            | Yes      | Smart contract address for the deposit target.                                                                                              |
 | `config.executeDeposit`                                                            | Yes      | Callback builder returning `{ to, gas, data?, value?, tokenApproval? }` for the final app transaction. `gas` must be a positive `bigint`.   |
+| `config.enableOnRamp` | Optional | Defaults to `false`. Set `true` to display "Pay with Local Currency" alongside wallet funding. |
 | `config.prefill.amount`                                                            | Optional | Prefills the exact output deposit amount. Must be greater than `0`.                                                                         |
 | `config.validation.minAmount`                                                      | Optional | Minimum deposit amount. Must be `0` or greater.                                                                                             |
 | `config.validation.maxAmount`                                                      | Optional | Maximum deposit amount. Must be greater than `0`.                                                                                           |
@@ -135,6 +137,8 @@ Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the des
 | `embed`                                                                            | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                                                               |
 | `open`, `onOpenChange`, `defaultOpen`                                              | Optional | Control the modal when `embed={false}`.                                                                                                     |
 | `onStart`, `onComplete`, `onError`, `onClose`, `onConnectClick`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectClick` to open your app/header wallet modal from the element CTA.                                         |
+
+Set `enableOnRamp: true` to offer wallet and local currency funding. Set it to `false` or omit it to open directly in the wallet deposit flow. The showcase Onramp toggle demonstrates both settings.
 
 ### `executeDeposit`
 
@@ -268,6 +272,7 @@ export function MultiDepositShowcase({ address }) {
       <NexusWidget
         config={{
           mode: "deposit",
+          enableOnRamp: true, // Optional; defaults to false (wallet funding only).
           destination: {
             chain: OPPORTUNITIES[selectedOpt].chain,
             tokens: [OPPORTUNITIES[selectedOpt].token],

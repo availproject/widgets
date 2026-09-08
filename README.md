@@ -205,6 +205,7 @@ function buildDepositExecuteConfig(
 <NexusWidget
   config={{
     mode: "deposit",
+    enableOnRamp: true, // Optional; defaults to false (wallet funding only).
     destination: {
       chain: 42161,
       tokens: [

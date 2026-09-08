@@ -32,3 +32,9 @@ namespace is listed in shadcn, install with:
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
+
+## Onramp + Deposit diagnostics
+
+For `config.mode: "deposit"`, set `config.enableOnRamp: true` to offer local currency funding. It defaults to `false`, which opens the wallet deposit flow directly. The deposit showcase includes an Onramp toggle for both settings.
+
+Version `2.1.0-rc.1` uses Nexus Core `2.4.1`. Filter the browser console by `[Nexus Onramp]` to trace payment status, SDK gas-swap events, wallet approval and the final deposit receipt. Keep the page open and approve the wallet prompts. See [onramp troubleshooting](../../docs/onramp-troubleshooting.md) in the source repository for configuration, failure cases and testing.

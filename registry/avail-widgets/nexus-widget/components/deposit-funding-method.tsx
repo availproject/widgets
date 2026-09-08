@@ -7,6 +7,7 @@ import { nexusWidgetTheme } from "../theme";
 type FundingMethod = "wallet" | "local-currency";
 
 interface DepositFundingMethodProps {
+  enableOnRamp?: boolean;
   isBalanceLoading?: boolean;
   onSelectLocalCurrency: () => void;
   onSelectWallet: () => void;
@@ -222,6 +223,7 @@ function FundingOption({
 }
 
 export function DepositFundingMethod({
+  enableOnRamp = false,
   isBalanceLoading = false,
   onSelectLocalCurrency,
   onSelectWallet,
@@ -231,13 +233,21 @@ export function DepositFundingMethod({
   const [selectedMethod, setSelectedMethod] =
     React.useState<FundingMethod | null>(null);
 
+  React.useEffect(() => {
+    if (!enableOnRamp) {
+      setSelectedMethod((current) =>
+        current === "local-currency" ? null : current,
+      );
+    }
+  }, [enableOnRamp]);
+
   const handleContinue = () => {
     if (!selectedMethod) return;
     if (selectedMethod === "wallet") {
       onSelectWallet();
       return;
     }
-    onSelectLocalCurrency();
+    if (enableOnRamp) onSelectLocalCurrency();
   };
 
   return (
@@ -285,23 +295,25 @@ export function DepositFundingMethod({
             setSelectedMethod("wallet");
           }}
         />
-        <FundingOption
-          active={selectedMethod === "local-currency"}
-          description="Card, Apple Pay, UPI"
-          icon={
-            <CreditCard
-              aria-hidden="true"
-              color={theme.colors.textStrong}
-              size={20}
-              strokeWidth={1.7}
-            />
-          }
-          label="Pay with Local Currency"
-          onClick={() => {
-            setSelectedMethod("local-currency");
-          }}
-          recommended
-        />
+        {enableOnRamp && (
+          <FundingOption
+            active={selectedMethod === "local-currency"}
+            description="Card, Apple Pay, UPI"
+            icon={
+              <CreditCard
+                aria-hidden="true"
+                color={theme.colors.textStrong}
+                size={20}
+                strokeWidth={1.7}
+              />
+            }
+            label="Pay with Local Currency"
+            onClick={() => {
+              setSelectedMethod("local-currency");
+            }}
+            recommended
+          />
+        )}
       </div>
       <button
         disabled={!selectedMethod}

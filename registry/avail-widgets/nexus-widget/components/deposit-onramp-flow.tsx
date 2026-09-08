@@ -29,6 +29,17 @@ import { NEXUS_WIDGET_FAST_SPINNER_STYLE, nexusWidgetTheme } from "../theme";
 import type { NexusWidgetDepositOpportunityConfig } from "../types";
 import type { SwapTokenOption } from "./swap-asset-selector";
 import { CHAIN_METADATA } from "../../common";
+import {
+  getOnrampRemainingAmount,
+  onrampDelay,
+  waitForOnrampReceipt,
+  getNormalizedOnrampState,
+  isOnrampTerminalState,
+  logOnramp,
+  normalizeOnrampSession,
+  startOnrampPolling,
+  type OnrampSessionResponse,
+} from "../utils/onramp-session";
 
 type OnrampCryptoCurrency = {
   chainCode?: string;
@@ -144,31 +155,6 @@ type OnrampQuoteResponse = {
   quotes?: OnrampQuote[];
 };
 
-type OnrampSessionResponse = {
-  createdAt?: string;
-  fallbackWidgetUrl?: string;
-  paymentMethodType?: string;
-  provider?: string;
-  rawMeldStatus?: string;
-  deposit?: {
-    explorerUrl?: string;
-    state?: string;
-    txHash?: string;
-  };
-  sessionId?: string;
-  state?: string;
-  transaction?: {
-    destinationAmount?: string;
-    destinationCurrencyCode?: string;
-    sourceAmount?: string;
-    sourceCurrencyCode?: string;
-    txHash?: string;
-    walletAddress?: string;
-  };
-  updatedAt?: string;
-  widgetUrl?: string;
-};
-
 type OnrampCacheRecord<T> = {
   expiresAt: number;
   value: T;
@@ -183,7 +169,6 @@ type OnrampDepositExecutionState = {
   amount?: string;
   error?: string;
   explorerUrl?: string;
-  skipped?: boolean;
   status: "idle" | "running" | "success" | "failed";
   step?: "swapping_gas" | "depositing";
   txHash?: Hex;
@@ -395,7 +380,9 @@ const formatPlainNumberDisplay = (value: unknown, maxDecimals = 6) => {
 const ONRAMP_FOREX_RATES_CACHE_KEY = "nexus_onramp_forex_rates_usd";
 const ONRAMP_FOREX_RATES_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-const fetchOnrampForexRates = async (): Promise<Record<string, number>> => {
+const fetchOnrampForexRates = async (
+  signal?: AbortSignal,
+): Promise<Record<string, number>> => {
   const cached = readOnrampCache<Record<string, number>>(
     ONRAMP_FOREX_RATES_CACHE_KEY,
   );
@@ -403,7 +390,12 @@ const fetchOnrampForexRates = async (): Promise<Record<string, number>> => {
     return cached;
   }
   try {
-    const res = await fetch("https://open.er-api.com/v6/latest/USD");
+    logOnramp("forex.request");
+    const res = await fetch("https://open.er-api.com/v6/latest/USD", {
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(15_000)])
+        : AbortSignal.timeout(15_000),
+    });
     if (res.ok) {
       const data = await res.json();
       if (data?.rates && typeof data.rates === "object") {
@@ -417,7 +409,7 @@ const fetchOnrampForexRates = async (): Promise<Record<string, number>> => {
       }
     }
   } catch (e) {
-    console.warn("Failed to fetch onramp forex rates", e);
+    logOnramp("Failed to fetch onramp forex rates", e);
   }
   return {};
 };
@@ -805,57 +797,46 @@ const writeCachedOnrampOptions = (
   );
 };
 
-const getOnrampEnvironmentValue = (key: string) => {
-  if (typeof process === "undefined") return "";
-  return process.env?.[key]?.trim() ?? "";
-};
-
+// Next.js only inlines literal NEXT_PUBLIC references into browser bundles.
 const normalizeOnrampBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
 const getOnrampBaseUrl = () =>
   normalizeOnrampBaseUrl(
-    getOnrampEnvironmentValue("NEXT_PUBLIC_NEXUS_ONRAMP_BASE_URL") ||
+    (typeof process !== "undefined" &&
+      process.env.NEXT_PUBLIC_NEXUS_ONRAMP_BASE_URL?.trim()) ||
       ONRAMP_DEFAULT_BASE_URL,
   );
 
 const getOnrampReturnUrl = () =>
-  getOnrampEnvironmentValue("NEXT_PUBLIC_NEXUS_ONRAMP_RETURN_URL") ||
-  (typeof window !== "undefined" && window.location.origin
+  (typeof process !== "undefined" &&
+    process.env.NEXT_PUBLIC_NEXUS_ONRAMP_RETURN_URL?.trim()) ||
+  (typeof window !== "undefined"
     ? `${window.location.origin}${ONRAMP_RETURN_PATH}`
     : ONRAMP_RETURN_PATH);
-
-const getOnrampRuntimeEnvironment = (baseUrl: string) => {
-  const explicitEnvironment =
-    getOnrampEnvironmentValue("NEXT_PUBLIC_NEXUS_ONRAMP_ENV") ||
-    getOnrampEnvironmentValue("NEXT_PUBLIC_ONRAMP_ENV") ||
-    getOnrampEnvironmentValue("NEXT_PUBLIC_NEXUS_ENV") ||
-    getOnrampEnvironmentValue("NEXT_PUBLIC_VERCEL_ENV") ||
-    getOnrampEnvironmentValue("VERCEL_ENV");
-
-  if (explicitEnvironment) return explicitEnvironment.toLowerCase();
-
-  const normalizedBaseUrl = baseUrl.toLowerCase();
-  if (
-    normalizedBaseUrl.includes("canary") ||
-    normalizedBaseUrl.includes("localhost") ||
-    normalizedBaseUrl.includes("127.0.0.1")
-  ) {
-    return "sandbox";
-  }
-
-  return "production";
+const getOnrampRuntimeEnvironment = (_baseUrl: string) => {
+  const explicit =
+    typeof process !== "undefined"
+      ? process.env.NEXT_PUBLIC_NEXUS_ONRAMP_ENV?.trim().toLowerCase()
+      : undefined;
+  // Canary is a mainnet-class Nexus deployment, not evidence of a Meld sandbox.
+  return explicit === "sandbox" || explicit === "testnet"
+    ? "sandbox"
+    : "production";
 };
 
 const getUnsupportedCountryFallbackCode = (baseUrl: string) => {
   const environment = getOnrampRuntimeEnvironment(baseUrl);
-  return environment === "production" || environment === "prod"
+  return environment === "production"
     ? ONRAMP_PRODUCTION_FALLBACK_COUNTRY
     : ONRAMP_SANDBOX_FALLBACK_COUNTRY;
 };
 
-const getIpCountryCode = async () => {
+const getIpCountryCode = async (signal?: AbortSignal) => {
   try {
     const response = await fetch(ONRAMP_IP_COUNTRY_URL, {
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(15_000)])
+        : AbortSignal.timeout(15_000),
       headers: { Accept: "application/json" },
       method: "GET",
     });
@@ -879,11 +860,12 @@ const getLocalCountryCode = () => {
   return "";
 };
 
-const resolveOnrampCountryCode = async () => {
+const resolveOnrampCountryCode = async (signal?: AbortSignal) => {
   const cached = readOnrampCache<string>(ONRAMP_COUNTRY_CACHE_KEY);
   if (cached) return cached;
 
-  const resolved = (await getIpCountryCode()) || getLocalCountryCode() || "US";
+  const resolved =
+    (await getIpCountryCode(signal)) || getLocalCountryCode() || "US";
   writeOnrampCache(
     ONRAMP_COUNTRY_CACHE_KEY,
     resolved,
@@ -1085,25 +1067,21 @@ const getOnrampRateRequestKey = ({
     destinationToken?.toLowerCase() ?? "",
   ].join("|");
 
-const ONRAMP_TERMINAL_STATES = new Set([
-  "CANCELLED",
-  "EXPIRED",
-  "FAILED",
-  "REFUNDED",
-  "SETTLED",
-]);
-
-const getNormalizedOnrampState = (state?: string | null) =>
-  (state ?? "").trim().toUpperCase();
-
-const isOnrampTerminalState = (state?: string | null) =>
-  ONRAMP_TERMINAL_STATES.has(getNormalizedOnrampState(state)) ||
-  isOnrampDepositSuccessState(state) ||
-  isOnrampDepositFailedState(state);
-
 const isOnrampProcessingState = (state?: string | null) => {
   const normalized = getNormalizedOnrampState(state);
-  return normalized === "PROCESSING" || normalized === "SETTLING";
+  return [
+    "PROCESSING",
+    "SETTLING",
+    "PENDING",
+    "PENDING CREATED",
+    "PENDING_CREATED",
+    "TWO_FA_REQUIRED",
+    "TWO_FA_PROVIDED",
+    "ERROR",
+    "ACCEPTED",
+    "AUTHORIZED",
+    "PARTIALLY_SETTLED",
+  ].includes(normalized);
 };
 
 const ONRAMP_DEPOSIT_PROCESSING_STATES = new Set([
@@ -1114,7 +1092,6 @@ const ONRAMP_DEPOSIT_PROCESSING_STATES = new Set([
 ]);
 
 const ONRAMP_DEPOSIT_SUCCESS_STATES = new Set([
-  "COMPLETED",
   "DEPOSIT_COMPLETE",
   "DEPOSIT_SUCCESS",
   "DEPOSITED",
@@ -1184,8 +1161,11 @@ const makeJsonRpcCall = async <T = any,>(
   rpcUrl: string,
   method: string,
   params: any[] = [],
+  signal?: AbortSignal,
 ): Promise<T> => {
+  logOnramp("rpc.request", { method });
   const response = await fetch(rpcUrl, {
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1202,6 +1182,7 @@ const makeJsonRpcCall = async <T = any,>(
   if (json.error) {
     throw new Error(json.error.message || "RPC call error");
   }
+  logOnramp("rpc.response", { method, result: json.result });
   return json.result as T;
 };
 
@@ -1259,13 +1240,13 @@ const fetchDestinationGasPriceWei = async (
     const baseFee = baseFeeHex ? BigInt(baseFeeHex) : BigInt(0);
 
     if (priorityFee > BigInt(0) && baseFee > BigInt(0)) {
-      return baseFee + priorityFee;
+      return baseFee * BigInt(2) + priorityFee;
     }
     if (priorityFee > BigInt(0)) {
       return priorityFee;
     }
   } catch (err) {
-    console.warn(
+    logOnramp(
       "Error fetching type 2 gas fee, falling back to eth_gasPrice",
       err,
     );
@@ -1291,11 +1272,13 @@ const fetchDestinationGasPriceWei = async (
       }
     }
   } catch (err) {
-    console.warn("Error fetching eth_gasPrice", err);
+    logOnramp("Error fetching eth_gasPrice", err);
   }
 
   // 3. Fallback default (1 Gwei)
-  return BigInt(1000000000);
+  throw new Error(
+    "Unable to fetch the destination gas price. Retry Deposit when the RPC is available.",
+  );
 };
 
 const fetchUserNativeGasBalanceWei = async (
@@ -1325,10 +1308,12 @@ const fetchUserNativeGasBalanceWei = async (
       if (balanceHex) return BigInt(balanceHex);
     }
   } catch (err) {
-    console.warn("Failed to fetch user native gas balance", err);
+    logOnramp("Failed to fetch user native gas balance", err);
   }
 
-  return BigInt(0);
+  throw new Error(
+    "Unable to fetch the wallet gas balance. Retry Deposit when the RPC is available.",
+  );
 };
 
 const isErc20Token = (token?: SwapTokenOption, chainId?: number) => {
@@ -1412,36 +1397,10 @@ const isMatchingOnrampToken = (
   );
 };
 
-const getOnrampTokenBalanceRaw = (
-  token: SwapTokenOption,
-  decimals: number,
-  chainId: number,
-  tokenAddress: string,
-) => {
-  const matchingToken =
-    token.sourceTokens?.find((sourceToken) =>
-      isMatchingOnrampToken(sourceToken, chainId, tokenAddress),
-    ) ?? (isMatchingOnrampToken(token, chainId, tokenAddress) ? token : null);
-  if (!matchingToken) return null;
-
-  const balanceAmount = parseDecimal(
-    matchingToken.userAmount ?? matchingToken.balance,
-  );
-  if (!balanceAmount?.gt(0)) return null;
-
-  return parseUnits(
-    balanceAmount.toDecimalPlaces(decimals, Decimal.ROUND_DOWN).toFixed(),
-    decimals,
-  );
-};
-
 const getTransactionExplorerUrl = (chainId?: number, txHash?: string) => {
   const baseUrl = getExplorerBaseUrl(chainId);
   return baseUrl && txHash ? `${baseUrl}${txHash}` : undefined;
 };
-
-const getSandboxDepositAmountRaw = (decimals: number) =>
-  BigInt(new Decimal(0.1).mul(Decimal.pow(10, decimals)).toFixed());
 
 const getNexusChainTransactionExplorerUrl = (
   nexusSDK: OnrampNexusSDK | null | undefined,
@@ -1463,25 +1422,29 @@ const getNexusChainTransactionExplorerUrl = (
 const waitForWalletTransactionSuccess = async (
   walletClient: WalletClient,
   txHash: Hex,
+  chainId: number,
+  nexusSDK: OnrampNexusSDK | null | undefined,
+  signal: AbortSignal,
 ) => {
-  const timeoutAt = Date.now() + 120_000;
-  while (Date.now() < timeoutAt) {
-    const receipt = (await walletClient.request({
-      method: "eth_getTransactionReceipt",
-      params: [txHash],
-    } as any)) as { status?: Hex } | null;
-
-    if (receipt) {
-      if (receipt.status === "0x0") {
-        throw new Error("Transaction failed.");
-      }
-      return receipt;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
-
-  throw new Error("Timed out waiting for deposit transaction.");
+  const rpcUrl = getChainRpcUrl(chainId, nexusSDK);
+  logOnramp("wallet.receipt.wait", { chainId, txHash });
+  const receipt = await waitForOnrampReceipt(async () => {
+    const receipt = rpcUrl
+      ? await makeJsonRpcCall<{ status?: string } | null>(
+          rpcUrl,
+          "eth_getTransactionReceipt",
+          [txHash],
+          signal,
+        )
+      : ((await walletClient.request({
+          method: "eth_getTransactionReceipt",
+          params: [txHash],
+        } as any)) as { status?: string } | null);
+    logOnramp("wallet.receipt.poll", { chainId, txHash, receipt });
+    return receipt;
+  }, signal);
+  logOnramp("wallet.receipt.confirmed", { chainId, txHash, receipt });
+  return receipt;
 };
 
 const getOnrampTokenKey = (token?: SwapTokenOption) => {
@@ -1565,43 +1528,88 @@ const fetchOnrampJson = async <T,>(
   path: string,
   init?: RequestInit,
 ) => {
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      "x-nexus-client": ONRAMP_CLIENT_HEADER,
-      ...(init?.headers ?? {}),
-    },
+  const requestId = createIdempotencyKey();
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  init?.signal?.addEventListener("abort", abort, { once: true });
+  if (init?.signal?.aborted) controller.abort();
+  const timeout = setTimeout(abort, 20_000);
+  logOnramp("api.request", {
+    requestId,
+    path,
+    method: init?.method ?? "GET",
+    request: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
   });
-  const text = await response.text();
-  let data: any = {};
   try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = text ? { message: text } : {};
-  }
-
-  if (!response.ok) {
-    const errorData = data as OnrampErrorResponse;
-    const baseMessage =
-      typeof errorData?.message === "string"
-        ? errorData.message
-        : `Onramp request failed (${response.status})`;
-    const details = [errorData?.subcode, errorData?.errorId]
-      .filter(Boolean)
-      .join(" · ");
-    const message = details ? `${baseMessage} (${details})` : baseMessage;
-    throw new OnrampRequestError({
-      code: errorData?.code,
-      errorId: errorData?.errorId,
-      message,
-      rawMessage: baseMessage,
-      status: response.status,
-      subcode: errorData?.subcode,
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-nexus-client": ONRAMP_CLIENT_HEADER,
+        ...(init?.headers ?? {}),
+      },
     });
-  }
+    const text = await response.text();
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = text ? { message: text } : {};
+    }
 
-  return data as T;
+    logOnramp("api.response", {
+      requestId,
+      path,
+      httpStatus: response.status,
+      durationMs: Date.now() - startedAt,
+      response: path.includes("/sessions")
+        ? normalizeOnrampSession(data)
+        : undefined,
+      quoteCount: data.quotes?.length,
+      routeCount: data.routes?.length,
+      countryCount: data.countries?.length,
+      cacheStatus:
+        response.headers.get("x-cache") ??
+        response.headers.get("cf-cache-status"),
+      age: response.headers.get("age"),
+    });
+    if (!response.ok) {
+      const errorData = data as OnrampErrorResponse;
+      const baseMessage =
+        typeof errorData?.message === "string"
+          ? errorData.message
+          : `Onramp request failed (${response.status})`;
+      const details = [errorData?.subcode, errorData?.errorId]
+        .filter(Boolean)
+        .join(" · ");
+      const message = details ? `${baseMessage} (${details})` : baseMessage;
+      throw new OnrampRequestError({
+        code: errorData?.code,
+        errorId: errorData?.errorId,
+        message,
+        rawMessage: baseMessage,
+        status: response.status,
+        subcode: errorData?.subcode,
+      });
+    }
+
+    return data as T;
+  } catch (error) {
+    logOnramp("api.error", {
+      requestId,
+      path,
+      durationMs: Date.now() - startedAt,
+      aborted: controller.signal.aborted,
+      error,
+    });
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    init?.signal?.removeEventListener("abort", abort);
+  }
 };
 
 function TokenLogo({
@@ -2319,7 +2327,7 @@ const getOnrampSessionSubtitle = (
   opportunity?: NexusWidgetDepositOpportunityConfig,
 ) => {
   const normalized = getNormalizedOnrampState(state);
-  if (normalized === "SETTLED" || isOnrampDepositSuccessState(normalized)) {
+  if (isOnrampDepositSuccessState(normalized)) {
     return `The amount was deposited on ${getDepositTargetLabel(opportunity)}`;
   }
   if (isOnrampDepositFailedState(normalized)) {
@@ -2445,7 +2453,7 @@ function SafeCloseNotice() {
       }}
     >
       <Info aria-hidden="true" size={15} strokeWidth={1.8} />
-      Safe to close - we'll notify you when complete
+      Keep this page open to finish your deposit
     </div>
   );
 }
@@ -3287,13 +3295,15 @@ function OnrampSessionStatusPanel({
     width: "100%",
   };
 
-  if (normalizedState === "FAILED") {
+  if (
+    ["FAILED", "DECLINED", "AUTHORIZATION_EXPIRED"].includes(normalizedState)
+  ) {
     return (
       <div style={containerStyle}>
         <OnrampActionStatusPanel
           description={`${getProviderLabel(
             provider,
-          )} declined the payment. Your card wasn't charged.`}
+          )} could not complete the payment. Check the provider for charge or refund details.`}
           onPrimary={onRetryPayment}
           onSecondary={onCancel}
           primaryButtonForeground={primaryButtonForeground}
@@ -3355,10 +3365,7 @@ function OnrampSessionStatusPanel({
     );
   }
 
-  if (
-    depositExecution.status === "success" ||
-    isOnrampDepositSuccessState(normalizedState)
-  ) {
+  if (depositExecution.status === "success") {
     return (
       <div style={containerStyle}>
         <OnrampSuccessPanel
@@ -3371,7 +3378,7 @@ function OnrampSessionStatusPanel({
           provider={provider}
           sourceAmount={sourceDisplayAmount}
           sourceCurrencyCode={sourceDisplayCurrency}
-          subtitle={getOnrampSessionSubtitle(normalizedState, opportunity)}
+          subtitle={getOnrampSessionSubtitle("DEPOSIT_SUCCESS", opportunity)}
         />
       </div>
     );
@@ -3497,16 +3504,42 @@ export function DepositOnrampFlow({
   const [gasShortfallInfo, setGasShortfallInfo] =
     React.useState<OnrampGasShortfallInfo | null>(null);
   const [gasShortfallLoading, setGasShortfallLoading] = React.useState(false);
-  const [forexRates, setForexRates] = React.useState<Record<string, number>>({});
+  const [forexRates, setForexRates] = React.useState<Record<string, number>>(
+    {},
+  );
   const [quoteRefreshSeconds, setQuoteRefreshSeconds] = React.useState(
     QUOTE_REFRESH_SECONDS,
   );
   const [quoteRefreshProgress, setQuoteRefreshProgress] = React.useState(1);
+  const onErrorRef = React.useRef(onError);
+  onErrorRef.current = onError;
+  const sessionRef = React.useRef(session);
+  sessionRef.current = session;
+  const ownerRef = React.useRef(ownerAddress);
+  ownerRef.current = ownerAddress;
+  const refreshSessionRef = React.useRef<(() => void) | null>(null);
+  const depositAbortRef = React.useRef<AbortController | null>(null);
+  const depositBusyRef = React.useRef(false);
+  const remainingDepositRef = React.useRef<{
+    sessionId: string;
+    amountRaw: bigint;
+  } | null>(null);
+  const pendingApprovalRef = React.useRef<{
+    sessionId: string;
+    txHash: Hex;
+  } | null>(null);
+  const pendingDepositRef = React.useRef<{
+    sessionId: string;
+    txHash: Hex;
+    amountRaw: bigint;
+  } | null>(null);
   const quoteRunIdRef = React.useRef(0);
   const routeRunIdRef = React.useRef(0);
   const lastRouteRequestKeyRef = React.useRef("");
   const lastQuoteRequestKeyRef = React.useRef("");
   const quotesLoadingRef = React.useRef(false);
+  const quoteAbortRef = React.useRef<AbortController | null>(null);
+  const createSessionAbortRef = React.useRef<AbortController | null>(null);
   const depositExecutionSessionRef = React.useRef("");
   const normalizedSessionState = getNormalizedOnrampState(session?.state);
   const hasConnectedWallet = Boolean(ownerAddress && isAddress(ownerAddress));
@@ -3751,7 +3784,7 @@ export function DepositOnrampFlow({
               hasApproval = true;
             }
           } catch (e) {
-            console.warn(
+            logOnramp(
               "Could not simulate executeDeposit for gas estimation, using default 1M gas",
               e,
             );
@@ -3766,6 +3799,8 @@ export function DepositOnrampFlow({
           walletClient,
           nexusSDK,
         );
+
+        if (cancelled) return;
 
         // 3. Wei calculation with 20% safety margin:
         const rawGasCostWei = estimatedGasUnits * gasPriceWei;
@@ -3819,7 +3854,7 @@ export function DepositOnrampFlow({
           });
         }
       } catch (err) {
-        console.warn("Failed to check gas shortfall:", err);
+        logOnramp("Failed to check gas shortfall:", err);
         if (!cancelled) {
           setGasShortfallInfo(null);
         }
@@ -3847,248 +3882,403 @@ export function DepositOnrampFlow({
   const executeOnrampDeposit = React.useCallback(
     async (force = false) => {
       const sessionId = session?.sessionId;
-      if (!sessionId || !opportunity || !ownerAddress || !toToken) return;
+      logOnramp("deposit.handoff", {
+        sessionId,
+        state: session?.state,
+        force,
+        hasOpportunity: Boolean(opportunity),
+        hasWallet: Boolean(walletClient),
+        hasSDK: Boolean(nexusSDK),
+        ownerAddress,
+      });
       if (
-        !force &&
-        depositExecutionSessionRef.current === sessionId &&
-        depositExecution.status !== "failed"
-      ) {
+        !sessionId ||
+        depositBusyRef.current ||
+        depositExecution.status === "success"
+      )
         return;
-      }
-
+      if (!force && depositExecutionSessionRef.current === sessionId) return;
       depositExecutionSessionRef.current = sessionId;
-      setDepositExecution({ status: "running" });
-      setSession((current) =>
-        current?.sessionId === sessionId
-          ? { ...current, state: "COMPLETING_DEPOSIT" }
-          : current,
-      );
-
-      const account = ownerAddress as Address;
-      const decimals = opportunity.tokenDecimals ?? toToken.decimals ?? 18;
-      const receivedAmount =
-        session.transaction?.destinationAmount ??
-        selectedQuote?.destinationAmount ??
-        "";
-      const isSandbox = getOnrampRuntimeEnvironment(baseUrl) !== "production";
-      const sandboxAmountRaw = getSandboxDepositAmountRaw(decimals);
-      let amountRaw = getRawTokenAmount(receivedAmount, decimals);
-
-      try {
-        if (!amountRaw || amountRaw <= BigInt(0)) {
-          throw new Error("Unable to resolve the onramp received amount.");
-        }
-
-        if (isSandbox) {
-          const balanceRaw = getOnrampTokenBalanceRaw(
-            toToken,
-            decimals,
-            opportunity.chainId,
-            opportunity.tokenAddress,
-          );
-
-          if (balanceRaw === null || balanceRaw <= sandboxAmountRaw) {
-            const displayAmount = formatUnits(amountRaw, decimals);
-            setDepositExecution({
-              amount: displayAmount,
-              skipped: true,
-              status: "success",
-            });
-            setSession((current) =>
-              current?.sessionId === sessionId
-                ? {
-                    ...current,
-                    deposit: {
-                      ...current.deposit,
-                      state: "DEPOSIT_SUCCESS",
-                    },
-                    state: "DEPOSIT_SUCCESS",
-                  }
-                : current,
-            );
-            return;
-          }
-
-          amountRaw = sandboxAmountRaw;
-        }
-
-        if (!walletClient) {
-          throw new Error("Wallet client is not available for deposit.");
-        }
-
-        const toChainId = toToken.chainId ?? opportunity.chainId;
-        if (!toChainId) {
-          throw new Error("Unable to resolve the deposit chain.");
-        }
-
-        // If the token is an ERC20 token and a gas shortfall is detected, perform swapWithExactOut for native gas
-        const isErc20DepositToken = isErc20Token(toToken, toChainId);
+      depositBusyRef.current = true;
+      const controller = new AbortController();
+      depositAbortRef.current = controller;
+      const checkActive = () => {
+        controller.signal.throwIfAborted();
         if (
-          isErc20DepositToken &&
-          gasShortfallInfo?.isShortfall &&
-          gasShortfallInfo.shortfallAmountRaw > BigInt(0) &&
-          nexusSDK?.swapWithExactOut
+          sessionRef.current?.sessionId !== sessionId ||
+          ownerRef.current !== ownerAddress
         ) {
-          console.log(
-            "[NexusWidget Onramp] Gas shortfall detected, executing swapWithExactOut for gas",
-            {
-              shortfallAmountEth: gasShortfallInfo.shortfallAmountEth,
-              shortfallAmountRaw: gasShortfallInfo.shortfallAmountRaw,
-              toChainId,
-              tokenAddress: toToken.contractAddress,
-            },
+          throw new Error(
+            "The wallet or onramp session changed. Reconnect the funded wallet to continue.",
           );
-
-          setSession((current) =>
-            current?.sessionId === sessionId
-              ? { ...current, state: "SWAPPING_GAS" }
-              : current,
+        }
+      };
+      setDepositExecution({ status: "running", step: "depositing" });
+      try {
+        checkActive();
+        let settledSession = session;
+        if (force && !pendingDepositRef.current) {
+          const payload = await fetchOnrampJson<unknown>(
+            baseUrl,
+            `/api/v1/onramp/sessions/${encodeURIComponent(sessionId)}`,
+            { signal: controller.signal },
           );
-          setDepositExecution({ status: "running", step: "swapping_gas" });
-
-          let swapSourceSpentRaw: bigint | null = null;
-          const exactOutSwapInput = {
-            sources: [
-              {
-                chainId: toChainId,
-                tokenAddress: toToken.contractAddress as Hex,
-              },
-            ],
-            toAmountRaw: gasShortfallInfo.shortfallAmountRaw,
-            toChainId,
-            toTokenAddress: zeroAddress as Hex,
+          checkActive();
+          settledSession = {
+            ...session,
+            ...normalizeOnrampSession(payload, sessionId),
           };
-
-          try {
-            await nexusSDK.swapWithExactOut(exactOutSwapInput, {
-              hooks: {
-                onIntent: (data: any) => {
-                  try {
-                    const sourceAmount = data?.intent?.sources?.[0]?.amount;
-                    if (sourceAmount) {
-                      swapSourceSpentRaw = parseUnits(sourceAmount, decimals);
-                    }
-                  } catch (e) {
-                    console.warn("Could not parse swap source amount", e);
-                  }
-                  data.allow?.();
-                },
-              },
-              onEvent: (event: any) => {
-                console.log(
-                  "[NexusWidget Onramp] Swap exact out event:",
-                  event,
-                );
-              },
-            });
-
-            setDepositExecution({ status: "running", step: "depositing" });
-
-            // Update remaining ERC20 balance
-            try {
-              const callData = encodeFunctionData({
-                abi: erc20Abi,
-                args: [account],
-                functionName: "balanceOf",
-              });
-
-              let updatedBalanceRaw: bigint | null = null;
-              const rpcUrl = getChainRpcUrl(toChainId, nexusSDK);
-
-              if (walletClient && walletClient.chain?.id === toChainId) {
-                try {
-                  const resultHex = (await walletClient.request({
-                    method: "eth_call",
-                    params: [
-                      { data: callData, to: toToken.contractAddress },
-                      "latest",
-                    ],
-                  } as any)) as string;
-                  if (resultHex) {
-                    updatedBalanceRaw = BigInt(resultHex);
-                  }
-                } catch {}
-              }
-
-              if (updatedBalanceRaw === null && rpcUrl) {
-                try {
-                  const resultHex = await makeJsonRpcCall<string>(
-                    rpcUrl,
-                    "eth_call",
-                    [{ data: callData, to: toToken.contractAddress }, "latest"],
-                  );
-                  if (resultHex) {
-                    updatedBalanceRaw = BigInt(resultHex);
-                  }
-                } catch {}
-              }
-
-              if (updatedBalanceRaw !== null && updatedBalanceRaw > BigInt(0)) {
-                amountRaw = updatedBalanceRaw;
-              } else if (swapSourceSpentRaw && swapSourceSpentRaw < amountRaw) {
-                amountRaw = amountRaw - swapSourceSpentRaw;
-              }
-            } catch (balanceErr) {
-              if (swapSourceSpentRaw && swapSourceSpentRaw < amountRaw) {
-                amountRaw = amountRaw - swapSourceSpentRaw;
-              }
-            }
-          } catch (swapErr) {
-            console.error(
-              "[NexusWidget Onramp] Gas shortfall swap failed",
-              swapErr,
-            );
+          setSession(settledSession);
+        }
+        if (!opportunity || !toToken || !ownerAddress || !walletClient) {
+          throw new Error(
+            "Reconnect your wallet to complete the deposit. Your purchased crypto remains in your wallet.",
+          );
+        }
+        const account = ownerAddress as Address;
+        const toChainId = opportunity.chainId;
+        const decimals = opportunity.tokenDecimals;
+        if (
+          !isMatchingOnrampToken(toToken, toChainId, opportunity.tokenAddress)
+        ) {
+          throw new Error(
+            "The onramp token does not match the configured deposit destination.",
+          );
+        }
+        if (
+          settledSession.transaction?.walletAddress &&
+          settledSession.transaction.walletAddress.toLowerCase() !==
+            account.toLowerCase()
+        ) {
+          throw new Error(
+            "Connect the wallet that received this onramp payment to deposit.",
+          );
+        }
+        if (
+          settledSession.transaction?.chainId &&
+          settledSession.transaction.chainId !== toChainId
+        ) {
+          throw new Error(
+            "The payment was delivered on a different chain than the deposit destination.",
+          );
+        }
+        const confirm = (hash: Hex) =>
+          waitForWalletTransactionSuccess(
+            walletClient,
+            hash,
+            toChainId,
+            nexusSDK,
+            controller.signal,
+          );
+        const markSuccess = (txHash: Hex, amountRaw: bigint) => {
+          checkActive();
+          const amount = formatUnits(amountRaw, decimals);
+          const explorerUrl = getNexusChainTransactionExplorerUrl(
+            nexusSDK,
+            toChainId,
+            txHash,
+          );
+          logOnramp("deposit.confirmed", {
+            sessionId,
+            txHash,
+            toChainId,
+            amount,
+            explorerUrl,
+          });
+          setDepositExecution({
+            amount,
+            explorerUrl,
+            status: "success",
+            txHash,
+          });
+          // Keep the authoritative Meld state separate from local execution state.
+          pendingDepositRef.current = null;
+        };
+        const pending = pendingDepositRef.current;
+        if (pending?.sessionId === sessionId) {
+          logOnramp("deposit.resume_confirmation", pending);
+          await confirm(pending.txHash);
+          markSuccess(pending.txHash, pending.amountRaw);
+          return;
+        }
+        if (pendingApprovalRef.current?.sessionId === sessionId) {
+          logOnramp(
+            "wallet.approval.resume_confirmation",
+            pendingApprovalRef.current,
+          );
+          await confirm(pendingApprovalRef.current.txHash);
+          pendingApprovalRef.current = null;
+        }
+        // Quotes are estimates. Only the settled transaction establishes the amount to deposit.
+        let amountRaw =
+          remainingDepositRef.current?.sessionId === sessionId
+            ? remainingDepositRef.current.amountRaw
+            : getRawTokenAmount(
+                settledSession.transaction?.destinationAmount,
+                decimals,
+              );
+        if (!amountRaw || amountRaw <= BigInt(0))
+          throw new Error(
+            "The settled payment is missing its received amount. Check payment status again before depositing.",
+          );
+        logOnramp("deposit.amount", {
+          sessionId,
+          amountRaw,
+          decimals,
+          state: settledSession.state,
+        });
+        if (settledSession.state !== "SETTLED")
+          throw new Error("The payment has not settled yet.");
+        logOnramp("wallet.switch_chain", { sessionId, toChainId });
+        const chainHex = await walletClient.request({ method: "eth_chainId" });
+        if (Number(chainHex) !== toChainId)
+          await walletClient.switchChain({ id: toChainId });
+        const assertWallet = async () => {
+          checkActive();
+          const [chainId, accounts] = await Promise.all([
+            walletClient.request({ method: "eth_chainId" }),
+            walletClient.request({ method: "eth_accounts" }),
+          ]);
+          checkActive();
+          if (
+            Number(chainId) !== toChainId ||
+            accounts[0]?.toLowerCase() !== account.toLowerCase()
+          ) {
             throw new Error(
-              `Failed to swap for gas: ${
-                swapErr instanceof Error ? swapErr.message : String(swapErr)
-              }`,
+              "Select the funded wallet and deposit chain to continue.",
             );
           }
+        };
+        await assertWallet();
+        const readTokenBalance = async () => {
+          const isNative = isNativeAddress(opportunity.tokenAddress);
+          const method = isNative ? "eth_getBalance" : "eth_call";
+          const params = isNative
+            ? [account, "latest"]
+            : [
+                {
+                  to: opportunity.tokenAddress,
+                  data: encodeFunctionData({
+                    abi: erc20Abi,
+                    functionName: "balanceOf",
+                    args: [account],
+                  }),
+                },
+                "latest",
+              ];
+          const rpc = getChainRpcUrl(toChainId, nexusSDK);
+          const balance = rpc
+            ? await makeJsonRpcCall<string>(rpc, method, params, controller.signal)
+            : ((await walletClient.request({
+                method,
+                params,
+              } as any)) as string);
+          checkActive();
+          logOnramp("deposit.balance", {
+            sessionId,
+            toChainId,
+            balanceRaw: BigInt(balance),
+            requiredRaw: amountRaw,
+          });
+          return BigInt(balance);
+        };
+        // Allow RPC visibility to catch up with 60 one-second retries after Meld reports delivery.
+        let balanceBefore = await readTokenBalance();
+        for (
+          let attempt = 0;
+          balanceBefore < amountRaw && attempt < 60;
+          attempt++
+        ) {
+          logOnramp("deposit.awaiting_balance", { sessionId, attempt });
+          await onrampDelay(1000, controller.signal);
+          balanceBefore = await readTokenBalance();
         }
-
-        if (walletClient.chain?.id !== toChainId) {
-          await walletClient.switchChain({ id: toChainId });
-        }
-
-        const executeParams = opportunity.executeDeposit(
-          opportunity.tokenSymbol,
-          opportunity.tokenAddress,
-          amountRaw,
-          opportunity.chainId,
-          account,
-        );
-        console.log("[NexusWidget Onramp] executeDeposit output", {
-          executeParams,
-          walletTransaction: {
+        if (balanceBefore < amountRaw)
+          throw new Error(
+            "The settled amount is not yet available on the deposit chain. Retry Deposit after the balance arrives.",
+          );
+        const makeExecuteParams = () =>
+          opportunity.executeDeposit(
+            opportunity.tokenSymbol,
+            opportunity.tokenAddress,
+            amountRaw!,
+            toChainId,
             account,
-            data: executeParams.data,
-            gas: executeParams.gas,
-            to: executeParams.to,
-            value: executeParams.value,
-          },
-        });
-
-        if (!isPositiveGasLimit(executeParams.gas)) {
+          );
+        let executeParams = makeExecuteParams();
+        if (!isPositiveGasLimit(executeParams.gas))
           throw new Error(
             "Deposit config executeDeposit must return a positive gas limit.",
           );
-        }
-
-        if (executeParams.tokenApproval) {
-          const approvalHash = await walletClient.writeContract({
-            abi: erc20Abi,
+        // Refresh gas at settlement: checkout may have taken several minutes.
+        const [gasPrice, nativeBalance] = await Promise.all([
+          fetchDestinationGasPriceWei(toChainId, walletClient, nexusSDK),
+          fetchUserNativeGasBalanceWei(
             account,
-            address: executeParams.tokenApproval.toTokenAddress,
-            args: [
-              executeParams.tokenApproval.spender,
-              executeParams.tokenApproval.amount,
-            ],
-            chain: null,
-            functionName: "approve",
-          });
-          await waitForWalletTransactionSuccess(walletClient, approvalHash);
+            toChainId,
+            walletClient,
+            nexusSDK,
+          ),
+        ]);
+        checkActive();
+        const gasUnits =
+          executeParams.gas +
+          (executeParams.tokenApproval ? BigInt(50_000) : BigInt(0));
+        const gasRequired = (gasUnits * gasPrice * BigInt(120)) / BigInt(100);
+        const shortfall =
+          gasRequired > nativeBalance ? gasRequired - nativeBalance : BigInt(0);
+        logOnramp("deposit.gas_check", {
+          sessionId,
+          gasUnits,
+          gasPrice,
+          nativeBalance,
+          gasRequired,
+          shortfall,
+        });
+        if (
+          isNativeAddress(opportunity.tokenAddress) &&
+          nativeBalance < amountRaw + gasRequired
+        ) {
+          throw new Error(
+            "Additional native gas is needed to deposit the purchased amount. Add gas to this wallet and retry Deposit.",
+          );
         }
-
+        if (isErc20Token(toToken, toChainId) && shortfall > BigInt(0)) {
+          if (!nexusSDK?.swapWithExactOut)
+            throw new Error(
+              "Nexus is not ready to acquire gas for the deposit. Reconnect and retry.",
+            );
+          await assertWallet();
+          setDepositExecution({ status: "running", step: "swapping_gas" });
+          const input = {
+            sources: [
+              { chainId: toChainId, tokenAddress: opportunity.tokenAddress },
+            ],
+            toAmountRaw: shortfall,
+            toChainId,
+            toTokenAddress: zeroAddress,
+          };
+          logOnramp("sdk.swapWithExactOut.start", { sessionId, input });
+          const result = await nexusSDK.swapWithExactOut(input, {
+            hooks: {
+              onIntent: (data: any) => {
+                logOnramp("sdk.intent", { sessionId, intent: data.intent });
+                try {
+                  checkActive();
+                } catch {
+                  data.deny();
+                  return;
+                }
+                try {
+                  const spend = (data.intent?.sources ?? []).reduce(
+                    (total: bigint, source: any) => {
+                      if (
+                        !isMatchingOnrampToken(
+                          toToken,
+                          source.chain.id,
+                          source.token.contractAddress,
+                        )
+                      )
+                        throw new Error(
+                          "Gas quote uses an unexpected source token.",
+                        );
+                      return (
+                        total + parseUnits(source.amount, source.token.decimals)
+                      );
+                    },
+                    BigInt(0),
+                  );
+                  if (spend >= amountRaw!) {
+                    logOnramp("sdk.intent.denied", {
+                      sessionId,
+                      reason: "Gas quote consumes the purchased amount",
+                      spend,
+                      amountRaw,
+                    });
+                    data.deny();
+                    return;
+                  }
+                  logOnramp("sdk.intent.allow", { sessionId, spend });
+                  data.allow();
+                } catch (error) {
+                  logOnramp("sdk.intent.denied", { sessionId, error });
+                  data.deny();
+                }
+              },
+            },
+            onEvent: (event: any) =>
+              logOnramp("sdk.event", {
+                sessionId,
+                operation: "swapWithExactOut",
+                event,
+              }),
+          });
+          checkActive();
+          logOnramp("sdk.swapWithExactOut.complete", { sessionId, result });
+          amountRaw = getOnrampRemainingAmount(
+            amountRaw,
+            balanceBefore,
+            await readTokenBalance(),
+          );
+          remainingDepositRef.current = { sessionId, amountRaw };
+          executeParams = makeExecuteParams();
+          setDepositExecution({ status: "running", step: "depositing" });
+        }
+        logOnramp("deposit.execute_config", {
+          sessionId,
+          amountRaw,
+          executeParams,
+        });
+        if (!isPositiveGasLimit(executeParams.gas))
+          throw new Error(
+            "Deposit config executeDeposit must return a positive gas limit.",
+          );
+        if (executeParams.tokenApproval) {
+          await assertWallet();
+          const approval = executeParams.tokenApproval;
+          const allowanceData = encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "allowance",
+            args: [account, approval.spender],
+          });
+          const allowance = BigInt(
+            (await walletClient.request({
+              method: "eth_call",
+              params: [
+                { to: approval.toTokenAddress, data: allowanceData },
+                "latest",
+              ],
+            } as any)) as string,
+          );
+          logOnramp("wallet.approval.check", {
+            sessionId,
+            allowance,
+            required: approval.amount,
+          });
+          if (allowance < approval.amount) {
+            await assertWallet();
+            logOnramp("wallet.approval.prompt", { sessionId, approval });
+            const approvalHash = await walletClient.writeContract({
+              abi: erc20Abi,
+              account,
+              address: approval.toTokenAddress,
+              args: [approval.spender, approval.amount],
+              chain: null,
+              functionName: "approve",
+            });
+            pendingApprovalRef.current = { sessionId, txHash: approvalHash };
+            logOnramp("wallet.approval.submitted", { sessionId, approvalHash });
+            await confirm(approvalHash);
+            pendingApprovalRef.current = null;
+          }
+        }
+        await assertWallet();
+        logOnramp("wallet.deposit.prompt", {
+          sessionId,
+          toChainId,
+          amountRaw,
+          to: executeParams.to,
+        });
         const txHash = await walletClient.sendTransaction({
           account,
           chain: null,
@@ -4097,59 +4287,45 @@ export function DepositOnrampFlow({
           to: executeParams.to,
           value: executeParams.value,
         });
-        await waitForWalletTransactionSuccess(walletClient, txHash);
-        const displayAmount = formatUnits(amountRaw, decimals);
-        const explorerUrl = getNexusChainTransactionExplorerUrl(
-          nexusSDK,
-          toChainId,
-          txHash,
-        );
-        setDepositExecution({
-          amount: displayAmount,
-          explorerUrl,
-          status: "success",
-          txHash,
-        });
-        setSession((current) =>
-          current?.sessionId === sessionId
-            ? {
-                ...current,
-                deposit: {
-                  ...current.deposit,
-                  explorerUrl,
-                  state: "DEPOSIT_SUCCESS",
-                  txHash,
-                },
-                state: "DEPOSIT_SUCCESS",
-              }
-            : current,
-        );
+        // Preserve the hash before waiting: retry must check this transaction, never send a second deposit.
+        pendingDepositRef.current = { sessionId, txHash, amountRaw };
+        logOnramp("wallet.deposit.submitted", { sessionId, txHash, amountRaw });
+        await confirm(txHash);
+        markSuccess(txHash, amountRaw);
       } catch (depositError) {
+        logOnramp("deposit.error", {
+          sessionId,
+          pending: pendingDepositRef.current,
+          error: depositError,
+        });
+        if (controller.signal.aborted) return;
+        if (
+          depositError instanceof Error &&
+          depositError.message === "Transaction reverted on chain."
+        ) {
+          pendingDepositRef.current = null;
+          pendingApprovalRef.current = null;
+        }
         const message = getErrorMessage(depositError);
-        setDepositExecution({ error: message, status: "failed" });
-        setSession((current) =>
-          current?.sessionId === sessionId
-            ? {
-                ...current,
-                deposit: {
-                  ...current.deposit,
-                  state: "DEPOSIT_FAILED",
-                },
-                state: "DEPOSIT_FAILED",
-              }
-            : current,
-        );
-        onError?.(message);
+        setDepositExecution({
+          error: message,
+          status: "failed",
+          txHash: pendingDepositRef.current?.txHash,
+        });
+        onErrorRef.current?.(message);
+      } finally {
+        depositBusyRef.current = false;
+        if (depositAbortRef.current === controller)
+          depositAbortRef.current = null;
+        logOnramp("deposit.run_finished", { sessionId });
       }
     },
     [
       baseUrl,
       depositExecution.status,
-      onError,
       opportunity,
       ownerAddress,
       nexusSDK,
-      selectedQuote,
       session,
       toToken,
       walletClient,
@@ -4176,64 +4352,76 @@ export function DepositOnrampFlow({
     [],
   );
 
-  const loadOptions = React.useCallback(async () => {
-    setOptionsLoading(true);
-    setError(null);
-    try {
-      const loadOptionsForCountry = async (countryCodeToLoad: string) => {
-        const requestedCountryCode = countryCodeToLoad.toUpperCase();
-        const cached = readCachedOnrampOptions(baseUrl, requestedCountryCode);
-        if (cached) {
-          return { data: cached, requestedCountryCode };
+  const loadOptions = React.useCallback(
+    async (signal?: AbortSignal) => {
+      setOptionsLoading(true);
+      setError(null);
+      try {
+        const loadOptionsForCountry = async (countryCodeToLoad: string) => {
+          const requestedCountryCode = countryCodeToLoad.toUpperCase();
+          const cached = readCachedOnrampOptions(baseUrl, requestedCountryCode);
+          if (cached) {
+            logOnramp("options.cache_hit", { requestedCountryCode });
+            return { data: cached, requestedCountryCode };
+          }
+
+          const data = await fetchOnrampJson<OnrampOptionsResponse>(
+            baseUrl,
+            `/api/v1/onramp/options?countryCode=${encodeURIComponent(
+              requestedCountryCode,
+            )}`,
+            { method: "GET", signal },
+          );
+          writeCachedOnrampOptions(baseUrl, requestedCountryCode, data);
+
+          const selectedCountryCode =
+            data.selection?.countryCode?.toUpperCase();
+          if (
+            selectedCountryCode &&
+            selectedCountryCode !== requestedCountryCode &&
+            isCountryInOptionsList(data, selectedCountryCode)
+          ) {
+            writeCachedOnrampOptions(baseUrl, selectedCountryCode, data);
+          }
+
+          return { data, requestedCountryCode };
+        };
+
+        const resolvedCountryCode = await resolveOnrampCountryCode(signal);
+        signal?.throwIfAborted();
+        logOnramp("country.resolved", { countryCode: resolvedCountryCode });
+        let { data, requestedCountryCode } =
+          await loadOptionsForCountry(resolvedCountryCode);
+
+        if (!isCountryInOptionsList(data, requestedCountryCode)) {
+          const fallbackCountryCode =
+            getUnsupportedCountryFallbackCode(baseUrl);
+          if (fallbackCountryCode !== requestedCountryCode) {
+            const fallbackOptions =
+              await loadOptionsForCountry(fallbackCountryCode);
+            data = fallbackOptions.data;
+            requestedCountryCode = fallbackOptions.requestedCountryCode;
+          }
         }
 
-        const data = await fetchOnrampJson<OnrampOptionsResponse>(
-          baseUrl,
-          `/api/v1/onramp/options?countryCode=${encodeURIComponent(
-            requestedCountryCode,
-          )}`,
-          { method: "GET" },
-        );
-        writeCachedOnrampOptions(baseUrl, requestedCountryCode, data);
-
-        const selectedCountryCode = data.selection?.countryCode?.toUpperCase();
-        if (
-          selectedCountryCode &&
-          selectedCountryCode !== requestedCountryCode &&
-          isCountryInOptionsList(data, selectedCountryCode)
-        ) {
-          writeCachedOnrampOptions(baseUrl, selectedCountryCode, data);
-        }
-
-        return { data, requestedCountryCode };
-      };
-
-      const resolvedCountryCode = await resolveOnrampCountryCode();
-      let { data, requestedCountryCode } =
-        await loadOptionsForCountry(resolvedCountryCode);
-
-      if (!isCountryInOptionsList(data, requestedCountryCode)) {
-        const fallbackCountryCode = getUnsupportedCountryFallbackCode(baseUrl);
-        if (fallbackCountryCode !== requestedCountryCode) {
-          const fallbackOptions =
-            await loadOptionsForCountry(fallbackCountryCode);
-          data = fallbackOptions.data;
-          requestedCountryCode = fallbackOptions.requestedCountryCode;
-        }
+        signal?.throwIfAborted();
+        applyOptions(data, requestedCountryCode);
+      } catch (requestError) {
+        if (signal?.aborted) return;
+        const message = getErrorMessage(requestError);
+        setError(message);
+        onErrorRef.current?.(message);
+      } finally {
+        if (!signal?.aborted) setOptionsLoading(false);
       }
-
-      applyOptions(data, requestedCountryCode);
-    } catch (requestError) {
-      const message = getErrorMessage(requestError);
-      setError(message);
-      onError?.(message);
-    } finally {
-      setOptionsLoading(false);
-    }
-  }, [applyOptions, baseUrl, onError]);
+    },
+    [applyOptions, baseUrl],
+  );
 
   React.useEffect(() => {
-    void loadOptions();
+    const controller = new AbortController();
+    void loadOptions(controller.signal);
+    return () => controller.abort();
   }, [loadOptions]);
 
   const getRequestErrorMessage = React.useCallback(
@@ -4270,14 +4458,16 @@ export function DepositOnrampFlow({
 
   React.useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const loadForex = async () => {
-      const rates = await fetchOnrampForexRates();
+      const rates = await fetchOnrampForexRates(controller.signal);
       if (!cancelled && rates && Object.keys(rates).length > 0) {
         setForexRates(rates);
       }
     };
     void loadForex();
     return () => {
+      controller.abort();
       cancelled = true;
     };
   }, []);
@@ -4334,6 +4524,7 @@ export function DepositOnrampFlow({
     setQuotes([]);
     setSelectedProvider("");
     let cancelled = false;
+    const controller = new AbortController();
 
     const loadRoutes = async () => {
       setRoutesLoading(true);
@@ -4360,10 +4551,19 @@ export function DepositOnrampFlow({
         const data = await fetchOnrampJson<OnrampRoutesResponse>(
           baseUrl,
           `/api/v1/onramp/routes?${params.toString()}`,
-          { method: "GET" },
+          { method: "GET", signal: controller.signal },
         );
         if (cancelled || routeRunIdRef.current !== routeRunId) return;
-        const nextRoutes = data.routes ?? [];
+        const nextRoutes: OnrampRoute[] = (
+          Array.isArray(data) ? data : (data.routes ?? [])
+        ).map((route: any) => ({
+          ...route,
+          provider: route.provider ?? route.partner,
+          paymentMethods: route.paymentMethods?.map((method: any) => ({
+            ...method,
+            method: method.method ?? method.name,
+          })),
+        }));
         setRoutes(nextRoutes);
         const firstRoute = nextRoutes[0];
         setSelectedProvider(firstRoute?.provider ?? "");
@@ -4381,7 +4581,7 @@ export function DepositOnrampFlow({
         setQuotes([]);
         setSelectedProvider("");
         setError(message);
-        onError?.(message);
+        onErrorRef.current?.(message);
       } finally {
         if (!cancelled && routeRunIdRef.current === routeRunId) {
           setRoutesLoading(false);
@@ -4391,6 +4591,7 @@ export function DepositOnrampFlow({
 
     void loadRoutes();
     return () => {
+      controller.abort();
       cancelled = true;
     };
   }, [
@@ -4403,7 +4604,6 @@ export function DepositOnrampFlow({
     destinationRequestDetails.destinationToken,
     getRequestErrorMessage,
     isDestinationTokenUnsupported,
-    onError,
     rateRequestKey,
     sourceCurrencyCode,
   ]);
@@ -4426,6 +4626,9 @@ export function DepositOnrampFlow({
       return;
     }
 
+    quoteAbortRef.current?.abort();
+    const controller = new AbortController();
+    quoteAbortRef.current = controller;
     const runId = quoteRunIdRef.current + 1;
     quoteRunIdRef.current = runId;
     setQuotesLoading(true);
@@ -4453,10 +4656,26 @@ export function DepositOnrampFlow({
             walletAddress: quoteWalletAddress,
           }),
           method: "POST",
+          signal: controller.signal,
         },
       );
-      if (quoteRunIdRef.current !== runId) return;
-      const nextQuotes = sortQuotes(data.quotes ?? []);
+      if (controller.signal.aborted || quoteRunIdRef.current !== runId) return;
+      const nextQuotes = sortQuotes(
+        (data.quotes ?? []).map((quote: any) => ({
+          ...quote,
+          provider: quote.provider ?? quote.serviceProvider,
+          destinationAmount: String(quote.destinationAmount),
+          sourceAmount: String(quote.sourceAmount),
+          rampScore: quote.rampScore ?? quote.rampIntelligence?.rampScore,
+          lowKyc: quote.lowKyc ?? quote.rampIntelligence?.lowKyc,
+          fees: quote.fees ?? {
+            total: quote.totalFee,
+            network: quote.networkFee,
+            provider: quote.transactionFee,
+            partner: quote.partnerFee,
+          },
+        })),
+      );
       setQuotesRequestKey(quoteRequestKey);
       setQuotes(nextQuotes);
       setSelectedProvider(nextQuotes[0]?.provider ?? "");
@@ -4466,7 +4685,7 @@ export function DepositOnrampFlow({
         );
       }
     } catch (requestError) {
-      if (quoteRunIdRef.current !== runId) return;
+      if (controller.signal.aborted || quoteRunIdRef.current !== runId) return;
       const isTerminalError = isTerminalOnrampRateError(requestError);
       const message = isTerminalError
         ? getRequestErrorMessage(requestError)
@@ -4478,7 +4697,7 @@ export function DepositOnrampFlow({
       setQuotesRequestKey("");
       setQuotes([]);
       setError(message);
-      onError?.(message);
+      onErrorRef.current?.(message);
     } finally {
       if (quoteRunIdRef.current === runId) {
         setQuotesLoading(false);
@@ -4495,7 +4714,6 @@ export function DepositOnrampFlow({
     getRequestErrorMessage,
     blockedRateRequest,
     isDestinationTokenUnsupported,
-    onError,
     parsedSourceAmount,
     quoteRequestKey,
     quoteWalletAddress,
@@ -4503,15 +4721,6 @@ export function DepositOnrampFlow({
     selectedPaymentMethod,
     sourceAmount,
     sourceCurrencyCode,
-  ]);
-
-  React.useEffect(() => {
-    setSessionCallbackReceived(false);
-    setSession(null);
-  }, [
-    destinationRequestDetails.destinationChainId,
-    destinationRequestDetails.destinationCurrencyCode,
-    destinationRequestDetails.destinationToken,
   ]);
 
   React.useEffect(() => {
@@ -4599,9 +4808,16 @@ export function DepositOnrampFlow({
           ? "DEPOSIT_SUCCESS"
           : depositExecution.status === "failed"
             ? "DEPOSIT_FAILED"
-            : sessionCallbackReceived
-              ? "ONRAMP_CALLBACK_RECEIVED"
-              : normalizedSessionState || "AWAITING_USER";
+            : normalizedSessionState ||
+              (sessionCallbackReceived
+                ? "ONRAMP_CALLBACK_RECEIVED"
+                : "AWAITING_USER");
+    logOnramp("ui.state", {
+      sessionId: session?.sessionId,
+      paymentState: normalizedSessionState,
+      depositState: depositExecution.status,
+      derivedSessionState,
+    });
     onSessionStateChange?.(session?.sessionId ? derivedSessionState : null);
   }, [
     depositExecution.status,
@@ -4619,33 +4835,25 @@ export function DepositOnrampFlow({
   );
 
   const applyOnrampCallback = React.useCallback((payload: unknown) => {
-    if (payload === ONRAMP_CALLBACK_SUCCESS_MESSAGE) {
-      setSessionCallbackReceived(true);
-      setError(null);
+    const currentId = sessionRef.current?.sessionId;
+    if (!currentId) return;
+    if (
+      payload !== ONRAMP_CALLBACK_SUCCESS_MESSAGE &&
+      (!isOnrampCallbackPayload(payload) || payload.sessionId !== currentId)
+    )
       return;
-    }
-    if (!isOnrampCallbackPayload(payload)) return;
+    // Redirects/postMessages only wake the authoritative status check.
+    logOnramp("provider.return", { sessionId: currentId });
     setSessionCallbackReceived(true);
-    setSession((current) => {
-      if (current?.sessionId && current.sessionId !== payload.sessionId) {
-        return current;
-      }
-      return {
-        ...current,
-        ...payload.session,
-        sessionId: payload.sessionId,
-        state:
-          payload.session?.state ??
-          (payload.state || undefined) ??
-          current?.state,
-      };
-    });
     setError(null);
+    refreshSessionRef.current?.();
   }, []);
 
   const applyManualOnrampSessionId = React.useCallback((sessionId: string) => {
     const normalizedSessionId = sessionId.trim();
     if (!normalizedSessionId) return;
+    if (depositBusyRef.current || pendingDepositRef.current) return;
+    logOnramp("session.manual_resume", { sessionId: normalizedSessionId });
     setSessionCallbackReceived(true);
     setSession({
       sessionId: normalizedSessionId,
@@ -4658,11 +4866,16 @@ export function DepositOnrampFlow({
     if (typeof window === "undefined") return;
 
     const handleMessage = (event: MessageEvent) => {
+      if (
+        event.origin !==
+        new URL(getOnrampReturnUrl(), window.location.href).origin
+      )
+        return;
       if (event.data === ONRAMP_CALLBACK_SUCCESS_MESSAGE) {
         try {
           (event.source as Window | null)?.postMessage(
             ONRAMP_CALLBACK_SUCCESS_ACK_MESSAGE,
-            "*",
+            event.origin,
           );
         } catch {
           // The callback page will close itself if the ack cannot be sent.
@@ -4699,43 +4912,98 @@ export function DepositOnrampFlow({
     };
   }, [applyManualOnrampSessionId, applyOnrampCallback]);
 
+  const paymentTerminal = isOnrampTerminalState(normalizedSessionState);
   React.useEffect(() => {
     const sessionId = session?.sessionId;
-    if (!sessionId || isOnrampTerminalState(normalizedSessionState)) return;
-
-    let cancelled = false;
-    let inFlight = false;
-
-    const pollSession = async () => {
-      if (inFlight) return;
-      inFlight = true;
-      try {
-        const data = await fetchOnrampJson<OnrampSessionResponse>(
+    if (!sessionId || paymentTerminal) return;
+    let previousState = sessionRef.current?.state;
+    const startedAt = Date.now();
+    logOnramp("poll.start", {
+      sessionId,
+      baseUrl,
+      intervalMs: ONRAMP_SESSION_POLL_MS,
+    });
+    const poller = startOnrampPolling({
+      fetchSession: (signal) =>
+        fetchOnrampJson<unknown>(
           baseUrl,
           `/api/v1/onramp/sessions/${encodeURIComponent(sessionId)}`,
-          { method: "GET" },
-        );
-        if (cancelled) return;
+          { method: "GET", signal },
+        ),
+      onData: (payload) => {
+        const data = normalizeOnrampSession(payload, sessionId);
+        const terminal = isOnrampTerminalState(data.state);
+        logOnramp("poll.status", {
+          sessionId,
+          previousState,
+          state: data.state,
+          rawMeldStatus: data.rawMeldStatus,
+          transaction: data.transaction,
+          providerUpdatedAt: data.updatedAt,
+          elapsedMs: Date.now() - startedAt,
+          terminal,
+        });
+        previousState = data.state;
         setSession((current) =>
-          current?.sessionId === sessionId ? { ...current, ...data } : current,
+          current?.sessionId === sessionId
+            ? {
+                ...current,
+                ...data,
+                state: data.state || current.state,
+                transaction: data.transaction
+                  ? { ...current.transaction, ...data.transaction }
+                  : current.transaction,
+              }
+            : current,
         );
-      } catch (requestError) {
-        if (cancelled) return;
-        const message = getErrorMessage(requestError);
-        setError(message);
-        onError?.(message);
-      } finally {
-        inFlight = false;
-      }
+        setError(null);
+        return terminal;
+      },
+      onError: (requestError) => {
+        logOnramp("poll.retry", { sessionId, error: requestError });
+        setError(
+          "Unable to refresh payment status. Retrying automatically; keep this page open.",
+        );
+      },
+      intervalMs: ONRAMP_SESSION_POLL_MS,
+    });
+    refreshSessionRef.current = poller.refresh;
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      logOnramp("poll.wake", { sessionId });
+      void poller.refresh();
     };
-
-    void pollSession();
-    const interval = window.setInterval(pollSession, ONRAMP_SESSION_POLL_MS);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
-      cancelled = true;
-      window.clearInterval(interval);
+      poller.stop();
+      if (refreshSessionRef.current === poller.refresh)
+        refreshSessionRef.current = null;
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      logOnramp("poll.stop", { sessionId, elapsedMs: Date.now() - startedAt });
     };
-  }, [baseUrl, normalizedSessionState, onError, session?.sessionId]);
+  }, [baseUrl, paymentTerminal, session?.sessionId]);
+
+  React.useEffect(() => {
+    logOnramp("flow.mounted", {
+      baseUrl,
+      environment: getOnrampRuntimeEnvironment(baseUrl),
+    });
+    return () => {
+      depositAbortRef.current?.abort();
+      quoteAbortRef.current?.abort();
+      createSessionAbortRef.current?.abort();
+      quoteRunIdRef.current += 1;
+      routeRunIdRef.current += 1;
+      logOnramp("flow.cleanup", {
+        sessionId: sessionRef.current?.sessionId,
+        pending: pendingDepositRef.current,
+      });
+    };
+  }, [baseUrl]);
 
   React.useEffect(() => {
     if (!session?.sessionId) {
@@ -4778,13 +5046,24 @@ export function DepositOnrampFlow({
     ) {
       return;
     }
+    if (
+      sessionLoading ||
+      depositBusyRef.current ||
+      createSessionAbortRef.current
+    )
+      return;
+    const controller = new AbortController();
+    createSessionAbortRef.current = controller;
     setSessionLoading(true);
     setError(null);
     setSessionCallbackReceived(false);
     depositExecutionSessionRef.current = "";
     setDepositExecution({ status: "idle" });
+    quoteAbortRef.current?.abort();
+    quoteRunIdRef.current += 1;
     const providerWindow = openOnrampProviderWindow();
     if (!providerWindow) {
+      createSessionAbortRef.current = null;
       setSessionLoading(false);
       setError(
         "Payment provider popup was blocked. Allow popups and try again.",
@@ -4792,7 +5071,14 @@ export function DepositOnrampFlow({
       return;
     }
     try {
-      console.log("Onramp return url", getOnrampReturnUrl());
+      logOnramp("session.create", {
+        baseUrl,
+        environment: getOnrampRuntimeEnvironment(baseUrl),
+        provider: selectedQuote.provider,
+        destination: destinationRequestDetails,
+        ownerAddress,
+        returnUrl: getOnrampReturnUrl(),
+      });
       const data = await fetchOnrampJson<OnrampSessionResponse>(
         baseUrl,
         "/api/v1/onramp/sessions",
@@ -4822,11 +5108,25 @@ export function DepositOnrampFlow({
             "Idempotency-Key": createIdempotencyKey(),
           },
           method: "POST",
+          signal: controller.signal,
         },
       );
-      setSession(data);
-      const widgetUrl = data.widgetUrl ?? data.fallbackWidgetUrl;
+      controller.signal.throwIfAborted();
+      const normalized = normalizeOnrampSession(data);
+      if (!normalized.sessionId)
+        throw new Error(
+          "Payment session ID was not returned. Unable to track this payment.",
+        );
+      setSession(normalized);
+      pendingApprovalRef.current = null;
+      remainingDepositRef.current = null;
+      logOnramp("session.created", normalized);
+      const widgetUrl = normalized.widgetUrl ?? normalized.fallbackWidgetUrl;
       if (widgetUrl) {
+        logOnramp("provider.open", {
+          sessionId: normalized.sessionId,
+          origin: new URL(widgetUrl).origin,
+        });
         providerWindow.location.href = widgetUrl;
       } else {
         providerWindow.close();
@@ -4834,11 +5134,14 @@ export function DepositOnrampFlow({
       }
     } catch (requestError) {
       providerWindow?.close();
+      if (controller.signal.aborted) return;
       const message = getRequestErrorMessage(requestError);
       setError(message);
-      onError?.(message);
+      onErrorRef.current?.(message);
     } finally {
-      setSessionLoading(false);
+      if (!controller.signal.aborted) setSessionLoading(false);
+      if (createSessionAbortRef.current === controller)
+        createSessionAbortRef.current = null;
     }
   };
 
@@ -4851,6 +5154,11 @@ export function DepositOnrampFlow({
   };
 
   const resetSession = () => {
+    if (depositBusyRef.current) return;
+    logOnramp("session.reset", { sessionId: session?.sessionId });
+    pendingDepositRef.current = null;
+    remainingDepositRef.current = null;
+    pendingApprovalRef.current = null;
     setError(null);
     setSessionCallbackReceived(false);
     depositExecutionSessionRef.current = "";
@@ -4859,6 +5167,14 @@ export function DepositOnrampFlow({
   };
 
   const completeSession = () => {
+    if (depositBusyRef.current) return;
+    logOnramp("session.done", {
+      sessionId: session?.sessionId,
+      depositExecution,
+    });
+    pendingDepositRef.current = null;
+    remainingDepositRef.current = null;
+    pendingApprovalRef.current = null;
     setError(null);
     setSessionCallbackReceived(false);
     depositExecutionSessionRef.current = "";
@@ -4870,6 +5186,7 @@ export function DepositOnrampFlow({
   };
 
   const handleCurrencySelect = (currencyCode: string) => {
+    logOnramp("selection.currency", { currencyCode });
     setSourceCurrencyCode(currencyCode);
     setSelectedPaymentMethod("");
     setSelectedProvider("");
@@ -4879,6 +5196,10 @@ export function DepositOnrampFlow({
   };
 
   const handleDestinationTokenSelect = (token: SwapTokenOption) => {
+    logOnramp("selection.destination", {
+      chainId: token.chainId,
+      address: token.contractAddress,
+    });
     if (!isSameOnrampToken(token, toToken)) {
       onSelectDestinationToken?.(token);
       setSelectedPaymentMethod("");
@@ -4892,6 +5213,10 @@ export function DepositOnrampFlow({
   };
 
   const handleProviderSelect = (option: OnrampProviderOption) => {
+    logOnramp("selection.provider", {
+      provider: option.provider,
+      paymentMethod: option.paymentMethodType,
+    });
     setSelectedProvider(option.provider);
     if (option.paymentMethodType) {
       setSelectedPaymentMethod(option.paymentMethodType);
@@ -5038,22 +5363,41 @@ export function DepositOnrampFlow({
 
   if (session?.sessionId) {
     return (
-      <OnrampSessionStatusPanel
-        depositExecution={depositExecution}
-        gasShortfallInfo={gasShortfallInfo}
-        onCancel={resetSession}
-        onDone={completeSession}
-        onRetryDeposit={() => void executeOnrampDeposit(true)}
-        onRetryPayment={() => void createSession()}
-        opportunity={opportunity}
-        primaryButtonForeground={primaryButtonForeground}
-        quote={selectedQuote}
-        session={session}
-        sessionCallbackReceived={sessionCallbackReceived}
-        sourceAmount={sourceAmount}
-        sourceCurrencyCode={sourceCurrencyCode}
-        toToken={toToken}
-      />
+      <>
+        {error && (
+          <div
+            role="status"
+            style={{ ...compactBodyStyle, marginBottom: "12px" }}
+          >
+            {error}
+          </div>
+        )}
+        {normalizedSessionState === "TWO_FA_REQUIRED" && (
+          <div
+            role="status"
+            style={{ ...compactBodyStyle, marginBottom: "12px" }}
+          >
+            Complete the verification in the payment provider window to
+            continue.
+          </div>
+        )}
+        <OnrampSessionStatusPanel
+          depositExecution={depositExecution}
+          gasShortfallInfo={gasShortfallInfo}
+          onCancel={resetSession}
+          onDone={completeSession}
+          onRetryDeposit={() => void executeOnrampDeposit(true)}
+          onRetryPayment={resetSession}
+          opportunity={opportunity}
+          primaryButtonForeground={primaryButtonForeground}
+          quote={selectedQuote}
+          session={session}
+          sessionCallbackReceived={sessionCallbackReceived}
+          sourceAmount={sourceAmount}
+          sourceCurrencyCode={sourceCurrencyCode}
+          toToken={toToken}
+        />
+      </>
     );
   }
 

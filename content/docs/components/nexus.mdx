@@ -140,7 +140,7 @@ Use `destination.tokens` when you want to restrict the destination/receive selec
 
 ### Deposit Config
 
-Deposit requires a fixed destination chain, at least one destination token, a deposit contract address, and an execution builder.
+Deposit requires a fixed destination chain, at least one destination token, a deposit contract address, and an execution builder. Set `enableOnRamp: true` to also offer local currency funding; omitting it or setting `false` opens the wallet deposit flow directly.
 
 ```ts
 type NexusWidgetDepositConfig = {
@@ -155,6 +155,7 @@ type NexusWidgetDepositConfig = {
     }[];
   };
   depositAddress: `0x${string}`;
+  enableOnRamp?: boolean; // Defaults to false.
   executeDeposit: (
     tokenSymbol: string,
     tokenAddress: `0x${string}`,
@@ -289,6 +290,7 @@ function buildDepositExecuteConfig(
 
 const depositConfig = {
   mode: "deposit",
+  enableOnRamp: true, // Optional; defaults to false (wallet funding only).
   destination: {
     chain: DESTINATION_CHAIN_ID,
     tokens: [

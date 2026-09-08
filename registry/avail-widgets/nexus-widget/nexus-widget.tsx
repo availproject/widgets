@@ -515,6 +515,7 @@ type NormalizedNexusWidgetConfig = {
   appearance?: RuntimeNexusWidgetAppearance;
   config: RuntimeNexusWidgetConfig;
   depositOptions: NexusWidgetDepositOpportunityConfig[];
+  enableOnRamp: boolean;
   isAmountFixed: boolean;
   isRecipientLocked: boolean;
 };
@@ -1040,6 +1041,7 @@ const normalizeNexusWidgetConfig = (
     appearance,
     config: runtimeConfig,
     depositOptions,
+    enableOnRamp: rawConfig.mode === "deposit" && rawConfig.enableOnRamp === true,
     isAmountFixed: false,
     isRecipientLocked,
   };
@@ -3613,6 +3615,7 @@ function NexusWidgetInner({
   const amountInputConfig = normalizedWidgetConfig.amountInput;
   const appearanceConfig = normalizedWidgetConfig.appearance;
   const configuredDepositOptions = normalizedWidgetConfig.depositOptions;
+  const configuredEnableOnRamp = normalizedWidgetConfig.enableOnRamp;
   const isConfiguredAmountFixed = normalizedWidgetConfig.isAmountFixed;
   const isConfiguredRecipientLocked = normalizedWidgetConfig.isRecipientLocked;
   const primaryColor = normalizeNexusWidgetPrimaryColor(
@@ -3806,7 +3809,7 @@ function NexusWidgetInner({
   const [swapType, setSwapType] = useState<SwapType>("exactIn");
   const [swapStep, setSwapStep] = useState<SwapStep>("idle");
   const [depositFundingStep, setDepositFundingStep] =
-    useState<DepositFundingStep>("method");
+    useState<DepositFundingStep>(configuredEnableOnRamp ? "method" : "wallet");
   const [depositOnrampSessionState, setDepositOnrampSessionState] = useState<
     string | null
   >(null);
@@ -3854,8 +3857,10 @@ function NexusWidgetInner({
   const [fromTokensQuoteKey, setFromTokensQuoteKey] = useState("");
 
   useEffect(() => {
-    setDepositFundingStep(activeMode === "deposit" ? "method" : "wallet");
-  }, [activeMode]);
+    setDepositFundingStep(
+      activeMode === "deposit" && configuredEnableOnRamp ? "method" : "wallet",
+    );
+  }, [activeMode, configuredEnableOnRamp]);
 
   useEffect(() => {
     const key = getSourceTokensQuoteKey(
@@ -10012,6 +10017,7 @@ function NexusWidgetInner({
   // ---------------------------------------------------------------------------
   const isDepositMethodScreen =
     activeMode === "deposit" &&
+    configuredEnableOnRamp &&
     swapStep === "idle" &&
     depositFundingStep === "method";
   const isDepositWalletScreen =
@@ -10020,6 +10026,7 @@ function NexusWidgetInner({
     depositFundingStep === "wallet";
   const isDepositOnrampScreen =
     activeMode === "deposit" &&
+    configuredEnableOnRamp &&
     swapStep === "idle" &&
     depositFundingStep === "onramp";
   const normalizedDepositOnrampSessionState =
@@ -10028,9 +10035,7 @@ function NexusWidgetInner({
     isDepositOnrampScreen && Boolean(depositOnrampSessionState);
   const getDepositOnrampSessionTitle = () => {
     if (
-      normalizedDepositOnrampSessionState === "SETTLED" ||
       [
-        "COMPLETED",
         "DEPOSIT_COMPLETE",
         "DEPOSIT_SUCCESS",
         "DEPOSITED",
@@ -10038,7 +10043,11 @@ function NexusWidgetInner({
     ) {
       return "Success";
     }
-    if (normalizedDepositOnrampSessionState === "FAILED") {
+    if (
+      ["FAILED", "DECLINED", "AUTHORIZATION_EXPIRED"].includes(
+        normalizedDepositOnrampSessionState,
+      )
+    ) {
       return "Payment failed";
     }
     if (
@@ -10060,7 +10069,13 @@ function NexusWidgetInner({
       return "Payment expired";
     }
     if (
-      ["COMPLETING_DEPOSIT", "DEPOSIT_PROCESSING", "DEPOSITING"].includes(
+      [
+        "SETTLED",
+        "COMPLETING_DEPOSIT",
+        "DEPOSIT_PROCESSING",
+        "DEPOSITING",
+        "SWAPPING_GAS",
+      ].includes(
         normalizedDepositOnrampSessionState,
       )
     ) {
@@ -10139,12 +10154,13 @@ function NexusWidgetInner({
   const canGoBack =
     swapStep === "preview-intent" ||
     swapStep === "history" ||
-    isDepositWalletScreen ||
+    (isDepositWalletScreen && configuredEnableOnRamp) ||
     (isDepositOnrampScreen && !hasDepositOnrampSession);
   const showHistoryButton = !(isDepositMethodScreen || isDepositOnrampScreen);
   const handleBack = () => {
     if (
       activeMode === "deposit" &&
+      configuredEnableOnRamp &&
       swapStep === "idle" &&
       depositFundingStep !== "method"
     ) {
@@ -11466,8 +11482,9 @@ function NexusWidgetInner({
               "enter-recipient",
             ].includes(swapStep) && (
               <>
-                {swapStep === "idle" && depositFundingStep === "method" && (
+                {isDepositMethodScreen && (
                   <DepositFundingMethod
+                    enableOnRamp={configuredEnableOnRamp}
                     isBalanceLoading={isSwapBalancePending}
                     onSelectLocalCurrency={() => setDepositFundingStep("onramp")}
                     onSelectWallet={() => setDepositFundingStep("wallet")}
@@ -11476,7 +11493,7 @@ function NexusWidgetInner({
                   />
                 )}
 
-                {swapStep === "idle" && depositFundingStep === "onramp" && (
+                {isDepositOnrampScreen && (
                   <DepositOnrampFlow
                     destinationTokens={configuredDestinationTokenOptions}
                     onConnectWallet={handleConnectWallet}

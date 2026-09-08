@@ -248,7 +248,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
+        "@avail-project/nexus-core@2.4.1",
         "lucide-react",
         "viem"
       ],
@@ -609,7 +609,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
+        "@avail-project/nexus-core@2.4.1",
         "clsx",
         "lucide-react",
         "tailwind-merge",
@@ -807,7 +807,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
+        "@avail-project/nexus-core@2.4.1",
         "lucide-react",
         "viem"
       ],
@@ -979,6 +979,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/utils/onramp-session.ts",
+          "target": "components/nexus/utils/onramp-session.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/common/components/ErrorBoundary.tsx",
           "target": "components/common/components/ErrorBoundary.tsx",
           "type": "registry:component"
@@ -1075,7 +1080,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
+        "@avail-project/nexus-core@2.4.1",
         "decimal.js",
         "lucide-react",
         "viem",
@@ -1105,7 +1110,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
+        "@avail-project/nexus-core@2.4.1",
         "wagmi"
       ]
     },
@@ -1358,7 +1363,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
+        "@avail-project/nexus-core@2.4.1",
         "lucide-react",
         "viem"
       ],
@@ -1571,7 +1576,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
+        "@avail-project/nexus-core@2.4.1",
         "lucide-react",
         "viem"
       ],
@@ -1609,7 +1614,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
+        "@avail-project/nexus-core@2.4.1",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1762,7 +1767,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.0.0",
+        "@avail-project/nexus-core@2.4.1",
         "lucide-react"
       ],
       "registryDependencies": [
