@@ -108,12 +108,12 @@ export function App({ address }: { address?: `0x${string}` }) {
 | --- | --- | --- |
 | `config` | `object` | Selects the workflow and any mode-specific behavior. |
 | `connectedAddress` | `` `0x${string}` `` | Wallet address to use. If omitted, Nexus Widget falls back to the connected wagmi wallet account. |
-| `embed` | `boolean` | Defaults to `true`. Set `false` when rendering Nexus Widget as a modal surface. |
+| `embed` | `boolean` | Defaults to `true`. Set `false` for a popup with a header close button. Outside clicks and Escape do not dismiss it. |
 | `open`, `onOpenChange`, `defaultOpen` | modal controls | Control modal state when `embed={false}`. |
 | `onComplete` | `(explorerUrl?: string) => void` | Called after a successful swap, send, or deposit. |
 | `onStart` | `() => void` | Called when the user starts execution. |
 | `onError` | `(message: string) => void` | Called when execution fails. |
-| `onClose` | `() => void` | Used by modal mode. |
+| `onClose` | `() => void` | Optional callback when the popup closes; the close button also works without this callback. |
 | `onConnectClick` | `() => void \| Promise<void>` | Called when the internal Connect Wallet CTA is clicked. Use this to open your app/header wallet modal. |
 | `onConnectWallet` | `() => void \| Promise<void>` | Backward-compatible connect callback prop. |
 

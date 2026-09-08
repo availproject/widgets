@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
+import { EventEmitter } from "node:events";
 import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { DepositFundingMethod } from "../registry/avail-widgets/nexus-widget/components/deposit-funding-method";
 import { DepositOnrampFlow } from "../registry/avail-widgets/nexus-widget/components/deposit-onramp-flow";
+import { readOnrampWalletAddress, withOnrampWalletTimeout } from "../registry/avail-widgets/nexus-widget/utils/use-onramp-wallet";
 import {
   getOnrampRemainingAmount,
   isOnrampTerminalState,
@@ -44,6 +46,10 @@ const mountFlow = async ({
   gasSwap = false,
   status = "SETTLED",
   needsApproval = false,
+  providerConnected = true,
+  resume = true,
+  quoteFlow = false,
+  initialChainId = 8453,
 } = {}) => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
   logs = [];
@@ -58,6 +64,7 @@ const mountFlow = async ({
     setInterval,
     clearInterval,
     localStorage: { getItem: () => null, setItem: () => {} },
+    open: () => ({ document: { body: { style: {} } }, location: { href: "" }, close() {} }),
   });
   (globalThis as any).window = fakeWindow;
   (globalThis as any).document = Object.assign(new EventTarget(), {
@@ -67,8 +74,14 @@ const mountFlow = async ({
   let paymentStatus = status;
   let sends = 0;
   let approvals = 0;
+  let approvalConfirmed = false;
+  let walletChainId = initialChainId;
   let swaps = 0;
   let receiptCalls = 0;
+  let connectCalls = 0;
+  let sessionCreates = 0;
+  let liveAccount = account;
+  const quoteWallets: string[] = [];
   const states: Array<string | null> = [];
   const statusRequests: RequestInit[] = [];
   const rpcResponse = (result: unknown) =>
@@ -103,7 +116,16 @@ const mountFlow = async ({
           fiatCurrencies: ["USD"],
         },
       });
-    if (path.includes("/routes")) return Response.json({ routes: [] });
+    if (path.includes("/routes")) return Response.json({ routes: quoteFlow ? [{ provider: "BANXA", paymentMethods: [{ method: "CREDIT_DEBIT_CARD" }] }] : [] });
+    if (path.endsWith("/quote")) {
+      const body = JSON.parse(String(init?.body));
+      quoteWallets.push(body.walletAddress);
+      return Response.json({ quotes: [{ provider: "BANXA", paymentMethodType: "CREDIT_DEBIT_CARD", destinationCurrencyCode: "USDC_BASE", destinationAmount: "10", sourceAmount: body.sourceAmount, sourceCurrencyCode: "USD" }] });
+    }
+    if (path.endsWith("/sessions")) {
+      sessionCreates++;
+      return Response.json({ sessionId: "session", state: "PENDING", widgetUrl: "https://example.com/checkout" });
+    }
     if (path.includes("country.is")) return Response.json({ country: "US" });
     if (path.includes("open.er-api.com"))
       return Response.json({ rates: { USD: 1 } });
@@ -127,15 +149,16 @@ const mountFlow = async ({
     }
   };
   const walletClient = {
-    chain: { id: 8453 },
+    account: { address: account },
+    chain: { id: initialChainId },
     request: async ({ method }: { method: string }) => {
       switch (method) {
         case "eth_chainId":
-          return "0x2105";
+          return `0x${walletChainId.toString(16)}`;
         case "eth_accounts":
-          return [account];
+          return [liveAccount];
         case "eth_call":
-          return "0x0";
+          return approvalConfirmed ? "0xffffffffff" : "0x0";
         case "eth_maxPriorityFeePerGas":
           return "0x3b9aca00";
         case "eth_getBlockByNumber":
@@ -146,7 +169,11 @@ const mountFlow = async ({
           throw new Error(`Unexpected wallet method ${method}`);
       }
     },
-    switchChain: async () => {},
+    switchChain: async ({ id }: { id: number }) => {
+      walletChainId = id;
+      walletClient.chain = { id };
+      provider.emit("chainChanged", `0x${id.toString(16)}`);
+    },
     writeContract: async () => {
       approvals++;
       return hash;
@@ -156,6 +183,13 @@ const mountFlow = async ({
       return hash;
     },
   };
+  const provider = Object.assign(new EventEmitter(), {
+    get connected() { return providerConnected; },
+    request: walletClient.request,
+  });
+  // Object.assign copies getters as values; keep connection state live for event tests.
+  Object.defineProperty(provider, "connected", { get: () => providerConnected });
+  const getWalletProvider = async () => provider as any;
   const sdk = {
     swapWithExactOut: async (_input: unknown, options: any) => {
       options.onEvent({ type: "status", status: "preparing" });
@@ -171,9 +205,10 @@ const mountFlow = async ({
       return { intentExplorerUrl: "https://example.com/intent" };
     },
   };
-  await act(async () => {
-    renderer = create(
+  const renderFlow = () => (
       <DepositOnrampFlow
+        getWalletProvider={getWalletProvider}
+        walletConnected={wallet}
         baseUrl="https://nexus-v2.canary.avail.so/middleware"
         ownerAddress={account}
         walletClient={wallet ? (walletClient as any) : null}
@@ -201,16 +236,14 @@ const mountFlow = async ({
             balance: "0",
           } as any
         }
-        onConnectWallet={() => {}}
+        onConnectWallet={() => { connectCalls++; }}
         onSessionStateChange={(state) => states.push(state)}
         primaryButtonForeground="#fff"
-      />,
-    );
-  });
+      />
+  );
+  await act(async () => { renderer = create(renderFlow()); });
   await flush();
-  await act(async () => {
-    window.setRampSessionId?.("session");
-  });
+  if (resume) await act(async () => { window.setRampSessionId?.("session"); });
   await flush();
   return {
     states,
@@ -219,7 +252,26 @@ const mountFlow = async ({
     sends: () => sends,
     swaps: () => swaps,
     approvals: () => approvals,
+    connectCalls: () => connectCalls,
+    quoteWallets,
+    sessionCreates: () => sessionCreates,
+    provider,
+    silentlyDisconnect: () => { providerConnected = false; },
+    disconnect: async () => {
+      providerConnected = false;
+      await act(async () => { provider.emit("disconnect"); });
+      await flush();
+    },
+    reconnect: async (address = account) => {
+      providerConnected = true;
+      liveAccount = address;
+      walletClient.account.address = address;
+      wallet = true;
+      await act(async () => { renderer!.update(renderFlow()); provider.emit("connect"); });
+      await flush();
+    },
     confirm: async () => {
+      if (approvals && !sends) approvalConfirmed = true;
       resolveReceipt(rpcResponse({ status: "0x1" }));
       await flush();
     },
@@ -250,11 +302,16 @@ test("middleware settlement also waits for a real receipt; RPC failure retry che
   assert.equal(flow.states.at(-1), "DEPOSIT_SUCCESS");
 });
 
-test("settlement without a wallet surfaces a retryable deposit error, never success", async () => {
+test("settlement without a wallet requests reconnection and preserves the settled purchase", async () => {
   const flow = await mountFlow({ wallet: false });
   assert.equal(flow.sends(), 0);
-  assert.equal(flow.states.at(-1), "DEPOSIT_FAILED");
+  assert.equal(flow.states.at(-1), "SETTLED");
+  assert.ok(renderer!.root.findByProps({ title: "Connect your wallet to deposit" }));
   assert.ok(!flow.states.includes("DEPOSIT_SUCCESS"));
+  await flow.reconnect();
+  assert.equal(flow.sends(), 1);
+  await flow.confirm();
+  assert.equal(flow.states.at(-1), "DEPOSIT_SUCCESS");
 });
 
 test("gas swap logs every SDK event and deposits only the purchase minus gas, leaving pre-existing funds", async () => {
@@ -269,6 +326,125 @@ test("gas swap logs every SDK event and deposits only the purchase minus gas, le
         log.includes("deposit.confirmed") && log.includes('"amount":"8"'),
     ),
   );
+});
+
+test("a stored address and wallet client cannot authorize deposit with a disconnected provider", async () => {
+  const flow = await mountFlow({ providerConnected: false });
+  assert.equal(flow.sends(), 0);
+  const panel = renderer!.root.findByProps({ title: "Connect your wallet to deposit" });
+  await act(async () => panel.props.onPrimary());
+  assert.equal(flow.connectCalls(), 1);
+  assert.equal(flow.sends(), 0);
+  await flow.reconnect();
+  assert.equal(flow.sends(), 1);
+  await flow.confirm();
+  assert.equal(flow.states.at(-1), "DEPOSIT_SUCCESS");
+  assert.equal(flow.sessionCreates(), 0);
+});
+
+test("disconnect during provider checkout pauses the settled deposit until reconnect", async () => {
+  const flow = await mountFlow({ status: "PENDING" });
+  await flow.disconnect();
+  flow.setStatus("SETTLED");
+  await act(async () => { windowEvents.dispatchEvent(new Event("focus")); });
+  await flush();
+  assert.equal(flow.sends(), 0);
+  assert.ok(renderer!.root.findByProps({ title: "Connect your wallet to deposit" }));
+  await flow.reconnect();
+  assert.equal(flow.sends(), 1);
+  await flow.confirm();
+});
+
+test("reconnecting another wallet never spends the wrong account's funds for a settled purchase", async () => {
+  const flow = await mountFlow({ providerConnected: false });
+  await flow.reconnect("0x3333333333333333333333333333333333333333");
+  assert.equal(flow.sends(), 0);
+  assert.equal(flow.states.at(-1), "DEPOSIT_FAILED");
+  assert.ok(logs.some(log => log.includes("Connect the wallet that received this onramp payment")));
+});
+
+const waitForQuotes = async () => {
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 400)); });
+  await flush();
+};
+const buttonText = (button: any) => button.children.filter((child: unknown) => typeof child === "string").join("");
+
+test("quotes show Connect Wallet for stale persisted addresses and refresh for the live account before Pay", async () => {
+  const flow = await mountFlow({ resume: false, quoteFlow: true, providerConnected: false });
+  await act(async () => renderer!.root.findByType("input").props.onChange({ target: { value: "50" } }));
+  await waitForQuotes();
+  const connect = renderer!.root.findAllByType("button").find(button => buttonText(button) === "Connect Wallet")!;
+  assert.ok(connect);
+  assert.equal(connect.props.disabled, false);
+  assert.notEqual(flow.quoteWallets.at(-1)?.toLowerCase(), account.toLowerCase());
+  await act(async () => connect.props.onClick());
+  await flush();
+  assert.equal(flow.connectCalls(), 1);
+  assert.equal(flow.sessionCreates(), 0);
+  const connectedAccount = "0x3333333333333333333333333333333333333333";
+  await flow.reconnect(connectedAccount);
+  assert.equal(renderer!.root.findAllByType("button").filter(button => buttonText(button).startsWith("Pay ") && !button.props.disabled).length, 0);
+  await waitForQuotes();
+  assert.equal(flow.quoteWallets.at(-1), connectedAccount);
+  assert.ok(renderer!.root.findAllByType("button").some(button => buttonText(button).startsWith("Pay ") && !button.props.disabled));
+  const before = flow.quoteWallets.length;
+  await flow.disconnect();
+  await flow.reconnect(connectedAccount);
+  await waitForQuotes();
+  assert.ok(flow.quoteWallets.length > before, "same-address reconnect also invalidates the old quote");
+});
+
+test("WalletConnect missing/expired sessions and empty provider accounts are not connections", async () => {
+  for (const connection of [{ connected: false }, { session: undefined }, { session: { expiry: 1 } }]) {
+    let requests = 0;
+    const address = await readOnrampWalletAddress({ ...connection, request: async () => { requests++; return [account]; } } as any);
+    assert.equal(address, undefined);
+    assert.equal(requests, 0);
+  }
+  assert.equal(await readOnrampWalletAddress({ request: async ({method}: any) => method === "eth_accounts" ? [] : "0x1" } as any), undefined);
+});
+
+test("Pay rechecks the provider and does not create a payment when it disconnected without an event", async () => {
+  const flow = await mountFlow({ resume: false, quoteFlow: true });
+  await act(async () => renderer!.root.findByType("input").props.onChange({ target: { value: "50" } }));
+  await waitForQuotes();
+  const pay = renderer!.root.findAllByType("button").find(button => buttonText(button).startsWith("Pay "))!;
+  assert.ok(pay);
+  flow.silentlyDisconnect();
+  await act(async () => pay.props.onClick());
+  await flush();
+  assert.equal(flow.sessionCreates(), 0);
+});
+
+test("disconnect while approval confirms blocks deposit until the funded wallet reconnects", async () => {
+  const flow = await mountFlow({ needsApproval: true });
+  assert.equal(flow.approvals(), 1);
+  await flow.disconnect();
+  await flow.confirm();
+  assert.equal(flow.sends(), 0);
+  await flow.reconnect();
+  const panel = renderer!.root.find(node => typeof node.props.onRetryDeposit === "function");
+  await act(async () => panel.props.onRetryDeposit());
+  await flush();
+  assert.equal(flow.sends(), 1);
+  assert.equal(flow.approvals(), 1);
+  await flow.confirm();
+});
+
+test("switching to the deposit chain does not falsely disconnect the verified wallet", async () => {
+  const flow = await mountFlow({ initialChainId: 10 });
+  assert.equal(flow.sends(), 1);
+  await flow.confirm();
+  assert.equal(flow.states.at(-1), "DEPOSIT_SUCCESS");
+});
+
+test("wallet checks time out, and provider listeners are removed on unmount", async () => {
+  await assert.rejects(withOnrampWalletTimeout(() => new Promise(() => {}), new AbortController().signal, 5), /did not respond/);
+  const flow = await mountFlow({ status: "PENDING" });
+  assert.ok(flow.provider.listenerCount("disconnect") > 0);
+  await act(async () => renderer!.unmount());
+  renderer = undefined;
+  assert.equal(flow.provider.eventNames().length, 0);
 });
 
 test("Meld states: ERROR/partial/2FA keep polling; all documented final states stop", () => {

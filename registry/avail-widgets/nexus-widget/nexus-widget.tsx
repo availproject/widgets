@@ -27,6 +27,7 @@ import { normalize } from "viem/ens";
 import {
   useAccount,
   useConnect,
+  useDisconnect,
   useConnectorClient,
   usePublicClient,
   useWalletClient,
@@ -51,6 +52,7 @@ import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
 import { DepositFundingMethod } from "./components/deposit-funding-method";
 import { DepositIdleForm } from "./components/deposit-idle-form";
 import { DepositOnrampFlow } from "./components/deposit-onramp-flow";
+import { readOnrampWalletAddress, withOnrampWalletTimeout } from "./utils/use-onramp-wallet";
 import {
   type NexusWidgetProgressEvent,
   NexusWidgetProgressScreen,
@@ -3665,7 +3667,7 @@ function NexusWidgetInner({
       "NexusWidget deposit mode requires destination.chain, at least one destination token, depositAddress, and executeDeposit.",
     );
   }
-  const showCloseButton = !embed && Boolean(onClose);
+  const showCloseButton = !embed;
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const isControlledOpen = controlledOpen !== undefined;
   const isModalOpen = isControlledOpen ? controlledOpen : internalOpen;
@@ -3691,6 +3693,7 @@ function NexusWidgetInner({
     isPending: isWalletConnectPending,
   } = useConnect();
   const { data: walletClient } = useWalletClient();
+  const { disconnectAsync } = useDisconnect();
   const { data: connectorClient } = useConnectorClient();
   const publicClient = usePublicClient();
   const walletClientAddress = walletClient?.account?.address;
@@ -3744,6 +3747,13 @@ function NexusWidgetInner({
     },
     [connector, connectorClient, walletClient],
   );
+  const getOnrampWalletProvider = useCallback(async () => {
+    if (walletStatus !== "connected" || !connector) return undefined;
+    // Never substitute another injected wallet for an inactive WalletConnect session.
+    const provider = await connector.getProvider();
+    return provider && typeof (provider as EthereumProvider).request === "function"
+      ? provider as EthereumProvider : undefined;
+  }, [connector, walletStatus]);
   const historyStorageKey = getSwapHistoryStorageKey(ownerAddress);
 
   useEffect(() => {
@@ -8443,6 +8453,29 @@ function NexusWidgetInner({
     }
   };
 
+  const handleConnectOnrampWallet = async () => {
+    const controller = new AbortController();
+    const liveAddress = await withOnrampWalletTimeout(async () => {
+      const provider = await getOnrampWalletProvider();
+      return provider ? readOnrampWalletAddress(provider) : undefined;
+    }, controller.signal).catch(() => undefined);
+    if (!liveAddress && connector && walletStatus === "connected") {
+      // Clear a persisted, unusable connector before opening Reown's connection UI.
+      await disconnectAsync({ connector });
+    }
+    const clickHandler = onConnectClick || onConnectWallet;
+    if (clickHandler) {
+      await clickHandler();
+    } else if (!liveAddress) {
+      const nextConnector = connector ?? connectors[0];
+      if (!nextConnector) throw new Error("No wallet connector available.");
+      await connectAsync({ connector: nextConnector });
+    } else {
+      const provider = await getOnrampWalletProvider();
+      if (provider) await handleInit(provider, liveAddress);
+    }
+  };
+
   const handleOpenRecipientEditor = () => {
     if (activeMode === "swap" && !recipientAddress && defaultRecipientAddress) {
       setRecipientAddress(defaultRecipientAddress);
@@ -11496,7 +11529,9 @@ function NexusWidgetInner({
                 {isDepositOnrampScreen && (
                   <DepositOnrampFlow
                     destinationTokens={configuredDestinationTokenOptions}
-                    onConnectWallet={handleConnectWallet}
+                    getWalletProvider={getOnrampWalletProvider}
+                    walletConnected={walletStatus === "connected"}
+                    onConnectWallet={handleConnectOnrampWallet}
                     onError={(message) => {
                       setTxError(message);
                       onError?.(message);
@@ -12568,7 +12603,7 @@ function NexusWidgetInner({
       </DialogTrigger>
       <DialogContent
         className="max-w-md! border-0 bg-transparent p-0 shadow-none"
-        dismissible={swapStep !== "progress"}
+        dismissible={false}
         showCloseButton={false}
       >
         {widgetContent}

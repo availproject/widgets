@@ -28,6 +28,10 @@ import {
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE, nexusWidgetTheme } from "../theme";
 import type { NexusWidgetDepositOpportunityConfig } from "../types";
 import type { SwapTokenOption } from "./swap-asset-selector";
+import {
+  useOnrampWallet,
+  type GetOnrampWalletProvider,
+} from "../utils/use-onramp-wallet";
 import { CHAIN_METADATA } from "../../common";
 import {
   getOnrampRemainingAmount,
@@ -225,6 +229,8 @@ type OnrampSheet =
 
 interface DepositOnrampFlowProps {
   baseUrl?: string;
+  getWalletProvider: GetOnrampWalletProvider;
+  walletConnected: boolean;
   destinationTokens?: SwapTokenOption[];
   onConnectWallet: () => void | Promise<void>;
   onError?: (message: string) => void;
@@ -3234,6 +3240,9 @@ function OnrampHandoffPanel({
 }
 
 function OnrampSessionStatusPanel({
+  hasConnectedWallet,
+  walletChecking,
+  onConnectWallet,
   depositExecution,
   gasShortfallInfo,
   onCancel,
@@ -3249,6 +3258,9 @@ function OnrampSessionStatusPanel({
   sourceCurrencyCode,
   toToken,
 }: {
+  hasConnectedWallet: boolean;
+  walletChecking: boolean;
+  onConnectWallet: () => void;
   depositExecution: OnrampDepositExecutionState;
   gasShortfallInfo?: OnrampGasShortfallInfo | null;
   onCancel: () => void;
@@ -3340,6 +3352,23 @@ function OnrampSessionStatusPanel({
           title={title}
         />
       </div>
+    );
+  }
+
+  if (
+    normalizedState === "SETTLED" && depositExecution.status !== "success" &&
+    depositExecution.status !== "running" && !hasConnectedWallet
+  ) {
+    return (
+      <OnrampActionStatusPanel
+        title="Connect your wallet to deposit"
+        description="Your purchase is complete. Connect the wallet that received the crypto to complete your deposit."
+        onPrimary={onConnectWallet}
+        onSecondary={onDone}
+        primaryButtonForeground={primaryButtonForeground}
+        primaryLabel={walletChecking ? "Checking wallet..." : "Connect Wallet"}
+        secondaryLabel="Skip Deposit"
+      />
     );
   }
 
@@ -3458,18 +3487,27 @@ function OnrampSessionStatusPanel({
 
 export function DepositOnrampFlow({
   baseUrl = getOnrampBaseUrl(),
+  getWalletProvider,
+  walletConnected,
   destinationTokens,
   onConnectWallet,
   onError,
   onSelectDestinationToken,
   onSessionStateChange,
   nexusSDK,
-  ownerAddress,
+  ownerAddress: persistedOwnerAddress,
   opportunity,
   primaryButtonForeground,
   toToken,
   walletClient,
 }: DepositOnrampFlowProps) {
+  const {
+    address: ownerAddress,
+    revision: walletRevision,
+    checking: walletChecking,
+    check: checkWalletConnection,
+  } = useOnrampWallet({ getProvider: getWalletProvider, walletClient, walletConnected });
+  const [walletActionPending, setWalletActionPending] = React.useState(false);
   const [countryCode, setCountryCode] = React.useState("");
   const [sourceCurrencyCode, setSourceCurrencyCode] = React.useState("");
   const [sourceAmount, setSourceAmount] = React.useState("");
@@ -3542,7 +3580,7 @@ export function DepositOnrampFlow({
   const createSessionAbortRef = React.useRef<AbortController | null>(null);
   const depositExecutionSessionRef = React.useRef("");
   const normalizedSessionState = getNormalizedOnrampState(session?.state);
-  const hasConnectedWallet = Boolean(ownerAddress && isAddress(ownerAddress));
+  const hasConnectedWallet = Boolean(ownerAddress);
   const quoteWalletAddress = hasConnectedWallet
     ? (ownerAddress as Address)
     : ONRAMP_DISCONNECTED_QUOTE_WALLET_ADDRESS;
@@ -3630,10 +3668,11 @@ export function DepositOnrampFlow({
       [
         rateRequestKey,
         quoteWalletAddress.toLowerCase(),
+        walletRevision,
         selectedPaymentMethod,
         sourceAmount.trim(),
       ].join("|"),
-    [quoteWalletAddress, rateRequestKey, selectedPaymentMethod, sourceAmount],
+    [quoteWalletAddress, walletRevision, rateRequestKey, selectedPaymentMethod, sourceAmount],
   );
   const selectedRoute = React.useMemo(
     () =>
@@ -3890,6 +3929,7 @@ export function DepositOnrampFlow({
         hasWallet: Boolean(walletClient),
         hasSDK: Boolean(nexusSDK),
         ownerAddress,
+        persistedOwnerAddress,
       });
       if (
         !sessionId ||
@@ -3936,6 +3976,11 @@ export function DepositOnrampFlow({
           );
         }
         const account = ownerAddress as Address;
+        const liveAccount = await checkWalletConnection();
+        if (liveAccount?.toLowerCase() !== account.toLowerCase()) {
+          throw new Error("Reconnect the funded wallet to complete your deposit.");
+        }
+        checkActive();
         const toChainId = opportunity.chainId;
         const decimals = opportunity.tokenDecimals;
         if (
@@ -4035,12 +4080,14 @@ export function DepositOnrampFlow({
           await walletClient.switchChain({ id: toChainId });
         const assertWallet = async () => {
           checkActive();
+          const liveAccount = await checkWalletConnection();
           const [chainId, accounts] = await Promise.all([
             walletClient.request({ method: "eth_chainId" }),
             walletClient.request({ method: "eth_accounts" }),
           ]);
           checkActive();
           if (
+            liveAccount?.toLowerCase() !== account.toLowerCase() ||
             Number(chainId) !== toChainId ||
             accounts[0]?.toLowerCase() !== account.toLowerCase()
           ) {
@@ -4322,9 +4369,11 @@ export function DepositOnrampFlow({
     },
     [
       baseUrl,
+      checkWalletConnection,
       depositExecution.status,
       opportunity,
       ownerAddress,
+      persistedOwnerAddress,
       nexusSDK,
       session,
       toToken,
@@ -5024,6 +5073,7 @@ export function DepositOnrampFlow({
     if (
       !session?.sessionId ||
       normalizedSessionState !== "SETTLED" ||
+      !hasConnectedWallet ||
       depositExecution.status !== "idle"
     ) {
       return;
@@ -5031,6 +5081,7 @@ export function DepositOnrampFlow({
     void executeOnrampDeposit();
   }, [
     depositExecution.status,
+    hasConnectedWallet,
     executeOnrampDeposit,
     normalizedSessionState,
     session?.sessionId,
@@ -5071,6 +5122,13 @@ export function DepositOnrampFlow({
       return;
     }
     try {
+      const liveAccount = await checkWalletConnection();
+      controller.signal.throwIfAborted();
+      if (liveAccount?.toLowerCase() !== ownerAddress.toLowerCase()) {
+        providerWindow.close();
+        setError("Connect your wallet and wait for a refreshed quote before paying.");
+        return;
+      }
       logOnramp("session.create", {
         baseUrl,
         environment: getOnrampRuntimeEnvironment(baseUrl),
@@ -5147,10 +5205,27 @@ export function DepositOnrampFlow({
 
   const handlePrimaryAction = async () => {
     if (!hasConnectedWallet) {
-      await onConnectWallet();
+      await reconnectWallet();
       return;
     }
     await createSession();
+  };
+
+  const reconnectWallet = async () => {
+    if (walletActionPending) return;
+    setWalletActionPending(true);
+    setError(null);
+    logOnramp("wallet.connect_requested", { sessionId: session?.sessionId });
+    try {
+      await onConnectWallet();
+      await checkWalletConnection();
+    } catch (connectionError) {
+      const message = getErrorMessage(connectionError);
+      setError(message);
+      onErrorRef.current?.(message);
+    } finally {
+      setWalletActionPending(false);
+    }
   };
 
   const resetSession = () => {
@@ -5359,7 +5434,9 @@ export function DepositOnrampFlow({
     Boolean(destinationTokenUnsupportedMessage) ||
     Boolean(amountLimitMessage) ||
     ctaRateLoading ||
-    sessionLoading;
+    sessionLoading ||
+    walletActionPending ||
+    (!hasConnectedWallet && walletChecking);
 
   if (session?.sessionId) {
     return (
@@ -5382,6 +5459,9 @@ export function DepositOnrampFlow({
           </div>
         )}
         <OnrampSessionStatusPanel
+          hasConnectedWallet={hasConnectedWallet}
+          walletChecking={walletChecking || walletActionPending}
+          onConnectWallet={() => void reconnectWallet()}
           depositExecution={depositExecution}
           gasShortfallInfo={gasShortfallInfo}
           onCancel={resetSession}
@@ -5852,7 +5932,7 @@ export function DepositOnrampFlow({
         }}
         type="button"
       >
-        {sessionLoading || ctaRateLoading ? (
+        {sessionLoading || ctaRateLoading || walletActionPending || (!hasConnectedWallet && walletChecking) ? (
           <Loader2
             className="animate-spin"
             size={16}
@@ -5861,17 +5941,21 @@ export function DepositOnrampFlow({
         ) : selectedQuote && hasConnectedWallet ? (
           <ExternalLink aria-hidden="true" size={16} strokeWidth={1.8} />
         ) : null}
-        {sessionLoading
-          ? "Opening provider..."
-          : ctaRateLoading
-            ? "Fetching best rates..."
-            : destinationTokenUnsupportedMessage
-              ? "Token not supported"
-              : selectedQuote
-                ? hasConnectedWallet
-                  ? `Pay ${formatCurrencyAmount(sourceAmount, sourceCurrencyCode)}`
-                  : "Connect Wallet"
-                : "Enter amount"}
+        {walletActionPending
+          ? "Connecting wallet..."
+          : !hasConnectedWallet && walletChecking
+            ? "Checking wallet..."
+            : sessionLoading
+              ? "Opening provider..."
+              : ctaRateLoading
+                ? "Fetching best rates..."
+                : destinationTokenUnsupportedMessage
+                  ? "Token not supported"
+                  : selectedQuote
+                    ? hasConnectedWallet
+                      ? `Pay ${formatCurrencyAmount(sourceAmount, sourceCurrencyCode)}`
+                      : "Connect Wallet"
+                    : "Enter amount"}
       </button>
 
       {activeSheet === "fees" && (

@@ -984,6 +984,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/utils/use-onramp-wallet.ts",
+          "target": "components/nexus/utils/use-onramp-wallet.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/common/components/ErrorBoundary.tsx",
           "target": "components/common/components/ErrorBoundary.tsx",
           "type": "registry:component"
