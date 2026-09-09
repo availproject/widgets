@@ -5,6 +5,7 @@
 import Decimal from "decimal.js";
 import { ChevronDown, Info, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
+import { parseAmount as parseDecimal } from "../utils/amount";
 import type { SwapStepType } from "../../common/types/transaction-flow";
 import { CHAIN_METADATA, getShortChainName } from "../../common/utils/constant";
 import TransactionProgress from "../../swaps/components/transaction-progress";
@@ -110,23 +111,6 @@ const primary = "var(--nexus-widget-text-strong, #161615)";
 const muted = "var(--nexus-widget-text-secondary, #848483)";
 const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
-
-const stripNumeric = (value: unknown) => String(value).replace(/[^0-9.-]/g, "");
-
-const parseDecimal = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = stripNumeric(value);
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
 
 const toDecimal = (value: unknown) => parseDecimal(value) ?? new Decimal(0);
 

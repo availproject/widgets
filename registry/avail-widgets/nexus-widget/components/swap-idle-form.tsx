@@ -3,6 +3,7 @@
 import Decimal from "decimal.js";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { parseAmount as parseDecimal } from "../utils/amount";
 import { useNexusWidgetThemeStyle } from "../theme-context";
 import {
   formatSelectedTokenBalanceLabel,
@@ -598,21 +599,6 @@ const formatShortAddress = (address?: string) => {
 
 const formatTokenBalanceLabel = formatSelectedTokenBalanceLabel;
 
-const parseDecimal = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = String(value).replace(/[^0-9.-]/g, "");
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
 const formatUsdValue = (value: Decimal) =>
   value.gt(0) && value.lt(0.01) ? "<0.01" : value.toDecimalPlaces(2).toFixed(2);
 
@@ -803,9 +789,9 @@ export function SwapIdleForm({
     if (!token) return;
 
     const tokenBalance =
-      Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+      parseDecimal(token.balance)?.toNumber() ?? 0;
     const fiatBalance =
-      Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+      parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
     const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
     if (price === 0) return;
 
@@ -832,9 +818,9 @@ export function SwapIdleForm({
     const quotedUsd = parseDecimal(token.userAmountUsd);
     if (quotedUsd && quotedUsd.gte(0)) return quotedUsd.toNumber();
     const tokenBalance =
-      Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
+      parseDecimal(token.balance)?.toNumber() ?? 0;
     const fiatBalance =
-      Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+      parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
     const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
     const amountNumber = Number(token.userAmount || 0);
     if (!Number.isFinite(amountNumber)) return 0;
@@ -1446,13 +1432,9 @@ export function SwapIdleForm({
                             </div>
                           );
                         const tokenBalance =
-                          Number(
-                            String(token.balance).replace(/[^0-9.]/g, ""),
-                          ) || 0;
+                          parseDecimal(token.balance)?.toNumber() ?? 0;
                         const fiatBalance =
-                          Number(
-                            String(token.balanceInFiat).replace(/[^0-9.]/g, ""),
-                          ) || 0;
+                          parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
                         const price =
                           tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
                         const isUsdMode = token.userAmountMode === "usd";

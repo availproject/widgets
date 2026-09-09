@@ -5,6 +5,7 @@
 import Decimal from "decimal.js";
 import { Check, ChevronDown, Loader2, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { parseAmount as parseDecimal } from "../utils/amount";
 import type {
   BridgeStepType,
   SwapStepType,
@@ -56,21 +57,6 @@ const muted = "var(--nexus-widget-text-secondary, #848483)";
 const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
 const danger = "var(--nexus-widget-error-text, #E92C2C)";
-
-const parseDecimal = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = String(value).replace(/[^0-9.-]/g, "");
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
 
 const formatDecimal = (value: unknown, decimals = 2) =>
   (parseDecimal(value) ?? new Decimal(0)).toDecimalPlaces(decimals).toFixed();

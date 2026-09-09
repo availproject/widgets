@@ -2,6 +2,7 @@
 
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
+import { parseAmount as parseDecimal } from "../utils/amount";
 import { useNexusWidgetThemeStyle } from "../theme-context";
 import React, { useRef, useState } from "react";
 import { PayWithSources as SharedPayWithSources } from "./pay-with-sources";
@@ -43,21 +44,6 @@ const primary = "var(--nexus-widget-text-strong, #161615)";
 const muted = "var(--nexus-widget-text-secondary, #848483)";
 const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
-
-const parseDecimal = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = String(value).replace(/[^0-9.-]/g, "");
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
 
 const formatToken = (value: unknown) => {
   const amount = parseDecimal(value) ?? new Decimal(0);

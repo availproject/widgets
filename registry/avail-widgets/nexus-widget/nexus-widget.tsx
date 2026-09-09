@@ -103,6 +103,10 @@ import {
   type NexusWidgetRuntimePrefill,
   type SwapType,
 } from "./types";
+import {
+  parseAmount as parseDecimalLoose,
+  parseAmount as parseFiatNumber,
+} from "./utils/amount";
 import { findCitreaReceiveToken } from "./utils/citrea-tokens";
 import {
   type DepositSourceFilter,
@@ -224,8 +228,6 @@ const DESTINATION_RECEIVE_LIMIT_USD_BY_CHAIN_ID: Record<number, number> = {
   [SUPPORTED_CHAINS.CITREA]: 2000,
   [SUPPORTED_CHAINS.SCROLL]: 500,
 };
-
-const SCIENTIFIC_DECIMAL_REGEX = /^-?(?:\d+\.?\d*|\.\d+)e[+-]?\d+$/i;
 
 const QUOTE_REFRESH_INTERVAL_MS = 30000;
 const EXACT_OUT_INPUT_DEBOUNCE_MS = 1300;
@@ -1265,28 +1267,6 @@ function QuoteRefreshCountdown({
   );
 }
 
-const normalizeDecimalInputText = (value: unknown) => {
-  const raw = String(value).trim();
-  if (!raw) return "";
-  if (SCIENTIFIC_DECIMAL_REGEX.test(raw)) return raw;
-  return raw.replace(/[^0-9.-]/g, "");
-};
-
-const parseDecimalLoose = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = normalizeDecimalInputText(value);
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
 const toViemDecimalString = (value: unknown, decimals: number) => {
   const parsed = parseDecimalLoose(value);
   if (!parsed || parsed.lte(0)) return "0";
@@ -1874,7 +1854,7 @@ const getDisplayDestinationSourceRow = (
     entry.intentData?.destination.amount
   );
   const destinationBalanceAmount = parseDecimalLoose(
-    entry.toToken.balance?.replace(entry.toToken.symbol, "")
+    entry.toToken.balance
   );
   if (
     !requestedAmount ||
@@ -4660,21 +4640,6 @@ function NexusWidgetInner({
     return total > 0 ? String(total) : "";
   };
 
-  const parseFiatNumber = (value: unknown) => {
-    if (value === null || value === undefined || value === "") return undefined;
-    if (Decimal.isDecimal(value)) return value;
-    const cleaned = normalizeDecimalInputText(value);
-    if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-      return undefined;
-    }
-    try {
-      const parsed = new Decimal(cleaned);
-      return parsed.isFinite() ? parsed : undefined;
-    } catch {
-      return undefined;
-    }
-  };
-
   const minimumSourceUsd = new Decimal(1);
   const hasMinimumSourceUsdValue = (value: unknown) =>
     (parseFiatNumber(value) ?? new Decimal(0)).gte(minimumSourceUsd);
@@ -5102,7 +5067,7 @@ function NexusWidgetInner({
 
     return {
       ...token,
-      balance: `${amount} ${token.symbol}`,
+      balance: amount,
       balanceInFiat: balanceUsd,
       userAmount: amount,
       userAmountMode: "token",
@@ -5579,7 +5544,7 @@ function NexusWidgetInner({
           logo: asset.logo ?? "",
           name: symbol,
           symbol,
-          balance: `${breakdown.balance} ${symbol}`,
+          balance: breakdown.balance,
           balanceInFiat:
             fiatBalance !== undefined
               ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
@@ -5641,7 +5606,7 @@ function NexusWidgetInner({
           logo: asset.logo ?? toToken.logo,
           name: symbol,
           symbol,
-          balance: `${breakdown.balance} ${symbol}`,
+          balance: breakdown.balance,
           balanceInFiat:
             fiatBalance !== undefined
               ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
@@ -6248,7 +6213,7 @@ function NexusWidgetInner({
           const chainMeta = CHAIN_METADATA[chainId];
           const fiatBalance = parseFiatNumber(breakdown.balanceInFiat);
           const snapshot: SwapTokenOption = {
-            balance: `${breakdown.balance ?? "0"} ${symbol}`,
+            balance: breakdown.balance ?? "0",
             balanceInFiat: fiatBalance
               ? formatUsdDisplay(fiatBalance)
               : "$0.00",
@@ -6311,7 +6276,7 @@ function NexusWidgetInner({
           return {
             ...token,
             ...preservedAmounts,
-            balance: `0 ${token.symbol}`,
+            balance: "0",
             balanceInFiat: "$0.00",
             chainLogo:
               token.chainLogo ??
@@ -7005,7 +6970,7 @@ function NexusWidgetInner({
         const balance = parseFiatNumber(breakdown.balance);
         if (!balance) return null;
 
-        return `${balance.toDecimalPlaces(6).toFixed()} ${token.symbol}`;
+        return balance.toFixed();
       }
     }
 
@@ -7078,7 +7043,7 @@ function NexusWidgetInner({
         contractAddress: citreaToken?.contractAddress ?? pair.token,
         symbol: tokenSymbol,
         name: matchedToken?.name || citreaToken?.name || tokenSymbol,
-        balance: `0 ${tokenSymbol}`,
+        balance: "0",
         balanceInFiat: "$0.00",
         decimals:
           matchedToken?.decimals ??

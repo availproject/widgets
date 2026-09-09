@@ -1,6 +1,7 @@
 // biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 "use client";
+
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { Check, ChevronDown, Copy, Globe, Info, Search, X } from "lucide-react";
 import React, {
@@ -12,6 +13,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { parseAmount } from "../utils/amount";
 import { useNexusWidgetThemeStyle } from "../theme-context";
 import {
   CHAIN_METADATA,
@@ -126,7 +128,7 @@ const TokenLogo = ({
 };
 
 const parseFiatValue = (value: unknown) => {
-  const parsed = Number(String(value ?? "0").replace(/[^0-9.-]/g, ""));
+  const parsed = parseAmount(value)?.toNumber() ?? 0;
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
@@ -1155,9 +1157,7 @@ export function ReceiveAssetSelector({
               const isHovered = hoveredHash === hash;
               const isInfoOpen = tooltipState?.hash === hash;
               const isDetailActive = isHovered || isInfoOpen;
-              const numericBalance = Number.parseFloat(
-                String(t.balance ?? "0").replace(/[^0-9.]/g, "")
-              );
+              const numericBalance = parseAmount(t.balance)?.toNumber() ?? 0;
               const hasBalance =
                 Number.isFinite(numericBalance) && numericBalance > 0;
               return (

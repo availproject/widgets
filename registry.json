@@ -964,6 +964,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/utils/amount.ts",
+          "target": "components/nexus/utils/amount.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/utils/citrea-tokens.ts",
           "target": "components/nexus/utils/citrea-tokens.ts",
           "type": "registry:component"

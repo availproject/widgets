@@ -24,6 +24,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { parseAmount as parseTokenAmount } from "../utils/amount";
 import { useNexusWidgetThemeStyle } from "../theme-context";
 import {
   CHAIN_METADATA,
@@ -41,6 +42,7 @@ const tabularNums: React.CSSProperties = {
 const brand = "var(--foreground-brand)";
 
 export interface SwapTokenOption {
+  /** Decimal amount without a token symbol; labels are formatted at render time. */
   balance: string;
   balanceInFiat: string;
   chainId?: number;
@@ -286,9 +288,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
     }[] = [];
     for (const t of tokens) {
       if (t.chainId && !seen.has(t.chainId)) {
-        const balanceValue = Number(
-          String(t.balance ?? "").replace(/[^0-9.]/g, "") || 0,
-        );
+        const balanceValue = parseTokenAmount(t.balance)?.toNumber() ?? 0;
         seen.add(t.chainId);
         out.push({
           id: t.chainId,
@@ -443,9 +443,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
                   }}
                 >
                   {chain.balance
-                    ? formatTokenAmountDisplay(
-                        String(chain.balance).replace(/\s+[^\s]+$/, ""),
-                      )
+                    ? formatTokenAmountDisplay(chain.balance)
                     : chain.balanceInFiat || "0"}
                 </span>
               </div>
@@ -649,13 +647,8 @@ const UNIFIED_MAINNET_CHAIN_IDS = new Set([
 const UNIFIED_USDC_SYMBOL_KEYS = new Set(["USDC", "USDCE", "USDM"]);
 const UNIFIED_USDT_SYMBOL_KEYS = new Set(["USDT", "USDT0", "USDTE"]);
 
-const escapeRegExp = (value: string) =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 const getTokenFiatValue = (token: Pick<SwapTokenOption, "balanceInFiat">) => {
-  const parsed = Number(
-    String(token.balanceInFiat ?? "").replace(/[^0-9.]/g, "") || 0,
-  );
+  const parsed = parseTokenAmount(token.balanceInFiat)?.toNumber() ?? 0;
   return isNaN(parsed) || !isFinite(parsed) ? 0 : parsed;
 };
 
@@ -663,31 +656,8 @@ const formatBalanceWithSymbol = (
   token: Pick<SwapTokenOption, "balance" | "symbol">,
 ) => {
   const symbol = token.symbol?.trim() || "";
-  const balanceStr = String(token.balance ?? "").trim();
-  let cleanBalance = balanceStr;
-  if (symbol) {
-    cleanBalance = balanceStr.replace(
-      new RegExp(`\\s*${escapeRegExp(symbol)}$`, "i"),
-      "",
-    );
-  }
-  const formatted = formatTokenAmountDisplay(cleanBalance);
+  const formatted = formatTokenAmountDisplay(token.balance);
   return symbol ? `${formatted} ${symbol}` : formatted;
-};
-
-const parseTokenAmount = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = String(value).replace(/[^0-9.-]/g, "");
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
 };
 
 const compareTokensByUsdBalance = (a: SwapTokenOption, b: SwapTokenOption) => {
@@ -1291,8 +1261,7 @@ export function SwapAssetSelector({
         for (const t of sortedGroup) {
           const fiatVal = getTokenFiatValue(t);
           totalFiatVal += isNaN(fiatVal) || !isFinite(fiatVal) ? 0 : fiatVal;
-          const balStr = String(t.balance ?? "").replace(/[^0-9.]/g, "");
-          const balVal = Number(balStr || 0);
+          const balVal = parseTokenAmount(t.balance)?.toNumber() ?? 0;
           totalBalVal += isNaN(balVal) || !isFinite(balVal) ? 0 : balVal;
         }
         const unifiedSym = allowUnified
