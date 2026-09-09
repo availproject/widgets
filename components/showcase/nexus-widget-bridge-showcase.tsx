@@ -2,6 +2,7 @@
 import React from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
 import { NexusWidget } from "@/registry/avail-widgets/nexus-widget/nexus-widget";
+import { useWidgetPreviewTheme } from "../helpers/use-widget-preview-theme";
 import { useAccount } from "wagmi";
 import { useConnectWalletClick } from "../helpers/use-connect-wallet-click";
 import {
@@ -11,6 +12,7 @@ import {
 
 const NexusWidgetBridgeShowcase = () => {
   const { address } = useAccount();
+  const theme = useWidgetPreviewTheme();
   const openConnectWallet = useConnectWalletClick();
   const [renderMode, setRenderMode] =
     React.useState<NexusWidgetRenderMode>("inline");
@@ -37,7 +39,7 @@ const NexusWidgetBridgeShowcase = () => {
           key={renderMode}
           embed={!isPopupMode}
           defaultOpen={isPopupMode}
-          config={{ mode: "swap" }}
+          config={{ mode: "swap", theme }}
           connectedAddress={address}
           onConnectClick={openConnectWallet}
         />

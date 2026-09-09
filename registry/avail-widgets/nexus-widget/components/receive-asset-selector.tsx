@@ -12,6 +12,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { useNexusWidgetThemeStyle } from "../theme-context";
 import {
   CHAIN_METADATA,
   getSdkSwapSupportedChainIds,
@@ -414,6 +415,7 @@ export function ReceiveAssetSelector({
   onSelect,
   onBack,
 }: ReceiveAssetSelectorProps) {
+  const themeStyle = useNexusWidgetThemeStyle();
   const selectorRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const stableListHeightRef = useRef(0);
@@ -903,7 +905,7 @@ export function ReceiveAssetSelector({
             width: 32,
             height: 4,
             borderRadius: 2,
-            backgroundColor: "#E8E8E7",
+            backgroundColor: "var(--nexus-widget-border, #E8E8E7)",
           }}
         />
       </div>
@@ -922,11 +924,11 @@ export function ReceiveAssetSelector({
             width: 32,
             height: 32,
             borderRadius: 8,
-            border: "1px solid #E8E8E7",
+            border: "1px solid var(--nexus-widget-border, #E8E8E7)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "#FFFFFE",
+            backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
             cursor: "pointer",
             flexShrink: 0,
           }}
@@ -941,7 +943,7 @@ export function ReceiveAssetSelector({
               fontFamily: '"Geist", system-ui, sans-serif',
               fontSize: 18,
               fontWeight: 600,
-              color: "#161615",
+              color: "var(--nexus-widget-text-strong, #161615)",
             }}
           >
             Select token to receive
@@ -967,16 +969,16 @@ export function ReceiveAssetSelector({
             height: 42,
             gap: 8,
             borderRadius: 12,
-            border: `1px solid ${isSearchFocused ? "#A8C9FF" : "#E8E8E7"}`,
+            border: `1px solid ${isSearchFocused ? "var(--nexus-widget-focus-border, #A8C9FF)" : "var(--nexus-widget-border, #E8E8E7)"}`,
             boxShadow: isSearchFocused
-              ? "0 0 0 1px rgba(0,107,244,0.16)"
+              ? "0 0 0 1px var(--nexus-widget-focus-ring, rgba(0,107,244,0.16))"
               : "none",
             padding: "0 8px 0 14px",
-            backgroundColor: "#F0F0EF",
+            backgroundColor: "var(--nexus-widget-surface-raised, #F0F0EF)",
           }}
         >
           <Search
-            style={{ width: 20, height: 20, color: "#848483", flexShrink: 0 }}
+            style={{ width: 20, height: 20, color: "var(--nexus-widget-text-secondary, #848483)", flexShrink: 0 }}
           />
           <input
             onBlur={() => setIsSearchFocused(false)}
@@ -990,7 +992,7 @@ export function ReceiveAssetSelector({
               outline: "none",
               fontFamily: '"Geist", system-ui, sans-serif',
               fontSize: 14,
-              color: "#161615",
+              color: "var(--nexus-widget-text-strong, #161615)",
               minWidth: 0,
             }}
             value={query}
@@ -1005,7 +1007,7 @@ export function ReceiveAssetSelector({
                 padding: 0,
               }}
             >
-              <X style={{ width: 16, height: 16, color: "#848483" }} />
+              <X style={{ width: 16, height: 16, color: "var(--nexus-widget-text-secondary, #848483)" }} />
             </button>
           )}
           <button
@@ -1016,12 +1018,12 @@ export function ReceiveAssetSelector({
               gap: 5,
               padding: "4px 8px 4px 5px",
               borderRadius: 999,
-              backgroundColor: "#FFFFFE",
-              border: "1px solid #E8E8E7",
+              backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
+              border: "1px solid var(--nexus-widget-border, #E8E8E7)",
               cursor: "pointer",
               height: 38,
               flexShrink: 0,
-              boxShadow: "0px 1px 2px rgba(0,0,0,0.05)",
+              boxShadow: "0px 1px 2px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.05))",
             }}
           >
             {selectedChainFilter === null ? (
@@ -1029,7 +1031,7 @@ export function ReceiveAssetSelector({
                 style={{
                   width: 16,
                   height: 16,
-                  color: "#161615",
+                  color: "var(--nexus-widget-text-strong, #161615)",
                   flexShrink: 0,
                 }}
               />
@@ -1048,7 +1050,7 @@ export function ReceiveAssetSelector({
             )}
             <span
               style={{
-                color: "#161615",
+                color: "var(--nexus-widget-text-strong, #161615)",
                 fontFamily: '"Geist", system-ui, sans-serif',
                 fontSize: "14px",
                 fontWeight: 500,
@@ -1061,7 +1063,7 @@ export function ReceiveAssetSelector({
             >
               {selectedChainLabel}
             </span>
-            <ChevronDown style={{ width: 14, height: 14, color: "#848483" }} />
+            <ChevronDown style={{ width: 14, height: 14, color: "var(--nexus-widget-text-secondary, #848483)" }} />
           </button>
         </div>
 
@@ -1071,7 +1073,7 @@ export function ReceiveAssetSelector({
             style={{
               display: "flex",
               gap: 0,
-              backgroundColor: "#F0F0EF",
+              backgroundColor: "var(--nexus-widget-surface-raised, #F0F0EF)",
               borderRadius: 8,
               padding: 4,
             }}
@@ -1084,17 +1086,17 @@ export function ReceiveAssetSelector({
                   flex: 1,
                   padding: "6px 0",
                   backgroundColor:
-                    activeTab === tab.key ? "#FFFFFE" : "transparent",
+                    activeTab === tab.key ? "var(--nexus-widget-surface-active, #FFFFFE)" : "transparent",
                   border: "none",
                   borderRadius: 6,
                   cursor: "pointer",
                   fontFamily: '"Geist", system-ui, sans-serif',
                   fontSize: 13,
                   fontWeight: 500,
-                  color: activeTab === tab.key ? "#161615" : "#848483",
+                  color: activeTab === tab.key ? "var(--nexus-widget-text-strong, #161615)" : "var(--nexus-widget-text-secondary, #848483)",
                   boxShadow:
                     activeTab === tab.key
-                      ? "0px 1px 2px rgba(0,0,0,0.05)"
+                      ? "0px 1px 2px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.05))"
                       : "none",
                   transition: "all 0.15s",
                 }}
@@ -1128,7 +1130,7 @@ export function ReceiveAssetSelector({
             style={{
               textAlign: "center",
               padding: "40px",
-              color: "#848483",
+              color: "var(--nexus-widget-text-secondary, #848483)",
               fontFamily: '"Geist", system-ui, sans-serif',
             }}
           >
@@ -1139,7 +1141,7 @@ export function ReceiveAssetSelector({
             style={{
               textAlign: "center",
               padding: "40px",
-              color: "#848483",
+              color: "var(--nexus-widget-text-secondary, #848483)",
               fontFamily: '"Geist", system-ui, sans-serif',
             }}
           >
@@ -1174,10 +1176,10 @@ export function ReceiveAssetSelector({
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "10px 14px",
-                    backgroundColor: isSelected ? "#F4F7FE" : "transparent",
+                    backgroundColor: isSelected ? "var(--nexus-widget-primary-soft, #F4F7FE)" : "transparent",
                     border: "none",
                     cursor: "pointer",
-                    borderBottom: "1px solid #F0F0EF",
+                    borderBottom: "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
                     boxSizing: "border-box",
                     position: isDetailActive ? "relative" : "static",
                     zIndex: isDetailActive ? 50 : 1,
@@ -1207,7 +1209,7 @@ export function ReceiveAssetSelector({
                             width: 22,
                             height: 22,
                             borderRadius: "999px",
-                            border: "2px solid #FFFFFE",
+                            border: "2px solid var(--nexus-widget-surface, #FFFFFE)",
                             zIndex: 2,
                           }}
                         />
@@ -1225,7 +1227,7 @@ export function ReceiveAssetSelector({
                           fontFamily: '"Geist", system-ui, sans-serif',
                           fontWeight: 500,
                           fontSize: 15,
-                          color: "#161615",
+                          color: "var(--nexus-widget-text-strong, #161615)",
                         }}
                       >
                         {t.symbol}
@@ -1241,7 +1243,7 @@ export function ReceiveAssetSelector({
                           style={{
                             fontFamily: '"Geist", system-ui, sans-serif',
                             fontSize: 13,
-                            color: "#848483",
+                            color: "var(--nexus-widget-text-secondary, #848483)",
                           }}
                         >
                           {isDetailActive
@@ -1277,7 +1279,7 @@ export function ReceiveAssetSelector({
                                 style={{
                                   width: 12,
                                   height: 12,
-                                  color: "#848483",
+                                  color: "var(--nexus-widget-text-secondary, #848483)",
                                   cursor: "pointer",
                                 }}
                               />
@@ -1304,7 +1306,7 @@ export function ReceiveAssetSelector({
                                 style={{
                                   width: 12,
                                   height: 12,
-                                  color: "#848483",
+                                  color: "var(--nexus-widget-text-secondary, #848483)",
                                   cursor: "pointer",
                                 }}
                               />
@@ -1327,7 +1329,7 @@ export function ReceiveAssetSelector({
                           fontFamily: '"Geist", system-ui, sans-serif',
                           fontWeight: 500,
                           fontSize: 14,
-                          color: "#161615",
+                          color: "var(--nexus-widget-text-strong, #161615)",
                         }}
                       >
                         {formatTokenBalance(t.balance, {
@@ -1339,7 +1341,7 @@ export function ReceiveAssetSelector({
                         style={{
                           fontFamily: '"Geist", system-ui, sans-serif',
                           fontSize: 13,
-                          color: "#848483",
+                          color: "var(--nexus-widget-text-secondary, #848483)",
                         }}
                       >
                         {t.balanceInFiat}
@@ -1394,9 +1396,9 @@ export function ReceiveAssetSelector({
                 data-nexus-widget-sheet
                 style={{
                   ...modalHeightTransitionStyle,
-                  backgroundColor: "#FFFFFE",
+                  backgroundColor: "var(--nexus-widget-surface-inset, #FFFFFE)",
                   borderRadius: "24px 24px 0 0",
-                  boxShadow: "0 -4px 16px rgba(0,0,0,0.08)",
+                  boxShadow: "0 -4px 16px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.08))",
                   boxSizing: "border-box",
                   display: "flex",
                   flexDirection: "column",
@@ -1425,7 +1427,7 @@ export function ReceiveAssetSelector({
                 >
                   <div
                     style={{
-                      backgroundColor: "#D8D8D6",
+                      backgroundColor: "var(--nexus-widget-surface-hover, #D8D8D6)",
                       borderRadius: "999px",
                       height: 4,
                       width: 32,
@@ -1444,8 +1446,8 @@ export function ReceiveAssetSelector({
                     onClick={closeChainSelector}
                     style={{
                       alignItems: "center",
-                      backgroundColor: "#FFFFFE",
-                      border: "1px solid #E8E8E7",
+                      backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
+                      border: "1px solid var(--nexus-widget-border, #E8E8E7)",
                       borderRadius: 8,
                       cursor: "pointer",
                       display: "flex",
@@ -1468,7 +1470,7 @@ export function ReceiveAssetSelector({
                       fontFamily: '"Geist", system-ui, sans-serif',
                       fontWeight: 600,
                       fontSize: 17,
-                      color: "#161615",
+                      color: "var(--nexus-widget-text-strong, #161615)",
                     }}
                   >
                     Select chain
@@ -1478,11 +1480,11 @@ export function ReceiveAssetSelector({
                   <div
                     style={{
                       alignItems: "center",
-                      backgroundColor: "#FFFFFE",
-                      border: `1px solid ${isChainSearchFocused ? "#A8C9FF" : "#E8E8E7"}`,
+                      backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
+                      border: `1px solid ${isChainSearchFocused ? "var(--nexus-widget-focus-border, #A8C9FF)" : "var(--nexus-widget-border, #E8E8E7)"}`,
                       borderRadius: 11,
                       boxShadow: isChainSearchFocused
-                        ? "0 0 0 1px rgba(0,107,244,0.16)"
+                        ? "0 0 0 1px var(--nexus-widget-focus-ring, rgba(0,107,244,0.16))"
                         : "none",
                       display: "flex",
                       gap: 8,
@@ -1494,7 +1496,7 @@ export function ReceiveAssetSelector({
                       style={{
                         width: 18,
                         height: 18,
-                        color: "#848483",
+                        color: "var(--nexus-widget-text-secondary, #848483)",
                         flexShrink: 0,
                       }}
                     />
@@ -1506,7 +1508,7 @@ export function ReceiveAssetSelector({
                       style={{
                         backgroundColor: "transparent",
                         border: "none",
-                        color: "#161615",
+                        color: "var(--nexus-widget-text-strong, #161615)",
                         flex: 1,
                         fontFamily: '"Geist", system-ui, sans-serif',
                         fontSize: 13,
@@ -1527,10 +1529,10 @@ export function ReceiveAssetSelector({
                 >
                   <div
                     style={{
-                      border: "1px solid #E8E8E7",
+                      border: "1px solid var(--nexus-widget-border, #E8E8E7)",
                       borderRadius: 12,
                       overflow: "hidden",
-                      backgroundColor: "#FFFFFE",
+                      backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
                     }}
                   >
                     <button
@@ -1545,7 +1547,7 @@ export function ReceiveAssetSelector({
                         padding: "8px 14px",
                         backgroundColor: "transparent",
                         border: "none",
-                        borderBottom: "1px solid #F0F0EF",
+                        borderBottom: "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
                         cursor: "pointer",
                         boxSizing: "border-box",
                       }}
@@ -1563,7 +1565,7 @@ export function ReceiveAssetSelector({
                           style={{
                             width: 28,
                             height: 28,
-                            color: "#161615",
+                            color: "var(--nexus-widget-text-strong, #161615)",
                             flexShrink: 0,
                           }}
                         />
@@ -1572,7 +1574,7 @@ export function ReceiveAssetSelector({
                             fontFamily: '"Geist", system-ui, sans-serif',
                             fontWeight: 500,
                             fontSize: 14,
-                            color: "#161615",
+                            color: "var(--nexus-widget-text-strong, #161615)",
                           }}
                         >
                           All Chains
@@ -1603,7 +1605,7 @@ export function ReceiveAssetSelector({
                               padding: "8px 14px",
                               backgroundColor: "transparent",
                               border: "none",
-                              borderBottom: "1px solid #F0F0EF",
+                              borderBottom: "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
                               cursor: "pointer",
                               boxSizing: "border-box",
                             }}
@@ -1631,7 +1633,7 @@ export function ReceiveAssetSelector({
                                   fontFamily: '"Geist", system-ui, sans-serif',
                                   fontWeight: 500,
                                   fontSize: 14,
-                                  color: "#161615",
+                                  color: "var(--nexus-widget-text-strong, #161615)",
                                 }}
                               >
                                 {meta.name}
@@ -1658,9 +1660,13 @@ export function ReceiveAssetSelector({
 
           return createPortal(
             <div
-              className="w-[280px] bg-white border border-[#E8E8E7] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.12)] p-4 text-left"
+              className="w-[280px] border rounded-xl p-4 text-left"
               onClick={(e) => e.stopPropagation()}
               style={{
+                ...themeStyle,
+                backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFF)",
+                borderColor: "var(--nexus-widget-border, #E8E8E7)",
+                boxShadow: "0 8px 24px var(--nexus-widget-shadow-strong, rgba(0,0,0,0.12))",
                 position: "fixed",
                 top: tooltipState.y - 12,
                 left: tooltipState.x,
@@ -1680,9 +1686,9 @@ export function ReceiveAssetSelector({
                   transform: "translateX(-50%) rotate(45deg)",
                   width: "12px",
                   height: "12px",
-                  backgroundColor: "#fff",
-                  borderRight: "1px solid #E8E8E7",
-                  borderBottom: "1px solid #E8E8E7",
+                  backgroundColor: "var(--nexus-widget-surface-raised, #fff)",
+                  borderRight: "1px solid var(--nexus-widget-border, #E8E8E7)",
+                  borderBottom: "1px solid var(--nexus-widget-border, #E8E8E7)",
                   zIndex: 1,
                 }}
               ></div>
@@ -1710,7 +1716,7 @@ export function ReceiveAssetSelector({
                         width: 10,
                         height: 10,
                         borderRadius: "999px",
-                        border: "1px solid #FFFFFE",
+                        border: "1px solid var(--nexus-widget-surface-raised, #FFFFFE)",
                         zIndex: 2,
                       }}
                     />
@@ -1722,7 +1728,7 @@ export function ReceiveAssetSelector({
                       fontFamily: '"Geist", system-ui, sans-serif',
                       fontWeight: 600,
                       fontSize: 14,
-                      color: "#161615",
+                      color: "var(--nexus-widget-text-strong, #161615)",
                     }}
                   >
                     {tooltipState.t.name}
@@ -1742,7 +1748,7 @@ export function ReceiveAssetSelector({
                   style={{
                     fontFamily: '"Geist", system-ui, sans-serif',
                     fontSize: 12,
-                    color: "#848483",
+                    color: "var(--nexus-widget-text-secondary, #848483)",
                   }}
                 >
                   Symbol:
@@ -1751,7 +1757,7 @@ export function ReceiveAssetSelector({
                   style={{
                     fontFamily: '"Geist", system-ui, sans-serif',
                     fontSize: 12,
-                    color: "#161615",
+                    color: "var(--nexus-widget-text-strong, #161615)",
                     fontWeight: 500,
                   }}
                 >
@@ -1772,7 +1778,7 @@ export function ReceiveAssetSelector({
                   style={{
                     fontFamily: '"Geist", system-ui, sans-serif',
                     fontSize: 12,
-                    color: "#848483",
+                    color: "var(--nexus-widget-text-secondary, #848483)",
                   }}
                 >
                   Decimals:
@@ -1781,7 +1787,7 @@ export function ReceiveAssetSelector({
                   style={{
                     fontFamily: '"Geist", system-ui, sans-serif',
                     fontSize: 12,
-                    color: "#161615",
+                    color: "var(--nexus-widget-text-strong, #161615)",
                     fontWeight: 500,
                   }}
                 >
@@ -1801,7 +1807,7 @@ export function ReceiveAssetSelector({
                   style={{
                     fontFamily: '"Geist", system-ui, sans-serif',
                     fontSize: 12,
-                    color: "#848483",
+                    color: "var(--nexus-widget-text-secondary, #848483)",
                   }}
                 >
                   Contract address:
@@ -1828,7 +1834,7 @@ export function ReceiveAssetSelector({
                     style={{
                       fontFamily: '"Geist", system-ui, sans-serif',
                       fontSize: 11,
-                      color: "#161615",
+                      color: "var(--nexus-widget-text-strong, #161615)",
                       wordBreak: "break-all",
                     }}
                   >

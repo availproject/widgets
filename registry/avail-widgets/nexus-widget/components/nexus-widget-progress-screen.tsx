@@ -51,11 +51,11 @@ interface NexusWidgetProgressScreenProps {
 }
 
 const fontFamily = '"Geist", var(--font-geist-sans), system-ui, sans-serif';
-const primary = "var(--foreground-primary, #161615)";
-const muted = "var(--foreground-muted, #848483)";
-const border = "var(--border-default, #E8E8E7)";
+const primary = "var(--nexus-widget-text-strong, #161615)";
+const muted = "var(--nexus-widget-text-secondary, #848483)";
+const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
-const danger = "var(--foreground-negative, #E92C2C)";
+const danger = "var(--nexus-widget-error-text, #E92C2C)";
 
 const parseDecimal = (value: unknown) => {
   if (value === null || value === undefined || value === "") return undefined;
@@ -741,7 +741,7 @@ function MiniLogo({
         onError={() => setFailed(true)}
         src={src}
         style={{
-          background: "#FFFFFE",
+          background: "var(--nexus-widget-surface, #FFFFFE)",
           borderRadius: "999px",
           height: size,
           objectFit: "cover",
@@ -756,7 +756,7 @@ function MiniLogo({
     <span
       style={{
         alignItems: "center",
-        background: "#E8F0FF",
+        background: "var(--nexus-widget-primary-soft, #E8F0FF)",
         borderRadius: "999px",
         color: brand,
         display: "inline-flex",
@@ -803,7 +803,7 @@ function TokenLogoPair({
           src={chainLogo}
           style={{
             bottom: -1,
-            outline: "1px solid #FFFFFE",
+            outline: "1px solid var(--nexus-widget-surface, #FFFFFE)",
             position: "absolute",
             right: -1,
           }}
@@ -1009,10 +1009,10 @@ export function NexusWidgetProgressScreen({
     >
       <div
         style={{
-          background: "#FFFFFE",
+          background: "var(--nexus-widget-surface, #FFFFFE)",
           border: `1px solid ${border}`,
           borderRadius: "8px",
-          boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+          boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           boxSizing: "border-box",
           padding: "12px 13px 9px",
           width: "100%",
@@ -1108,10 +1108,10 @@ export function NexusWidgetProgressScreen({
       <div
         aria-live="polite"
         style={{
-          background: "#FFFFFE",
+          background: "var(--nexus-widget-surface, #FFFFFE)",
           border: `1px solid ${border}`,
           borderRadius: "8px",
-          boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+          boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           boxSizing: "border-box",
           overflow: "hidden",
           transition: "box-shadow 220ms ease, border-color 220ms ease",
@@ -1179,9 +1179,11 @@ export function NexusWidgetProgressScreen({
                     <span
                       style={{
                         alignItems: "center",
-                        background: isError ? danger : brand,
+                        background: isError ? "var(--nexus-widget-error-background, #E92C2C)" : brand,
                         borderRadius: "999px",
-                        color: "#FFFFFE",
+                        color: isError
+                          ? "var(--nexus-widget-error-text, #FFFFFE)"
+                          : "var(--nexus-widget-primary-foreground, #FFFFFE)",
                         display: "inline-flex",
                         height: "15px",
                         justifyContent: "center",
@@ -1197,8 +1199,8 @@ export function NexusWidgetProgressScreen({
                   ) : isDefault ? (
                     <span
                       style={{
-                        background: "#FFFFFE",
-                        border: `2px solid ${border}`,
+                        background: "var(--nexus-widget-surface, #FFFFFE)",
+                        border: "2px solid var(--nexus-widget-text-tertiary, #E8E8E7)",
                         borderRadius: "999px",
                         boxSizing: "border-box",
                         display: "inline-flex",

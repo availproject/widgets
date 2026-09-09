@@ -106,9 +106,9 @@ export interface SwapIntentPreviewProps {
 }
 
 const fontFamily = '"Geist", var(--font-geist-sans), system-ui, sans-serif';
-const primary = "var(--foreground-primary, #161615)";
-const muted = "var(--foreground-muted, #848483)";
-const border = "var(--border-default, #E8E8E7)";
+const primary = "var(--nexus-widget-text-strong, #161615)";
+const muted = "var(--nexus-widget-text-secondary, #848483)";
+const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
 
 const stripNumeric = (value: unknown) => String(value).replace(/[^0-9.-]/g, "");
@@ -293,7 +293,7 @@ function IntentLogo({
         onError={() => setFailed(true)}
         src={src}
         style={{
-          backgroundColor: "#FFFFFE",
+          backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
           borderRadius: "999px",
           height: `${size}px`,
           objectFit: "cover",
@@ -311,7 +311,7 @@ function IntentLogo({
       role="img"
       style={{
         alignItems: "center",
-        backgroundColor: "#E8F0FF",
+        backgroundColor: "var(--nexus-widget-primary-soft, #E8F0FF)",
         borderRadius: "999px",
         color: brand,
         display: "flex",
@@ -399,10 +399,10 @@ function TruncatedAddress({ address }: { address: string }) {
         <span
           role="tooltip"
           style={{
-            background: "#FFFFFE",
+            background: "var(--nexus-widget-surface-raised, #FFFFFE)",
             border: `1px solid ${border}`,
             borderRadius: "8px",
-            boxShadow: "0 6px 18px rgba(22,22,21,0.10)",
+            boxShadow: "0 6px 18px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.10))",
             color: primary,
             fontFamily,
             fontSize: "13px",
@@ -488,10 +488,10 @@ function InlineInfoTooltip({ message }: { message: string }) {
         <span
           role="tooltip"
           style={{
-            background: "#FFFFFE",
+            background: "var(--nexus-widget-surface-raised, #FFFFFE)",
             border: `1px solid ${border}`,
             borderRadius: "8px",
-            boxShadow: "0 6px 18px rgba(22,22,21,0.10)",
+            boxShadow: "0 6px 18px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.10))",
             color: primary,
             fontFamily,
             fontSize: "13px",
@@ -520,8 +520,8 @@ function MayanPoweredBadge() {
     <div
       style={{
         alignItems: "center",
-        background: "#F3F6FF",
-        border: "1px solid #E8EEFF",
+        background: "var(--nexus-widget-primary-soft, #F3F6FF)",
+        border: "1px solid var(--nexus-widget-border, #E8EEFF)",
         borderRadius: "8px",
         color: brand,
         display: "flex",
@@ -638,7 +638,7 @@ function Row({
 function AnimatedDetails({
   open,
   children,
-  background = "#F9F9F8",
+  background = "var(--nexus-widget-background, #F9F9F8)",
   gap = "9px",
   padding = "12px 14px",
 }: {
@@ -1353,17 +1353,17 @@ export function SwapIntentPreview({
           @keyframes nexusPreviewCtaPulse {
             0% {
               background-color: var(--nexus-widget-primary, #1F1F1F);
-              box-shadow: 0px 1px 4px 0px #5555550D, 0 0 0 0 rgba(31, 31, 31, 0.18);
+              box-shadow: 0px 1px 4px 0px var(--nexus-widget-shadow-soft, #5555550D), 0 0 0 0 var(--nexus-widget-shadow-soft, rgba(31, 31, 31, 0.18));
               transform: scale(1);
             }
             58% {
               background-color: var(--nexus-widget-primary, #161615);
-              box-shadow: 0px 5px 12px rgba(22, 22, 21, 0.1), 0 0 0 5px rgba(22, 22, 21, 0.05);
+              box-shadow: 0px 5px 12px var(--nexus-widget-shadow-soft, rgba(22, 22, 21, 0.1)), 0 0 0 5px var(--nexus-widget-shadow-soft, rgba(22, 22, 21, 0.05));
               transform: scale(1.009);
             }
             100% {
               background-color: var(--nexus-widget-primary, #1F1F1F);
-              box-shadow: 0px 1px 4px 0px #5555550D, 0 0 0 8px rgba(31, 31, 31, 0);
+              box-shadow: 0px 1px 4px 0px var(--nexus-widget-shadow-soft, #5555550D), 0 0 0 8px rgba(31, 31, 31, 0);
               transform: scale(1);
             }
           }
@@ -1371,17 +1371,17 @@ export function SwapIntentPreview({
       </style>
       <div
         style={{
-          background: "#FFFFFE",
+          background: "var(--nexus-widget-surface, #FFFFFE)",
           border: `1px solid ${border}`,
           borderRadius: "9px",
-          boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+          boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           overflow: "hidden",
           width: "100%",
         }}
       >
         <div
           style={{
-            background: "linear-gradient(180deg, #FFFFFE 0%, #EEF5FF 100%)",
+            background: "linear-gradient(180deg, var(--nexus-widget-surface, #FFFFFE) 0%, var(--nexus-widget-surface, #EEF5FF) 100%)",
             display: "grid",
             gridTemplateColumns: "1fr auto 1fr",
             minHeight: "79px",
@@ -1432,7 +1432,7 @@ export function SwapIntentPreview({
               <span
                 key={index}
                 style={{
-                  background: index === 2 ? brand : "#9FC4FF",
+                  background: index === 2 ? brand : "var(--nexus-widget-surface-active, #9FC4FF)",
                   borderRadius: "2px",
                   display: "block",
                   height: "4px",
@@ -1527,7 +1527,7 @@ export function SwapIntentPreview({
                     overflowY: shouldScrollSourceDetails ? "auto" : undefined,
                     paddingRight: shouldScrollSourceDetails ? "8px" : undefined,
                     scrollbarColor: shouldScrollSourceDetails
-                      ? "#C8C8C7 transparent"
+                      ? "var(--nexus-widget-border-empty, #C8C8C7) transparent"
                       : undefined,
                     scrollbarWidth: shouldScrollSourceDetails
                       ? "thin"
@@ -1574,7 +1574,7 @@ export function SwapIntentPreview({
                               alt={source.chainName}
                               fontSize={5}
                               label={source.chainName}
-                              outline="1px solid #FFFFFE"
+                              outline="1px solid var(--nexus-widget-surface, #FFFFFE)"
                               size={11}
                               src={source.chainLogo}
                               style={{
@@ -1664,10 +1664,10 @@ export function SwapIntentPreview({
                     }}
                     style={{
                       alignItems: "center",
-                      background: "#FFFFFE",
+                      background: "var(--nexus-widget-surface-raised, #FFFFFE)",
                       border: `1px solid ${border}`,
                       borderRadius: "999px",
-                      boxShadow: "0 2px 8px rgba(22,22,21,0.08)",
+                      boxShadow: "0 2px 8px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.08))",
                       bottom: "4px",
                       cursor: "pointer",
                       display: "flex",
@@ -1786,7 +1786,7 @@ export function SwapIntentPreview({
         </Row>
 
         <AnimatedDetails
-          background="#FAFAF9"
+          background="var(--nexus-widget-surface-inset, #FAFAF9)"
           gap="12px"
           open={showImpactDetails}
           padding="13px 14px"
@@ -1807,7 +1807,7 @@ export function SwapIntentPreview({
                   hasFiatQuote &&
                   swapImpactPercent !== undefined &&
                   swapImpactPercent.gte(0)
-                    ? "#168A47"
+                    ? "var(--nexus-widget-success-text, #168A47)"
                     : primary,
                 fontFamily,
                 fontSize: "12px",
@@ -1855,10 +1855,10 @@ export function SwapIntentPreview({
       {isExecuting && steps && steps.length > 0 && (
         <div
           style={{
-            background: "#FFFFFE",
+            background: "var(--nexus-widget-surface, #FFFFFE)",
             border: `1px solid ${border}`,
             borderRadius: "9px",
-            boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+            boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
             padding: "11px 13px",
             width: "100%",
           }}
@@ -1895,12 +1895,12 @@ export function SwapIntentPreview({
             ? "nexusPreviewCtaPulse 1800ms ease-in-out infinite"
             : undefined,
           background: quoteUnavailable
-            ? "#F6F6F6"
+            ? "var(--nexus-widget-surface-raised, #F6F6F6)"
             : "var(--nexus-widget-primary, #1F1F1F)",
           borderRadius: "10px",
-          boxShadow: "0px 1px 4px 0px #5555550D",
+          boxShadow: "0px 1px 4px 0px var(--nexus-widget-shadow-soft, #5555550D)",
           color: quoteUnavailable
-            ? "#848483"
+            ? "var(--nexus-widget-text-secondary, #848483)"
             : "var(--nexus-widget-primary-foreground, #FFFFFE)",
           fontFamily,
           fontSize: "14px",

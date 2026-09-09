@@ -949,6 +949,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/theme-context.ts",
+          "target": "components/nexus/theme-context.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/theme.ts",
           "target": "components/nexus/theme.ts",
           "type": "registry:component"

@@ -28,7 +28,7 @@ export function PayUsingSelector({
           className="flex items-center justify-center w-7 h-7 rounded-full shrink-0"
           style={{
             background:
-              "var(--background-tertiary, var(--background-tertiary, #F0F0EF))",
+              "var(--nexus-widget-surface-raised, #F0F0EF)",
           }}
         >
           <Settings className="w-3.5 h-3.5 text-gray-500" />
@@ -40,7 +40,7 @@ export function PayUsingSelector({
               fontWeight: 500,
               fontSize: "13px",
               color:
-                "var(--foreground-primary, var(--foreground-primary, #161615))",
+                "var(--nexus-widget-text-strong, #161615)",
             }}
           >
             {label}
@@ -50,7 +50,7 @@ export function PayUsingSelector({
               fontFamily: "var(--font-geist-sans), sans-serif",
               fontSize: "11px",
               color:
-                "var(--foreground-muted, var(--foreground-muted, #848483))",
+                "var(--nexus-widget-text-secondary, #848483)",
             }}
           >
             {sublabel}
@@ -90,10 +90,10 @@ export function PayUsingSelector({
           disabled={disabled}
           onClick={onClick}
           style={{
-            background: "var(--background-secondary, #F5F5F4)",
+            background: "var(--nexus-widget-surface-inset, #F5F5F4)",
             borderRadius: "10px",
             border:
-              "1px solid var(--border-default, var(--border-default, #E8E8E7))",
+              "1px solid var(--nexus-widget-border, #E8E8E7)",
           }}
         >
           {content}
@@ -102,10 +102,10 @@ export function PayUsingSelector({
         <div
           className="w-full flex items-center justify-between px-3 py-2.5"
           style={{
-            background: "var(--background-secondary, #F5F5F4)",
+            background: "var(--nexus-widget-surface-inset, #F5F5F4)",
             borderRadius: "10px",
             border:
-              "1px solid var(--border-default, var(--border-default, #E8E8E7))",
+              "1px solid var(--nexus-widget-border, #E8E8E7)",
           }}
         >
           {content}

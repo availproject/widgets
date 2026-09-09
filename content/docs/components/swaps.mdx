@@ -122,6 +122,7 @@ Swap and Bridge uses only `mode: "swap"`. This mode is exact-in: users enter the
 | `config.destination.tokens`                   | Optional | Restricts receive tokens when supplied with `destination.chain`. Each token needs `address`, `symbol`, and `decimals`.  |
 | `config.prefill.token`                        | Optional | Sets the initial receive token without restricting later choices. Ignored when `config.destination.tokens` is supplied. |
 | `config.recipientAddress`                     | Optional | Prefills the recipient address for custom-recipient swaps.                                                              |
+| `config.theme` | Optional | `"dark"`, `"light"`, or `"system"`. Defaults to light; system follows OS changes. Overrides `appearance.mode`. |
 | `config.appearance`                           | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`.                                                |
 | `connectedAddress`                            | Optional | Wallet address to use. If omitted, the connected wagmi account is used.                                                 |
 | `embed`                                       | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                                           |
@@ -141,6 +142,7 @@ type DestinationToken = {
 
 interface SwapAndBridgeConfig {
   mode: "swap";
+  theme?: "dark" | "light" | "system";
   destination?: {
     chain?: number;
     tokens?: DestinationToken[];

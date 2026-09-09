@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
 import { NexusWidget } from "@/registry/avail-widgets/nexus-widget/nexus-widget";
+import { useWidgetPreviewTheme } from "../helpers/use-widget-preview-theme";
 import {
   encodeFunctionData,
   parseAbi,
@@ -465,6 +466,7 @@ const OPPORTUNITIES = {
 
 const NexusWidgetDepositShowcase = () => {
   const { address } = useAccount();
+  const theme = useWidgetPreviewTheme();
   const openConnectWallet = useConnectWalletClick();
   const [selectedOpt, setSelectedOpt] = useState<
     keyof typeof OPPORTUNITIES | "sandbox"
@@ -938,6 +940,7 @@ const NexusWidgetDepositShowcase = () => {
             embed={!isPopupMode}
             defaultOpen={isPopupMode}
             config={{
+              theme,
               mode: "deposit",
               destination: {
                 chain: currentOpportunity.chainId,
@@ -949,7 +952,6 @@ const NexusWidgetDepositShowcase = () => {
                 appLogoURL: currentOpportunity.depositTargetLogo,
                 appName: currentOpportunity.protocol,
                 heading: getOpportunityHeading(currentOpportunity),
-                mode: "system",
               },
             }}
             connectedAddress={address}
