@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/registry/avail-widgets/ui/skeleton";
+import ThemeControl from "./theme-control";
 
 const MobileNav = dynamic(() => import("./mobile-nav").then((m) => m.default), {
   loading: () => <Skeleton className="w-24 h-9" />,
@@ -135,6 +136,7 @@ export default function Topbar() {
 
         {/* Right side controls */}
         <div className="flex items-center gap-3">
+          <ThemeControl />
           <div className="hidden sm:block">
             <ConnectWalletButton />
           </div>

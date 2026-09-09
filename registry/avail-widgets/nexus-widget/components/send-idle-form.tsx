@@ -2,6 +2,8 @@
 
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
+import { parseAmount as parseDecimal } from "../utils/amount";
+import { useNexusWidgetThemeStyle } from "../theme-context";
 import React, { useRef, useState } from "react";
 import { PayWithSources as SharedPayWithSources } from "./pay-with-sources";
 import {
@@ -37,25 +39,10 @@ interface SendIdleFormProps {
 }
 
 const uiFont = '"Geist", system-ui, sans-serif';
-const primary = "#161615";
-const muted = "#848483";
-const border = "#E8E8E7";
+const primary = "var(--nexus-widget-text-strong, #161615)";
+const muted = "var(--nexus-widget-text-secondary, #848483)";
+const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
-
-const parseDecimal = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = String(value).replace(/[^0-9.-]/g, "");
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
 
 const formatToken = (value: unknown) => {
   const amount = parseDecimal(value) ?? new Decimal(0);
@@ -123,7 +110,7 @@ function TokenLogo({
         onError={() => setFailed(true)}
         src={src}
         style={{
-          backgroundColor: "#FFFFFE",
+          backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
           borderRadius: "999px",
           height: size,
           objectFit: "cover",
@@ -138,7 +125,7 @@ function TokenLogo({
     <div
       style={{
         alignItems: "center",
-        backgroundColor: "#E8F0FF",
+        backgroundColor: "var(--nexus-widget-primary-soft, #E8F0FF)",
         borderRadius: "999px",
         color: brand,
         display: "flex",
@@ -167,7 +154,7 @@ function SourceLogoPair({ token }: { token: SwapTokenOption }) {
           src={token.chainLogo}
           style={{
             bottom: -2,
-            outline: "1px solid #FFFFFE",
+            outline: "1px solid var(--nexus-widget-surface, #FFFFFE)",
             position: "absolute",
             right: -2,
           }}
@@ -180,10 +167,13 @@ function SourceLogoPair({ token }: { token: SwapTokenOption }) {
 function ExactOutPercentButtons({
   visible,
   onSelect,
+  selectedPercent,
 }: {
   visible: boolean;
   onSelect: (pct: number) => void;
+  selectedPercent: number | null;
 }) {
+  const themeStyle = useNexusWidgetThemeStyle();
   const [focusedPercent, setFocusedPercent] = useState<number | null>(null);
 
   React.useEffect(() => {
@@ -208,6 +198,9 @@ function ExactOutPercentButtons({
         const isFocused = focusedPercent === pct;
         return (
           <button
+            data-nexus-widget-percent
+            data-nexus-widget-percent-theme={themeStyle.colorScheme}
+            data-selected={selectedPercent === pct}
             key={pct}
             onClick={(e) => {
               e.stopPropagation();
@@ -217,11 +210,11 @@ function ExactOutPercentButtons({
             onFocus={() => setFocusedPercent(pct)}
             style={{
               alignItems: "center",
-              backgroundColor: isFocused ? "#E8F0FF" : "#F4F4F3",
+              backgroundColor: isFocused ? "var(--nexus-widget-primary-soft, #E8F0FF)" : "var(--nexus-widget-surface-raised, #F4F4F3)",
               border: "none",
               borderRadius: "8px",
               boxSizing: "border-box",
-              color: isFocused ? brand : "#363635",
+              color: isFocused ? brand : "var(--nexus-widget-text, #363635)",
               cursor: "pointer",
               display: "flex",
               flex: "1 1 0%",
@@ -257,7 +250,7 @@ function SkeletonRow() {
         className="animate-pulse"
         style={{
           background:
-            "linear-gradient(90deg, #F0F0EF 0%, #F7F7F6 48%, #F0F0EF 100%)",
+            "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
           backgroundSize: "200% 100%",
           borderRadius: "6px",
           height: "32px",
@@ -268,7 +261,7 @@ function SkeletonRow() {
         className="animate-pulse"
         style={{
           background:
-            "linear-gradient(90deg, #F0F0EF 0%, #F7F7F6 48%, #F0F0EF 100%)",
+            "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
           backgroundSize: "200% 100%",
           borderRadius: "999px",
           height: "32px",
@@ -315,10 +308,10 @@ function PayWithSources({
   return (
     <div
       style={{
-        backgroundColor: "#FFFFFE",
+        backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
         border: `1px solid ${border}`,
         borderRadius: "12px",
-        boxShadow: "#1616150A 0px 1px 2px",
+        boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
@@ -357,7 +350,7 @@ function PayWithSources({
           <button
             onClick={onOpenSourcePicker}
             style={{
-              backgroundColor: "#F4F7FE",
+              backgroundColor: "var(--nexus-widget-primary-soft, #F4F7FE)",
               border: "none",
               borderRadius: "6px",
               color: brand,
@@ -412,7 +405,7 @@ function PayWithSources({
                 key={`${token.contractAddress}-${token.chainId ?? "unified"}-${index}`}
                 style={{
                   alignItems: "center",
-                  borderTop: index === 0 ? "none" : "1px solid #F0F0EF",
+                  borderTop: index === 0 ? "none" : "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
                   display: "flex",
                   justifyContent: "space-between",
                   minHeight: "52px",
@@ -501,11 +494,11 @@ function PayWithSources({
               }
               style={{
                 alignItems: "center",
-                background: "#FFFFFE",
+                background: "var(--nexus-widget-surface-raised, #FFFFFE)",
                 border: `1px solid ${border}`,
                 borderRadius: "999px",
                 bottom: "4px",
-                boxShadow: "0 2px 8px rgba(22,22,21,0.08)",
+                boxShadow: "0 2px 8px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.08))",
                 cursor: "pointer",
                 display: "flex",
                 height: "22px",
@@ -539,7 +532,7 @@ function PayWithSources({
         <div
           style={{
             alignItems: "center",
-            color: "#D32F2F",
+            color: "var(--nexus-widget-error-text, #D32F2F)",
             display: "flex",
             fontFamily: uiFont,
             fontSize: "15px",
@@ -568,7 +561,7 @@ function BalanceSkeleton({
       className="animate-pulse"
       style={{
         background:
-          "linear-gradient(90deg, #F0F0EF 0%, #E6EEFF 48%, #F0F0EF 100%)",
+          "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #E6EEFF) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
         backgroundSize: "200% 100%",
         borderRadius: "6px",
         display: "inline-block",
@@ -607,6 +600,7 @@ export function SendIdleForm({
   isSourcePickerDisabled = false,
   reserveSourceRows = false,
 }: SendIdleFormProps) {
+  const [selectedPercent, setSelectedPercent] = useState<number | null>(null);
   const [pendingPercent, setPendingPercent] = useState<number | null>(null);
   const [isAmountFocused, setIsAmountFocused] = useState(false);
 
@@ -614,13 +608,19 @@ export function SendIdleForm({
     if (!isCalculatingMax) setPendingPercent(null);
   }, [isCalculatingMax]);
 
+  React.useEffect(() => {
+    setSelectedPercent(null);
+  }, [toToken?.contractAddress, toToken?.chainId]);
+
   const handlePercentSelect = (pct: number) => {
+    setSelectedPercent(pct);
     setPendingPercent(pct);
     onSetPercent(pct);
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isAmountReadOnly) return;
+    setSelectedPercent(null);
     onAmountChange(
       sanitizeAmountInput(e.target.value, getTokenInputDecimals(toToken)),
     );
@@ -650,12 +650,12 @@ export function SendIdleForm({
       <div
         style={{
           alignItems: "start",
-          backgroundColor: "#FFFFFE",
+          backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
           borderColor: border,
           borderRadius: "14px",
           borderStyle: "solid",
           borderWidth: "1px",
-          boxShadow: "#1616150A 0px 1px 2px",
+          boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
@@ -718,7 +718,7 @@ export function SendIdleForm({
               onClick={onOpenRecipientPicker}
               style={{
                 alignItems: "center",
-                backgroundColor: "#E8F0FF",
+                backgroundColor: "var(--nexus-widget-primary-soft, #E8F0FF)",
                 border: "none",
                 borderRadius: "4px",
                 boxSizing: "border-box",
@@ -733,7 +733,7 @@ export function SendIdleForm({
               <div
                 style={{
                   boxSizing: "border-box",
-                  color: isRecipientLocked ? "#6C756F" : brand,
+                  color: isRecipientLocked ? "var(--nexus-widget-text-secondary, #6C756F)" : "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
                   fontFamily: uiFont,
                   fontSize: "12px",
                   fontWeight: 500,
@@ -750,12 +750,12 @@ export function SendIdleForm({
       <div
         className="nexus-focus-container"
         style={{
-          backgroundColor: "#FFFFFE",
+          backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
           borderColor: border,
           borderRadius: "14px",
           borderStyle: "solid",
           borderWidth: "1px",
-          boxShadow: "#1616150A 0px 1px 2px",
+          boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
@@ -827,7 +827,7 @@ export function SendIdleForm({
                 aria-label="Calculating max amount"
                 className="animate-pulse"
                 style={{
-                  backgroundColor: "#F0F0EF",
+                  backgroundColor: "var(--nexus-widget-surface-raised, #F0F0EF)",
                   borderRadius: "8px",
                   flex: "1 1 0%",
                   height: "44px",
@@ -846,7 +846,7 @@ export function SendIdleForm({
                   background: "transparent",
                   border: "none",
                   boxSizing: "border-box",
-                  color: amount ? primary : "#C8C8C6",
+                  color: amount ? primary : "var(--nexus-widget-text-tertiary, #C8C8C6)",
                   cursor: isAmountReadOnly ? "default" : "text",
                   flex: "1 1 0%",
                   fontFamily:
@@ -880,12 +880,12 @@ export function SendIdleForm({
               onClick={onOpenAssetPicker}
               style={{
                 alignItems: "center",
-                backgroundColor: "#FFFFFE",
-                borderColor: toToken ? border : "#C8C8C6",
+                backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
+                borderColor: toToken ? border : "var(--nexus-widget-text-tertiary, #C8C8C6)",
                 borderRadius: "999px",
                 borderStyle: toToken ? "solid" : "dashed",
                 borderWidth: "1px",
-                boxShadow: "#1616150A 0px 1px 2px",
+                boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
                 boxSizing: "border-box",
                 cursor: isAssetPickerDisabled ? "default" : "pointer",
                 display: "inline-flex",
@@ -919,7 +919,7 @@ export function SendIdleForm({
                       src={toToken.chainLogo}
                       style={{
                         bottom: -2,
-                        outline: "1px solid #FFFFFE",
+                        outline: "1px solid var(--nexus-widget-surface, #FFFFFE)",
                         position: "absolute",
                         right: -2,
                       }}
@@ -929,7 +929,7 @@ export function SendIdleForm({
               ) : (
                 <div
                   style={{
-                    borderColor: "#C8C8C6",
+                    borderColor: "var(--nexus-widget-text-tertiary, #C8C8C6)",
                     borderRadius: "999px",
                     borderStyle: "dashed",
                     borderWidth: "1.5px",
@@ -954,7 +954,7 @@ export function SendIdleForm({
               {!hideDestinationTokenDropdownIcon && (
                 <ChevronDown
                   style={{
-                    color: isAssetPickerDisabled ? "#A8A8A6" : "#5B5B5A",
+                    color: isAssetPickerDisabled ? "var(--nexus-widget-text-secondary, #A8A8A6)" : "var(--nexus-widget-text-secondary, #5B5B5A)",
                     height: 16,
                     width: 16,
                   }}
@@ -1006,7 +1006,7 @@ export function SendIdleForm({
                 <>
                   <span
                     style={{
-                      color: "#7C7C7A",
+                      color: "var(--nexus-widget-text-secondary, #7C7C7A)",
                       fontFamily: uiFont,
                       fontSize: "14px",
                       lineHeight: "20px",
@@ -1038,6 +1038,7 @@ export function SendIdleForm({
 
           <ExactOutPercentButtons
             onSelect={handlePercentSelect}
+            selectedPercent={selectedPercent}
             visible={Boolean(toToken) && !isAmountReadOnly}
           />
         </div>

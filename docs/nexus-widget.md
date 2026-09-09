@@ -31,7 +31,9 @@ npx shadcn@latest add availproject/widgets/nexus
 
 ## 5) Configuration Model
 
-Use `config.mode` to select `swap`, `send`, or `deposit`. Optional config fields include `prefill`, `allowedSourcePairs`, `allowedDestinationPairs`, and `deposit` for deposit mode.
+Use `config.mode` to select `swap`, `send`, or `deposit`. All three modes support `theme: "dark" | "light" | "system"` (default: light). System follows live OS preference changes. `appearance.primaryColor` remains independent of the theme, and `appearance.mode` is supported as a legacy fallback when `theme` is omitted. Dark mode uses a plain background; light mode retains its graphic.
+
+Optional config fields include `prefill`, `allowedSourcePairs`, `allowedDestinationPairs`, and `deposit` for deposit mode.
 
 ## 6) UX Principles
 

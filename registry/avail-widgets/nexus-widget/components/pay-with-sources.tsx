@@ -3,28 +3,14 @@
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
+import { parseAmount as parseDecimal } from "../utils/amount";
 import { type SwapTokenOption } from "./swap-asset-selector";
 
 const uiFont = '"Geist", system-ui, sans-serif';
-const primary = "#161615";
-const muted = "#848483";
-const border = "#E8E8E7";
+const primary = "var(--nexus-widget-text-strong, #161615)";
+const muted = "var(--nexus-widget-text-secondary, #848483)";
+const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
-
-const parseDecimal = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = String(value).replace(/[^0-9.-]/g, "");
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
 
 const formatToken = (value: unknown) => {
   const amount = parseDecimal(value) ?? new Decimal(0);
@@ -75,7 +61,7 @@ function TokenLogo({
         onError={() => setFailed(true)}
         src={src}
         style={{
-          backgroundColor: "#FFFFFE",
+          backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
           borderRadius: "999px",
           height: size,
           objectFit: "cover",
@@ -90,7 +76,7 @@ function TokenLogo({
     <div
       style={{
         alignItems: "center",
-        backgroundColor: "#E8F0FF",
+        backgroundColor: "var(--nexus-widget-primary-soft, #E8F0FF)",
         borderRadius: "999px",
         color: brand,
         display: "flex",
@@ -119,7 +105,7 @@ function SourceLogoPair({ token }: { token: SwapTokenOption }) {
           src={token.chainLogo}
           style={{
             bottom: -1,
-            outline: "1.5px solid #FFFFFE",
+            outline: "1.5px solid var(--nexus-widget-surface, #FFFFFE)",
             position: "absolute",
             right: -1,
           }}
@@ -142,7 +128,7 @@ function SkeletonRow() {
         className="animate-pulse"
         style={{
           background:
-            "linear-gradient(90deg, #F0F0EF 0%, #F7F7F6 48%, #F0F0EF 100%)",
+            "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
           backgroundSize: "200% 100%",
           borderRadius: "6px",
           height: "32px",
@@ -153,7 +139,7 @@ function SkeletonRow() {
         className="animate-pulse"
         style={{
           background:
-            "linear-gradient(90deg, #F0F0EF 0%, #F7F7F6 48%, #F0F0EF 100%)",
+            "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
           backgroundSize: "200% 100%",
           borderRadius: "999px",
           height: "32px",
@@ -212,10 +198,10 @@ export function PayWithSources({
   return (
     <div
       style={{
-        backgroundColor: "#FFFFFE",
+        backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
         border: `1px solid ${border}`,
         borderRadius: "14px",
-        boxShadow: "#1616150A 0px 1px 2px",
+        boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
@@ -255,10 +241,10 @@ export function PayWithSources({
             disabled={isSourcePickerDisabled}
             onClick={onOpenSourcePicker}
             style={{
-              backgroundColor: isSourcePickerDisabled ? "#F4F4F3" : "#E8F0FF",
+              backgroundColor: isSourcePickerDisabled ? "var(--nexus-widget-surface-raised, #F4F4F3)" : "var(--nexus-widget-primary-soft, #E8F0FF)",
               border: "none",
               borderRadius: "4px",
-              color: isSourcePickerDisabled ? "#A8A8A6" : brand,
+              color: isSourcePickerDisabled ? "var(--nexus-widget-text-secondary, #A8A8A6)" : "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
               cursor: isSourcePickerDisabled ? "not-allowed" : "pointer",
               fontFamily: uiFont,
               fontSize: "12px",
@@ -416,11 +402,11 @@ export function PayWithSources({
               }
               style={{
                 alignItems: "center",
-                background: "#FFFFFE",
+                background: "var(--nexus-widget-surface-raised, #FFFFFE)",
                 border: `1px solid ${border}`,
                 borderRadius: "999px",
                 bottom: "4px",
-                boxShadow: "0 2px 8px rgba(22,22,21,0.08)",
+                boxShadow: "0 2px 8px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.08))",
                 cursor: "pointer",
                 display: "flex",
                 height: "22px",
@@ -454,7 +440,7 @@ export function PayWithSources({
         <div
           style={{
             alignItems: "center",
-            color: "#D32F2F",
+            color: "var(--nexus-widget-error-text, #D32F2F)",
             display: "flex",
             fontFamily: uiFont,
             fontSize: "14px",

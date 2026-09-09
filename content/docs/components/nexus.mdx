@@ -160,12 +160,29 @@ export function App({ address }: { address?: `0x${string}` }) {
 | `appearance.heading` | all | Overrides the idle screen heading. |
 | `appearance.appName` | all | App/protocol name used in deposit progress and success UI. |
 | `appearance.appLogoURL` | all | App/protocol logo URL. Must start with `http://` or `https://`. |
-| `appearance.mode` | all | `"system"`, `"light"`, or `"dark"`. |
+| `theme` | all | `"dark"`, `"light"`, or `"system"`. Defaults to light; system follows live OS color-scheme changes. |
+| `appearance.mode` | all | Legacy theme setting. Used only when `theme` is omitted. |
 | `appearance.primaryColor` | all | Any valid browser-supported CSS color. Text color is chosen automatically for contrast. |
 
 Swap supports `prefill.token` only. It does not support amount prefill or validation yet.
 
 Use `destination.tokens` when you want to restrict the destination/receive selector. Use `prefill.token` when you only want an initial token selected and still want users to choose from the full supported list. If both are supplied, `destination.tokens[0]` is honored and `prefill.token` is ignored.
+
+### Theme
+
+Set `config.theme` in swap, send, or deposit mode. Changing it updates the open widget, including selectors and tooltips, without clearing the current form or transaction. `"system"` tracks the operating system's color-scheme preference. Omitting both `theme` and the legacy `appearance.mode` keeps the existing light appearance.
+
+```tsx
+<NexusWidget
+  config={{
+    mode: "swap",
+    theme: "dark", // "light" or "system" also supported
+    appearance: { primaryColor: "#006BF4" },
+  }}
+/>
+```
+
+Dark mode uses a plain background. Light mode keeps its existing background graphic. `appearance.primaryColor` works in every theme; omit it for the default blue (`#006BF4`). Themes are scoped to each widget and work in both embedded and modal rendering.
 
 ### Deposit Config
 
@@ -174,6 +191,7 @@ Deposit requires a fixed destination chain, at least one destination token, a de
 ```ts
 type NexusWidgetDepositConfig = {
   mode: "deposit";
+  theme?: "dark" | "light" | "system";
   destination: {
     chain: number;
     tokens: {

@@ -42,9 +42,9 @@ export function AddressIdenticon({
       aria-hidden="true"
       style={{
         background: `conic-gradient(from ${rotation}deg, ${primary}, ${secondary}, ${accent}, ${primary})`,
-        border: "1px solid #FFFFFE",
+        border: "1px solid var(--nexus-widget-surface, #FFFFFE)",
         borderRadius: "999px",
-        boxShadow: "0 0 0 1px #E8E8E7",
+        boxShadow: "0 0 0 1px var(--nexus-widget-border, #E8E8E7)",
         boxSizing: "border-box",
         display: "inline-block",
         flexShrink: 0,

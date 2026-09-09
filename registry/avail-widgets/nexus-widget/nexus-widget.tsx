@@ -79,8 +79,16 @@ import {
 } from "./components/swap-intent-preview";
 import {
   NEXUS_WIDGET_DEFAULT_PRIMARY_COLOR,
+  getNexusWidgetThemeStyle,
   nexusWidgetTheme,
+  nexusWidgetInteractionStyles,
+  resolveNexusWidgetTheme,
 } from "./theme";
+import {
+  NexusWidgetThemeContext,
+  useNexusWidgetThemeStyle,
+  useResolvedNexusWidgetTheme,
+} from "./theme-context";
 import {
   type NexusWidgetAppearance,
   type NexusWidgetConfig,
@@ -95,6 +103,10 @@ import {
   type NexusWidgetRuntimePrefill,
   type SwapType,
 } from "./types";
+import {
+  parseAmount as parseDecimalLoose,
+  parseAmount as parseFiatNumber,
+} from "./utils/amount";
 import { findCitreaReceiveToken } from "./utils/citrea-tokens";
 import {
   type DepositSourceFilter,
@@ -117,7 +129,7 @@ type SwapStep =
   | "failed" // failed swap receipt
   | "history"; // transaction history
 
-type SourceFilterTab = "all" | "native" | "stables";
+type SourceFilterTab = "all" | "native" | "stables" | "custom";
 
 type SwapHistoryStatus =
   | "pending"
@@ -217,8 +229,6 @@ const DESTINATION_RECEIVE_LIMIT_USD_BY_CHAIN_ID: Record<number, number> = {
   [SUPPORTED_CHAINS.SCROLL]: 500,
 };
 
-const SCIENTIFIC_DECIMAL_REGEX = /^-?(?:\d+\.?\d*|\.\d+)e[+-]?\d+$/i;
-
 const QUOTE_REFRESH_INTERVAL_MS = 30000;
 const EXACT_OUT_INPUT_DEBOUNCE_MS = 1300;
 const DRAWER_CLOSE_MS = 220;
@@ -266,7 +276,7 @@ const PLAN_STEP_FUNDS_MAY_HAVE_MOVED_STATES = new Set([
   "failed",
 ]);
 const theme = nexusWidgetTheme;
-const tooltipSurface = theme.colors.surface;
+const tooltipSurface = "var(--nexus-widget-surface-raised, #FFFFFE)";
 const tooltipText = theme.colors.textStrong;
 const tooltipBorder = theme.colors.border;
 const uiFont = theme.fonts.sans;
@@ -1189,14 +1199,14 @@ function QuoteRefreshCountdown({
       onMouseLeave={() => setShowTooltip(false)}
       style={{
         alignItems: "center",
-        backgroundColor: "#FFFFFE",
+        backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
         borderRadius: "999px",
         boxSizing: "border-box",
         display: "flex",
         flexShrink: 0,
         height: "22px",
         justifyContent: "center",
-        outline: "1px solid #E8E8E7",
+        outline: "1px solid var(--nexus-widget-border, #E8E8E7)",
         position: "relative",
         width: "22px",
       }}
@@ -1208,7 +1218,7 @@ function QuoteRefreshCountdown({
           style={{
             background: tooltipSurface,
             border: `1px solid ${tooltipBorder}`,
-            boxShadow: "0 6px 18px rgba(22,22,21,0.10)",
+            boxShadow: "0 6px 18px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.10))",
             color: tooltipText,
             fontFamily: uiFont,
             fontSize: "13px",
@@ -1240,7 +1250,7 @@ function QuoteRefreshCountdown({
         viewBox="0 0 18 18"
         width="16"
       >
-        <circle cx="9" cy="9" r={radius} stroke="#E8E8E7" strokeWidth="2" />
+        <circle cx="9" cy="9" r={radius} stroke="var(--nexus-widget-border, #E8E8E7)" strokeWidth="2" />
         <circle
           cx="9"
           cy="9"
@@ -1256,28 +1266,6 @@ function QuoteRefreshCountdown({
     </div>
   );
 }
-
-const normalizeDecimalInputText = (value: unknown) => {
-  const raw = String(value).trim();
-  if (!raw) return "";
-  if (SCIENTIFIC_DECIMAL_REGEX.test(raw)) return raw;
-  return raw.replace(/[^0-9.-]/g, "");
-};
-
-const parseDecimalLoose = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = normalizeDecimalInputText(value);
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
 
 const toViemDecimalString = (value: unknown, decimals: number) => {
   const parsed = parseDecimalLoose(value);
@@ -1657,7 +1645,7 @@ function MiniLogo({
         onError={() => setFailed(true)}
         src={src}
         style={{
-          background: "#FFFFFE",
+          background: "var(--nexus-widget-surface, #FFFFFE)",
           borderRadius: "999px",
           height: size,
           objectFit: "cover",
@@ -1673,7 +1661,7 @@ function MiniLogo({
     <div
       style={{
         alignItems: "center",
-        background: "#E8F0FF",
+        background: "var(--nexus-widget-primary-soft, #E8F0FF)",
         borderRadius: "999px",
         color: "var(--foreground-brand)",
         display: "flex",
@@ -1722,7 +1710,7 @@ function TokenLogoPair({
         <MiniLogo
           fontSize={6}
           label={chainName}
-          outline="1px solid #FFFFFE"
+          outline="1px solid var(--nexus-widget-surface, #FFFFFE)"
           size={Math.round(size * 0.44)}
           src={chainLogo}
           style={{ bottom: -2, position: "absolute", right: -2 }}
@@ -1770,7 +1758,7 @@ function SourceLogoStack({
             tokenLogo={source.tokenLogo}
             tokenOutline={
               index < visibleSources.length - 1
-                ? "1px solid #FFFFFE"
+                ? "1px solid var(--nexus-widget-surface, #FFFFFE)"
                 : undefined
             }
             tokenSymbol={source.symbol}
@@ -1780,7 +1768,7 @@ function SourceLogoStack({
       {hiddenCount > 0 && (
         <span
           style={{
-            color: "#848483",
+            color: "var(--nexus-widget-text-secondary, #848483)",
             flexShrink: 0,
             fontFamily: uiFont,
             fontSize: size <= 21 ? "12px" : "14px",
@@ -1831,10 +1819,10 @@ function TruncatedAddress({
         <span
           role="tooltip"
           style={{
-            background: "#FFFFFE",
-            border: "1px solid #E8E8E7",
-            boxShadow: "0 6px 18px rgba(22,22,21,0.10)",
-            color: "#161615",
+            background: "var(--nexus-widget-surface-raised, #FFFFFE)",
+            border: "1px solid var(--nexus-widget-border, #E8E8E7)",
+            boxShadow: "0 6px 18px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.10))",
+            color: "var(--nexus-widget-text-strong, #161615)",
             fontFamily: uiFont,
             fontSize: "13px",
             fontWeight: 500,
@@ -1866,7 +1854,7 @@ const getDisplayDestinationSourceRow = (
     entry.intentData?.destination.amount
   );
   const destinationBalanceAmount = parseDecimalLoose(
-    entry.toToken.balance?.replace(entry.toToken.symbol, "")
+    entry.toToken.balance
   );
   if (
     !requestedAmount ||
@@ -1995,7 +1983,8 @@ const normalizePlanStepType = (stepType: unknown, state?: unknown) => {
   }
 
   const mapped: Record<string, string> = {
-    allowance_approval: "APPROVAL",
+    allowance: "ALLOWANCE",
+    allowance_approval: "ALLOWANCE_APPROVAL",
     bridge_deposit: "BRIDGE_DEPOSIT",
     bridge_fill: "BRIDGE_FILL",
     bridge_intent_submission: "BRIDGE_INTENT_SUBMISSION",
@@ -2574,7 +2563,7 @@ function SourceRowsList({
             style={{
               alignItems: "center",
               borderTop:
-                borderTopFirst || index > 0 ? "1px solid #E8E8E7" : "none",
+                borderTopFirst || index > 0 ? "1px solid var(--nexus-widget-border, #E8E8E7)" : "none",
               display: "flex",
               justifyContent: "space-between",
               minHeight: "64px",
@@ -2598,7 +2587,7 @@ function SourceRowsList({
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 <span
                   style={{
-                    color: "#161615",
+                    color: "var(--nexus-widget-text-strong, #161615)",
                     fontFamily: uiFont,
                     fontSize: "15px",
                     fontWeight: 600,
@@ -2608,7 +2597,7 @@ function SourceRowsList({
                 </span>
                 <span
                   style={{
-                    color: "#848483",
+                    color: "var(--nexus-widget-text-secondary, #848483)",
                     fontFamily: uiFont,
                     fontSize: "14px",
                   }}
@@ -2628,7 +2617,7 @@ function SourceRowsList({
             >
               <span
                 style={{
-                  color: "#161615",
+                  color: "var(--nexus-widget-text-strong, #161615)",
                   fontFamily: uiFont,
                   fontSize: "15px",
                 }}
@@ -2637,7 +2626,7 @@ function SourceRowsList({
               </span>
               <span
                 style={{
-                  color: "#848483",
+                  color: "var(--nexus-widget-text-secondary, #848483)",
                   fontFamily: uiFont,
                   fontSize: "14px",
                 }}
@@ -2656,11 +2645,11 @@ function SourceRowsList({
           }
           style={{
             alignItems: "center",
-            background: "#FFFFFE",
-            border: "1px solid #E8E8E7",
+            background: "var(--nexus-widget-surface-raised, #FFFFFE)",
+            border: "1px solid var(--nexus-widget-border, #E8E8E7)",
             borderRadius: "999px",
             bottom: "6px",
-            boxShadow: "0 2px 8px rgba(22,22,21,0.08)",
+            boxShadow: "0 2px 8px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.08))",
             display: "flex",
             height: "22px",
             justifyContent: "center",
@@ -2672,7 +2661,7 @@ function SourceRowsList({
           }}
           type="button"
         >
-          <ChevronDown color="#848483" size={14} />
+          <ChevronDown color="var(--nexus-widget-text-secondary, #848483)" size={14} />
         </button>
       )}
     </div>
@@ -2762,10 +2751,10 @@ function SwapReceiptPanel({
     >
       <div
         style={{
-          background: "#FFFFFE",
-          border: "1px solid #E8E8E7",
+          background: "var(--nexus-widget-surface, #FFFFFE)",
+          border: "1px solid var(--nexus-widget-border, #E8E8E7)",
           borderRadius: "9px",
-          boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+          boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           padding: "16px 13px",
           textAlign: "center",
         }}
@@ -2787,14 +2776,18 @@ function SwapReceiptPanel({
             style={{
               alignItems: "center",
               background: isFailed
-                ? "#E92C2C"
+                ? "var(--nexus-widget-error-background, #E92C2C)"
                 : isTimeout
-                  ? "#B7791F"
+                  ? "var(--nexus-widget-warning-background, #B7791F)"
                   : "var(--foreground-brand)",
-              border: "2px solid #FFFFFE",
+              border: "2px solid var(--nexus-widget-surface, #FFFFFE)",
               borderRadius: "999px",
               bottom: -2,
-              color: "#FFFFFE",
+              color: isFailed
+                ? "var(--nexus-widget-error-text, #FFFFFE)"
+                : isTimeout
+                  ? "var(--nexus-widget-warning-text, #FFFFFE)"
+                  : "var(--nexus-widget-primary-foreground, #FFFFFE)",
               display: "flex",
               fontFamily: uiFont,
               fontSize: "14px",
@@ -2809,7 +2802,7 @@ function SwapReceiptPanel({
             {isFailed ? "x" : isTimeout ? "!" : "✓"}
           </div>
         </div>
-        <div style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}>
+        <div style={{ color: "var(--nexus-widget-text-secondary, #848483)", fontFamily: uiFont, fontSize: "13px" }}>
           {isTimeout
             ? timeoutHeadline
             : isFailed
@@ -2823,7 +2816,7 @@ function SwapReceiptPanel({
         {(failureDescription || timeoutDescription) && (
           <div
             style={{
-              color: "#848483",
+              color: "var(--nexus-widget-text-secondary, #848483)",
               fontFamily: uiFont,
               fontSize: "12px",
               lineHeight: "16px",
@@ -2837,7 +2830,7 @@ function SwapReceiptPanel({
         <div
           style={{
             alignItems: "baseline",
-            color: "#161615",
+            color: "var(--nexus-widget-text-strong, #161615)",
             display: "flex",
             fontFamily: '"Delight-Medium", "Delight", system-ui, sans-serif',
             fontSize: "36px",
@@ -2855,13 +2848,13 @@ function SwapReceiptPanel({
             {tokenSymbol}
           </span>
         </div>
-        <div style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}>
+        <div style={{ color: "var(--nexus-widget-text-secondary, #848483)", fontFamily: uiFont, fontSize: "13px" }}>
           ≈ {formatUsdDisplay(value)}
         </div>
         {receiptSummary && (
           <div
             style={{
-              color: "#848483",
+              color: "var(--nexus-widget-text-secondary, #848483)",
               fontFamily: uiFont,
               fontSize: "13px",
               marginTop: "8px",
@@ -2874,10 +2867,10 @@ function SwapReceiptPanel({
 
       <div
         style={{
-          background: "#FFFFFE",
-          border: "1px solid #E8E8E7",
+          background: "var(--nexus-widget-surface, #FFFFFE)",
+          border: "1px solid var(--nexus-widget-border, #E8E8E7)",
           borderRadius: "9px",
-          boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+          boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           overflow: "hidden",
         }}
       >
@@ -2890,7 +2883,7 @@ function SwapReceiptPanel({
           }}
         >
           <span
-            style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}
+            style={{ color: "var(--nexus-widget-text-secondary, #848483)", fontFamily: uiFont, fontSize: "13px" }}
           >
             {isDeposit || isSend ? "You Paid" : "You Swapped"}
           </span>
@@ -2905,7 +2898,7 @@ function SwapReceiptPanel({
           >
             <div
               style={{
-                color: "#161615",
+                color: "var(--nexus-widget-text-strong, #161615)",
                 fontFamily: uiFont,
                 fontSize: "14px",
                 fontWeight: 700,
@@ -2947,7 +2940,7 @@ function SwapReceiptPanel({
         <div
           aria-hidden={!showSourceDetails}
           style={{
-            borderTop: showSourceDetails ? "1px solid #E8E8E7" : 0,
+            borderTop: showSourceDetails ? "1px solid var(--nexus-widget-border, #E8E8E7)" : 0,
             display: "grid",
             gridTemplateRows: showSourceDetails ? "1fr" : "0fr",
             opacity: showSourceDetails ? 1 : 0,
@@ -2969,14 +2962,14 @@ function SwapReceiptPanel({
           <div
             style={{
               alignItems: "center",
-              borderTop: "1px solid #E8E8E7",
+              borderTop: "1px solid var(--nexus-widget-border, #E8E8E7)",
               display: "flex",
               justifyContent: "space-between",
               padding: "10px 14px",
             }}
           >
             <span
-              style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}
+              style={{ color: "var(--nexus-widget-text-secondary, #848483)", fontFamily: uiFont, fontSize: "13px" }}
             >
               Recipient
             </span>
@@ -2987,14 +2980,14 @@ function SwapReceiptPanel({
           <div
             style={{
               alignItems: "center",
-              borderTop: "1px solid #E8E8E7",
+              borderTop: "1px solid var(--nexus-widget-border, #E8E8E7)",
               display: "flex",
               justifyContent: "space-between",
               padding: "10px 14px",
             }}
           >
             <span
-              style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}
+              style={{ color: "var(--nexus-widget-text-secondary, #848483)", fontFamily: uiFont, fontSize: "13px" }}
             >
               Intent Explorer
             </span>
@@ -3016,14 +3009,14 @@ function SwapReceiptPanel({
           <div
             style={{
               alignItems: "center",
-              borderTop: "1px solid #E8E8E7",
+              borderTop: "1px solid var(--nexus-widget-border, #E8E8E7)",
               display: "flex",
               justifyContent: "space-between",
               padding: "10px 14px",
             }}
           >
             <span
-              style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}
+              style={{ color: "var(--nexus-widget-text-secondary, #848483)", fontFamily: uiFont, fontSize: "13px" }}
             >
               Final Transaction
             </span>
@@ -3044,19 +3037,19 @@ function SwapReceiptPanel({
         <div
           style={{
             alignItems: "center",
-            borderTop: "1px solid #E8E8E7",
+            borderTop: "1px solid var(--nexus-widget-border, #E8E8E7)",
             display: "flex",
             justifyContent: "space-between",
             padding: "10px 14px",
           }}
         >
           <span
-            style={{ color: "#848483", fontFamily: uiFont, fontSize: "13px" }}
+            style={{ color: "var(--nexus-widget-text-secondary, #848483)", fontFamily: uiFont, fontSize: "13px" }}
           >
             Total Fees
           </span>
           <span
-            style={{ color: "#161615", fontFamily: uiFont, fontSize: "13px" }}
+            style={{ color: "var(--nexus-widget-text-strong, #161615)", fontFamily: uiFont, fontSize: "13px" }}
           >
             {formatUsdDisplay(entry.feeUsd)}
           </span>
@@ -3070,7 +3063,7 @@ function SwapReceiptPanel({
           background: "var(--nexus-widget-primary, #1F1F1F)",
           border: "none",
           borderRadius: "10px",
-          boxShadow: "0px 1px 4px 0px #5555550D",
+          boxShadow: "0px 1px 4px 0px var(--nexus-widget-shadow-soft, #5555550D)",
           color: "var(--nexus-widget-primary-foreground, #FFFFFE)",
           cursor: "pointer",
           display: "flex",
@@ -3102,14 +3095,14 @@ const getRelativeTime = (time: number, now: number) => {
 function HistoryStatusPill({ status }: { status: SwapHistoryStatus }) {
   const config =
     status === "fulfilled"
-      ? { label: "Fulfilled", bg: "#E8F6EF", fg: "#168A47" }
+      ? { label: "Fulfilled", bg: "var(--nexus-widget-success-background, #E8F6EF)", fg: "var(--nexus-widget-success-text, #168A47)" }
       : status === "pending"
-        ? { label: "Pending", bg: "#FFF3DE", fg: "#B7791F" }
+        ? { label: "Pending", bg: "var(--nexus-widget-warning-background, #FFF3DE)", fg: "var(--nexus-widget-warning-text, #B7791F)" }
         : status === "timeout"
-          ? { label: TIMEOUT_LABEL, bg: "#FFF3DE", fg: "#B7791F" }
+          ? { label: TIMEOUT_LABEL, bg: "var(--nexus-widget-warning-background, #FFF3DE)", fg: "var(--nexus-widget-warning-text, #B7791F)" }
           : status === "refund-initiated"
-            ? { label: "Refund Initiated", bg: "#FFF3DE", fg: "#B7791F" }
-            : { label: "Failed", bg: "#FFE6EA", fg: "#E92C2C" };
+            ? { label: "Refund Initiated", bg: "var(--nexus-widget-warning-background, #FFF3DE)", fg: "var(--nexus-widget-warning-text, #B7791F)" }
+            : { label: "Failed", bg: "var(--nexus-widget-error-background, #FFE6EA)", fg: "var(--nexus-widget-error-text, #E92C2C)" };
 
   return (
     <span
@@ -3141,8 +3134,8 @@ function SwapHistoryPanel({
       <div
         style={{
           alignItems: "center",
-          backgroundColor: "#FFFFFE",
-          border: "1px solid #E8E8E7",
+          backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
+          border: "1px solid var(--nexus-widget-border, #E8E8E7)",
           borderRadius: "14px",
           display: "flex",
           flexDirection: "column",
@@ -3155,7 +3148,7 @@ function SwapHistoryPanel({
         <div
           style={{
             alignItems: "center",
-            backgroundColor: "#F4F4F3",
+            backgroundColor: "var(--nexus-widget-surface-raised, #F4F4F3)",
             borderRadius: "999px",
             display: "flex",
             height: "48px",
@@ -3164,14 +3157,14 @@ function SwapHistoryPanel({
           }}
         >
           <span
-            style={{ color: "#848483", fontFamily: uiFont, fontSize: "25px" }}
+            style={{ color: "var(--nexus-widget-text-secondary, #848483)", fontFamily: uiFont, fontSize: "25px" }}
           >
             ↻
           </span>
         </div>
         <div
           style={{
-            color: "#161615",
+            color: "var(--nexus-widget-text-strong, #161615)",
             fontFamily: uiFont,
             fontSize: "16px",
             fontWeight: 500,
@@ -3181,7 +3174,7 @@ function SwapHistoryPanel({
         </div>
         <div
           style={{
-            color: "#848483",
+            color: "var(--nexus-widget-text-secondary, #848483)",
             fontFamily: uiFont,
             fontSize: "13px",
             lineHeight: "17px",
@@ -3246,10 +3239,10 @@ function SwapHistoryPanel({
           <div
             key={entry.id}
             style={{
-              background: "#FFFFFE",
-              border: "1px solid #E8E8E7",
+              background: "var(--nexus-widget-surface, #FFFFFE)",
+              border: "1px solid var(--nexus-widget-border, #E8E8E7)",
               borderRadius: "10px",
-              boxShadow: "0px 1px 12px 0px #5B5B5B0D",
+              boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
               padding: "12px 14px",
             }}
           >
@@ -3274,7 +3267,7 @@ function SwapHistoryPanel({
                   <div
                     style={{
                       alignItems: "baseline",
-                      color: "#161615",
+                      color: "var(--nexus-widget-text-strong, #161615)",
                       display: "flex",
                       fontFamily: uiFont,
                       fontSize: "17px",
@@ -3288,7 +3281,7 @@ function SwapHistoryPanel({
                       : "--"}
                     <span
                       style={{
-                        color: "#848483",
+                        color: "var(--nexus-widget-text-secondary, #848483)",
                         fontSize: "12px",
                         fontWeight: 600,
                       }}
@@ -3298,7 +3291,7 @@ function SwapHistoryPanel({
                   </div>
                   <div
                     style={{
-                      color: "#848483",
+                      color: "var(--nexus-widget-text-secondary, #848483)",
                       fontFamily: uiFont,
                       fontSize: "13px",
                       lineHeight: "17px",
@@ -3319,7 +3312,7 @@ function SwapHistoryPanel({
                 <HistoryStatusPill status={status} />
                 <span
                   style={{
-                    color: "#848483",
+                    color: "var(--nexus-widget-text-secondary, #848483)",
                     fontFamily: uiFont,
                     fontSize: "12px",
                     lineHeight: "16px",
@@ -3334,7 +3327,7 @@ function SwapHistoryPanel({
               <div
                 style={{
                   alignItems: "center",
-                  background: "#FFF3F3",
+                  background: "var(--nexus-widget-surface-inset, #FFF3F3)",
                   borderRadius: "8px",
                   display: "flex",
                   justifyContent: "space-between",
@@ -3344,7 +3337,7 @@ function SwapHistoryPanel({
               >
                 <span
                   style={{
-                    color: "#161615",
+                    color: "var(--nexus-widget-text-strong, #161615)",
                     fontFamily: uiFont,
                     fontSize: "13px",
                   }}
@@ -3357,7 +3350,7 @@ function SwapHistoryPanel({
             <div
               style={{
                 alignItems: "center",
-                borderTop: "1px solid #E8E8E7",
+                borderTop: "1px solid var(--nexus-widget-border, #E8E8E7)",
                 display: "flex",
                 justifyContent: "space-between",
                 marginTop: "12px",
@@ -3377,7 +3370,7 @@ function SwapHistoryPanel({
                 )}
                 <span
                   style={{
-                    color: "#848483",
+                    color: "var(--nexus-widget-text-secondary, #848483)",
                     fontFamily: uiFont,
                     fontSize: "13px",
                   }}
@@ -3466,18 +3459,38 @@ function SwapHistoryPanel({
 // ---------------------------------------------------------------------------
 
 export function NexusWidget(props: NexusWidgetProps) {
+  const resolvedTheme = useResolvedNexusWidgetTheme(
+    resolveNexusWidgetTheme(props.config.theme, props.config.appearance?.mode)
+  );
+  const primaryColor =
+    normalizeNexusWidgetPrimaryColor(props.config.appearance?.primaryColor) ??
+    NEXUS_WIDGET_DEFAULT_PRIMARY_COLOR;
+  const primaryForeground = getReadableTextColor(primaryColor);
+  const themeStyle = useMemo(
+    () => ({
+      ...getNexusWidgetThemeStyle(resolvedTheme === "dark"),
+      "--nexus-widget-primary": primaryColor,
+      "--nexus-widget-primary-foreground": primaryForeground,
+      "--foreground-brand": primaryColor,
+      "--interactive-button-primary-background": primaryColor,
+      "--interactive-button-primary-foreground": primaryForeground,
+    }),
+    [resolvedTheme, primaryColor, primaryForeground]
+  );
   return (
+    <NexusWidgetThemeContext.Provider value={themeStyle}>
     <ErrorBoundary
       fallback={
         <div
           style={{
+            ...themeStyle,
             alignItems: "center",
-            backgroundColor: "#FFFFFE",
-            borderColor: "#E8E8E7",
+            backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
+            borderColor: "var(--nexus-widget-border, #E8E8E7)",
             borderRadius: "12px",
             borderStyle: "solid",
             borderWidth: "1px",
-            boxShadow: "#1616150A 0px 1px 2px",
+            boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
             boxSizing: "border-box",
             display: "flex",
             flexDirection: "column",
@@ -3491,11 +3504,11 @@ export function NexusWidget(props: NexusWidgetProps) {
             fontFamily: '"Geist", system-ui, sans-serif',
           }}
         >
-          <div style={{ color: "#D32F2F", fontSize: "18px", fontWeight: 600 }}>
+          <div style={{ color: "var(--nexus-widget-error-text, #D32F2F)", fontSize: "18px", fontWeight: 600 }}>
             Something went wrong
           </div>
           <div
-            style={{ color: "#848483", fontSize: "15px", lineHeight: "20px" }}
+            style={{ color: "var(--nexus-widget-text-secondary, #848483)", fontSize: "15px", lineHeight: "20px" }}
           >
             An unexpected error occurred. Please refresh the page or try
             resetting the widget.
@@ -3506,7 +3519,7 @@ export function NexusWidget(props: NexusWidgetProps) {
               backgroundColor: "var(--foreground-brand)",
               border: "none",
               borderRadius: "8px",
-              color: "#FFFFFE",
+              color: "var(--nexus-widget-primary-foreground, #FFFFFE)",
               cursor: "pointer",
               fontSize: "15px",
               fontWeight: 500,
@@ -3522,6 +3535,7 @@ export function NexusWidget(props: NexusWidgetProps) {
     >
       <NexusWidgetInner {...props} />
     </ErrorBoundary>
+    </NexusWidgetThemeContext.Provider>
   );
 }
 
@@ -3541,6 +3555,7 @@ function NexusWidgetInner({
   onClose,
   onConnectWallet,
 }: NexusWidgetProps) {
+  const themeStyle = useNexusWidgetThemeStyle();
   const {
     nexusSDK,
     bridgableBalance,
@@ -4625,21 +4640,6 @@ function NexusWidgetInner({
     return total > 0 ? String(total) : "";
   };
 
-  const parseFiatNumber = (value: unknown) => {
-    if (value === null || value === undefined || value === "") return undefined;
-    if (Decimal.isDecimal(value)) return value;
-    const cleaned = normalizeDecimalInputText(value);
-    if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-      return undefined;
-    }
-    try {
-      const parsed = new Decimal(cleaned);
-      return parsed.isFinite() ? parsed : undefined;
-    } catch {
-      return undefined;
-    }
-  };
-
   const minimumSourceUsd = new Decimal(1);
   const hasMinimumSourceUsdValue = (value: unknown) =>
     (parseFiatNumber(value) ?? new Decimal(0)).gte(minimumSourceUsd);
@@ -5067,7 +5067,7 @@ function NexusWidgetInner({
 
     return {
       ...token,
-      balance: `${amount} ${token.symbol}`,
+      balance: amount,
       balanceInFiat: balanceUsd,
       userAmount: amount,
       userAmountMode: "token",
@@ -5544,7 +5544,7 @@ function NexusWidgetInner({
           logo: asset.logo ?? "",
           name: symbol,
           symbol,
-          balance: `${breakdown.balance} ${symbol}`,
+          balance: breakdown.balance,
           balanceInFiat:
             fiatBalance !== undefined
               ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
@@ -5606,7 +5606,7 @@ function NexusWidgetInner({
           logo: asset.logo ?? toToken.logo,
           name: symbol,
           symbol,
-          balance: `${breakdown.balance} ${symbol}`,
+          balance: breakdown.balance,
           balanceInFiat:
             fiatBalance !== undefined
               ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
@@ -6213,7 +6213,7 @@ function NexusWidgetInner({
           const chainMeta = CHAIN_METADATA[chainId];
           const fiatBalance = parseFiatNumber(breakdown.balanceInFiat);
           const snapshot: SwapTokenOption = {
-            balance: `${breakdown.balance ?? "0"} ${symbol}`,
+            balance: breakdown.balance ?? "0",
             balanceInFiat: fiatBalance
               ? formatUsdDisplay(fiatBalance)
               : "$0.00",
@@ -6276,7 +6276,7 @@ function NexusWidgetInner({
           return {
             ...token,
             ...preservedAmounts,
-            balance: `0 ${token.symbol}`,
+            balance: "0",
             balanceInFiat: "$0.00",
             chainLogo:
               token.chainLogo ??
@@ -6970,7 +6970,7 @@ function NexusWidgetInner({
         const balance = parseFiatNumber(breakdown.balance);
         if (!balance) return null;
 
-        return `${balance.toDecimalPlaces(6).toFixed()} ${token.symbol}`;
+        return balance.toFixed();
       }
     }
 
@@ -7043,7 +7043,7 @@ function NexusWidgetInner({
         contractAddress: citreaToken?.contractAddress ?? pair.token,
         symbol: tokenSymbol,
         name: matchedToken?.name || citreaToken?.name || tokenSymbol,
-        balance: `0 ${tokenSymbol}`,
+        balance: "0",
         balanceInFiat: "$0.00",
         decimals:
           matchedToken?.decimals ??
@@ -8005,25 +8005,35 @@ function NexusWidgetInner({
   }, [closeDrawerToIdle, resetSourcePickerDraft]);
 
   const handleSourcePickerDraftSelectionChange = useCallback(
-    (tokens: SwapTokenOption[]) => {
+    (tokens: SwapTokenOption[], tab: SourceFilterTab = "custom") => {
       if (activeMode !== "deposit" && activeMode !== "send") return;
 
       setSourcePickerDraftSelection(tokens);
       sourcePickerDraftTouchedRef.current = true;
       sourcePickerDraftModeRef.current = "selected";
-      if (activeMode === "deposit") {
-        sourcePickerDraftDepositFilterRef.current = "custom";
-      }
+      sourcePickerDraftDepositFilterRef.current =
+        tab === "stables" ? "stablecoins" : tab;
     },
     [activeMode, setSourcePickerDraftSelection]
   );
 
   const handleSourcePickerFilterTabSelect = useCallback(
-    (tab: Exclude<SourceFilterTab, "custom">) => {
+    (tab: SourceFilterTab, scopedTokens?: SwapTokenOption[]) => {
       if (activeMode !== "deposit" && activeMode !== "send") return;
 
       const nextFilter: DepositSourceFilter =
         tab === "stables" ? "stablecoins" : tab;
+
+      if (tab === "custom") {
+        sourcePickerDraftDepositFilterRef.current = "custom";
+        sourcePickerDraftTouchedRef.current = true;
+        sourcePickerDraftModeRef.current = "selected";
+        return;
+      }
+      if (scopedTokens) {
+        handleSourcePickerDraftSelectionChange(scopedTokens, tab);
+        return;
+      }
 
       if (tab === "all") {
         sourcePickerDraftDepositFilterRef.current = nextFilter;
@@ -8051,6 +8061,7 @@ function NexusWidgetInner({
     [
       activeMode,
       getAutoExactOutSourceTokensForPicker,
+      handleSourcePickerDraftSelectionChange,
       getDepositSourceTokensForIds,
       getResolvedDepositSourceSelection,
       setSourcePickerDraftSelection,
@@ -8074,9 +8085,7 @@ function NexusWidgetInner({
 
       setSourceSelectionTouched(sourcePickerDraftTouchedRef.current);
       setExactOutQuoteSourceModeValue(sourcePickerDraftModeRef.current);
-      if (activeMode === "deposit") {
-        setDepositSourceFilter(sourcePickerDraftDepositFilterRef.current);
-      }
+      setDepositSourceFilter(sourcePickerDraftDepositFilterRef.current);
       invalidateExactOutQuoteForRefresh({
         sourceTokens: normalizedTokens,
       });
@@ -10796,33 +10805,19 @@ function NexusWidgetInner({
     <div
       className={className}
       data-nexus-widget-root
+      data-nexus-widget-theme={themeStyle.colorScheme}
       style={{
-        ["--nexus-widget-primary" as any]:
-          primaryColor ?? NEXUS_WIDGET_DEFAULT_PRIMARY_COLOR,
-        ["--nexus-widget-primary-foreground" as any]:
-          primaryButtonForeground,
-        ["--foreground-brand" as any]:
-          primaryColor ?? NEXUS_WIDGET_DEFAULT_PRIMARY_COLOR,
-        ["--interactive-button-primary-background" as any]:
-          primaryColor ?? NEXUS_WIDGET_DEFAULT_PRIMARY_COLOR,
-        ["--interactive-button-primary-foreground" as any]:
-          primaryButtonForeground,
-        backgroundColor: "#F9F9F8",
+        ...themeStyle,
+        backgroundColor: "var(--nexus-widget-background, #F9F9F8)",
         backgroundImage:
-          "url(https://files.availproject.org/nexus-elements/nexus-one/card-bg.png)",
+          "var(--nexus-widget-background-image, url(https://files.availproject.org/nexus-elements/nexus-one/card-bg.png))",
         backgroundPosition: "center",
         backgroundPositionX: "center",
         backgroundPositionY: "center",
         backgroundSize: "cover",
         borderRadius: "20px",
-        boxShadow: "none",
+        boxShadow: "var(--nexus-widget-root-shadow, none)",
         boxSizing: "border-box",
-        colorScheme:
-          appearanceConfig?.themeMode === "dark"
-            ? "dark"
-            : appearanceConfig?.themeMode === "light"
-              ? "light"
-              : undefined,
         display: "flex",
         flexDirection: "column",
         fontFeatureSettings: '"tnum"',
@@ -10861,6 +10856,7 @@ function NexusWidgetInner({
         MozOsxFontSmoothing: "grayscale",
       }}
     >
+      <style>{nexusWidgetInteractionStyles}</style>
       <div
         ref={rootContentRef}
         style={{
@@ -11079,7 +11075,7 @@ function NexusWidgetInner({
                       overflowX: "hidden",
                       overflowY: isPreviewTransitioning ? "hidden" : "auto",
                       overscrollBehavior: "contain",
-                      scrollbarColor: "#C8C8C7 transparent",
+                      scrollbarColor: "var(--nexus-widget-border-empty, #C8C8C7) transparent",
                       scrollbarWidth: "thin",
                       width: "100%",
                     }}
@@ -11259,11 +11255,11 @@ function NexusWidgetInner({
                     style={{
                       alignItems: "center",
                       backgroundColor: blockingQuoteIssue
-                        ? "#FCEEED"
+                        ? "var(--nexus-widget-error-background, #FCEEED)"
                         : isSwapCtaDisabled
                           ? theme.colors.surfaceCool
                           : primaryButtonBackground,
-                      border: blockingQuoteIssue ? "1px solid #F7C4C1" : "none",
+                      border: blockingQuoteIssue ? "1px solid var(--nexus-widget-error-border, #F7C4C1)" : "none",
                       borderRadius: theme.radius.primaryButton,
                       boxShadow:
                         blockingQuoteIssue || isSwapCtaDisabled
@@ -11284,7 +11280,7 @@ function NexusWidgetInner({
                     {blockingQuoteIssue ? (
                       <AlertCircle
                         style={{
-                          color: "#D32F2F",
+                          color: "var(--nexus-widget-error-text, #D32F2F)",
                           height: "14px",
                           width: "14px",
                         }}
@@ -11307,7 +11303,7 @@ function NexusWidgetInner({
                       style={{
                         boxSizing: "border-box",
                         color: blockingQuoteIssue
-                          ? "#D32F2F"
+                          ? "var(--nexus-widget-error-text, #D32F2F)"
                           : isSwapCtaDisabled
                             ? theme.colors.muted
                             : primaryButtonForeground,
@@ -11426,12 +11422,12 @@ function NexusWidgetInner({
                         style={{
                           alignItems: "center",
                           backgroundColor: blockingQuoteIssue
-                            ? "#FCEEED"
+                            ? "var(--nexus-widget-error-background, #FCEEED)"
                             : isDepositCtaDisabled
                               ? theme.colors.surfaceCool
                               : primaryButtonBackground,
                           border: blockingQuoteIssue
-                            ? "1px solid #F7C4C1"
+                            ? "1px solid var(--nexus-widget-error-border, #F7C4C1)"
                             : "none",
                           borderRadius: blockingQuoteIssue
                             ? "4px"
@@ -11454,7 +11450,7 @@ function NexusWidgetInner({
                         {blockingQuoteIssue ? (
                           <AlertCircle
                             style={{
-                              color: "#D32F2F",
+                              color: "var(--nexus-widget-error-text, #D32F2F)",
                               height: "14px",
                               width: "14px",
                             }}
@@ -11477,7 +11473,7 @@ function NexusWidgetInner({
                           style={{
                             boxSizing: "border-box",
                             color: blockingQuoteIssue
-                              ? "#D32F2F"
+                              ? "var(--nexus-widget-error-text, #D32F2F)"
                               : isDepositCtaDisabled
                                 ? theme.colors.muted
                                 : primaryButtonForeground,
@@ -11602,11 +11598,11 @@ function NexusWidgetInner({
                     style={{
                       alignItems: "center",
                       backgroundColor: blockingQuoteIssue
-                        ? "#FCEEED"
+                        ? "var(--nexus-widget-error-background, #FCEEED)"
                         : isSendCtaDisabled
                           ? theme.colors.surfaceCool
                           : primaryButtonBackground,
-                      border: blockingQuoteIssue ? "1px solid #F7C4C1" : "none",
+                      border: blockingQuoteIssue ? "1px solid var(--nexus-widget-error-border, #F7C4C1)" : "none",
                       borderRadius: blockingQuoteIssue
                         ? "4px"
                         : theme.radius.primaryButton,
@@ -11628,7 +11624,7 @@ function NexusWidgetInner({
                     {blockingQuoteIssue ? (
                       <AlertCircle
                         style={{
-                          color: "#D32F2F",
+                          color: "var(--nexus-widget-error-text, #D32F2F)",
                           height: "14px",
                           width: "14px",
                         }}
@@ -11652,7 +11648,7 @@ function NexusWidgetInner({
                       style={{
                         boxSizing: "border-box",
                         color: blockingQuoteIssue
-                          ? "#D32F2F"
+                          ? "var(--nexus-widget-error-text, #D32F2F)"
                           : isSendCtaDisabled
                             ? theme.colors.muted
                             : primaryButtonForeground,
@@ -11729,7 +11725,7 @@ function NexusWidgetInner({
                 position: "absolute",
                 right: 0,
                 width: "100%",
-                backgroundColor: theme.colors.surface,
+                backgroundColor: "var(--nexus-widget-surface-inset, #FFFFFE)",
                 borderRadius: "16px 16px 0 0",
                 display: "flex",
                 flexDirection: "column",
@@ -11779,7 +11775,7 @@ function NexusWidgetInner({
                   }}
                   style={{
                     alignItems: "center",
-                    backgroundColor: theme.colors.surface,
+                    backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
                     border: `1px solid ${theme.colors.border}`,
                     borderRadius: "8px",
                     cursor: "pointer",
@@ -11843,7 +11839,7 @@ function NexusWidgetInner({
                   <button
                     onClick={handleResetRecipientToDefault}
                     style={{
-                      backgroundColor: "#F4F7FE",
+                      backgroundColor: "var(--nexus-widget-primary-soft, #F4F7FE)",
                       border: "none",
                       borderRadius: "4px",
                       color: theme.colors.primary,
@@ -11874,7 +11870,7 @@ function NexusWidgetInner({
               {txError && (
                 <div
                   style={{
-                    color: "#E35454",
+                    color: "var(--nexus-widget-error-accent, #E35454)",
                     fontFamily: theme.fonts.sans,
                     fontSize: "15px",
                     fontWeight: 500,
@@ -11902,11 +11898,11 @@ function NexusWidgetInner({
                 onClick={handleSaveRecipient}
                 style={{
                   alignItems: "center",
-                  backgroundColor: theme.colors.text,
+                  backgroundColor: "var(--nexus-widget-button-background, #1F1F1F)",
                   border: "none",
                   borderRadius: "8px",
-                  boxShadow: "#5555550D 0px 1px 4px",
-                  color: theme.colors.surface,
+                  boxShadow: "var(--nexus-widget-shadow-soft, #5555550D) 0px 1px 4px",
+                  color: "var(--nexus-widget-button-foreground, #FFFFFE)",
                   cursor: "pointer",
                   display: "flex",
                   fontFamily: theme.fonts.sans,
@@ -11952,7 +11948,7 @@ function NexusWidgetInner({
                 left: 0,
                 right: 0,
                 bottom: 0,
-                backgroundColor: "rgba(255,255,255,0.46)",
+                backgroundColor: "var(--nexus-widget-overlay, rgba(255,255,255,0.46))",
                 pointerEvents: "auto",
                 opacity: isSwapAssetDrawerClosing ? 0 : 1,
                 transition: `opacity ${DRAWER_CLOSE_MS}ms ease`,
@@ -11975,7 +11971,7 @@ function NexusWidgetInner({
                 position: "absolute",
                 right: 0,
                 width: "100%",
-                backgroundColor: theme.colors.surface,
+                backgroundColor: "var(--nexus-widget-surface-inset, #FFFFFE)",
                 borderRadius: "12px 12px 0 0",
                 display: "flex",
                 flexDirection: "column",
@@ -12007,13 +12003,11 @@ function NexusWidgetInner({
                 }
                 hideCustomTab={activeMode === "swap"}
                 initialFilterTab={
-                  activeMode === "deposit"
+                  activeMode === "deposit" || activeMode === "send"
                     ? depositSourceFilter === "stablecoins"
                       ? "stables"
                       : depositSourceFilter
-                    : activeMode === "send" && sourceSelectionTouched
-                      ? "custom"
-                      : "all"
+                    : "all"
                 }
                 isMulti={activeMode === "deposit" || activeMode === "send"}
                 lockedTokens={lockedDestinationSourceTokens}
@@ -12288,7 +12282,7 @@ function NexusWidgetInner({
                 position: "absolute",
                 right: 0,
                 width: "100%",
-                backgroundColor: theme.colors.surface,
+                backgroundColor: "var(--nexus-widget-surface-inset, #FFFFFE)",
                 borderRadius: "24px 24px 0 0",
                 display: "flex",
                 flexDirection: "column",

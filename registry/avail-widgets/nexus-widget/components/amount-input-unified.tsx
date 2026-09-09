@@ -75,13 +75,13 @@ export function AmountInputUnified({
       className="w-full flex flex-col bg-white min-h-[136px] nexus-focus-container"
       style={{
         borderRadius: "10px",
-        border: "1px solid var(--border-default, #E8E8E7)",
-        boxShadow: "0px 1px 12px 0px #5B5B5B0D",
-        background: "#FFFFFF",
+        border: "1px solid var(--nexus-widget-border, #E8E8E7)",
+        boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
+        background: "var(--nexus-widget-surface, #FFFFFF)",
       }}
     >
       {header && (
-        <div className="w-full border-b border-[#E8E8E7] px-3.5 py-2.5">
+        <div className="w-full border-b border-[var(--nexus-widget-border,_#E8E8E7)] px-3.5 py-2.5">
           {header}
         </div>
       )}
@@ -127,7 +127,7 @@ export function AmountInputUnified({
                 lineHeight: "100%",
                 height: "28px",
                 letterSpacing: "2%",
-                color: "var(--foreground-primary, #161615)",
+                color: "var(--nexus-widget-text-strong, #161615)",
                 fieldSizing: "content",
                 minWidth: "1ch",
                 maxWidth: "6ch",
@@ -142,12 +142,12 @@ export function AmountInputUnified({
             disabled={disabled || !maxAvailableAmount}
             onClick={handleMax}
             style={{
-              background: "var(--background-tertiary, #F0F0EF)",
+              background: "var(--nexus-widget-surface-raised, #F0F0EF)",
               width: "36px",
               height: "20px",
               borderRadius: "5px",
               padding: "2px 6px",
-              color: "var(--foreground-muted, #848483)",
+              color: "var(--nexus-widget-text-secondary, #848483)",
               fontFamily:
                 "var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
               fontWeight: 400,
@@ -164,7 +164,7 @@ export function AmountInputUnified({
           <div className="absolute bottom-3 left-0 w-full flex justify-center">
             <p
               style={{
-                color: "var(--widget-card-foreground-muted, #848483)",
+                color: "var(--nexus-widget-text-secondary, #848483)",
                 fontFamily:
                   "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
                 fontWeight: 400,
