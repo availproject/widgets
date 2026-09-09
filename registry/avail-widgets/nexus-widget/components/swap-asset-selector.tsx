@@ -73,9 +73,9 @@ interface SwapAssetSelectorProps {
   onBack: () => void;
   onClearSelection?: () => void;
   onDone?: (tokens?: SwapTokenOption[]) => void;
-  onFilterTabSelect?: (tab: Exclude<FilterTab, "custom">) => void;
+  onFilterTabSelect?: (tab: FilterTab, scopedTokens?: SwapTokenOption[]) => void;
   onSelect: (token: SwapTokenOption) => void;
-  onSelectionChange?: (tokens: SwapTokenOption[]) => void;
+  onSelectionChange?: (tokens: SwapTokenOption[], tab?: FilterTab) => void;
   onToggle?: (token: SwapTokenOption) => void;
   preserveSelectedBelowMinimum?: boolean;
   requiredUsd?: string;
@@ -1081,14 +1081,14 @@ export function SwapAssetSelector({
   }, [isMulti, lockedSelectedTokens, selectedTokens]);
   const activeSelectedTokens = isMulti ? draftSelectedTokens : selectedTokens;
   const emitSelectionChange = useCallback(
-    (tokens: SwapTokenOption[]) => {
+    (tokens: SwapTokenOption[], tab: FilterTab = activeTab) => {
       const next = mergeTokenOptions(tokens, lockedSelectedTokens);
       if (isMulti) {
         setDraftSelectedTokens(next);
       }
-      onSelectionChange?.(next);
+      onSelectionChange?.(next, tab);
     },
-    [isMulti, lockedSelectedTokens, onSelectionChange],
+    [activeTab, isMulti, lockedSelectedTokens, onSelectionChange],
   );
   const visibleFilterTabs = useMemo(
     () =>
@@ -1176,11 +1176,11 @@ export function SwapAssetSelector({
   ]);
 
   const getFilterTabTokens = useCallback(
-    (tab: FilterTab) => {
+    (tab: FilterTab, chainId = selectedChainFilter) => {
       let result = allTokens;
-      if (selectedChainFilter !== null) {
+      if (chainId !== null) {
         result = result.filter(
-          (token) => token.chainId === selectedChainFilter,
+          (token) => token.chainId === chainId,
         );
       }
       if (tab === "native") result = result.filter(isNativeToken);
@@ -1199,51 +1199,8 @@ export function SwapAssetSelector({
         lockedSelectedTokens,
       );
     },
-    [allTokens, lockedSelectedTokens, selectedChainFilter],
+    [allTokens, lockedSelectedTokens, selectedChainFilter, showBelowMinimumInline],
   );
-
-  const selectionMatchesFilterTab = useCallback(
-    (tab: FilterTab) => {
-      if (tab === "custom") return true;
-      const expected = getFilterTabTokens(tab);
-      const selected = mergeTokenOptions(
-        activeSelectedTokens,
-        lockedSelectedTokens,
-      );
-      return (
-        selected.length === expected.length &&
-        selected.every((token) =>
-          expected.some((expectedToken) =>
-            sameTokenOption(expectedToken, token),
-          ),
-        )
-      );
-    },
-    [activeSelectedTokens, getFilterTabTokens, lockedSelectedTokens],
-  );
-
-  useEffect(() => {
-    if (
-      !autoSelectFilterTabs ||
-      filterTabBehavior === "source-pool" ||
-      !isMulti ||
-      activeTab === "custom"
-    )
-      return;
-    if (activeSelectedTokens.length === 0 && lockedSelectedTokens.length === 0)
-      return;
-    if (!selectionMatchesFilterTab(activeTab)) {
-      setActiveTab("custom");
-    }
-  }, [
-    activeTab,
-    activeSelectedTokens.length,
-    autoSelectFilterTabs,
-    filterTabBehavior,
-    isMulti,
-    lockedSelectedTokens.length,
-    selectionMatchesFilterTab,
-  ]);
 
   /* Search + tab + chain filter */
   const filtered = useMemo(() => {
@@ -1635,26 +1592,38 @@ export function SwapAssetSelector({
     showBelowMinimumInline,
   ]);
 
-  const handleFilterTabClick = (tab: FilterTab) => {
+  const handleFilterTabClick = (tab: FilterTab, chainId = selectedChainFilter) => {
     setActiveTab(tab);
-    if (autoSelectFilterTabs && isMulti && tab !== "custom") {
-      if (tab === "all" && onFilterTabSelect) {
-        onFilterTabSelect(tab);
-        return;
-      }
-      if (filterTabBehavior === "source-pool") {
-        onFilterTabSelect?.(tab);
-        return;
-      }
-      if (!onSelectionChange) return;
-      emitSelectionChange(getFilterTabTokens(tab));
+    if (!autoSelectFilterTabs || !isMulti) return;
+    if (tab === "custom") {
+      onFilterTabSelect?.(tab);
+      return;
     }
+    if (
+      onFilterTabSelect &&
+      (tab === "all" || filterTabBehavior === "source-pool" || chainId !== null)
+    ) {
+      // A chain-scoped selection must not reuse the all-chain quote's sources.
+      onFilterTabSelect(tab, chainId === null ? undefined : getFilterTabTokens(tab, chainId));
+      return;
+    }
+    if (onSelectionChange) emitSelectionChange(getFilterTabTokens(tab, chainId), tab);
   };
+
+  const handleChainFilterChange = (chainId: number | null) => {
+    setSelectedChainFilter(chainId);
+    if (activeTab !== "custom") handleFilterTabClick(activeTab, chainId);
+    closeChainSelector();
+  };
+
+  const getEditedSelectionTab = (): FilterTab =>
+    activeTab === "native" || activeTab === "stables" ? activeTab : "custom";
 
   const handleClearSelection = () => {
     if (isMulti && onSelectionChange) {
-      setActiveTab("custom");
-      emitSelectionChange([]);
+      const tab = getEditedSelectionTab();
+      setActiveTab(tab);
+      emitSelectionChange([], tab);
       return;
     }
     onClearSelection?.();
@@ -1668,7 +1637,8 @@ export function SwapAssetSelector({
 
     pendingSelectionScrollTopRef.current = listRef.current?.scrollTop ?? null;
     skipNextSelectionScrollResetRef.current = true;
-    setActiveTab("custom");
+    const tab = getEditedSelectionTab();
+    setActiveTab(tab);
     const current = mergeTokenOptions(
       activeSelectedTokens,
       lockedSelectedTokens,
@@ -1686,7 +1656,7 @@ export function SwapAssetSelector({
     const next = allTargetsSelected
       ? removeTokenOptions(current, unlockedTargets)
       : mergeTokenOptions(current, unlockedTargets);
-    emitSelectionChange(next);
+    emitSelectionChange(next, tab);
   };
 
   /* ── Render a single-chain token row ── */
@@ -2175,7 +2145,7 @@ export function SwapAssetSelector({
   };
 
   const handleSelectManually = () => {
-    setActiveTab("custom");
+    handleFilterTabClick("custom");
   };
 
   const handleDone = () => {
@@ -2792,13 +2762,15 @@ export function SwapAssetSelector({
                       lineHeight: "20px",
                     }}
                   >
-                    {activeTab === "all"
+                    {selectedChainFilter !== null
+                      ? "Your selection doesn't cover the full amount"
+                      : activeTab === "all"
                       ? "You don't have enough balances to meet this requirement"
                       : activeTab === "native"
-                        ? "Your nativecoins don't cover the full amount"
+                        ? "Your native tokens don't cover the full amount"
                         : activeTab === "stables"
                           ? "Your stablecoins don't cover the full amount"
-                          : "Your selection don't cover the full amount"}
+                          : "Your selection doesn't cover the full amount"}
                   </span>
                   <span
                     style={{
@@ -2808,11 +2780,13 @@ export function SwapAssetSelector({
                       lineHeight: "18px",
                     }}
                   >
-                    {activeTab === "all"
+                    {selectedChainFilter !== null
+                      ? 'Switch to “All chains” to include more tokens.'
+                      : activeTab === "all"
                       ? "Add more tokens to your wallet"
                       : `${formatUsdBalanceLabel(selectionDeficitUsdAmount)} more is needed.`}
                   </span>
-                  {activeTab !== "all" && (
+                  {(activeTab === "native" || activeTab === "stables") && (
                     <div
                       style={{
                         display: "flex",
@@ -3131,8 +3105,7 @@ export function SwapAssetSelector({
                   >
                     <button
                       onClick={() => {
-                        setSelectedChainFilter(null);
-                        closeChainSelector();
+                        handleChainFilterChange(null);
                       }}
                       style={{
                         width: "100%",
@@ -3180,8 +3153,7 @@ export function SwapAssetSelector({
                         <button
                           key={`chain-${t.chainId}`}
                           onClick={() => {
-                            setSelectedChainFilter(t.chainId!);
-                            closeChainSelector();
+                            handleChainFilterChange(t.chainId!);
                           }}
                           style={{
                             width: "100%",

@@ -125,7 +125,7 @@ type SwapStep =
   | "failed" // failed swap receipt
   | "history"; // transaction history
 
-type SourceFilterTab = "all" | "native" | "stables";
+type SourceFilterTab = "all" | "native" | "stables" | "custom";
 
 type SwapHistoryStatus =
   | "pending"
@@ -2003,7 +2003,8 @@ const normalizePlanStepType = (stepType: unknown, state?: unknown) => {
   }
 
   const mapped: Record<string, string> = {
-    allowance_approval: "APPROVAL",
+    allowance: "ALLOWANCE",
+    allowance_approval: "ALLOWANCE_APPROVAL",
     bridge_deposit: "BRIDGE_DEPOSIT",
     bridge_fill: "BRIDGE_FILL",
     bridge_intent_submission: "BRIDGE_INTENT_SUBMISSION",
@@ -8039,25 +8040,35 @@ function NexusWidgetInner({
   }, [closeDrawerToIdle, resetSourcePickerDraft]);
 
   const handleSourcePickerDraftSelectionChange = useCallback(
-    (tokens: SwapTokenOption[]) => {
+    (tokens: SwapTokenOption[], tab: SourceFilterTab = "custom") => {
       if (activeMode !== "deposit" && activeMode !== "send") return;
 
       setSourcePickerDraftSelection(tokens);
       sourcePickerDraftTouchedRef.current = true;
       sourcePickerDraftModeRef.current = "selected";
-      if (activeMode === "deposit") {
-        sourcePickerDraftDepositFilterRef.current = "custom";
-      }
+      sourcePickerDraftDepositFilterRef.current =
+        tab === "stables" ? "stablecoins" : tab;
     },
     [activeMode, setSourcePickerDraftSelection]
   );
 
   const handleSourcePickerFilterTabSelect = useCallback(
-    (tab: Exclude<SourceFilterTab, "custom">) => {
+    (tab: SourceFilterTab, scopedTokens?: SwapTokenOption[]) => {
       if (activeMode !== "deposit" && activeMode !== "send") return;
 
       const nextFilter: DepositSourceFilter =
         tab === "stables" ? "stablecoins" : tab;
+
+      if (tab === "custom") {
+        sourcePickerDraftDepositFilterRef.current = "custom";
+        sourcePickerDraftTouchedRef.current = true;
+        sourcePickerDraftModeRef.current = "selected";
+        return;
+      }
+      if (scopedTokens) {
+        handleSourcePickerDraftSelectionChange(scopedTokens, tab);
+        return;
+      }
 
       if (tab === "all") {
         sourcePickerDraftDepositFilterRef.current = nextFilter;
@@ -8085,6 +8096,7 @@ function NexusWidgetInner({
     [
       activeMode,
       getAutoExactOutSourceTokensForPicker,
+      handleSourcePickerDraftSelectionChange,
       getDepositSourceTokensForIds,
       getResolvedDepositSourceSelection,
       setSourcePickerDraftSelection,
@@ -8108,9 +8120,7 @@ function NexusWidgetInner({
 
       setSourceSelectionTouched(sourcePickerDraftTouchedRef.current);
       setExactOutQuoteSourceModeValue(sourcePickerDraftModeRef.current);
-      if (activeMode === "deposit") {
-        setDepositSourceFilter(sourcePickerDraftDepositFilterRef.current);
-      }
+      setDepositSourceFilter(sourcePickerDraftDepositFilterRef.current);
       invalidateExactOutQuoteForRefresh({
         sourceTokens: normalizedTokens,
       });
@@ -12028,13 +12038,11 @@ function NexusWidgetInner({
                 }
                 hideCustomTab={activeMode === "swap"}
                 initialFilterTab={
-                  activeMode === "deposit"
+                  activeMode === "deposit" || activeMode === "send"
                     ? depositSourceFilter === "stablecoins"
                       ? "stables"
                       : depositSourceFilter
-                    : activeMode === "send" && sourceSelectionTouched
-                      ? "custom"
-                      : "all"
+                    : "all"
                 }
                 isMulti={activeMode === "deposit" || activeMode === "send"}
                 lockedTokens={lockedDestinationSourceTokens}
