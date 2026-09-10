@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { EventEmitter } from "node:events";
 import React from "react";
+import { parseUnits } from "viem";
+import type { OnrampHistoryUpdate } from "../registry/avail-widgets/nexus-widget/utils/onramp-history";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { DepositFundingMethod } from "../registry/avail-widgets/nexus-widget/components/deposit-funding-method";
 import { DepositOnrampFlow } from "../registry/avail-widgets/nexus-widget/components/deposit-onramp-flow";
@@ -50,6 +52,11 @@ const mountFlow = async ({
   resume = true,
   quoteFlow = false,
   initialChainId = 8453,
+  destinationChainId = 8453,
+  settlementChainId = String(destinationChainId) as string | number,
+  receivedAmount = "10",
+  actualPaymentMethod = undefined as string | undefined,
+  actualSourceAmount = undefined as string | undefined,
 } = {}) => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
   logs = [];
@@ -83,6 +90,9 @@ const mountFlow = async ({
   let liveAccount = account;
   const quoteWallets: string[] = [];
   const states: Array<string | null> = [];
+  const historyUpdates: OnrampHistoryUpdate[] = [];
+  const depositedAmounts: bigint[] = [];
+  const submittedData: string[] = [];
   const statusRequests: RequestInit[] = [];
   const rpcResponse = (result: unknown) =>
     Response.json({ jsonrpc: "2.0", id: 1, result });
@@ -96,14 +106,27 @@ const mountFlow = async ({
               transaction: {
                 id: "meld-tx",
                 status: paymentStatus,
-                destinationAmount: 10,
-                cryptoDetails: { walletAddress: account, chainId: "8453" },
+                destinationAmount: Number(receivedAmount),
+                paymentMethodType: actualPaymentMethod,
+                sourceAmount: actualSourceAmount,
+                sourceCurrencyCode: actualSourceAmount ? "AED" : undefined,
+                cryptoDetails: {
+                  walletAddress: account,
+                  chainId: settlementChainId,
+                },
               },
             }
           : {
               sessionId: "session",
               state: paymentStatus,
-              transaction: { destinationAmount: "10", walletAddress: account },
+              transaction: {
+                destinationAmount: receivedAmount,
+                paymentMethodType: actualPaymentMethod,
+                sourceAmount: actualSourceAmount,
+                sourceCurrencyCode: actualSourceAmount ? "AED" : undefined,
+                walletAddress: account,
+                chainId: settlementChainId,
+              },
             },
       );
     }
@@ -133,7 +156,7 @@ const mountFlow = async ({
     switch (body.method) {
       case "eth_call":
         return rpcResponse(
-          `0x${(gasSwap ? (swaps ? 108_000_000 : 110_000_000) : 10_000_000).toString(16)}`,
+          `0x${(gasSwap ? (swaps ? 108_000_000 : 110_000_000) : parseUnits(receivedAmount, 6)).toString(16)}`,
         );
       case "eth_getTransactionReceipt":
         receiptCalls++;
@@ -178,8 +201,9 @@ const mountFlow = async ({
       approvals++;
       return hash;
     },
-    sendTransaction: async () => {
+    sendTransaction: async ({ data }: { data: string }) => {
       sends++;
+      submittedData.push(data);
       return hash;
     },
   };
@@ -214,21 +238,24 @@ const mountFlow = async ({
         walletClient={wallet ? (walletClient as any) : null}
         nexusSDK={sdk}
         opportunity={{
-          chainId: 8453,
+          chainId: destinationChainId,
           tokenAddress: token,
           tokenDecimals: 6,
           tokenSymbol: "USDC",
-          executeDeposit: (_symbol, _token, amount) => ({
+          executeDeposit: (_symbol, _token, amount) => {
+            depositedAmounts.push(amount);
+            return ({
             to: account,
             tokenApproval: needsApproval ? { toTokenAddress: token, spender: account, amount } : undefined,
             gas: BigInt(100000),
             value: BigInt(0),
             data: `0x${amount.toString(16).padStart(64, "0")}`,
-          }),
+            });
+          },
         }}
         toToken={
           {
-            chainId: 8453,
+            chainId: destinationChainId,
             contractAddress: token,
             decimals: 6,
             symbol: "USDC",
@@ -238,6 +265,7 @@ const mountFlow = async ({
         }
         onConnectWallet={() => { connectCalls++; }}
         onSessionStateChange={(state) => states.push(state)}
+        onSessionUpdate={(update) => historyUpdates.push(update)}
         primaryButtonForeground="#fff"
       />
   );
@@ -247,6 +275,9 @@ const mountFlow = async ({
   await flush();
   return {
     states,
+    historyUpdates,
+    depositedAmounts,
+    submittedData,
     setStatus: (value: string) => { paymentStatus = value; },
     statusRequests,
     sends: () => sends,
@@ -301,6 +332,36 @@ test("middleware settlement also waits for a real receipt; RPC failure retry che
   await flow.confirm();
   assert.equal(flow.states.at(-1), "DEPOSIT_SUCCESS");
 });
+
+for (const raw of [false, true]) {
+  for (const settlementChainId of ["10", "EVM_10", "0xa", 10]) {
+    test(`${raw ? "Meld" : "middleware"} Optimism settlement with chain ${JSON.stringify(settlementChainId)} confirms the deposit before success`, async () => {
+      const flow = await mountFlow({
+        raw,
+        destinationChainId: 10,
+        settlementChainId,
+      });
+      assert.equal(flow.sends(), 1);
+      assert.ok(!flow.states.includes("DEPOSIT_SUCCESS"));
+      await flow.confirm();
+      assert.equal(flow.states.at(-1), "DEPOSIT_SUCCESS");
+    });
+  }
+
+  test(`${raw ? "Meld" : "middleware"} settlement on a different chain blocks an Optimism deposit`, async () => {
+    const flow = await mountFlow({
+      raw,
+      destinationChainId: 10,
+      settlementChainId: "8453",
+    });
+    assert.equal(flow.sends(), 0);
+    assert.equal(flow.approvals(), 0);
+    assert.equal(flow.states.at(-1), "DEPOSIT_FAILED");
+    assert.ok(logs.some((log) =>
+      log.includes("The payment was delivered on a different chain"),
+    ));
+  });
+}
 
 test("settlement without a wallet requests reconnection and preserves the settled purchase", async () => {
   const flow = await mountFlow({ wallet: false });
@@ -368,6 +429,40 @@ const waitForQuotes = async () => {
   await flush();
 };
 const buttonText = (button: any) => button.children.filter((child: unknown) => typeof child === "string").join("");
+
+test("changed checkout amount and payment method drive the deposit, summary, and history", async () => {
+  const flow = await mountFlow({
+    resume: false, quoteFlow: true, receivedAmount: "14.57",
+    actualSourceAmount: "60", actualPaymentMethod: "APPLE_PAY",
+  });
+  await act(async () => renderer!.root.findByType("input").props.onChange({ target: { value: "50" } }));
+  await waitForQuotes();
+  const pay = renderer!.root.findAllByType("button").find((button) => buttonText(button).startsWith("Pay "))!;
+  assert.ok(pay && !pay.props.disabled);
+  await act(async () => pay.props.onClick());
+  await flush();
+  assert.equal(flow.sends(), 1);
+  assert.equal(BigInt(flow.submittedData[0]), parseUnits("14.57", 6));
+  assert.ok(flow.historyUpdates.some((update) => update.session.state === "PENDING"));
+  const update = flow.historyUpdates.at(-1)!;
+  assert.equal(update.context?.destinationAmount, "10");
+  assert.equal(update.context?.sourceAmount, "50");
+  assert.equal(update.context?.provider, "BANXA");
+  assert.equal(update.session.transaction?.destinationAmount, "14.57");
+  assert.equal(update.session.transaction?.sourceAmount, "60");
+  assert.equal(update.session.paymentMethodType, "APPLE_PAY");
+  await flow.confirm();
+  assert.equal(renderer!.root.findByProps({ label: "Payment method" }).props.value, "Apple Pay");
+  assert.match(renderer!.root.findByProps({ label: "Deposit amount" }).props.value, /14\.57/);
+  assert.match(renderer!.root.findByProps({ label: "Total charged" }).props.value, /60/);
+});
+
+test("failed onramp payments are reported to history without a deposit", async () => {
+  const flow = await mountFlow({ status: "FAILED", actualSourceAmount: "60" });
+  assert.equal(flow.sends(), 0);
+  assert.equal(flow.historyUpdates.at(-1)?.session.state, "FAILED");
+  assert.equal(flow.historyUpdates.at(-1)?.session.transaction?.sourceAmount, "60");
+});
 
 test("quotes show Connect Wallet for stale persisted addresses and refresh for the live account before Pay", async () => {
   const flow = await mountFlow({ resume: false, quoteFlow: true, providerConnected: false });

@@ -55,6 +55,13 @@ export type OnrampSessionResponse = {
 export const getNormalizedOnrampState = (state?: string | null) =>
   (state ?? "").trim().toUpperCase();
 
+export const ONRAMP_CLIENT_HEADER = "nexus-widgets";
+
+export const getOnrampBaseUrl = () =>
+  ((typeof process !== "undefined" &&
+    process.env.NEXT_PUBLIC_NEXUS_ONRAMP_BASE_URL?.trim()) ||
+    "https://nexus-v2.canary.avail.so/middleware").replace(/\/+$/, "");
+
 const TERMINAL_STATES = new Set([
   "SETTLED",
   "FAILED",
@@ -68,6 +75,21 @@ const TERMINAL_STATES = new Set([
 export const isOnrampTerminalState = (state?: string | null) =>
   TERMINAL_STATES.has(getNormalizedOnrampState(state));
 
+/** Middleware and Meld may encode the same EVM chain as 10, "10", "0xa", or "EVM_10". */
+const normalizeOnrampChainId = (value: unknown): number | undefined => {
+  if (value == null) return undefined;
+  let chainId = typeof value === "number" ? value : Number.NaN;
+  if (typeof value === "string") {
+    const id = value.trim().replace(/^EVM_/i, "");
+    if (/^(?:\d+|0x[\da-f]+)$/i.test(id)) chainId = Number(id);
+  }
+  // A supplied but unrecognized ID must not become an absent ID and bypass the chain check.
+  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+    throw new Error("The payment response contains an invalid chain ID.");
+  }
+  return chainId;
+};
+
 /** Accept both the middleware session envelope and Meld's documented transaction envelope. */
 export const normalizeOnrampSession = (
   payload: any,
@@ -78,6 +100,10 @@ export const normalizeOnrampSession = (
   const crypto = transaction?.cryptoDetails;
   const amount = (value: unknown) =>
     value == null ? undefined : String(value);
+  const text = (...values: unknown[]) =>
+    values.find((value): value is string =>
+      typeof value === "string" && value.trim().length > 0,
+    )?.trim();
   return {
     sessionId:
       currentSessionId ?? data.sessionId ?? data.externalSessionId ?? data.id,
@@ -85,9 +111,8 @@ export const normalizeOnrampSession = (
       transaction?.status ?? data.rawMeldStatus ?? data.status ?? data.state,
     ),
     rawMeldStatus: transaction?.status ?? data.rawMeldStatus ?? data.status,
-    provider:
-      data.provider ?? data.serviceProvider ?? transaction?.serviceProvider,
-    paymentMethodType: data.paymentMethodType ?? transaction?.paymentMethodType,
+    provider: text(transaction?.serviceProvider, data.provider, data.serviceProvider),
+    paymentMethodType: text(transaction?.paymentMethodType, data.paymentMethodType),
     createdAt: data.createdAt ?? transaction?.createdAt,
     updatedAt: data.updatedAt ?? transaction?.updatedAt,
     widgetUrl: data.serviceProviderWidgetUrl ?? data.widgetUrl,
@@ -103,13 +128,54 @@ export const normalizeOnrampSession = (
           sourceCurrencyCode: transaction.sourceCurrencyCode,
           txHash: crypto?.blockchainTransactionId ?? transaction.txHash,
           walletAddress: crypto?.walletAddress ?? transaction.walletAddress,
-          chainId:
-            crypto?.chainId == null
-              ? transaction.chainId
-              : Number(crypto.chainId),
+          chainId: normalizeOnrampChainId(
+            crypto?.chainId ?? transaction.chainId,
+          ),
         }
       : undefined,
   };
+};
+
+/** A partial status response must not erase previously reported payment details. */
+export const mergeOnrampSession = (
+  current: OnrampSessionResponse | null | undefined,
+  incoming: OnrampSessionResponse,
+): OnrampSessionResponse => {
+  const defined = <T extends object>(value: T) => Object.fromEntries(
+    Object.entries(value).filter(([, field]) => field != null && field !== ""),
+  ) as Partial<T>;
+  const merged: OnrampSessionResponse = {
+    ...current,
+    ...defined(incoming),
+    transaction: incoming.transaction
+      ? { ...current?.transaction, ...defined(incoming.transaction) }
+      : current?.transaction,
+  };
+  // Retained transaction status must not override a newer top-level status on the next normalization.
+  if (incoming.state) {
+    merged.rawMeldStatus = incoming.rawMeldStatus ?? incoming.state;
+    if (merged.transaction) merged.transaction = { ...merged.transaction, status: incoming.state };
+  }
+  return merged;
+};
+
+/** Read-only refresh shared by history; never executes a wallet transaction. */
+export const fetchOnrampSession = async (
+  baseUrl: string,
+  sessionId: string,
+  signal: AbortSignal,
+): Promise<OnrampSessionResponse> => {
+  const response = await fetch(
+    `${baseUrl.replace(/\/+$/, "")}/api/v1/onramp/sessions/${encodeURIComponent(sessionId)}`,
+    {
+      method: "GET",
+      cache: "no-store",
+      signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]),
+      headers: { "Content-Type": "application/json", "x-nexus-client": ONRAMP_CLIENT_HEADER },
+    },
+  );
+  if (!response.ok) throw new Error(`Unable to refresh payment status (${response.status}).`);
+  return normalizeOnrampSession(await response.json(), sessionId);
 };
 
 /** One request at a time. Refresh hints coalesce; stop aborts the request and clears the timer. */

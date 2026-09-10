@@ -40,10 +40,14 @@ import {
   getNormalizedOnrampState,
   isOnrampTerminalState,
   logOnramp,
+  getOnrampBaseUrl,
+  ONRAMP_CLIENT_HEADER,
+  mergeOnrampSession,
   normalizeOnrampSession,
   startOnrampPolling,
   type OnrampSessionResponse,
 } from "../utils/onramp-session";
+import type { OnrampHistoryUpdate } from "../utils/onramp-history";
 
 type OnrampCryptoCurrency = {
   chainCode?: string;
@@ -236,6 +240,7 @@ interface DepositOnrampFlowProps {
   onError?: (message: string) => void;
   onSelectDestinationToken?: (token: SwapTokenOption) => void;
   onSessionStateChange?: (state: string | null) => void;
+  onSessionUpdate?: (update: OnrampHistoryUpdate) => void;
   nexusSDK?: OnrampNexusSDK | null;
   ownerAddress?: string;
   opportunity?: NexusWidgetDepositOpportunityConfig;
@@ -244,8 +249,6 @@ interface DepositOnrampFlowProps {
   walletClient?: WalletClient | null;
 }
 
-const ONRAMP_CLIENT_HEADER = "nexus-widgets";
-const ONRAMP_DEFAULT_BASE_URL = "https://nexus-v2.canary.avail.so/middleware";
 const ONRAMP_RETURN_PATH = "/onramp/complete";
 const ONRAMP_IP_COUNTRY_URL = "https://api.country.is/";
 const ONRAMP_DISCONNECTED_QUOTE_WALLET_ADDRESS =
@@ -802,16 +805,6 @@ const writeCachedOnrampOptions = (
     ONRAMP_OPTIONS_CACHE_TTL_MS,
   );
 };
-
-// Next.js only inlines literal NEXT_PUBLIC references into browser bundles.
-const normalizeOnrampBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
-
-const getOnrampBaseUrl = () =>
-  normalizeOnrampBaseUrl(
-    (typeof process !== "undefined" &&
-      process.env.NEXT_PUBLIC_NEXUS_ONRAMP_BASE_URL?.trim()) ||
-      ONRAMP_DEFAULT_BASE_URL,
-  );
 
 const getOnrampReturnUrl = () =>
   (typeof process !== "undefined" &&
@@ -3083,10 +3076,9 @@ function OnrampSuccessPanel({
           label="Deposit amount"
           value={formatTokenAmountDisplay(destinationAmount, destinationSymbol)}
         />
-        <SummaryRow
-          label="Payment method"
-          value={getMethodLabel(paymentMethod)}
-        />
+        {paymentMethod && (
+          <SummaryRow label="Payment method" value={getMethodLabel(paymentMethod)} />
+        )}
         <SummaryRow
           label="Payment Partner"
           value={getProviderLabel(provider)}
@@ -3494,6 +3486,7 @@ export function DepositOnrampFlow({
   onError,
   onSelectDestinationToken,
   onSessionStateChange,
+  onSessionUpdate,
   nexusSDK,
   ownerAddress: persistedOwnerAddress,
   opportunity,
@@ -3553,6 +3546,10 @@ export function DepositOnrampFlow({
   onErrorRef.current = onError;
   const sessionRef = React.useRef(session);
   sessionRef.current = session;
+  const sessionHistoryRef = React.useRef<Omit<OnrampHistoryUpdate, "session"> | null>(null);
+  const sessionQuoteRef = React.useRef<OnrampQuote | null>(null);
+  const sessionUpdateRef = React.useRef(onSessionUpdate);
+  sessionUpdateRef.current = onSessionUpdate;
   const ownerRef = React.useRef(ownerAddress);
   ownerRef.current = ownerAddress;
   const refreshSessionRef = React.useRef<(() => void) | null>(null);
@@ -3964,10 +3961,7 @@ export function DepositOnrampFlow({
             { signal: controller.signal },
           );
           checkActive();
-          settledSession = {
-            ...session,
-            ...normalizeOnrampSession(payload, sessionId),
-          };
+          settledSession = mergeOnrampSession(session, normalizeOnrampSession(payload, sessionId));
           setSession(settledSession);
         }
         if (!opportunity || !toToken || !ownerAddress || !walletClient) {
@@ -4850,6 +4844,12 @@ export function DepositOnrampFlow({
   }, [fetchQuotes, selectedQuote, session?.sessionId, sessionLoading]);
 
   React.useEffect(() => {
+    if (session?.sessionId && sessionHistoryRef.current) {
+      sessionUpdateRef.current?.({ ...sessionHistoryRef.current, session });
+    }
+  }, [session]);
+
+  React.useEffect(() => {
     const derivedSessionState =
       depositExecution.status === "running"
         ? "COMPLETING_DEPOSIT"
@@ -4903,13 +4903,18 @@ export function DepositOnrampFlow({
     if (!normalizedSessionId) return;
     if (depositBusyRef.current || pendingDepositRef.current) return;
     logOnramp("session.manual_resume", { sessionId: normalizedSessionId });
+    sessionHistoryRef.current = {
+      ownerAddress: ownerRef.current ?? persistedOwnerAddress ?? "",
+      context: { chainId: toToken?.chainId, tokenSymbol: toToken?.symbol },
+    };
+    sessionQuoteRef.current = null;
     setSessionCallbackReceived(true);
     setSession({
       sessionId: normalizedSessionId,
       state: "AWAITING_USER",
     });
     setError(null);
-  }, []);
+  }, [persistedOwnerAddress, toToken?.chainId, toToken?.symbol]);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -4995,14 +5000,7 @@ export function DepositOnrampFlow({
         previousState = data.state;
         setSession((current) =>
           current?.sessionId === sessionId
-            ? {
-                ...current,
-                ...data,
-                state: data.state || current.state,
-                transaction: data.transaction
-                  ? { ...current.transaction, ...data.transaction }
-                  : current.transaction,
-              }
+            ? mergeOnrampSession(current, data)
             : current,
         );
         setError(null);
@@ -5175,6 +5173,21 @@ export function DepositOnrampFlow({
         throw new Error(
           "Payment session ID was not returned. Unable to track this payment.",
         );
+      sessionHistoryRef.current = {
+        ownerAddress,
+        context: {
+          chainId: toToken?.chainId,
+          tokenSymbol: toToken?.symbol,
+          destinationAmount: selectedQuote.destinationAmount,
+          sourceAmount: selectedQuote.sourceAmount,
+          sourceCurrencyCode: selectedQuote.sourceCurrencyCode,
+          provider: selectedQuote.provider,
+          paymentMethodType: selectedPaymentMethod,
+        },
+      };
+      sessionQuoteRef.current = selectedQuote;
+      // Save before navigating the provider window so pending purchases survive closing the widget.
+      sessionUpdateRef.current?.({ ...sessionHistoryRef.current, session: normalized });
       setSession(normalized);
       pendingApprovalRef.current = null;
       remainingDepositRef.current = null;
@@ -5470,7 +5483,7 @@ export function DepositOnrampFlow({
           onRetryPayment={resetSession}
           opportunity={opportunity}
           primaryButtonForeground={primaryButtonForeground}
-          quote={selectedQuote}
+          quote={sessionQuoteRef.current ?? selectedQuote}
           session={session}
           sessionCallbackReceived={sessionCallbackReceived}
           sourceAmount={sourceAmount}

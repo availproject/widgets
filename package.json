@@ -18,7 +18,7 @@
     "build": "pnpm postinstall && next build",
     "start": "next start",
     "lint": "next lint",
-    "test:onramp": "node --import tsx --test tests/onramp.test.tsx",
+    "test:onramp": "node --import tsx --test tests/onramp.test.tsx tests/onramp-chain-id.test.ts tests/onramp-history.test.tsx",
     "build:registry": "shadcn build",
     "build:registry:json": "npx tsx scripts/build-registry/index.ts",
     "build:registry:branch": "pnpm build:registry:json -- --base-url availproject/widgets && pnpm build:registry",

@@ -52,6 +52,9 @@ import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
 import { DepositFundingMethod } from "./components/deposit-funding-method";
 import { DepositIdleForm } from "./components/deposit-idle-form";
 import { DepositOnrampFlow } from "./components/deposit-onramp-flow";
+import { OnrampHistoryCard } from "./components/onramp-history-card";
+import { useOnrampHistory } from "./utils/use-onramp-history";
+import type { OnrampHistoryEntry } from "./utils/onramp-history";
 import { readOnrampWalletAddress, withOnrampWalletTimeout } from "./utils/use-onramp-wallet";
 import {
   type NexusWidgetProgressEvent,
@@ -156,6 +159,10 @@ interface SwapHistoryEntry {
   status: SwapHistoryStatus;
   toToken?: SwapTokenOption;
 }
+
+type TransactionHistoryEntry = SwapHistoryEntry | OnrampHistoryEntry;
+const isOnrampHistoryEntry = (entry: TransactionHistoryEntry): entry is OnrampHistoryEntry =>
+  "kind" in entry && entry.kind === "onramp";
 
 type HistorySourceRow = {
   amount: string;
@@ -1090,7 +1097,7 @@ const sanitizeHistoryEntry = (entry: SwapHistoryEntry): SwapHistoryEntry => ({
   opportunity: sanitizeOpportunityForHistory(entry.opportunity),
 });
 
-const sortSwapHistoryEntries = (entries: SwapHistoryEntry[]) =>
+const sortSwapHistoryEntries = <T extends { createdAt: number; startedAt: number }>(entries: T[]) =>
   [...entries].sort(
     (a, b) =>
       (b.createdAt ?? b.startedAt ?? 0) - (a.createdAt ?? a.startedAt ?? 0),
@@ -3176,7 +3183,7 @@ function SwapHistoryPanel({
   entries,
   now,
 }: {
-  entries: SwapHistoryEntry[];
+  entries: TransactionHistoryEntry[];
   now: number;
 }) {
   if (entries.length === 0) {
@@ -3255,6 +3262,18 @@ function SwapHistoryPanel({
       }}
     >
       {sortedEntries.map((entry) => {
+        if (isOnrampHistoryEntry(entry)) {
+          const chainId = entry.session.transaction?.chainId ?? entry.context.chainId;
+          const explorerBase = getExplorerBaseUrl(chainId);
+          const txHash = getTransactionHash(entry.session.transaction?.txHash);
+          return <OnrampHistoryCard
+            key={entry.id}
+            entry={entry}
+            chainName={chainId ? CHAIN_METADATA[chainId]?.name ?? `Chain ${chainId}` : undefined}
+            relativeTime={getRelativeTime(entry.createdAt, now)}
+            explorerUrl={explorerBase && txHash ? `${explorerBase.replace(/\/+$/, "")}/tx/${txHash}` : undefined}
+          />;
+        }
         const destination = entry.intentData?.destination;
         const destinationLogo =
           destination?.token.logo ||
@@ -4107,6 +4126,10 @@ function NexusWidgetInner({
   const [swapHistory, setSwapHistory] = useState<SwapHistoryEntry[]>(() =>
     readSwapHistoryFromStorage(historyStorageKey),
   );
+  const { entries: onrampHistory, recordSession: recordOnrampSession } = useOnrampHistory({
+    ownerAddress,
+    active: swapStep === "history",
+  });
   const [currentSwapId, setCurrentSwapId] = useState<string | null>(null);
   const [historyNow, setHistoryNow] = useState(() => Date.now());
   const currentSwapIdRef = useRef<string | null>(null);
@@ -10189,7 +10212,7 @@ function NexusWidgetInner({
     swapStep === "history" ||
     (isDepositWalletScreen && configuredEnableOnRamp) ||
     (isDepositOnrampScreen && !hasDepositOnrampSession);
-  const showHistoryButton = !(isDepositMethodScreen || isDepositOnrampScreen);
+  const showHistoryButton = !isDepositOnrampScreen;
   const handleBack = () => {
     if (
       activeMode === "deposit" &&
@@ -11125,6 +11148,7 @@ function NexusWidgetInner({
             )}
             {showHistoryButton && (
               <button
+                aria-label="Transaction history"
                 onClick={() => setSwapStep("history")}
                 style={{
                   alignItems: "center",
@@ -11333,7 +11357,7 @@ function NexusWidgetInner({
           {/* HISTORY SCREEN                                                   */}
           {/* =============================================================== */}
           {swapStep === "history" && (
-            <SwapHistoryPanel entries={swapHistory} now={historyNow} />
+            <SwapHistoryPanel entries={[...swapHistory, ...onrampHistory]} now={historyNow} />
           )}
 
           {/* =============================================================== */}
@@ -11559,6 +11583,7 @@ function NexusWidgetInner({
                       setToToken(token);
                     }}
                     onSessionStateChange={setDepositOnrampSessionState}
+                    onSessionUpdate={recordOnrampSession}
                     nexusSDK={nexusSDK}
                     ownerAddress={ownerAddress}
                     opportunity={selectedOpportunity}

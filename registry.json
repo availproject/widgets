@@ -904,6 +904,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/components/onramp-history-card.tsx",
+          "target": "components/nexus/components/onramp-history-card.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/pay-using-selector.tsx",
           "target": "components/nexus/components/pay-using-selector.tsx",
           "type": "registry:component"
@@ -979,8 +984,18 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/utils/onramp-history.ts",
+          "target": "components/nexus/utils/onramp-history.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/utils/onramp-session.ts",
           "target": "components/nexus/utils/onramp-session.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/utils/use-onramp-history.ts",
+          "target": "components/nexus/utils/use-onramp-history.ts",
           "type": "registry:component"
         },
         {
