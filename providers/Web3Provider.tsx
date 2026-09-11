@@ -208,7 +208,16 @@ function NexusContainer({ children }: Readonly<{ children: React.ReactNode }>) {
   }, []);
 
   const nexusConfig = useMemo(
-    () => ({ network: network, debug: true }),
+    () => ({
+      network,
+      debug: true,
+      identity: {
+        clientId: process.env.NEXT_PUBLIC_NEXUS_CLIENT_ID || "avail-widgets",
+      },
+      observability: {
+        disableLogging: process.env.NEXT_PUBLIC_NEXUS_WIDGET_DISABLE_LOGGING === "true",
+      },
+    }),
     [network],
   );
 

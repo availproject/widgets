@@ -48,6 +48,7 @@ import {
   TOKEN_CONTRACT_ADDRESSES,
   TOKEN_METADATA,
 } from "../common/utils/constant";
+import { useWidgetTelemetry } from "./use-widget-telemetry";
 import { type UserAsset, useNexus } from "../nexus/NexusProvider";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
@@ -3570,6 +3571,9 @@ function NexusWidgetInner({
     swapIntent: providerSwapIntent,
     network,
     loading: nexusLoading,
+    identity,
+    observability,
+    widgetObservationHub,
   } = useNexus();
   const appConfig = useMemo(
     () => ({
@@ -3684,6 +3688,10 @@ function NexusWidgetInner({
           walletClientAddress.toLowerCase() !== zeroAddress
         ? walletClientAddress
         : undefined;
+  const telemetry = useWidgetTelemetry({
+    identity, config: observability, mode: activeMode, walletAddress: ownerAddress,
+    hub: widgetObservationHub,
+  });
   const getEffectiveWalletProvider = useCallback(
     async (activeConnector = connector) => {
       let connectorProvider: unknown;
@@ -3955,59 +3963,16 @@ function NexusWidgetInner({
   }>({ sourceExplorerUrl: null, destinationExplorerUrl: null });
   const swapRunIdRef = useRef(0);
 
-  const widgetSessionIdRef = useRef<string>(
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  );
-  const widgetAttemptIdRef = useRef<string | null>(null);
-  const widgetOpenedTsRef = useRef<number>(Date.now());
-  const previewViewedTsRef = useRef<number | null>(null);
-  const previewConfirmedTsRef = useRef<number | null>(null);
-  const attemptCountRef = useRef(0);
   const fundsMovedRef = useRef(false);
   const intentUrlRef = useRef<string | null>(null);
-  const hadSimulationSuccessRef = useRef(false);
-  const hadPreviewViewedRef = useRef(false);
-  const widgetOpenedFiredRef = useRef(false);
-  const reachedTerminalRef = useRef(false);
   const lastIntentSourceTokensRef = useRef<SwapTokenOption[]>([]);
   const lastAutoIntentSourceTokensRef = useRef<SwapTokenOption[]>([]);
   const immediateQuoteAfterSourceEditRef = useRef(false);
-  const amountEnteredLastValueRef = useRef<string>("");
-  const lastInputMethodRef = useRef<
-    | "typed"
-    | "percent_20"
-    | "percent_25"
-    | "percent_50"
-    | "percent_75"
-    | "percent_max"
-  >("typed");
-  const prevSourceTouchedRef = useRef(false);
-  const previousAutoSourceCountRef = useRef(0);
-  const analyticsRef = useRef<{
-    track: (event: string, properties?: Record<string, unknown>) => void;
-  } | null>(null);
-  const selectedOpportunityRef = useRef<NexusWidgetDepositOpportunityConfig | undefined>(
-    undefined
-  );
-
-  const newAttemptId = useCallback(() => {
-    return typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  }, []);
-
   const rotateAttempt = useCallback(() => {
-    widgetAttemptIdRef.current = newAttemptId();
-    previewViewedTsRef.current = null;
-    previewConfirmedTsRef.current = null;
+    telemetry.resetAttempt();
     fundsMovedRef.current = false;
     intentUrlRef.current = null;
-    hadSimulationSuccessRef.current = false;
-    hadPreviewViewedRef.current = false;
-    reachedTerminalRef.current = false;
-  }, [newAttemptId]);
+  }, [telemetry]);
   const [intentToAmount, setIntentToAmount] = useState<string | undefined>(
     undefined
   );
@@ -6729,6 +6694,7 @@ function NexusWidgetInner({
           raw: data,
         });
         finishIntentFetchTiming(runId, "failed");
+        telemetry.quoteFailed(runId);
         deny();
         setIntentLoading(false);
         setQuoteRefreshing(false);
@@ -6741,22 +6707,26 @@ function NexusWidgetInner({
       const normalizedRefresh =
         typeof refresh === "function"
           ? async (...args: unknown[]) => {
-              const refreshed = await refresh(...args);
-              const refreshedBridgeProvider = normalizeBridgeProvider(
-                refreshed?.bridgeProvider ??
-                  refreshed?.normalizedIntent?.bridgeProvider ??
-                  refreshed?.swap?.bridgeProvider ??
-                  bridgeProvider
-              );
-              return (
-                normalizeRenderableSwapIntentData(
-                  refreshed,
-                  refreshedBridgeProvider
-                ) ?? refreshed
-              );
+              const finish = telemetry.startCall("refresh", "quote");
+              try {
+                const refreshed = await refresh(...args);
+                const refreshedBridgeProvider = normalizeBridgeProvider(
+                  refreshed?.bridgeProvider ??
+                    refreshed?.normalizedIntent?.bridgeProvider ??
+                    refreshed?.swap?.bridgeProvider ??
+                    bridgeProvider
+                );
+                const normalized = normalizeRenderableSwapIntentData(refreshed, refreshedBridgeProvider);
+                finish(normalized ? "succeeded" : "failed");
+                return normalized ?? refreshed;
+              } catch (error) {
+                finish("failed", error);
+                throw error;
+              }
             }
           : refresh;
       finishIntentFetchTiming(runId);
+      telemetry.quoteReady(runId);
       providerSwapIntent.current = {
         intent: intentWithBridgeProvider as any,
         allow,
@@ -6779,7 +6749,7 @@ function NexusWidgetInner({
         setPreviewQuoteRefreshing(false);
       });
     },
-    [applySwapIntent, finishIntentFetchTiming, providerSwapIntent]
+    [applySwapIntent, finishIntentFetchTiming, providerSwapIntent, telemetry]
   );
 
   // Deposit-specific
@@ -6832,72 +6802,6 @@ function NexusWidgetInner({
     toToken?.priceUSD,
     toToken?.symbol,
   ]);
-
-  const trackDeposit = useCallback(
-    (event: string, props?: Record<string, unknown>) => {
-      const analytics = nexusSDK?.analytics;
-      if (!analytics) return;
-      analytics.track(event, {
-        widgetSessionId: widgetSessionIdRef.current,
-        widgetAttemptId: widgetAttemptIdRef.current,
-        opportunityProtocol: selectedOpportunity?.protocol ?? null,
-        destinationChainId: selectedOpportunity?.chainId ?? null,
-        destinationToken: selectedOpportunity?.tokenSymbol ?? null,
-        ...props,
-      });
-    },
-    [nexusSDK, selectedOpportunity]
-  );
-
-  useEffect(() => {
-    if (activeMode !== "deposit") return;
-    if (!nexusSDK?.analytics) return;
-    if (widgetOpenedFiredRef.current) return;
-    widgetOpenedFiredRef.current = true;
-    widgetOpenedTsRef.current = Date.now();
-    rotateAttempt();
-    trackDeposit("deposit_widget_opened", {
-      embed: Boolean(embed),
-      depositConfigured: Boolean(configuredDeposit),
-      prefillAmountPresent: Boolean(config.prefill?.amount),
-    });
-  }, [
-    activeMode,
-    nexusSDK,
-    embed,
-    configuredDeposit,
-    config.prefill,
-    rotateAttempt,
-    trackDeposit,
-  ]);
-
-  useEffect(() => {
-    analyticsRef.current = nexusSDK?.analytics ?? null;
-  }, [nexusSDK]);
-
-  useEffect(() => {
-    selectedOpportunityRef.current = selectedOpportunity;
-  }, [selectedOpportunity]);
-
-  useEffect(() => {
-    return () => {
-      if (!widgetOpenedFiredRef.current) return;
-      const analytics = analyticsRef.current;
-      if (!analytics) return;
-      const opp = selectedOpportunityRef.current;
-      analytics.track("deposit_widget_closed", {
-        widgetSessionId: widgetSessionIdRef.current,
-        widgetAttemptId: widgetAttemptIdRef.current,
-        opportunityProtocol: opp?.protocol ?? null,
-        lastStep: swapStepRef.current,
-        reachedTerminal: reachedTerminalRef.current,
-        hadSimulationSuccess: hadSimulationSuccessRef.current,
-        hadPreviewViewed: hadPreviewViewedRef.current,
-        timeInWidgetMs: Date.now() - widgetOpenedTsRef.current,
-      });
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const toTokenFromOpportunity = (
     opp: NexusWidgetDepositOpportunityMetadata
@@ -7506,84 +7410,6 @@ function NexusWidgetInner({
     swapType,
   ]);
 
-  useEffect(() => {
-    if (activeMode !== "deposit") return;
-    if (!nexusSDK?.analytics) return;
-    const parsed = parseFiatNumber(amount);
-    if (!parsed || parsed.lte(0)) return;
-    if (amount === amountEnteredLastValueRef.current) return;
-    const timeout = setTimeout(() => {
-      amountEnteredLastValueRef.current = amount;
-      trackDeposit("deposit_amount_entered", {
-        amountToken: depositTokenDisplay,
-        amountUsd: Number(depositUsdDisplay) || 0,
-        inputMethod: lastInputMethodRef.current,
-      });
-      lastInputMethodRef.current = "typed";
-    }, 500);
-    return () => clearTimeout(timeout);
-  }, [
-    amount,
-    activeMode,
-    nexusSDK,
-    depositTokenDisplay,
-    depositUsdDisplay,
-    trackDeposit,
-  ]);
-
-  useEffect(() => {
-    if (activeMode !== "deposit") return;
-    if (intentData) hadSimulationSuccessRef.current = true;
-  }, [intentData, activeMode]);
-
-  useEffect(() => {
-    if (activeMode !== "deposit") return;
-    if (sourceSelectionTouched) return;
-    previousAutoSourceCountRef.current = (intentData?.sources ?? []).length;
-  }, [intentData, activeMode, sourceSelectionTouched]);
-
-  useEffect(() => {
-    if (activeMode !== "deposit") return;
-    const prev = prevSourceTouchedRef.current;
-    const curr = sourceSelectionTouched;
-    if (prev === curr) return;
-    prevSourceTouchedRef.current = curr;
-    if (!prev && curr) {
-      trackDeposit("deposit_source_selection_changed", {
-        sourceCount: fromTokens.length,
-        sourceChainIds: fromTokens.map((t) => t.chainId).filter(Boolean),
-        sourceTokenSymbols: fromTokens.map((t) => t.symbol).filter(Boolean),
-        previousSourceCount: previousAutoSourceCountRef.current,
-      });
-    } else if (prev && !curr) {
-      trackDeposit("deposit_source_selection_reverted_to_auto", {
-        previousSourceCount: fromTokens.length,
-      });
-    }
-  }, [sourceSelectionTouched, activeMode, fromTokens, trackDeposit]);
-
-  useEffect(() => {
-    if (activeMode !== "deposit") return;
-    if (swapStep !== "preview-intent") return;
-    if (intentLoading) return;
-    if (!intentData) return;
-    if (hadPreviewViewedRef.current) return;
-    hadPreviewViewedRef.current = true;
-    previewViewedTsRef.current = Date.now();
-    trackDeposit("deposit_preview_viewed", {
-      totalFeeUsd: Number(intentFeeUsd) || 0,
-      toAmountUsd: Number(depositUsdDisplay) || 0,
-      sourceCount: (intentData?.sources ?? []).length,
-    });
-  }, [
-    swapStep,
-    intentLoading,
-    intentData,
-    activeMode,
-    intentFeeUsd,
-    depositUsdDisplay,
-    trackDeposit,
-  ]);
   const requiredDestinationTokenAmount =
     activeMode === "deposit"
       ? depositTokenAmountForQuote
@@ -8283,7 +8109,7 @@ function NexusWidgetInner({
     setCurrentSwapId(null);
     currentSwapIdRef.current = null;
     currentSwapStartedAtRef.current = 0;
-    amountEnteredLastValueRef.current = config.prefill?.amount ?? "";
+
     applyConfiguredPrefillsAfterReset();
     rotateAttempt();
   };
@@ -8343,7 +8169,7 @@ function NexusWidgetInner({
     setCurrentSwapId(null);
     currentSwapIdRef.current = null;
     currentSwapStartedAtRef.current = 0;
-    amountEnteredLastValueRef.current = "";
+
     rotateAttempt();
   };
 
@@ -8355,6 +8181,7 @@ function NexusWidgetInner({
       }
       onOpenChange?.(open);
       if (!open) {
+        telemetry.stopBeforeExecution();
         clearPendingSwapIntent();
         onClose?.();
       }
@@ -8367,6 +8194,7 @@ function NexusWidgetInner({
       handleModalOpenChange(false);
       return;
     }
+    telemetry.stopBeforeExecution();
     clearPendingSwapIntent();
     onClose?.();
   };
@@ -8517,14 +8345,7 @@ function NexusWidgetInner({
       return;
     }
 
-    if (!background && activeMode === "deposit") {
-      trackDeposit("deposit_confirm_clicked", {
-        amountToken: depositTokenDisplay,
-        amountUsd: Number(depositUsdDisplay) || 0,
-        selectionMode: sourceSelectionTouched ? "manual" : "auto",
-        sourceCount: (intentData?.sources ?? []).length,
-      });
-    }
+
 
     setTxError(null);
     setSwapQuoteIssue(null);
@@ -8816,6 +8637,7 @@ function NexusWidgetInner({
         });
         return;
       }
+      telemetry.observeEvent(runId, event);
       patchCurrentIntentExplorerUrl(
         getEventIntentExplorerUrl(appConfig.nexusNetwork, event)
       );
@@ -8854,13 +8676,13 @@ function NexusWidgetInner({
     };
 
     const executeRecipientTransfer = async (transferAmount: bigint) => {
-      const result = await nexusSDK.execute(
+      const result = await telemetry.observe("execute", "execution", () => nexusSDK.execute(
         {
           toChainId: toToken.chainId!,
           ...buildRecipientTransferExecuteConfig(transferAmount),
         },
         { onEvent }
-      );
+      ));
       const finalExplorerUrl =
         getSdkExplorerUrl(result) ||
         getExplorerTxUrl(
@@ -8954,10 +8776,10 @@ function NexusWidgetInner({
               quoteInputKey,
               runId,
             });
-            const result = await sdkWithOptionalTransfer.swapAndTransfer(
+            const result = await telemetry.observeSwap<any>("swapAndTransfer", runId, () => sdkWithOptionalTransfer.swapAndTransfer(
               swapAndTransferExactInInput,
               { onEvent }
-            );
+            ));
             if (result?.success === false) {
               throw new Error(result?.error || "Swap and transfer failed");
             }
@@ -8998,13 +8820,13 @@ function NexusWidgetInner({
               quoteInputKey,
               runId,
             });
-            const result = await nexusSDK.swapWithExactIn(exactInSwapPayload, {
+            const result = await telemetry.observeSwap("swapWithExactIn", runId, () => nexusSDK.swapWithExactIn(exactInSwapPayload, {
               hooks: {
                 onIntent: (data) =>
                   handleSwapIntentCallback(data, runId, quoteInputKey),
               },
               onEvent,
-            });
+            }));
 
             intentExplorerUrl = getSdkIntentExplorerUrlForNetwork(
               appConfig.nexusNetwork,
@@ -9047,13 +8869,13 @@ function NexusWidgetInner({
             quoteInputKey,
             runId,
           });
-          const result = await nexusSDK.swapWithExactIn(exactInSwapPayload, {
+          const result = await telemetry.observeSwap("swapWithExactIn", runId, () => nexusSDK.swapWithExactIn(exactInSwapPayload, {
             hooks: {
               onIntent: (data) =>
                 handleSwapIntentCallback(data, runId, quoteInputKey),
             },
             onEvent,
-          });
+          }));
           intentExplorerUrl = getSdkIntentExplorerUrlForNetwork(
             appConfig.nexusNetwork,
             result
@@ -9218,22 +9040,22 @@ function NexusWidgetInner({
           });
           const result =
             isTransferExactOut
-              ? await sdkWithOptionalTransfer.swapAndTransfer(
+              ? await telemetry.observeSwap<any>("swapAndTransfer", runId, () => sdkWithOptionalTransfer.swapAndTransfer(
                   exactOutOperationInput,
                   {
                     onEvent,
                     onIntent: (data: any) =>
                       handleSwapIntentCallback(data, runId, quoteInputKey),
                   }
-                )
-              : await nexusSDK.swapAndExecute(
+                ))
+              : await telemetry.observeSwap("swapAndExecute", runId, () => nexusSDK.swapAndExecute(
                   exactOutOperationInput as any,
                   {
                     onEvent,
                     onIntent: (data) =>
                       handleSwapIntentCallback(data, runId, quoteInputKey),
                   }
-                );
+                ));
 
           const swapResult = result?.swapResult ?? result?.result ?? null;
           const swapSkipped = Boolean((result as any)?.swapSkipped);
@@ -9294,7 +9116,7 @@ function NexusWidgetInner({
             quoteInputKey,
             runId,
           });
-          const result = await nexusSDK.swapWithExactOut(
+          const result = await telemetry.observeSwap("swapWithExactOut", runId, () => nexusSDK.swapWithExactOut(
             exactOutSwapInput,
             {
               hooks: {
@@ -9303,7 +9125,7 @@ function NexusWidgetInner({
               },
               onEvent,
             }
-          );
+          ));
           const intentExplorerUrl = getSdkIntentExplorerUrlForNetwork(
             appConfig.nexusNetwork,
             result
@@ -9337,19 +9159,7 @@ function NexusWidgetInner({
           finishCurrentSwapHistoryEntry("fulfilled");
           resetInputsAfterSuccessfulExecution();
           onComplete?.();
-          if (activeMode === "deposit") {
-            reachedTerminalRef.current = true;
-            const now = Date.now();
-            trackDeposit("deposit_completed", {
-              postConfirmDurationMs: previewConfirmedTsRef.current
-                ? now - previewConfirmedTsRef.current
-                : 0,
-              totalDurationMs: now - widgetOpenedTsRef.current,
-              attemptCount: attemptCountRef.current,
-              amountToken: depositTokenDisplay,
-              amountUsd: Number(depositUsdDisplay) || 0,
-            });
-          }
+
           setSwapStep("success");
         }
       }
@@ -9364,54 +9174,7 @@ function NexusWidgetInner({
         return;
       }
       finishIntentFetchTiming(runId, "failed");
-      if (activeMode === "deposit" && err?.code !== "USER_DENIED_INTENT") {
-        const hasActiveExecution =
-          swapStepRef.current === "progress" &&
-          Boolean(currentSwapIdRef.current);
-        const isInsufficient = isInsufficientSourcesError(err);
-        const errMessage =
-          (typeof err?.message === "string" ? err.message : "") ||
-          (typeof err === "string" ? err : "");
-        const errName = typeof err?.name === "string" ? err.name : "";
-        const isTimeout = isTimeoutLikeError(err);
-        const isUserRejected =
-          err?.code === 4001 ||
-          err?.code === "ACTION_REJECTED" ||
-          errName === "UserRejectedRequestError" ||
-          /user rejected|user denied/i.test(errMessage);
-        const failedAtStep:
-          | "simulation"
-          | "nexus_operation"
-          | "execute_leg"
-          | "unknown" = !hasActiveExecution ? "simulation" : "nexus_operation";
-        const errorCategory: string = isUserRejected
-          ? "user_rejected"
-          : isTimeout
-            ? "timeout"
-            : isInsufficient
-              ? "no_eligible_sources"
-              : !hasActiveExecution
-                ? "quote_failed"
-                : fundsMovedRef.current
-                  ? "pending_after_funds_moved"
-                  : "execution_failed";
-        reachedTerminalRef.current = true;
-        if (fundsMovedRef.current) {
-          trackDeposit("deposit_pending_after_funds_moved", {
-            errorCode: err?.code ?? "UNKNOWN",
-            errorMessage: errMessage || "Transaction pending.",
-            intentUrl: intentUrlRef.current,
-            failedAtStep,
-          });
-        } else {
-          trackDeposit("deposit_failed", {
-            errorCode: err?.code ?? "UNKNOWN",
-            errorCategory,
-            errorMessage: errMessage || "Transaction failed.",
-            failedAtStep,
-          });
-        }
-      }
+
       setQuoteRefreshing(false);
       setIntentLoading(false);
       setReceiveMaxCalculating(false);
@@ -9965,18 +9728,7 @@ function NexusWidgetInner({
         setSwapStep("idle");
         return;
       }
-      if (activeMode === "deposit") {
-        previewConfirmedTsRef.current = Date.now();
-        attemptCountRef.current += 1;
-        const timeInPreviewMs = previewViewedTsRef.current
-          ? previewConfirmedTsRef.current - previewViewedTsRef.current
-          : 0;
-        trackDeposit("deposit_preview_confirmed", {
-          timeInPreviewMs,
-          totalFeeUsd: Number(intentFeeUsd) || 0,
-          sourceCount: (intentData?.sources ?? []).length,
-        });
-      }
+
       onStart?.();
       startSwapHistoryEntry();
       setSwapStep("progress");
@@ -9987,6 +9739,7 @@ function NexusWidgetInner({
       } else {
         resetSteps();
       }
+      telemetry.accept(activeIntent.runId);
       activeIntent.allow();
     }
   };
@@ -10229,16 +9982,7 @@ function NexusWidgetInner({
     setTxError(null);
     setSwapQuoteIssue(null);
     const runId = ++maxPercentRunRef.current;
-    lastInputMethodRef.current =
-      pct === 20
-        ? "percent_20"
-        : pct === 25
-          ? "percent_25"
-          : pct === 50
-            ? "percent_50"
-            : pct === 75
-              ? "percent_75"
-              : "percent_max";
+
 
     if (pct !== 100) {
       const nextAmount = getExactOutPercentAmountFromBalance(
@@ -10289,16 +10033,7 @@ function NexusWidgetInner({
     setTxError(null);
     setSwapQuoteIssue(null);
     const runId = ++maxPercentRunRef.current;
-    lastInputMethodRef.current =
-      pct === 20
-        ? "percent_20"
-        : pct === 25
-          ? "percent_25"
-          : pct === 50
-            ? "percent_50"
-            : pct === 75
-              ? "percent_75"
-              : "percent_max";
+
 
     if (pct !== 100) {
       const nextAmount = getExactOutPercentAmountFromBalance(
@@ -11095,6 +10830,7 @@ function NexusWidgetInner({
                       mode={activeMode}
                       onAccept={handleSwapAccept}
                       onReject={() => {
+                        telemetry.stopBeforeExecution("rejected");
                         clearPendingSwapIntent();
                         setSwapStep("idle");
                       }}

@@ -63,7 +63,16 @@ import {
   USD_PEGGED_FALLBACK_RATE,
 } from "../common/utils/token-pricing";
 
+import {
+  createWidgetObservationHub,
+  type NexusIdentity,
+  type NexusObservabilityConfig,
+} from "./widget-observability";
+
 interface NexusContextType {
+  identity?: NexusIdentity;
+  observability?: NexusObservabilityConfig;
+  widgetObservationHub: ReturnType<typeof createWidgetObservationHub>;
   allowance: RefObject<OnAllowanceHookData | null>;
   attachEventHooks: () => void;
   bridgableBalance: UserAsset[] | null;
@@ -99,13 +108,17 @@ export const NexusContext = createContext<NexusContextType | undefined>(
   undefined,
 );
 
-type NexusProviderProps = {
+export interface NexusProviderConfig {
+  network?: NexusNetwork;
+  debug?: boolean;
+  mode?: "deposit" | "swap" | "send";
+  identity?: NexusIdentity;
+  observability?: NexusObservabilityConfig;
+}
+
+export type NexusProviderProps = {
   children: React.ReactNode;
-  config?: {
-    network?: NexusNetwork;
-    debug?: boolean;
-    mode?: "deposit" | "swap" | "send";
-  };
+  config?: NexusProviderConfig;
 };
 
 const defaultConfig: NexusProviderProps["config"] = {
@@ -182,11 +195,12 @@ const NexusProvider = ({
 }: NexusProviderProps) => {
   const configNetwork = config?.network;
   const configDebug = config?.debug;
-  const configMode = config?.mode;
+  // Telemetry changes must not destroy/reinitialize an in-flight wallet SDK.
   const stableConfig = useMemo(
-    () => ({ ...defaultConfig, ...config }),
-    [config],
+    () => ({ ...defaultConfig, network: configNetwork ?? defaultConfig?.network, debug: configDebug ?? defaultConfig?.debug }),
+    [configNetwork, configDebug],
   );
+  const [widgetObservationHub] = useState(createWidgetObservationHub);
 
   console.log("NEXUS PROVIDER CONFIG", stableConfig, defaultConfig, config);
 
@@ -302,8 +316,7 @@ const NexusProvider = ({
       debug: stableConfig.debug,
     });
 
-    void nextSdk
-      .initialize()
+    void widgetObservationHub.observe("initialize", "initialization", () => nextSdk.initialize())
       .then(() => {
         if (cancelled) {
           return;
@@ -685,8 +698,8 @@ const NexusProvider = ({
     try {
       const [bridgeAbleBalanceResult, swapBalanceResult, rates] =
         await Promise.allSettled([
-          activeSdk.getBalancesForBridge(),
-          activeSdk.getBalancesForSwap(),
+          widgetObservationHub.observe("getBalancesForBridge", "balance", () => activeSdk.getBalancesForBridge()),
+          widgetObservationHub.observe("getBalancesForSwap", "balance", () => activeSdk.getBalancesForSwap()),
           getCoinbaseRates(),
         ]);
 
@@ -762,8 +775,8 @@ const NexusProvider = ({
           debug: stableConfig.debug,
         });
 
-        await nextSdk.initialize();
-        await nextSdk.setEVMProvider(provider);
+        await widgetObservationHub.observe("initialize", "initialization", () => nextSdk.initialize());
+        await widgetObservationHub.observe("setEVMProvider", "initialization", () => nextSdk.setEVMProvider(provider));
 
         if (
           shouldDestroyPreviousSdk &&
@@ -905,7 +918,7 @@ const NexusProvider = ({
       const activeAccountAddress = initializedAccountAddress.current;
       balanceTiming = startBalanceFetchTiming("bridge-refresh");
       setBridgableBalanceLoading(true);
-      const updatedBalance = await activeSdk.getBalancesForBridge();
+      const updatedBalance = await widgetObservationHub.observe("getBalancesForBridge", "balance", () => activeSdk.getBalancesForBridge());
       if (
         sdkRef.current !== activeSdk ||
         initializedAccountAddress.current !== activeAccountAddress
@@ -941,7 +954,7 @@ const NexusProvider = ({
     let balanceTimingStatus: "resolved" | "failed" = "resolved";
     try {
       setSwapBalanceLoading(true);
-      const updatedBalance = await activeSdk.getBalancesForSwap();
+      const updatedBalance = await widgetObservationHub.observe("getBalancesForSwap", "balance", () => activeSdk.getBalancesForSwap());
       if (
         sdkRef.current !== activeSdk ||
         initializedAccountAddress.current !== activeAccountAddress
@@ -1011,6 +1024,9 @@ const NexusProvider = ({
 
   const value = useMemo(
     () => ({
+      identity: config.identity,
+      observability: config.observability,
+      widgetObservationHub,
       nexusSDK,
       initializeNexus,
       deinitializeNexus,
@@ -1036,6 +1052,9 @@ const NexusProvider = ({
       resolveTokenUsdRate,
     }),
     [
+      config.identity,
+      config.observability,
+      widgetObservationHub,
       nexusSDK,
       initializeNexus,
       deinitializeNexus,

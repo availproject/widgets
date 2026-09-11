@@ -874,6 +874,11 @@
       "description": "The unified Avail Nexus widget for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
       "files": [
         {
+          "path": "registry/avail-widgets/nexus-widget/attempt-publisher.ts",
+          "target": "components/nexus/attempt-publisher.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/address-identicon.tsx",
           "target": "components/nexus/components/address-identicon.tsx",
           "type": "registry:component"
@@ -944,6 +949,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/observability.ts",
+          "target": "components/nexus/observability.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/sdk-types.ts",
           "target": "components/nexus/sdk-types.ts",
           "type": "registry:component"
@@ -961,6 +971,11 @@
         {
           "path": "registry/avail-widgets/nexus-widget/types.ts",
           "target": "components/nexus/types.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/use-widget-telemetry.ts",
+          "target": "components/nexus/use-widget-telemetry.ts",
           "type": "registry:component"
         },
         {
@@ -1101,6 +1116,11 @@
         {
           "path": "registry/avail-widgets/nexus/NexusProvider.tsx",
           "target": "components/nexus/NexusProvider.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus/widget-observability.ts",
+          "target": "components/nexus/widget-observability.ts",
           "type": "registry:component"
         }
       ],
