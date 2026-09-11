@@ -110,7 +110,12 @@ config directly and do not need environment variables.
   `previous_attempt_id`; unknown outcomes never become retry predecessors.
   Late results keep their original attempt context.
 - The only exported errors are allowlisted SDK codes (diagnostics), known service
-  labels and `reason: "unknown"`. The approved Reason taxonomy is not agreed.
+  labels and a bounded reason. Explicit wallet denial codes produce
+  `result: "cancelled"`, `reason: "wallet_rejected"`, `service: "wallet"` in SDK
+  results. Evidence-backed pre-commitment wallet-stop outcomes use the same reason.
+  Hook denial, RPC errors and unclassified errors keep `reason: "unknown"`;
+  superseded quotes remain suppressed. No error-message matching is used. The
+  broader backend Reason taxonomy remains pending.
   Full wallets/recipients, signatures, calldata, credentials, raw errors, balances,
   fees and arbitrary metadata never enter the widget export queue. The only
   supported monetary field is publisher-supplied estimated USD on a completed

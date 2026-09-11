@@ -47,7 +47,9 @@ export function createWidgetAttemptPublisher(options: {
     if (!active || terminal || committed) return;
     terminal = true;
     publish("widget_attempt_outcome", {
-      outcome, outcomeAuthority: "browser", committed: false, reason: "unknown",
+      outcome, outcomeAuthority: "browser", committed: false,
+      reason: evidenceSignal === "wallet_rejected_before_commitment" ? "wallet_rejected" : "unknown",
+      ...(source === "sdk" && evidenceSignal === "wallet_rejected_before_commitment" ? { service: "wallet" } : {}),
       evidenceSource: source, evidenceSignal, authoritative: true, publicationSource: "browser",
     });
   };

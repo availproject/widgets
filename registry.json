@@ -944,6 +944,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/error-classification.ts",
+          "target": "components/nexus/error-classification.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/nexus-widget.tsx",
           "target": "components/nexus/nexus.tsx",
           "type": "registry:component"

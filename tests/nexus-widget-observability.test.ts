@@ -673,3 +673,54 @@ test("input change before a delayed SDK call starts cannot produce a stale quote
     assert.equal(h.records[0].event, "widget_attempt_started");
   } finally { h.telemetry.dispose(); }
 });
+
+for (const code of [4001, "ACTION_REJECTED", "user_action/allowance_approval_denied", "user_action/intent_signature_denied", "user_action/siwe_signature_denied", "user_action/tx_send_denied", "user_action/ephemeral_key_denied"]) {
+  test(`explicit wallet rejection has a reason in both collectors: ${code}`, async () => {
+    const h = harness();
+    try {
+      const error = { code, message: `private wallet error ${address}` };
+      await assert.rejects(h.telemetry.observe("execute", "execution", async () => { throw error; }), value => value === error);
+      const record = h.records[0];
+      assert.equal(record.properties.result, "cancelled");
+      assert.equal(record.properties.reason, "wallet_rejected");
+      assert.equal(record.properties.service, "wallet");
+      await h.telemetry.flush();
+      assert.equal(h.requests[0].body.batch[0].properties.reason, "wallet_rejected");
+      const log = h.requests[1].body.resourceLogs[0].scopeLogs[0].logRecords[0];
+      assert.ok(log.attributes.some((item: any) => item.key === "reason" && item.value.stringValue === "wallet_rejected"));
+      assert.ok(!JSON.stringify(h.requests).includes("private wallet error"));
+      assert.ok(!JSON.stringify(h.requests).includes(address));
+    } finally { h.telemetry.dispose(); }
+  });
+}
+
+test("pre-commit approval denial carries wallet reason without becoming a platform failure", async () => {
+  const h = harness();
+  try {
+    const pending = deferred<object>();
+    const result = h.telemetry.observeSwap("swapWithExactIn", 1, () => pending.promise);
+    h.telemetry.quoteReady(1);
+    h.telemetry.accept(1);
+    h.telemetry.observeEvent(1, { type: "plan_progress", stepType: "allowance", state: "started", step: { type: "allowance" } });
+    pending.reject({ code: "user_action/allowance_approval_denied", context: { service: "wallet" } });
+    await assert.rejects(result);
+    const outcome = h.records.find(record => record.event === "widget_attempt_outcome");
+    assert.equal(outcome?.properties.outcome, "stopped");
+    assert.equal(outcome?.properties.reason, "wallet_rejected");
+    assert.equal(outcome?.properties.service, "wallet");
+    assert.equal(h.records.at(-1)?.properties.reason, "wallet_rejected");
+    assert.equal(h.records.at(-1)?.properties.result, "cancelled");
+  } finally { h.telemetry.dispose(); }
+});
+
+test("hook cancellation and error text cannot masquerade as explicit wallet rejection", async () => {
+  const h = harness();
+  try {
+    for (const error of [{ code: "user_action/intent_hook_denied" }, { code: "USER_DENIED_INTENT" }, { message: "User rejected request", context: { service: "wallet" } }, { code: "rpc/error" }]) {
+      await assert.rejects(h.telemetry.observe("execute", "execution", async () => { throw error; }));
+      assert.equal(h.records.at(-1)?.properties.reason, "unknown");
+    }
+    assert.deepEqual(sanitizeWidgetFields({ reason: "wallet_rejected" }), { reason: "wallet_rejected" });
+    assert.deepEqual(sanitizeWidgetFields({ reason: `secret ${address}` }), {});
+  } finally { h.telemetry.dispose(); }
+});

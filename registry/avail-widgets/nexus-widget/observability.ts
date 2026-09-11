@@ -1,4 +1,5 @@
 import { createWidgetAttemptPublisher } from "./attempt-publisher";
+import { widgetErrorReason } from "./error-classification";
 import { ERROR_CODES } from "@avail-project/nexus-core";
 import type {
   NexusIdentity, NexusObservabilityConfig, WidgetCallFinish,
@@ -61,7 +62,7 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
     phase: new Set(["initialization", "balance", "quote", "execution"]),
     result: new Set(["succeeded", "failed", "cancelled"]),
     service: SERVICES,
-    reason: new Set(["unknown"]),
+    reason: new Set(["unknown", "wallet_rejected"]),
     sdkCode: KNOWN_CODES,
     outcome: new Set(["completed", "failed", "stopped", "rejected"]),
     outcomeAuthority: new Set(["browser", "middleware", "protocol"]),
@@ -106,7 +107,7 @@ function errorFields(error: unknown) {
   try {
     if (!error || typeof error !== "object") return {};
     const candidate = error as { code?: unknown; context?: { service?: unknown } };
-    return { sdkCode: candidate.code, service: candidate.context?.service };
+    return { sdkCode: candidate.code, reason: widgetErrorReason(error), service: widgetErrorReason(error) === "wallet_rejected" ? "wallet" : candidate.context?.service };
   } catch { return {}; }
 }
 function resultDiagnostic(result: unknown): { transactionHash?: string } {
