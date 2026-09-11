@@ -79,7 +79,11 @@ config directly and do not need environment variables.
 
 - A widget mints `attempt_id` at its first SDK request for a quote/conditional
   swap. Requotes, source changes and recipient execution retain it. Automatic
-  denial of an obsolete quote records cancellation at the call level.
+  denial of an obsolete quote is suppressed from both collectors and `onRecord`.
+  Input/source changes and replacement quotes mark the old run before `deny()`;
+  stale callbacks and in-flight refresh results cannot publish failure or cancellation
+  records. Genuine current quote/refresh errors and accepted execution errors remain
+  observable. Explicit user rejection still has its browser-owned outcome.
 - A usable quote is recorded once when the accepted `onIntent` callback returns
   a renderable quote. Refresh calls are timed separately. A skipped swap without
   a quote hook does not create a successful quote sample.
@@ -89,6 +93,9 @@ config directly and do not need environment variables.
   call gets its own SDK result under the same attempt.
 - Initialization, wallet-provider setup and actual bridge/swap balance reads
   are observed at the provider's SDK call boundary while a widget subscribes.
+  Read-only initialization and wallet attachment reuse one SDK per provider.
+  Setup and concurrent refreshes share in-flight balance reads by SDK, account and
+  balance kind; later manual/post-transaction refreshes perform a fresh read.
   Calls before the first quote omit `attempt_id`; they carry session/client/mode
   context. Swallowed provider balance errors are still recorded as failed reads.
 - Each record has one UUID `eventId`, reused across collectors and retries,

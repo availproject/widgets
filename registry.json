@@ -1119,6 +1119,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus/request-lifecycle.ts",
+          "target": "components/nexus/request-lifecycle.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus/widget-observability.ts",
           "target": "components/nexus/widget-observability.ts",
           "type": "registry:component"

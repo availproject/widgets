@@ -96,6 +96,7 @@ export function createWidgetAttemptPublisher(options: {
   return {
     id: options.context.attempt_id,
     get terminal() { return terminal; },
+    get executionStarted() { return executionStarted; },
     subscribe() {
       if (!active || !options.subscribe) return;
       try {

@@ -63,6 +63,7 @@ import {
   USD_PEGGED_FALLBACK_RATE,
 } from "../common/utils/token-pricing";
 
+import { createSdkOwner, createInFlightRequests } from "./request-lifecycle";
 import {
   createWidgetObservationHub,
   type NexusIdentity,
@@ -80,7 +81,7 @@ interface NexusContextType {
   deinitializeNexus: () => Promise<void>;
   exchangeRate: Record<string, number> | null;
   fetchBridgableBalance: () => Promise<void>;
-  fetchSwapBalance: () => Promise<UserAsset[] | null>;
+  fetchSwapBalance: (options?: { onlyIfMissing?: boolean }) => Promise<UserAsset[] | null>;
   getFiatValue: (amount: number, token: string) => number;
   handleInit: (
     provider: EthereumProvider,
@@ -204,7 +205,8 @@ const NexusProvider = ({
 
   console.log("NEXUS PROVIDER CONFIG", stableConfig, defaultConfig, config);
 
-  const sdkRef = useRef<NexusClient | null>(null);
+  const [sdkRef] = useState(() => createSdkOwner<NexusClient>());
+  const [inFlightRequests] = useState(createInFlightRequests);
   const [sdk, setSdk] = useState<NexusClient | null>(null);
   const [nexusSDK, setNexusSDK] = useState<NexusClient | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -226,7 +228,8 @@ const NexusProvider = ({
     useState(false);
   const [swapBalance, setSwapBalance] = useState<UserAsset[] | null>(null);
   const [swapBalanceLoading, setSwapBalanceLoading] = useState(false);
-  const swapBalanceRef = useRef<UserAsset[] | null>(null);
+  const swapBalanceCache = useRef<{ sdk: NexusClient; account: string | null; value: UserAsset[] | null } | null>(null);
+  const balanceUpdatesRef = useRef({ bridge: 0, swap: 0 });
   const [exchangeRateState, setExchangeRateState] = useState<Record<
     string,
     number
@@ -237,12 +240,8 @@ const NexusProvider = ({
     Record<string, Promise<number | null>>
   >({});
   const initRequest = useRef<Promise<void> | null>(null);
+  const walletAttachRequest = useRef<Promise<void> | null>(null);
   const initializedAccountAddress = useRef<string | null>(null);
-  const bridgableBalanceRequest = useRef<Promise<UserAsset[] | null> | null>(
-    null,
-  );
-  const swapBalanceRequest = useRef<Promise<UserAsset[] | null> | null>(null);
-  const lastSwapBalanceFetchAt = useRef(0);
   const balanceFetchRunId = useRef(0);
   const latestBalanceFetchRunId = useRef(0);
   const usdPeggedSymbols = useRef<Set<string>>(
@@ -308,45 +307,44 @@ const NexusProvider = ({
     [],
   );
 
+  const getOrCreateSdk = useCallback(() => sdkRef.get(
+    () => createNexusClient({ network: stableConfig.network, debug: stableConfig.debug }),
+    client => widgetObservationHub.observe("initialize", "initialization", () => client.initialize()),
+  ), [sdkRef, stableConfig, widgetObservationHub]);
+
   useEffect(() => {
     let cancelled = false;
-    console.log("NEXUS CONFIG", stableConfig);
-    const nextSdk = createNexusClient({
-      network: stableConfig.network,
-      debug: stableConfig.debug,
+    void getOrCreateSdk().then(client => {
+      if (!cancelled && sdkRef.current === client) setSdk(client);
+    }).catch(error => {
+      if (!cancelled) console.error("Failed to initialize Nexus client:", error);
     });
-
-    void widgetObservationHub.observe("initialize", "initialization", () => nextSdk.initialize())
-      .then(() => {
-        if (cancelled) {
-          return;
-        }
-        if (initializedRef.current) {
-          nextSdk.destroy();
-          return;
-        }
-        sdkRef.current = nextSdk;
-        setSdk(nextSdk);
-        console.log("ChainList", nextSdk.chainList.chains);
-        console.log("SupportedChains", nextSdk.getSupportedChains());
-      })
-      .catch((err) => {
-        console.error(
-          "Failed to initialize default read-only Nexus client:",
-          err,
-        );
-      });
-
     return () => {
       cancelled = true;
-      nextSdk.destroy();
-      if (sdkRef.current === nextSdk) {
-        sdkRef.current = null;
-      }
+      sdkRef.reset();
+      initRequest.current = null;
+      walletAttachRequest.current = null;
+      initializedRef.current = false;
+      initializedAccountAddress.current = null;
       setSdk(null);
       setNexusSDK(null);
+      setBridgableBalance(null);
+      setSwapBalance(null);
+      swapBalanceCache.current = null;
+      setLoading(false);
+      setBridgableBalanceLoading(false);
+      setSwapBalanceLoading(false);
     };
-  }, [stableConfig]);
+  }, [getOrCreateSdk, sdkRef]);
+
+  const readBridgeBalance = useCallback((client: NexusClient, account: string | null) =>
+    inFlightRequests.run(client, `bridge:${account}`, () =>
+      widgetObservationHub.observe("getBalancesForBridge", "balance", () => client.getBalancesForBridge())),
+  [inFlightRequests, widgetObservationHub]);
+  const readSwapBalance = useCallback((client: NexusClient, account: string | null) =>
+    inFlightRequests.run(client, `swap:${account}`, () =>
+      widgetObservationHub.observe("getBalancesForSwap", "balance", () => client.getBalancesForSwap())),
+  [inFlightRequests, widgetObservationHub]);
 
   const cacheUsdRate = useCallback((tokenSymbol: string, usdRate: number) => {
     const normalized = normalizeTokenSymbol(tokenSymbol);
@@ -684,6 +682,7 @@ const NexusProvider = ({
     const isCurrentSdkRun = () =>
       sdkRef.current === activeSdk &&
       initializedAccountAddress.current === activeAccountAddress;
+    const updatesAtStart = { ...balanceUpdatesRef.current };
     const list = activeSdk.getSupportedChains();
     supportedChainsAndTokens.current = list ?? null;
     setSupportedChainsAndTokensState(list ?? null);
@@ -698,10 +697,12 @@ const NexusProvider = ({
     try {
       const [bridgeAbleBalanceResult, swapBalanceResult, rates] =
         await Promise.allSettled([
-          widgetObservationHub.observe("getBalancesForBridge", "balance", () => activeSdk.getBalancesForBridge()),
-          widgetObservationHub.observe("getBalancesForSwap", "balance", () => activeSdk.getBalancesForSwap()),
+          readBridgeBalance(activeSdk, activeAccountAddress),
+          readSwapBalance(activeSdk, activeAccountAddress),
           getCoinbaseRates(),
         ]);
+
+      if (!isCurrentSdkRun()) return;
 
       if (rates?.status === "fulfilled") {
         const usdPerUnit: Record<string, number> = {};
@@ -726,13 +727,15 @@ const NexusProvider = ({
         return;
       }
 
-      if (bridgeAbleBalanceResult.status === "fulfilled") {
+      if (bridgeAbleBalanceResult.status === "fulfilled" && balanceUpdatesRef.current.bridge === updatesAtStart.bridge) {
+        balanceUpdatesRef.current.bridge++;
         setBridgableBalance(
           normalizeUserAssetFiatValues(bridgeAbleBalanceResult.value),
         );
       }
 
-      if (swapBalanceResult.status === "fulfilled") {
+      if (swapBalanceResult.status === "fulfilled" && balanceUpdatesRef.current.swap === updatesAtStart.swap) {
+        balanceUpdatesRef.current.swap++;
         const rawSwapBalance = swapBalanceResult.value;
         const filteredSwapBalance = filterUnsupportedSwapSources(
           rawSwapBalance,
@@ -740,6 +743,7 @@ const NexusProvider = ({
         );
         const normalizedSwapBalance =
           normalizeUserAssetFiatValues(filteredSwapBalance);
+        swapBalanceCache.current = { sdk: activeSdk, account: activeAccountAddress, value: normalizedSwapBalance };
         console.log(
           "[NexusProvider] getBalancesForSwap:init raw",
           rawSwapBalance,
@@ -757,7 +761,9 @@ const NexusProvider = ({
       }
     }
   }, [
-    config?.network,
+    sdkRef,
+    readBridgeBalance,
+    readSwapBalance,
     finishBalanceFetchTiming,
     normalizeUserAssetFiatValues,
     startBalanceFetchTiming,
@@ -765,60 +771,51 @@ const NexusProvider = ({
 
   const initializeNexus = useCallback(
     async (provider: EthereumProvider, accountAddress?: string) => {
-      setLoading(true);
-      try {
-        console.log("INITIALIZE NEXUS CONFIG", stableConfig);
-        const previousSdk = sdkRef.current;
-        const shouldDestroyPreviousSdk = Boolean(previousSdk);
-        const nextSdk = createNexusClient({
-          network: stableConfig.network,
-          debug: stableConfig.debug,
-        });
-
-        await widgetObservationHub.observe("initialize", "initialization", () => nextSdk.initialize());
-        await widgetObservationHub.observe("setEVMProvider", "initialization", () => nextSdk.setEVMProvider(provider));
-
-        if (
-          shouldDestroyPreviousSdk &&
-          previousSdk &&
-          previousSdk !== nextSdk
-        ) {
-          previousSdk.destroy();
+      const account = normalizeAccountAddress(accountAddress);
+      const nextSdk = await getOrCreateSdk();
+      while (walletAttachRequest.current) await walletAttachRequest.current;
+      if (sdkRef.current !== nextSdk) throw new Error("Nexus initialization superseded");
+      if (initializedRef.current && (!account || initializedAccountAddress.current === account)) return;
+      const request = inFlightRequests.run(nextSdk, `wallet:${account}`, async () => {
+        if (sdkRef.current !== nextSdk) throw new Error("Nexus initialization superseded");
+        setLoading(true);
+        try {
+          await widgetObservationHub.observe("setEVMProvider", "initialization", () => nextSdk.setEVMProvider(provider));
+          if (sdkRef.current !== nextSdk) {
+            nextSdk.destroy();
+            throw new Error("Nexus initialization superseded");
+          }
+          initializedRef.current = true;
+          initializedAccountAddress.current = account;
+          setSdk(nextSdk);
+          setNexusSDK(nextSdk);
+        } finally {
+          if (sdkRef.current === nextSdk) setLoading(false);
         }
-
-        sdkRef.current = nextSdk;
-        setSdk(nextSdk);
-        initializedRef.current = true;
-        initializedAccountAddress.current =
-          normalizeAccountAddress(accountAddress);
-        setNexusSDK(nextSdk);
-      } catch (error) {
-        console.error("Error initializing Nexus:", error);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
+      });
+      walletAttachRequest.current = request;
+      try { await request; }
+      finally { if (walletAttachRequest.current === request) walletAttachRequest.current = null; }
     },
-    [stableConfig],
+    [getOrCreateSdk, inFlightRequests, sdkRef, widgetObservationHub],
   );
 
   const deinitializeNexus = useCallback(() => {
     try {
-      const activeSdk = nexusSDK ?? sdkRef.current;
+      const activeSdk = sdkRef.current;
       if (!activeSdk) {
         return Promise.resolve();
       }
-      activeSdk.destroy();
-      if (sdkRef.current === activeSdk) {
-        sdkRef.current = null;
-      }
+      sdkRef.reset();
+      initRequest.current = null;
+      walletAttachRequest.current = null;
       initializedRef.current = false;
       initializedAccountAddress.current = null;
       setSdk(null);
       setNexusSDK(null);
       setBridgableBalance(null);
-      swapBalanceRef.current = null;
       setSwapBalance(null);
+      swapBalanceCache.current = null;
       intent.current = null;
       swapIntent.current = null;
       allowance.current = null;
@@ -832,7 +829,7 @@ const NexusProvider = ({
       console.error("Error deinitializing Nexus:", error);
     }
     return Promise.resolve();
-  }, [nexusSDK]);
+  }, [sdkRef]);
 
   const attachEventHooks = useCallback(() => {
     // Dummy signature for backward compatibility, hooks are now per-call
@@ -840,6 +837,7 @@ const NexusProvider = ({
 
   const handleInit = useCallback(
     async (provider: EthereumProvider, accountAddress?: string) => {
+      while (initRequest.current) await initRequest.current;
       const nextAccountAddress = normalizeAccountAddress(accountAddress);
       const currentAccountAddress = initializedAccountAddress.current;
       const isAccountChange =
@@ -851,17 +849,6 @@ const NexusProvider = ({
         (!nextAccountAddress || currentAccountAddress === nextAccountAddress)
       ) {
         return;
-      }
-
-      if (loading && initRequest.current) {
-        await initRequest.current;
-        if (
-          initializedRef.current &&
-          (!nextAccountAddress ||
-            initializedAccountAddress.current === nextAccountAddress)
-        ) {
-          return;
-        }
       }
 
       if (!provider || typeof provider.request !== "function") {
@@ -898,7 +885,6 @@ const NexusProvider = ({
       }
     },
     [
-      loading,
       initializeNexus,
       deinitializeNexus,
       setupNexus,
@@ -907,24 +893,22 @@ const NexusProvider = ({
   );
 
   const fetchBridgableBalance = useCallback(async () => {
-    let request = bridgableBalanceRequest.current;
+    const activeSdk = sdkRef.current;
+    const activeAccountAddress = initializedAccountAddress.current;
     let balanceTiming: BalanceFetchTiming | null = null;
     let balanceTimingStatus: "resolved" | "failed" = "resolved";
     try {
-      const activeSdk = sdkRef.current;
-      if (!activeSdk) {
-        return;
-      }
-      const activeAccountAddress = initializedAccountAddress.current;
+      if (!activeSdk) return;
       balanceTiming = startBalanceFetchTiming("bridge-refresh");
       setBridgableBalanceLoading(true);
-      const updatedBalance = await widgetObservationHub.observe("getBalancesForBridge", "balance", () => activeSdk.getBalancesForBridge());
+      const updatedBalance = await readBridgeBalance(activeSdk, activeAccountAddress);
       if (
         sdkRef.current !== activeSdk ||
         initializedAccountAddress.current !== activeAccountAddress
       ) {
         return;
       }
+      balanceUpdatesRef.current.bridge++;
       setBridgableBalance(normalizeUserAssetFiatValues(updatedBalance));
     } catch (error) {
       balanceTimingStatus = "failed";
@@ -933,28 +917,31 @@ const NexusProvider = ({
       if (balanceTiming) {
         finishBalanceFetchTiming(balanceTiming, balanceTimingStatus);
       }
-      setBridgableBalanceLoading(false);
-      if (request && bridgableBalanceRequest.current === request) {
-        bridgableBalanceRequest.current = null;
-      }
+      if (sdkRef.current === activeSdk && initializedAccountAddress.current === activeAccountAddress) setBridgableBalanceLoading(false);
     }
   }, [
+    sdkRef,
+    readBridgeBalance,
     finishBalanceFetchTiming,
     normalizeUserAssetFiatValues,
     startBalanceFetchTiming,
   ]);
 
-  const fetchSwapBalance = useCallback(async () => {
+  const fetchSwapBalance = useCallback(async (options?: { onlyIfMissing?: boolean }) => {
     const activeSdk = sdkRef.current;
     if (!activeSdk) {
       return null;
     }
     const activeAccountAddress = initializedAccountAddress.current;
+    const cached = swapBalanceCache.current;
+    if (options?.onlyIfMissing && cached?.sdk === activeSdk && cached.account === activeAccountAddress && cached.value !== null) {
+      return cached.value;
+    }
     const balanceTiming = startBalanceFetchTiming("swap-refresh");
     let balanceTimingStatus: "resolved" | "failed" = "resolved";
     try {
       setSwapBalanceLoading(true);
-      const updatedBalance = await widgetObservationHub.observe("getBalancesForSwap", "balance", () => activeSdk.getBalancesForSwap());
+      const updatedBalance = await readSwapBalance(activeSdk, activeAccountAddress);
       if (
         sdkRef.current !== activeSdk ||
         initializedAccountAddress.current !== activeAccountAddress
@@ -967,6 +954,8 @@ const NexusProvider = ({
       );
       const normalizedSwapBalance =
         normalizeUserAssetFiatValues(filteredSwapBalance);
+      swapBalanceCache.current = { sdk: activeSdk, account: activeAccountAddress, value: normalizedSwapBalance };
+      balanceUpdatesRef.current.swap++;
       console.log(
         "[NexusProvider] getBalancesForSwap:refresh raw",
         updatedBalance,
@@ -987,6 +976,8 @@ const NexusProvider = ({
       }
     }
   }, [
+    sdkRef,
+    readSwapBalance,
     finishBalanceFetchTiming,
     normalizeUserAssetFiatValues,
     startBalanceFetchTiming,

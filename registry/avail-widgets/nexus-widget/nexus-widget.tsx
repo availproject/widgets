@@ -3923,7 +3923,7 @@ function NexusWidgetInner({
 
   useEffect(() => {
     if (!nexusSDK) return;
-    void fetchSwapBalance();
+    void fetchSwapBalance({ onlyIfMissing: true });
   }, [fetchSwapBalance, nexusSDK]);
 
   useEffect(() => {
@@ -4554,6 +4554,8 @@ function NexusWidgetInner({
     clearQuote = true,
     options: { keepQuoteRefreshing?: boolean } = {}
   ) => {
+    telemetry.supersedeQuote(swapRunIdRef.current);
+    telemetry.supersedeQuote(swapIntentRef.current?.runId);
     swapRunIdRef.current += 1;
     swapIntentRef.current?.deny();
     swapIntentRef.current = null;
@@ -6676,6 +6678,7 @@ function NexusWidgetInner({
           quoteInputKey,
           runId,
         });
+        telemetry.supersedeQuote(runId);
         deny();
         return;
       }
@@ -6685,6 +6688,7 @@ function NexusWidgetInner({
           quoteInputKey,
           runId,
         });
+        telemetry.supersedeQuote(runId);
         deny();
         return;
       }
@@ -6707,7 +6711,7 @@ function NexusWidgetInner({
       const normalizedRefresh =
         typeof refresh === "function"
           ? async (...args: unknown[]) => {
-              const finish = telemetry.startCall("refresh", "quote");
+              const finish = telemetry.startQuoteRefresh(runId);
               try {
                 const refreshed = await refresh(...args);
                 const refreshedBridgeProvider = normalizeBridgeProvider(
@@ -8441,6 +8445,8 @@ function NexusWidgetInner({
     setIntentToAmount(undefined);
     setIntentFeeUsd(undefined);
     setIntentData(null);
+    telemetry.supersedeQuote(swapRunIdRef.current);
+    telemetry.supersedeQuote(swapIntentRef.current?.runId);
     swapIntentRef.current?.deny();
     swapIntentRef.current = null;
     if (!background) {

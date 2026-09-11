@@ -377,7 +377,7 @@ test("widget opt-out never configures or toggles Core SDK analytics", () => {
     ts.forEachChild(node, visit);
   };
   visit(source);
-  assert.equal(sdkCreations, 2);
+  assert.equal(sdkCreations, 1);
 });
 
 const publicIntentHash = `0x${"1".repeat(64)}`;
@@ -616,5 +616,60 @@ test("synchronous opt-out from the start callback prevents opening a publisher s
   try {
     h.telemetry.beginAttempt("swapAndExecute");
     assert.equal(subscriptions, 0);
+  } finally { h.telemetry.dispose(); }
+});
+
+for (const quoteReady of [false, true]) {
+  test(`superseded quotes emit no SDK rejection status (preview ready: ${quoteReady})`, async () => {
+    const h = harness();
+    try {
+      const old = deferred<object>();
+      const result = h.telemetry.observeSwap("swapWithExactIn", 1, () => old.promise);
+      if (quoteReady) h.telemetry.quoteReady(1);
+      const before = h.records.length;
+      const refresh = h.telemetry.startQuoteRefresh(1);
+      h.telemetry.supersedeQuote(1);
+      refresh("failed", new Error("User denied swap intent"));
+      old.reject(new Error("User denied swap intent"));
+      await assert.rejects(result);
+      assert.equal(h.records.length, before);
+      await h.telemetry.observeSwap("swapWithExactIn", 2, async () => ({}));
+      assert.equal(h.records.filter(r => r.event === "widget_attempt_started").length, 1);
+      await h.telemetry.flush();
+      assert.ok(!JSON.stringify(h.requests).includes('"result":"failed"'));
+      assert.ok(!JSON.stringify(h.requests).includes('"result":"cancelled"'));
+    } finally { h.telemetry.dispose(); }
+  });
+}
+
+test("current quote and refresh errors remain observable; accepted executions cannot be suppressed", async () => {
+  const h = harness();
+  try {
+    await assert.rejects(h.telemetry.observeSwap("swapWithExactIn", 1, async () => { throw new Error("Quote RPC failed"); }));
+    assert.equal(h.records.at(-1)?.properties.result, "failed");
+    const pending = deferred<object>();
+    const result = h.telemetry.observeSwap("swapWithExactIn", 2, () => pending.promise);
+    h.telemetry.quoteReady(2);
+    h.telemetry.startQuoteRefresh(2)("failed", new Error("Refresh RPC failed"));
+    assert.equal(h.records.at(-1)?.properties.operation, "refresh");
+    assert.equal(h.records.at(-1)?.properties.result, "failed");
+    h.telemetry.accept(2);
+    h.telemetry.supersedeQuote(2);
+    pending.reject(new Error("Execution failed"));
+    await assert.rejects(result);
+    assert.equal(h.records.at(-1)?.properties.phase, "execution");
+    assert.equal(h.records.at(-1)?.properties.result, "failed");
+  } finally { h.telemetry.dispose(); }
+});
+
+test("input change before a delayed SDK call starts cannot produce a stale quote failure", async () => {
+  const h = harness();
+  try {
+    h.telemetry.supersedeQuote(5);
+    const error = new Error("User denied swap intent");
+    await assert.rejects(h.telemetry.observeSwap("swapWithExactIn", 4, async () => { throw error; }), value => value === error);
+    assert.equal(h.records.length, 0);
+    await h.telemetry.observeSwap("swapWithExactIn", 6, async () => ({}));
+    assert.equal(h.records[0].event, "widget_attempt_started");
   } finally { h.telemetry.dispose(); }
 });

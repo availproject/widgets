@@ -144,7 +144,7 @@ function attributes(properties: WidgetTelemetryProperties) {
 }
 type Pending = { record: WidgetTelemetryRecord; diagnostic: WidgetTelemetryProperties; timestamp: number; posthog: boolean; signoz: boolean; retries: number };
 type AttemptPublisher = ReturnType<typeof createWidgetAttemptPublisher>;
-type SwapCall = { publisher?: AttemptPublisher; operation: string; quote: WidgetCallFinish; execution?: WidgetCallFinish; fallbackExecution: WidgetCallFinish; quoteReady: boolean };
+type SwapCall = { publisher?: AttemptPublisher; operation: string; quote: WidgetCallFinish; execution?: WidgetCallFinish; fallbackExecution: WidgetCallFinish; quoteReady: boolean; superseded: boolean };
 
 export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runtime> = {}) {
   const runtime = { ...defaultRuntime, ...overrides };
@@ -160,6 +160,8 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
   let timer: ReturnType<typeof setTimeout> | undefined;
   const controllers = new Set<AbortController>();
   const swaps = new Map<number, SwapCall>();
+  // Run IDs increase for this widget, including runs invalidated before the SDK call starts.
+  let supersededThrough = -1;
   let flushing = false;
 
   const enabled = () => {
@@ -309,14 +311,14 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       }
     } catch { /* no identity, no collection */ }
   };
-  const startCall = (operation: string, phase: WidgetTelemetryPhase): WidgetCallFinish => {
+  const startCall = (operation: string, phase: WidgetTelemetryPhase, isRelevant: () => boolean = () => true): WidgetCallFinish => {
     if (!enabled()) return noop;
     const startedAt = runtime.now();
     const currentEpoch = epoch;
     const capturedAttempt = attemptId;
     let finished = false;
     return (result, error, diagnostic) => {
-      if (finished || currentEpoch !== epoch) return;
+      if (finished || currentEpoch !== epoch || !isRelevant()) return;
       finished = true;
       const observedResult = result === "failed" ? resultForError(error) : result;
       emit("widget_sdk_result", {
@@ -343,6 +345,19 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       swaps.clear();
     },
     stopBeforeExecution(outcome: "stopped" | "rejected" = "stopped") { publisher?.stopBeforeExecution(outcome); },
+    supersedeQuote(runId: number | undefined) {
+      if (runId === undefined) return;
+      const call = swaps.get(runId);
+      // Never hide an execution result after the user has accepted the quote.
+      if (!call?.execution && !call?.publisher?.executionStarted) {
+        supersededThrough = Math.max(supersededThrough, runId);
+        if (call) call.superseded = true;
+      }
+    },
+    startQuoteRefresh(runId: number): WidgetCallFinish {
+      const call = swaps.get(runId);
+      return call ? startCall("refresh", "quote", () => !call.superseded) : noop;
+    },
     observeEvent(runId: number, event: unknown) { swaps.get(runId)?.publisher?.observeEvent(event); },
     beginAttempt,
     startCall,
@@ -368,8 +383,11 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       catch (error) { finish("failed", error); throw error; }
     },
     async observeSwap<T>(operation: string, runId: number, call: () => Promise<T>): Promise<T> {
+      if (runId <= supersededThrough) return call();
       beginAttempt(operation);
-      const observation: SwapCall = { publisher, operation, quote: startCall(operation, "quote"), fallbackExecution: startCall(operation, "execution"), quoteReady: false };
+      const observation: SwapCall = { publisher, operation, quote: noop, fallbackExecution: noop, quoteReady: false, superseded: false };
+      observation.quote = startCall(operation, "quote", () => !observation.superseded);
+      observation.fallbackExecution = startCall(operation, "execution", () => !observation.superseded);
       if (enabled()) swaps.set(runId, observation);
       try {
         const value = await call();
@@ -378,7 +396,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
         // No onIntent can mean the SDK skipped the swap. Do not invent a usable quote.
         return value;
       } catch (error) {
-        observation.publisher?.observeRejection(error);
+        if (!observation.superseded) observation.publisher?.observeRejection(error);
         if (!observation.quoteReady) observation.quote("failed", error);
         else if (observation.execution) observation.execution("failed", error);
         // Denying a stale quote is a call cancellation, not a terminal attempt outcome.
