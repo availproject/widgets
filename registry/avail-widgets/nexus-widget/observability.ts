@@ -1,5 +1,5 @@
 import { createWidgetAttemptPublisher } from "./attempt-publisher";
-import { widgetErrorReason } from "./error-classification";
+import { classifyWidgetError, WIDGET_ERROR_CATEGORIES, WIDGET_ERROR_REASONS, WIDGET_ERROR_STEPS, WIDGET_ERROR_SUMMARIES } from "./error-classification";
 import { ERROR_CODES } from "@avail-project/nexus-core";
 import type {
   NexusIdentity, NexusObservabilityConfig, WidgetCallFinish,
@@ -62,7 +62,9 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
     phase: new Set(["initialization", "balance", "quote", "execution"]),
     result: new Set(["succeeded", "failed", "cancelled"]),
     service: SERVICES,
-    reason: new Set(["unknown", "wallet_rejected"]),
+    reason: WIDGET_ERROR_REASONS,
+    errorCategory: WIDGET_ERROR_CATEGORIES,
+    errorStep: WIDGET_ERROR_STEPS,
     sdkCode: KNOWN_CODES,
     outcome: new Set(["completed", "failed", "stopped", "rejected"]),
     outcomeAuthority: new Set(["browser", "middleware", "protocol"]),
@@ -77,6 +79,9 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
     const value = input[key];
     if (typeof value === "string" && values.has(value)) output[key] = value;
   }
+  if (typeof output.reason === "string" && input.errorSummary === WIDGET_ERROR_SUMMARIES[output.reason]) output.errorSummary = input.errorSummary as string;
+  const chainId = typeof input.errorChainId === "bigint" ? Number(input.errorChainId) : input.errorChainId;
+  if (typeof chainId === "number" && Number.isSafeInteger(chainId) && chainId > 0) output.errorChainId = chainId;
   if (typeof input.durationMs === "number" && Number.isFinite(input.durationMs) && input.durationMs >= 0) {
     output.durationMs = Math.round(input.durationMs);
   }
@@ -104,11 +109,7 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
 }
 
 function errorFields(error: unknown) {
-  try {
-    if (!error || typeof error !== "object") return {};
-    const candidate = error as { code?: unknown; context?: { service?: unknown } };
-    return { sdkCode: candidate.code, reason: widgetErrorReason(error), service: widgetErrorReason(error) === "wallet_rejected" ? "wallet" : candidate.context?.service };
-  } catch { return {}; }
+  return classifyWidgetError(error);
 }
 function resultDiagnostic(result: unknown): { transactionHash?: string } {
   try {
@@ -126,9 +127,18 @@ function resultDiagnostic(result: unknown): { transactionHash?: string } {
 }
 function resultForError(error: unknown): WidgetTelemetryResult {
   try {
-    const code = (error as { code?: unknown } | null)?.code;
-    return code === 4001 || (typeof code === "string" && CANCELLATIONS.has(code)) ? "cancelled" : "failed";
+    const classified = classifyWidgetError(error);
+    const code = classified.sdkCode ?? (error as { code?: unknown } | null)?.code;
+    return classified.reason === "wallet_rejected" || (typeof code === "string" && CANCELLATIONS.has(code)) ? "cancelled" : "failed";
   } catch { return "failed"; }
+}
+function returnedFailure(value: unknown): { failed: boolean; error?: unknown } {
+  try {
+    if (value && typeof value === "object" && "success" in value && value.success === false) {
+      return { failed: true, error: (value as { error?: unknown }).error ?? { code: "widget/unsuccessful_result" } };
+    }
+  } catch { /* Reading diagnostic fields must not change the SDK result. */ }
+  return { failed: false };
 }
 function endpoint(value: string, suffix = "") {
   if (value.startsWith("/") && !value.startsWith("//")) return `${value.replace(/\/$/, "")}${suffix}`;
@@ -261,6 +271,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       const includeLookupKeys = event === "widget_attempt_committed" || event === "widget_attempt_outcome";
       const properties = Object.freeze({
         ...summary,
+        ...(sdkCode ? { sdkCode } : {}),
         ...(includeLookupKeys && transactionHash ? { transactionHash } : {}),
         ...(includeLookupKeys && intentHash ? { intentHash } : {}),
         "nexus.client.id": settings.identity!.clientId, "surface.name": "nexus-widget",
@@ -364,7 +375,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
     startCall,
     flush,
     quoteFailed(runId: number) {
-      swaps.get(runId)?.quote("failed");
+      swaps.get(runId)?.quote("failed", { code: "widget/invalid_quote" });
     },
     quoteReady(runId: number) {
       const call = swaps.get(runId);
@@ -380,7 +391,12 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
     },
     async observe<T>(operation: string, phase: WidgetTelemetryPhase, call: () => Promise<T>): Promise<T> {
       const finish = startCall(operation, phase);
-      try { const result = await call(); finish("succeeded", undefined, resultDiagnostic(result)); return result; }
+      try {
+        const result = await call();
+        const failure = returnedFailure(result);
+        finish(failure.failed ? "failed" : "succeeded", failure.error, resultDiagnostic(result));
+        return result;
+      }
       catch (error) { finish("failed", error); throw error; }
     },
     async observeSwap<T>(operation: string, runId: number, call: () => Promise<T>): Promise<T> {
@@ -392,8 +408,8 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       if (enabled()) swaps.set(runId, observation);
       try {
         const value = await call();
-        const failed = value && typeof value === "object" && "success" in value && value.success === false;
-        (observation.execution ?? observation.fallbackExecution)(failed ? "failed" : "succeeded", undefined, resultDiagnostic(value));
+        const failure = returnedFailure(value);
+        (observation.execution ?? observation.fallbackExecution)(failure.failed ? "failed" : "succeeded", failure.error, resultDiagnostic(value));
         // No onIntent can mean the SDK skipped the swap. Do not invent a usable quote.
         return value;
       } catch (error) {

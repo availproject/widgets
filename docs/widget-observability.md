@@ -109,13 +109,21 @@ config directly and do not need environment variables.
   canonical outcome. A retry after a published terminal outcome includes
   `previous_attempt_id`; unknown outcomes never become retry predecessors.
   Late results keep their original attempt context.
-- The only exported errors are allowlisted SDK codes (diagnostics), known service
-  labels and a bounded reason. Explicit wallet denial codes produce
+- Both PostHog and SigNoz receive allowlisted `sdkCode`, a bounded `reason`, static
+  `errorSummary`, `errorCategory`, known service, and known error step/chain context
+  when supplied. Every installed SDK error code has a classification; for example
+  `execution/slippage_exceeded` maps to `reason: "slippage_exceeded"`.
+  Explicit wallet denial codes produce
   `result: "cancelled"`, `reason: "wallet_rejected"`, `service: "wallet"` in SDK
   results. Evidence-backed pre-commitment wallet-stop outcomes use the same reason.
-  Hook denial, RPC errors and unclassified errors keep `reason: "unknown"`;
-  superseded quotes remain suppressed. No error-message matching is used. The
-  broader backend Reason taxonomy remains pending.
+  Specific, complete SDK message templates distinguish unavailable destination
+  token/gas quotes and destination resize/requote failures. Only fixed summaries
+  and a validated public chain ID are retained, never the message's token/address
+  text. Unknown wrappers can expose a known `cause` up to four levels deep;
+  arbitrary errors/messages remain `unknown`. Superseded quotes remain suppressed.
+  A false SDK result retains its supplied error classification, and malformed
+  renderable quotes have `reason: "invalid_quote"`. These are observed SDK/widget
+  reasons; the broader backend outcome Reason taxonomy remains pending.
   Full wallets/recipients, signatures, calldata, credentials, raw errors, balances,
   fees and arbitrary metadata never enter the widget export queue. The only
   supported monetary field is publisher-supplied estimated USD on a completed
@@ -210,7 +218,7 @@ and deduplicate sink copies; this package does not provide global server dedupli
 | Q2 integrators | Widget attempts grouped by client ID and mode | API-only records and registry validation |
 | Q3 trouble | SDK results and browser stops/rejections by client | Backend final-outcome coverage |
 | Q4 volume | Completed count and opt-in estimated USD from an attached trusted publisher | Deployed publisher, paired routes and opt-in coverage dashboards |
-| Q5 failures | SDK code diagnostics, known service, call phase | Approved Reason mapping, safe requested route, authoritative final route/provider |
+| Q5 failures | SDK codes, observed reasons and fixed summaries in both collectors; known service/step/chain and call phase | Backend outcome Reason mapping, safe requested route, authoritative final route/provider |
 | Q6 latency | Browser call durations; publisher-supplied commit-to-delivery duration | Server latency instruments and deployed publisher |
 | Q7 support | Wallet hint + time, session, attempt, correlated event IDs and returned execution/destination transaction hashes | Accepted attempt context, intent lookup keys and persisted backend timeline |
 

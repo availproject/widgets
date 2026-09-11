@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
+import { ERROR_CODES } from "@avail-project/nexus-core";
+import { classifyWidgetError } from "../registry/avail-widgets/nexus-widget/error-classification";
 import { createWidgetTelemetry, sanitizeWidgetFields, walletHint } from "../registry/avail-widgets/nexus-widget/observability";
 import { createWidgetObservationHub, type NexusObservabilityConfig, type WidgetTelemetryRecord } from "../registry/avail-widgets/nexus/widget-observability";
 
-const address = "0xccef8aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4c6360";
+const address = `0xccef8${"a".repeat(30)}4c636`;
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
   let reject!: (value: unknown) => void;
@@ -85,7 +87,7 @@ test("initialization and balance results before a quote have no invented attempt
   } finally { h.telemetry.dispose(); }
 });
 
-test("sink copies share event identity, with diagnostics only on SigNoz", async () => {
+test("sink copies share event identity and allowlisted SDK error codes", async () => {
   const h = harness();
   try {
     h.telemetry.beginAttempt("swapWithExactIn");
@@ -98,7 +100,7 @@ test("sink copies share event identity, with diagnostics only on SigNoz", async 
     const events = h.requests[0].body.batch;
     const logs = h.requests[1].body.resourceLogs[0].scopeLogs[0].logRecords;
     assert.deepEqual(events.map((e: any) => e.uuid), logs.map((l: any) => l.attributes.find((a: any) => a.key === "eventId").value.stringValue));
-    assert.equal(events[1].properties.sdkCode, undefined);
+    assert.equal(events[1].properties.sdkCode, "backend/report_mayan_tx_failed");
     assert.ok(logs[1].attributes.some((a: any) => a.key === "sdkCode"));
     assert.equal(events[0].properties.$process_person_profile, false);
     assert.ok(h.requests.every(r => r.options.credentials === "omit" && r.options.referrerPolicy === "no-referrer"));
@@ -718,9 +720,90 @@ test("hook cancellation and error text cannot masquerade as explicit wallet reje
   try {
     for (const error of [{ code: "user_action/intent_hook_denied" }, { code: "USER_DENIED_INTENT" }, { message: "User rejected request", context: { service: "wallet" } }, { code: "rpc/error" }]) {
       await assert.rejects(h.telemetry.observe("execute", "execution", async () => { throw error; }));
-      assert.equal(h.records.at(-1)?.properties.reason, "unknown");
+      assert.notEqual(h.records.at(-1)?.properties.reason, "wallet_rejected");
     }
     assert.deepEqual(sanitizeWidgetFields({ reason: "wallet_rejected" }), { reason: "wallet_rejected" });
     assert.deepEqual(sanitizeWidgetFields({ reason: `secret ${address}` }), {});
+  } finally { h.telemetry.dispose(); }
+});
+
+
+test("every installed SDK error code has a bounded reason, category and static summary", () => {
+  for (const code of Object.values(ERROR_CODES)) {
+    const classified = classifyWidgetError({ code, message: `private ${address}` });
+    const fields = sanitizeWidgetFields(classified);
+    assert.equal(fields.sdkCode, code);
+    assert.notEqual(fields.reason, "unknown", code);
+    assert.ok(fields.errorSummary, code);
+    assert.equal(fields.errorCategory, code.split("/")[0]);
+    assert.ok(!JSON.stringify(fields).includes("private"));
+  }
+});
+
+for (const phase of ["quote", "execution"] as const) {
+  test(`${phase}: destination quote unavailable is actionable in both sinks without leaking the token address`, async () => {
+    const h = harness();
+    const error = { code: "external_service/destination_swap_quote_failed", context: { service: "lifi", stepType: "destination_swap" }, message: `Quote failed: No destination swap quote available for chain 4114 token ${address}` };
+    try {
+      if (phase === "quote") await assert.rejects(h.telemetry.observeSwap("swapAndExecute", 1, async () => { throw error; }), value => value === error);
+      else await assert.rejects(h.telemetry.observe("swapAndExecute", phase, async () => { throw error; }), value => value === error);
+      const record = h.records.at(-1)!;
+      assert.equal(record.properties.reason, "destination_swap_quote_unavailable");
+      assert.equal(record.properties.errorSummary, "No destination swap quote is available.");
+      assert.equal(record.properties.sdkCode, error.code);
+      assert.equal(record.properties.errorCategory, "external_service");
+      assert.equal(record.properties.errorStep, "destination_swap");
+      assert.equal(record.properties.errorChainId, 4114);
+      assert.equal(record.properties.service, "lifi");
+      await h.telemetry.flush();
+      assert.ok(h.requests[0].body.batch.some((event: any) => event.properties.reason === "destination_swap_quote_unavailable"));
+      assert.ok(h.requests[1].body.resourceLogs[0].scopeLogs[0].logRecords.some((log: any) => log.attributes.some((item: any) => item.key === "reason" && item.value.stringValue === "destination_swap_quote_unavailable")));
+      assert.ok(!JSON.stringify(h.requests).includes(address));
+    } finally { h.telemetry.dispose(); }
+  });
+}
+
+test("typed execution reasons, wrapped causes and malformed errors remain safe", () => {
+  for (const code of ["execution/slippage_exceeded", "execution/tx_onchain_reverted", "backend/fulfilment_wait_timeout", "validation/insufficient_balance"]) {
+    const fields = sanitizeWidgetFields(classifyWidgetError({ cause: { code, context: { stepType: "destination_swap", chainId: BigInt(4114) } } }));
+    assert.equal(fields.reason, code.split("/")[1]);
+    assert.equal(fields.errorChainId, 4114);
+  }
+  const cyclic: any = { message: "private" }; cyclic.cause = cyclic;
+  assert.equal(classifyWidgetError(cyclic).reason, "unknown");
+  assert.equal(classifyWidgetError({ get code() { throw new Error("private"); } }).reason, "unknown");
+  assert.deepEqual(sanitizeWidgetFields({ reason: "destination_swap_quote_unavailable", errorSummary: `secret ${address}`, sdkCode: `invalid/${address}`, errorStep: address, errorChainId: Infinity }), { reason: "destination_swap_quote_unavailable" });
+  assert.equal(classifyWidgetError({ code: "execution/slippage_exceeded", message: `Quote failed: No destination swap quote available for chain 4114 token ${address}` }).reason, "slippage_exceeded");
+  assert.equal(classifyWidgetError({ code: 4001, message: `Quote failed: No destination swap quote available for chain 4114 token ${address}` }).reason, "wallet_rejected");
+  for (const [message, reason] of [
+    ["Quote failed: No destination gas swap quote available for chain 4114", "destination_gas_quote_unavailable"],
+    ["Quote failed: Failed to resize destination swap.", "destination_swap_resize_failed"],
+    ["Quote failed: Failed to requote destination swap.", "destination_swap_requote_failed"],
+  ]) assert.equal(classifyWidgetError(new Error(message)).reason, reason);
+});
+
+test("unsuccessful return values preserve their errors and original values", async () => {
+  const h = harness();
+  try {
+    const value = { success: false, error: { code: "execution/tx_onchain_reverted", message: "private" } };
+    assert.equal(await h.telemetry.observeSwap("swapAndExecute", 1, async () => value), value);
+    assert.equal(h.records.at(-1)?.properties.reason, "tx_onchain_reverted");
+    assert.equal(await h.telemetry.observe("execute", "execution", async () => value), value);
+    assert.equal(h.records.at(-1)?.properties.result, "failed");
+    await h.telemetry.observe("execute", "execution", async () => ({ success: false }));
+    assert.equal(h.records.at(-1)?.properties.reason, "unsuccessful_result");
+  } finally { h.telemetry.dispose(); }
+});
+
+test("invalid quote shapes have a widget reason instead of unknown", async () => {
+  const h = harness();
+  try {
+    const pending = deferred<object>();
+    const operation = h.telemetry.observeSwap("swapWithExactIn", 1, () => pending.promise);
+    h.telemetry.quoteFailed(1);
+    pending.reject({ code: "user_action/intent_hook_denied" });
+    await assert.rejects(operation);
+    assert.equal(h.records.at(-1)?.properties.reason, "invalid_quote");
+    assert.equal(h.records.at(-1)?.properties.errorCategory, "widget");
   } finally { h.telemetry.dispose(); }
 });

@@ -6721,7 +6721,7 @@ function NexusWidgetInner({
                     bridgeProvider
                 );
                 const normalized = normalizeRenderableSwapIntentData(refreshed, refreshedBridgeProvider);
-                finish(normalized ? "succeeded" : "failed");
+                finish(normalized ? "succeeded" : "failed", normalized ? undefined : { code: "widget/invalid_quote" });
                 return normalized ?? refreshed;
               } catch (error) {
                 finish("failed", error);

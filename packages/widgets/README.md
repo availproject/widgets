@@ -89,6 +89,11 @@ Set `includeWalletHint: false` to omit truncated wallet hints. Full wallet addre
 raw errors, signatures and fees are excluded; estimated USD requires explicit opt-in. Transaction callbacks are
 unchanged; SDK-owned upstream OTel logs remain outside widget scope.
 
+Failed SDK calls include allowlisted `sdkCode`, a classified `reason`, a fixed
+`errorSummary` and known service/step/chain context in both collectors. Known SDK
+templates distinguish unavailable destination quotes from generic quote failures.
+Raw error messages and payloads are excluded; unrecognized errors remain unknown.
+
 The PostHog proxy is deferred; ingestion currently goes directly to PostHog.
 SDK commitment signals are explicitly labelled browser-observed. The optional
 `subscribeToAttemptEvidence` adapter accepts trusted canonical commitment and final
