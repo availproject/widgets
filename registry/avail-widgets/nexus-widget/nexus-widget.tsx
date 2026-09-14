@@ -5259,12 +5259,15 @@ function NexusWidgetInner({
     if (!amountInputConfig || !inputAmount) return null;
     const parsedAmount = parseFiatNumber(inputAmount);
     if (!parsedAmount || parsedAmount.lte(0)) return null;
+    const tokenSuffix = toToken?.symbol?.trim()
+      ? ` ${toToken.symbol.trim()}`
+      : "";
 
     const minAmount = parseFiatNumber(amountInputConfig.min);
     if (minAmount && parsedAmount.lt(minAmount)) {
       return {
         ctaLabel: "Below minimum",
-        message: `Minimum deposit amount is ${minAmount.toFixed()}.`,
+        message: `Minimum deposit amount is ${minAmount.toFixed()}${tokenSuffix}.`,
         type: "configuredAmountLimit",
       };
     }
@@ -5273,7 +5276,7 @@ function NexusWidgetInner({
     if (maxAmount && parsedAmount.gt(maxAmount)) {
       return {
         ctaLabel: "Above maximum",
-        message: `Maximum deposit amount is ${maxAmount.toFixed()}.`,
+        message: `Maximum deposit amount is ${maxAmount.toFixed()}${tokenSuffix}.`,
         type: "configuredAmountLimit",
       };
     }
