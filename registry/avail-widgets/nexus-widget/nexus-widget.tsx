@@ -5264,7 +5264,7 @@ function NexusWidgetInner({
     if (minAmount && parsedAmount.lt(minAmount)) {
       return {
         ctaLabel: "Below minimum",
-        message: `Minimum amount is ${minAmount.toFixed()}.`,
+        message: `Minimum deposit amount is ${minAmount.toFixed()}.`,
         type: "configuredAmountLimit",
       };
     }
@@ -5273,7 +5273,7 @@ function NexusWidgetInner({
     if (maxAmount && parsedAmount.gt(maxAmount)) {
       return {
         ctaLabel: "Above maximum",
-        message: `Maximum amount is ${maxAmount.toFixed()}.`,
+        message: `Maximum deposit amount is ${maxAmount.toFixed()}.`,
         type: "configuredAmountLimit",
       };
     }
