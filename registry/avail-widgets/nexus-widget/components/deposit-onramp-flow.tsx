@@ -527,10 +527,7 @@ const getCountryFlagUrl = (
 ) => {
   const normalizedCountryCode = countryCode?.toUpperCase();
   if (!normalizedCountryCode) return undefined;
-  return (
-    getCountryByCode(countries, normalizedCountryCode)?.flagUrl ??
-    `https://flagsapi.com/${normalizedCountryCode}/flat/64.png`
-  );
+  return getCountryByCode(countries, normalizedCountryCode)?.flagUrl;
 };
 
 const FIAT_CURRENCY_TO_COUNTRY_CODE: Record<string, string> = {
