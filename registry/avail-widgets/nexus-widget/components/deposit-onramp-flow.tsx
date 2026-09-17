@@ -1808,9 +1808,17 @@ const PAYMENT_METHOD_LOGOS: Record<string, string> = {
   UPI: "https://files.availproject.org/widgets/nexus/assets/upi.png",
 };
 
+const PAYMENT_METHOD_LOGO_STYLES: Record<string, React.CSSProperties> = {
+  GOOGLE_PAY: {
+    padding: 0,
+    transform: "scale(1.35)",
+  },
+};
+
 function MethodMark({ method }: { method?: string }) {
   const normalized = (method ?? "").toUpperCase();
   const logoUrl = PAYMENT_METHOD_LOGOS[normalized];
+  const customLogoStyle = PAYMENT_METHOD_LOGO_STYLES[normalized];
   const [imgFailed, setImgFailed] = React.useState(false);
 
   React.useEffect(() => {
@@ -1842,6 +1850,7 @@ function MethodMark({ method }: { method?: string }) {
             maxWidth: "100%",
             objectFit: "contain",
             padding: "4px",
+            ...customLogoStyle,
           }}
         />
       </div>
