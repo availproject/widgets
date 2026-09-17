@@ -805,14 +805,39 @@ const getMethodLabel = (method?: string) => {
       return "Google Pay";
     case "UPI":
       return "UPI";
-    case "BANK_TRANSFER":
     case "IMPS":
-    case "NEFT":
-    case "RTGS":
-      return "Bank Transfer";
+      return "IMPS";
     case "CREDIT_DEBIT_CARD":
     case "CARD":
       return "Credit / Debit Cards";
+    case "BANK_TRANSFER":
+    case "NEFT":
+    case "RTGS":
+    case "AR_BANK_TRANSFER":
+    case "NG_BANK_TRANSFER":
+      return "Bank Transfer";
+    case "SEPA":
+      return "SEPA";
+    case "REVOLUT_PAY":
+    case "REVOLUT":
+      return "Revolut Pay";
+    case "MOBILE_MONEY":
+      return "Mobile Money";
+    case "BINANCE_P2P":
+      return "Binance P2P";
+    case "PAYMAYA":
+      return "PayMaya";
+    case "GCASH":
+      return "GCash";
+    case "GRABPAY":
+      return "GrabPay";
+    case "SPEI":
+      return "SPEI";
+    case "MX_CASH":
+      return "Cash";
+    case "ROBINHOOD_BUYING_POWER":
+    case "ROBINHOOD":
+      return "Robinhood";
     default:
       return method
         ? method
@@ -846,9 +871,7 @@ const getProviderLabel = (provider?: string) => {
   return provider
     .split(/[_\s-]+/)
     .filter(Boolean)
-    .map(
-      (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
-    )
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
 };
 
@@ -1078,7 +1101,9 @@ const makeJsonRpcCall = async <T = any,>(
 ): Promise<T> => {
   logOnramp("rpc.request", { method });
   const response = await fetch(rpcUrl, {
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(15_000)])
+      : AbortSignal.timeout(15_000),
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1644,10 +1669,12 @@ const useIsDarkMode = () => {
   const [isDark, setIsDark] = React.useState(false);
 
   React.useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (typeof window === "undefined" || typeof document === "undefined")
+      return;
 
     const checkDark = () => {
-      const root = typeof document !== "undefined" ? document.documentElement : undefined;
+      const root =
+        typeof document !== "undefined" ? document.documentElement : undefined;
       const body = typeof document !== "undefined" ? document.body : undefined;
       const isDarkClass = Boolean(
         root?.classList?.contains("dark") || body?.classList?.contains("dark"),
@@ -1669,7 +1696,8 @@ const useIsDarkMode = () => {
     const handleMediaChange = () => setIsDark(checkDark());
     mediaQuery?.addEventListener?.("change", handleMediaChange);
 
-    const root = typeof document !== "undefined" ? document.documentElement : undefined;
+    const root =
+      typeof document !== "undefined" ? document.documentElement : undefined;
     let observer: MutationObserver | undefined;
     if (root && typeof MutationObserver !== "undefined") {
       observer = new MutationObserver(() => {
@@ -1699,19 +1727,9 @@ function ProviderMark({ provider }: { provider?: string }) {
   const logoUrl = React.useMemo(() => {
     if (!logo) return undefined;
     if (isDark) {
-      return (
-        logo.darkShort ||
-        logo.lightShort ||
-        logo.dark ||
-        logo.light
-      );
+      return logo.darkShort || logo.lightShort || logo.dark || logo.light;
     }
-    return (
-      logo.lightShort ||
-      logo.darkShort ||
-      logo.light ||
-      logo.dark
-    );
+    return logo.lightShort || logo.darkShort || logo.light || logo.dark;
   }, [logo, isDark]);
 
   React.useEffect(() => {
@@ -1773,20 +1791,75 @@ function ProviderMark({ provider }: { provider?: string }) {
   );
 }
 
+const PAYMENT_METHOD_LOGOS: Record<string, string> = {
+  APPLE_PAY: "https://files.availproject.org/widgets/nexus/assets/applepay.svg",
+  BINANCE_P2P: "https://files.availproject.org/widgets/nexus/assets/binance.png",
+  GCASH: "https://files.availproject.org/widgets/nexus/assets/gcash.png",
+  GOOGLE_PAY: "https://files.availproject.org/widgets/nexus/assets/googlepay.svg",
+  GRABPAY: "https://files.availproject.org/widgets/nexus/assets/grabpay.svg",
+  IMPS: "https://files.availproject.org/widgets/nexus/assets/imps.png",
+  PAYMAYA: "https://files.availproject.org/widgets/nexus/assets/paymaya.svg",
+  REVOLUT: "https://files.availproject.org/widgets/nexus/assets/revolut.svg",
+  REVOLUT_PAY: "https://files.availproject.org/widgets/nexus/assets/revolut.svg",
+  ROBINHOOD: "https://files.availproject.org/widgets/nexus/assets/robinhood.jpg",
+  ROBINHOOD_BUYING_POWER:
+    "https://files.availproject.org/widgets/nexus/assets/robinhood.jpg",
+  SEPA: "https://files.availproject.org/widgets/nexus/assets/sepa.jpg",
+  UPI: "https://files.availproject.org/widgets/nexus/assets/upi.png",
+};
+
 function MethodMark({ method }: { method?: string }) {
   const normalized = (method ?? "").toUpperCase();
+  const logoUrl = PAYMENT_METHOD_LOGOS[normalized];
+  const [imgFailed, setImgFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setImgFailed(false);
+  }, [logoUrl]);
+
+  if (logoUrl && !imgFailed) {
+    return (
+      <div
+        style={{
+          alignItems: "center",
+          backgroundColor: theme.colors.surface,
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: "8px",
+          display: "flex",
+          flexShrink: 0,
+          height: "34px",
+          justifyContent: "center",
+          overflow: "hidden",
+          width: "34px",
+        }}
+      >
+        <img
+          alt={getMethodLabel(method)}
+          onError={() => setImgFailed(true)}
+          src={logoUrl}
+          style={{
+            maxHeight: "100%",
+            maxWidth: "100%",
+            objectFit: "contain",
+            padding: "4px",
+          }}
+        />
+      </div>
+    );
+  }
+
   const icon =
-    normalized === "UPI" ||
-    normalized === "APPLE_PAY" ||
-    normalized === "GOOGLE_PAY" ? (
-      <Smartphone aria-hidden="true" size={20} strokeWidth={1.7} />
+    normalized === "CREDIT_DEBIT_CARD" ||
+    normalized === "CARD" ||
+    normalized.includes("CARD") ? (
+      <CreditCard aria-hidden="true" size={20} strokeWidth={1.7} />
     ) : normalized.includes("BANK") ||
-      normalized === "IMPS" ||
       normalized === "NEFT" ||
-      normalized === "RTGS" ? (
+      normalized === "RTGS" ||
+      normalized === "SPEI" ? (
       <Landmark aria-hidden="true" size={20} strokeWidth={1.7} />
     ) : (
-      <CreditCard aria-hidden="true" size={20} strokeWidth={1.7} />
+      <Smartphone aria-hidden="true" size={20} strokeWidth={1.7} />
     );
 
   return (
@@ -3100,7 +3173,10 @@ function OnrampSuccessPanel({
           value={formatTokenAmountDisplay(destinationAmount, destinationSymbol)}
         />
         {paymentMethod && (
-          <SummaryRow label="Payment method" value={getMethodLabel(paymentMethod)} />
+          <SummaryRow
+            label="Payment method"
+            value={getMethodLabel(paymentMethod)}
+          />
         )}
         <SummaryRow
           label="Payment Partner"
@@ -3371,8 +3447,10 @@ function OnrampSessionStatusPanel({
   }
 
   if (
-    normalizedState === "SETTLED" && depositExecution.status !== "success" &&
-    depositExecution.status !== "running" && !hasConnectedWallet
+    normalizedState === "SETTLED" &&
+    depositExecution.status !== "success" &&
+    depositExecution.status !== "running" &&
+    !hasConnectedWallet
   ) {
     return (
       <OnrampActionStatusPanel
@@ -3522,7 +3600,11 @@ export function DepositOnrampFlow({
     revision: walletRevision,
     checking: walletChecking,
     check: checkWalletConnection,
-  } = useOnrampWallet({ getProvider: getWalletProvider, walletClient, walletConnected });
+  } = useOnrampWallet({
+    getProvider: getWalletProvider,
+    walletClient,
+    walletConnected,
+  });
   const [walletActionPending, setWalletActionPending] = React.useState(false);
   const [countryCode, setCountryCode] = React.useState("");
   const [sourceCurrencyCode, setSourceCurrencyCode] = React.useState("");
@@ -3569,7 +3651,10 @@ export function DepositOnrampFlow({
   onErrorRef.current = onError;
   const sessionRef = React.useRef(session);
   sessionRef.current = session;
-  const sessionHistoryRef = React.useRef<Omit<OnrampHistoryUpdate, "session"> | null>(null);
+  const sessionHistoryRef = React.useRef<Omit<
+    OnrampHistoryUpdate,
+    "session"
+  > | null>(null);
   const sessionQuoteRef = React.useRef<OnrampQuote | null>(null);
   const sessionUpdateRef = React.useRef(onSessionUpdate);
   sessionUpdateRef.current = onSessionUpdate;
@@ -3692,7 +3777,13 @@ export function DepositOnrampFlow({
         selectedPaymentMethod,
         sourceAmount.trim(),
       ].join("|"),
-    [quoteWalletAddress, walletRevision, rateRequestKey, selectedPaymentMethod, sourceAmount],
+    [
+      quoteWalletAddress,
+      walletRevision,
+      rateRequestKey,
+      selectedPaymentMethod,
+      sourceAmount,
+    ],
   );
   const selectedRoute = React.useMemo(
     () =>
@@ -3984,7 +4075,10 @@ export function DepositOnrampFlow({
             { signal: controller.signal },
           );
           checkActive();
-          settledSession = mergeOnrampSession(session, normalizeOnrampSession(payload, sessionId));
+          settledSession = mergeOnrampSession(
+            session,
+            normalizeOnrampSession(payload, sessionId),
+          );
           setSession(settledSession);
         }
         if (!opportunity || !toToken || !ownerAddress || !walletClient) {
@@ -3995,7 +4089,9 @@ export function DepositOnrampFlow({
         const account = ownerAddress as Address;
         const liveAccount = await checkWalletConnection();
         if (liveAccount?.toLowerCase() !== account.toLowerCase()) {
-          throw new Error("Reconnect the funded wallet to complete your deposit.");
+          throw new Error(
+            "Reconnect the funded wallet to complete your deposit.",
+          );
         }
         checkActive();
         const toChainId = opportunity.chainId;
@@ -4132,7 +4228,12 @@ export function DepositOnrampFlow({
               ];
           const rpc = getChainRpcUrl(toChainId, nexusSDK);
           const balance = rpc
-            ? await makeJsonRpcCall<string>(rpc, method, params, controller.signal)
+            ? await makeJsonRpcCall<string>(
+                rpc,
+                method,
+                params,
+                controller.signal,
+              )
             : ((await walletClient.request({
                 method,
                 params,
@@ -4437,33 +4538,44 @@ export function DepositOnrampFlow({
                 cached.fiatCurrencyMetadata,
             );
             logOnramp("options.cache_hit", { requestedCountryCode });
-            return { data: cached, requestedCountryCode };
+            applyOptions(cached, requestedCountryCode);
           }
 
-          const data = await fetchOnrampJson<OnrampOptionsResponse>(
-            baseUrl,
-            `/api/v1/onramp/options?countryCode=${encodeURIComponent(
-              requestedCountryCode,
-            )}`,
-            { method: "GET", signal },
-          );
-          cacheOnrampProviders(data.providers);
-          cacheOnrampFiatMetadata(
-            data.selection?.fiatCurrencyMetadata ?? data.fiatCurrencyMetadata,
-          );
-          writeCachedOnrampOptions(baseUrl, requestedCountryCode, data);
+          try {
+            const data = await fetchOnrampJson<OnrampOptionsResponse>(
+              baseUrl,
+              `/api/v1/onramp/options?countryCode=${encodeURIComponent(
+                requestedCountryCode,
+              )}`,
+              { method: "GET", signal },
+            );
+            cacheOnrampProviders(data.providers);
+            cacheOnrampFiatMetadata(
+              data.selection?.fiatCurrencyMetadata ?? data.fiatCurrencyMetadata,
+            );
+            writeCachedOnrampOptions(baseUrl, requestedCountryCode, data);
 
-          const selectedCountryCode =
-            data.selection?.countryCode?.toUpperCase();
-          if (
-            selectedCountryCode &&
-            selectedCountryCode !== requestedCountryCode &&
-            isCountryInOptionsList(data, selectedCountryCode)
-          ) {
-            writeCachedOnrampOptions(baseUrl, selectedCountryCode, data);
+            const selectedCountryCode =
+              data.selection?.countryCode?.toUpperCase();
+            if (
+              selectedCountryCode &&
+              selectedCountryCode !== requestedCountryCode &&
+              isCountryInOptionsList(data, selectedCountryCode)
+            ) {
+              writeCachedOnrampOptions(baseUrl, selectedCountryCode, data);
+            }
+
+            return { data, requestedCountryCode };
+          } catch (fetchError) {
+            if (cached) {
+              logOnramp("options.refresh_failed_using_cache", {
+                error: fetchError,
+                requestedCountryCode,
+              });
+              return { data: cached, requestedCountryCode };
+            }
+            throw fetchError;
           }
-
-          return { data, requestedCountryCode };
         };
 
         const resolvedCountryCode = await resolveOnrampCountryCode(signal);
@@ -4498,9 +4610,40 @@ export function DepositOnrampFlow({
   );
 
   React.useEffect(() => {
-    const controller = new AbortController();
+    let controller: AbortController | null = new AbortController();
     void loadOptions(controller.signal);
-    return () => controller.abort();
+
+    let lastComebackAt = Date.now();
+    const handleComeback = () => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      )
+        return;
+      const now = Date.now();
+      if (now - lastComebackAt < 3000) return;
+      lastComebackAt = now;
+      controller?.abort();
+      controller = new AbortController();
+      void loadOptions(controller.signal);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", handleComeback);
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleComeback);
+    }
+
+    return () => {
+      controller?.abort();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", handleComeback);
+      }
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleComeback);
+      }
+    };
   }, [loadOptions]);
 
   const getRequestErrorMessage = React.useCallback(
@@ -4934,23 +5077,26 @@ export function DepositOnrampFlow({
     refreshSessionRef.current?.();
   }, []);
 
-  const applyManualOnrampSessionId = React.useCallback((sessionId: string) => {
-    const normalizedSessionId = sessionId.trim();
-    if (!normalizedSessionId) return;
-    if (depositBusyRef.current || pendingDepositRef.current) return;
-    logOnramp("session.manual_resume", { sessionId: normalizedSessionId });
-    sessionHistoryRef.current = {
-      ownerAddress: ownerRef.current ?? persistedOwnerAddress ?? "",
-      context: { chainId: toToken?.chainId, tokenSymbol: toToken?.symbol },
-    };
-    sessionQuoteRef.current = null;
-    setSessionCallbackReceived(true);
-    setSession({
-      sessionId: normalizedSessionId,
-      state: "AWAITING_USER",
-    });
-    setError(null);
-  }, [persistedOwnerAddress, toToken?.chainId, toToken?.symbol]);
+  const applyManualOnrampSessionId = React.useCallback(
+    (sessionId: string) => {
+      const normalizedSessionId = sessionId.trim();
+      if (!normalizedSessionId) return;
+      if (depositBusyRef.current || pendingDepositRef.current) return;
+      logOnramp("session.manual_resume", { sessionId: normalizedSessionId });
+      sessionHistoryRef.current = {
+        ownerAddress: ownerRef.current ?? persistedOwnerAddress ?? "",
+        context: { chainId: toToken?.chainId, tokenSymbol: toToken?.symbol },
+      };
+      sessionQuoteRef.current = null;
+      setSessionCallbackReceived(true);
+      setSession({
+        sessionId: normalizedSessionId,
+        state: "AWAITING_USER",
+      });
+      setError(null);
+    },
+    [persistedOwnerAddress, toToken?.chainId, toToken?.symbol],
+  );
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -5160,7 +5306,9 @@ export function DepositOnrampFlow({
       controller.signal.throwIfAborted();
       if (liveAccount?.toLowerCase() !== ownerAddress.toLowerCase()) {
         providerWindow.close();
-        setError("Connect your wallet and wait for a refreshed quote before paying.");
+        setError(
+          "Connect your wallet and wait for a refreshed quote before paying.",
+        );
         return;
       }
       logOnramp("session.create", {
@@ -5223,7 +5371,10 @@ export function DepositOnrampFlow({
       };
       sessionQuoteRef.current = selectedQuote;
       // Save before navigating the provider window so pending purchases survive closing the widget.
-      sessionUpdateRef.current?.({ ...sessionHistoryRef.current, session: normalized });
+      sessionUpdateRef.current?.({
+        ...sessionHistoryRef.current,
+        session: normalized,
+      });
       setSession(normalized);
       pendingApprovalRef.current = null;
       remainingDepositRef.current = null;
@@ -5739,7 +5890,9 @@ export function DepositOnrampFlow({
                   lineHeight: "36px",
                 }}
               >
-                {receiveAmount ? formatPlainNumberDisplay(receiveAmount, 6) : "0"}
+                {receiveAmount
+                  ? formatPlainNumberDisplay(receiveAmount, 6)
+                  : "0"}
               </div>
               <div
                 style={{
@@ -5981,7 +6134,10 @@ export function DepositOnrampFlow({
         }}
         type="button"
       >
-        {sessionLoading || ctaRateLoading || walletActionPending || (!hasConnectedWallet && walletChecking) ? (
+        {sessionLoading ||
+        ctaRateLoading ||
+        walletActionPending ||
+        (!hasConnectedWallet && walletChecking) ? (
           <Loader2
             className="animate-spin"
             size={16}
