@@ -57,6 +57,7 @@ const mountFlow = async ({
   receivedAmount = "10",
   actualPaymentMethod = undefined as string | undefined,
   actualSourceAmount = undefined as string | undefined,
+  optionsData = undefined as any,
 } = {}) => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
   logs = [];
@@ -131,14 +132,16 @@ const mountFlow = async ({
       );
     }
     if (path.includes("/options"))
-      return Response.json({
-        countries: [{ countryCode: "US", name: "United States" }],
-        selection: {
-          countryCode: "US",
-          defaultFiat: "USD",
-          fiatCurrencies: ["USD"],
+      return Response.json(
+        optionsData ?? {
+          countries: [{ countryCode: "US", name: "United States" }],
+          selection: {
+            countryCode: "US",
+            defaultFiat: "USD",
+            fiatCurrencies: ["USD"],
+          },
         },
-      });
+      );
     if (path.includes("/routes")) return Response.json({ routes: quoteFlow ? [{ provider: "BANXA", paymentMethods: [{ method: "CREDIT_DEBIT_CARD" }] }] : [] });
     if (path.endsWith("/quote")) {
       const body = JSON.parse(String(init?.body));
@@ -744,3 +747,92 @@ test("disabling onramp clears a selected local currency option and prevents cont
   await act(async () => continueButton.props.onClick());
   assert.equal(onrampSelections, 1);
 });
+
+test("options response caches provider and fiat metadata and renders logo and friendly name", async () => {
+  const optionsData = {
+    countries: [{ countryCode: "US", name: "United States" }],
+    providers: [
+      {
+        provider: "BANXA",
+        name: "Banxa",
+        logo: {
+          lightShort: "https://cdn.meld.io/images-serviceprovider/BANXA/short_logo_light.png",
+          darkShort: "https://cdn.meld.io/images-serviceprovider/BANXA/short_logo_dark.png",
+        },
+      },
+    ],
+    selection: {
+      countryCode: "US",
+      defaultFiat: "USD",
+      fiatCurrencies: ["USD"],
+      fiatCurrencyMetadata: [
+        {
+          currencyCode: "USD",
+          name: "US Dollar",
+          decimals: 2,
+          symbolUrl: "https://cdn.meld.io/images-currency/fiat/USD/symbol.png",
+        },
+      ],
+    },
+  };
+
+  await mountFlow({ resume: false, quoteFlow: true, optionsData });
+  await act(async () => renderer!.root.findByType("input").props.onChange({ target: { value: "50" } }));
+  await waitForQuotes();
+
+  const imgs = renderer!.root.findAllByType("img");
+  const currencyImg = imgs.find((img) =>
+    img.props.src?.includes("USD/symbol.png"),
+  );
+  assert.ok(currencyImg, "Expected currency logo img to be rendered");
+  assert.equal(
+    currencyImg.props.src,
+    "https://cdn.meld.io/images-currency/fiat/USD/symbol.png",
+  );
+
+  const partnerLabel = renderer!.root.findAll((node) =>
+    node.children?.includes("Banxa"),
+  );
+  assert.ok(partnerLabel.length > 0, "Expected friendly provider name Banxa");
+
+  const providerImg = imgs.find((img) =>
+    img.props.src?.includes("BANXA/short_logo_light.png"),
+  );
+  assert.ok(providerImg, "Expected provider short logo img to be rendered");
+});
+
+test("options response in dark mode renders dark short logo", async () => {
+  const optionsData = {
+    countries: [{ countryCode: "US", name: "United States" }],
+    providers: [
+      {
+        provider: "BANXA",
+        name: "Banxa",
+        logo: {
+          lightShort: "https://cdn.meld.io/images-serviceprovider/BANXA/short_logo_light.png",
+          darkShort: "https://cdn.meld.io/images-serviceprovider/BANXA/short_logo_dark.png",
+        },
+      },
+    ],
+    selection: {
+      countryCode: "US",
+      defaultFiat: "USD",
+      fiatCurrencies: ["USD"],
+    },
+  };
+
+  await mountFlow({ resume: false, quoteFlow: true, optionsData });
+  (globalThis as any).document.documentElement = {
+    classList: { contains: (c: string) => c === "dark" },
+    getAttribute: (a: string) => (a === "data-theme" ? "dark" : null),
+  };
+  await act(async () => renderer!.root.findByType("input").props.onChange({ target: { value: "50" } }));
+  await waitForQuotes();
+
+  const imgs = renderer!.root.findAllByType("img");
+  const darkProviderImg = imgs.find((img) =>
+    img.props.src?.includes("BANXA/short_logo_dark.png"),
+  );
+  assert.ok(darkProviderImg, "Expected provider dark short logo img to be rendered in dark mode");
+});
+

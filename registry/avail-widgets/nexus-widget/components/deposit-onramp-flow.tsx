@@ -60,6 +60,19 @@ type OnrampCryptoCurrency = {
   token?: string;
 };
 
+type OnrampProviderLogo = {
+  dark?: string;
+  darkShort?: string;
+  light?: string;
+  lightShort?: string;
+};
+
+type OnrampProviderMetadata = {
+  logo?: OnrampProviderLogo;
+  name: string;
+  provider: string;
+};
+
 type OnrampCountry = {
   countryCode: string;
   flagUrl?: string;
@@ -67,11 +80,20 @@ type OnrampCountry = {
   subdivisions?: unknown[];
 };
 
+type OnrampFiatMetadata = {
+  currencyCode: string;
+  decimals?: number;
+  flagUrl?: string;
+  name?: string;
+  symbolUrl?: string;
+};
+
 type OnrampFiatCurrency =
   | string
   | {
       code?: string;
       currencyCode?: string;
+      decimals?: number;
       flagUrl?: string;
       name?: string;
       symbol?: string;
@@ -80,6 +102,7 @@ type OnrampFiatCurrency =
 
 type OnrampFiatCurrencyOption = {
   currencyCode: string;
+  decimals?: number;
   flagUrl?: string;
   name?: string;
   symbol?: string;
@@ -88,12 +111,15 @@ type OnrampFiatCurrencyOption = {
 
 type OnrampOptionsResponse = {
   countries?: OnrampCountry[];
+  fiatCurrencyMetadata?: OnrampFiatMetadata[];
+  providers?: OnrampProviderMetadata[];
   selection?: {
     countryCode: string;
     cryptoCurrencies?: OnrampCryptoCurrency[];
     defaultFiat?: string;
     defaultPaymentMethods?: string[];
     fiatCurrencies?: OnrampFiatCurrency[];
+    fiatCurrencyMetadata?: OnrampFiatMetadata[];
   } | null;
 };
 
@@ -530,222 +556,111 @@ const getCountryFlagUrl = (
   return getCountryByCode(countries, normalizedCountryCode)?.flagUrl;
 };
 
-const FIAT_CURRENCY_TO_COUNTRY_CODE: Record<string, string> = {
-  AED: "AE",
-  AFN: "AF",
-  ALL: "AL",
-  AMD: "AM",
-  ANG: "CW",
-  AOA: "AO",
-  ARS: "AR",
-  AUD: "AU",
-  AWG: "AW",
-  AZN: "AZ",
-  BAM: "BA",
-  BBD: "BB",
-  BDT: "BD",
-  BGN: "BG",
-  BHD: "BH",
-  BIF: "BI",
-  BMD: "BM",
-  BND: "BN",
-  BOB: "BO",
-  BRL: "BR",
-  BSD: "BS",
-  BTN: "BT",
-  BWP: "BW",
-  BYN: "BY",
-  BZD: "BZ",
-  CAD: "CA",
-  CDF: "CD",
-  CHF: "CH",
-  CLP: "CL",
-  CNY: "CN",
-  COP: "CO",
-  CRC: "CR",
-  CUP: "CU",
-  CVE: "CV",
-  CZK: "CZ",
-  DJF: "DJ",
-  DKK: "DK",
-  DOP: "DO",
-  DZD: "DZ",
-  EGP: "EG",
-  ERN: "ER",
-  ETB: "ET",
-  EUR: "FR",
-  FJD: "FJ",
-  FKP: "FK",
-  GBP: "GB",
-  GEL: "GE",
-  GHS: "GH",
-  GIP: "GI",
-  GMD: "GM",
-  GNF: "GN",
-  GTQ: "GT",
-  GYD: "GY",
-  HKD: "HK",
-  HNL: "HN",
-  HRK: "HR",
-  HTG: "HT",
-  HUF: "HU",
-  IDR: "ID",
-  ILS: "IL",
-  INR: "IN",
-  IQD: "IQ",
-  IRR: "IR",
-  ISK: "IS",
-  JMD: "JM",
-  JOD: "JO",
-  JPY: "JP",
-  KES: "KE",
-  KGS: "KG",
-  KHR: "KH",
-  KMF: "KM",
-  KPW: "KP",
-  KRW: "KR",
-  KWD: "KW",
-  KYD: "KY",
-  KZT: "KZ",
-  LAK: "LA",
-  LBP: "LB",
-  LKR: "LK",
-  LRD: "LR",
-  LSL: "LS",
-  LYD: "LY",
-  MAD: "MA",
-  MDL: "MD",
-  MGA: "MG",
-  MKD: "MK",
-  MMK: "MM",
-  MNT: "MN",
-  MOP: "MO",
-  MRU: "MR",
-  MUR: "MU",
-  MVR: "MV",
-  MWK: "MW",
-  MXN: "MX",
-  MYR: "MY",
-  MZN: "MZ",
-  NAD: "NA",
-  NGN: "NG",
-  NIO: "NI",
-  NOK: "NO",
-  NPR: "NP",
-  NZD: "NZ",
-  OMR: "OM",
-  PAB: "PA",
-  PEN: "PE",
-  PGK: "PG",
-  PHP: "PH",
-  PKR: "PK",
-  PLN: "PL",
-  PYG: "PY",
-  QAR: "QA",
-  RON: "RO",
-  RSD: "RS",
-  RUB: "RU",
-  RWF: "RW",
-  SAR: "SA",
-  SBD: "SB",
-  SCR: "SC",
-  SDG: "SD",
-  SEK: "SE",
-  SGD: "SG",
-  SHP: "SH",
-  SLL: "SL",
-  SOS: "SO",
-  SRD: "SR",
-  SSP: "SS",
-  STN: "ST",
-  SVC: "SV",
-  SYP: "SY",
-  SZL: "SZ",
-  THB: "TH",
-  TJS: "TJ",
-  TMT: "TM",
-  TND: "TN",
-  TOP: "TO",
-  TRY: "TR",
-  TTD: "TT",
-  TWD: "TW",
-  TZS: "TZ",
-  UAH: "UA",
-  UGX: "UG",
-  USD: "US",
-  UYU: "UY",
-  UZS: "UZ",
-  VES: "VE",
-  VND: "VN",
-  VUV: "VU",
-  WST: "WS",
-  XAF: "CM",
-  XCD: "AG",
-  XOF: "SN",
-  XPF: "PF",
-  YER: "YE",
-  ZAR: "ZA",
-  ZMW: "ZM",
-  ZWL: "ZW",
+const onrampProviderMetadataCache = new Map<string, OnrampProviderMetadata>();
+
+const cacheOnrampProviders = (providers?: OnrampProviderMetadata[]) => {
+  if (!providers?.length) return;
+  for (const provider of providers) {
+    if (!provider?.provider) continue;
+    onrampProviderMetadataCache.set(provider.provider.toUpperCase(), provider);
+  }
 };
 
-const getCurrencyFlagUrl = (
-  currencyCode?: string,
-  countries?: OnrampCountry[],
-) => {
+const getProviderMetadata = (provider?: string) => {
+  if (!provider) return undefined;
+  return onrampProviderMetadataCache.get(provider.toUpperCase());
+};
+
+const onrampFiatMetadataCache = new Map<string, OnrampFiatMetadata>();
+
+const cacheOnrampFiatMetadata = (metadata?: OnrampFiatMetadata[]) => {
+  if (!metadata?.length) return;
+  for (const item of metadata) {
+    if (!item?.currencyCode) continue;
+    onrampFiatMetadataCache.set(item.currencyCode.toUpperCase(), item);
+  }
+};
+
+const getFiatMetadata = (currencyCode?: string) => {
   if (!currencyCode) return undefined;
-  const normalized = currencyCode.toUpperCase();
-  const countryCode =
-    FIAT_CURRENCY_TO_COUNTRY_CODE[normalized] || normalized.slice(0, 2);
-  return getCountryFlagUrl(countries, countryCode);
+  return onrampFiatMetadataCache.get(currencyCode.toUpperCase());
+};
+
+const getCurrencyLogoUrl = (
+  currencyCode?: string,
+  currency?: OnrampFiatCurrencyOption,
+) => {
+  if (currency?.symbolUrl || currency?.flagUrl) {
+    return currency.symbolUrl ?? currency.flagUrl;
+  }
+  if (!currencyCode) return undefined;
+  const meta = getFiatMetadata(currencyCode);
+  return meta?.symbolUrl ?? meta?.flagUrl;
 };
 
 const getFiatCurrencyOptions = (
   options: OnrampOptionsResponse | null,
 ): OnrampFiatCurrencyOption[] => {
   const selection = options?.selection;
-  const selectedCountryFlagUrl = getCountryFlagUrl(
-    options?.countries,
-    selection?.countryCode,
-  );
+  const fiatMetadataList =
+    selection?.fiatCurrencyMetadata ?? options?.fiatCurrencyMetadata;
+  cacheOnrampFiatMetadata(fiatMetadataList);
+  if (options?.providers) {
+    cacheOnrampProviders(options.providers);
+  }
+
   const byCode = new Map<string, OnrampFiatCurrencyOption>();
 
   for (const currency of selection?.fiatCurrencies ?? []) {
     const currencyCode = getFiatCurrencyCode(currency);
     if (!currencyCode || byCode.has(currencyCode)) continue;
-    const isDefaultFiat =
-      currencyCode === selection?.defaultFiat?.toUpperCase();
-    const fallbackFlagUrl = isDefaultFiat
-      ? selectedCountryFlagUrl
-      : getCurrencyFlagUrl(currencyCode, options?.countries);
+    const meta =
+      getFiatMetadata(currencyCode) ??
+      (typeof currency === "object" ? currency : undefined);
+
+    const logoUrl =
+      typeof currency === "object"
+        ? (currency.symbolUrl ??
+          currency.flagUrl ??
+          meta?.symbolUrl ??
+          meta?.flagUrl)
+        : (meta?.symbolUrl ??
+          meta?.flagUrl ??
+          getCountryFlagUrl(options?.countries, currencyCode.slice(0, 2)));
 
     byCode.set(currencyCode, {
       currencyCode,
-      flagUrl:
-        typeof currency === "string"
-          ? fallbackFlagUrl
-          : (currency.flagUrl ?? currency.symbolUrl ?? fallbackFlagUrl),
+      decimals:
+        typeof currency === "object"
+          ? (currency.decimals ?? meta?.decimals)
+          : meta?.decimals,
+      flagUrl: logoUrl,
       name:
-        typeof currency === "string"
-          ? getIntlCurrencyName(currencyCode)
-          : (currency.name ?? getIntlCurrencyName(currencyCode)),
+        typeof currency === "object"
+          ? (currency.name ?? meta?.name ?? getIntlCurrencyName(currencyCode))
+          : (meta?.name ?? getIntlCurrencyName(currencyCode)),
       symbol:
-        typeof currency === "string"
-          ? getIntlCurrencySymbol(currencyCode)
-          : (currency.symbol ?? getIntlCurrencySymbol(currencyCode)),
-      symbolUrl: typeof currency === "string" ? undefined : currency.symbolUrl,
+        typeof currency === "object"
+          ? (currency.symbol ?? getIntlCurrencySymbol(currencyCode))
+          : getIntlCurrencySymbol(currencyCode),
+      symbolUrl: logoUrl,
     });
   }
 
   const defaultFiat = selection?.defaultFiat?.toUpperCase();
   if (defaultFiat && !byCode.has(defaultFiat)) {
+    const meta = getFiatMetadata(defaultFiat);
+    const logoUrl =
+      meta?.symbolUrl ??
+      meta?.flagUrl ??
+      getCountryFlagUrl(options?.countries, defaultFiat.slice(0, 2));
     byCode.set(defaultFiat, {
       currencyCode: defaultFiat,
-      flagUrl:
-        selectedCountryFlagUrl ??
-        getCurrencyFlagUrl(defaultFiat, options?.countries),
-      name: getIntlCurrencyName(defaultFiat),
+      decimals: meta?.decimals,
+      flagUrl: logoUrl,
+      name: meta?.name ?? getIntlCurrencyName(defaultFiat),
       symbol: getIntlCurrencySymbol(defaultFiat),
+      symbolUrl: logoUrl,
     });
   }
 
@@ -924,16 +839,18 @@ const getMethodSubtitle = (method?: OnrampPaymentMethod) => {
     : undefined;
 };
 
-const getProviderLabel = (provider?: string) =>
-  provider
-    ? provider
-        .split(/[_\s-]+/)
-        .filter(Boolean)
-        .map(
-          (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
-        )
-        .join(" ")
-    : "Payment partner";
+const getProviderLabel = (provider?: string) => {
+  if (!provider) return "Payment partner";
+  const meta = getProviderMetadata(provider);
+  if (meta?.name) return meta.name;
+  return provider
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map(
+      (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
+    )
+    .join(" ");
+};
 
 const getProviderInitials = (provider?: string) => {
   const label = getProviderLabel(provider);
@@ -1695,8 +1612,7 @@ function CurrencyMark({
   currency?: OnrampFiatCurrencyOption;
 }) {
   const displayCode = currency?.currencyCode ?? code;
-  const imageUrl =
-    currency?.flagUrl ?? currency?.symbolUrl ?? getCurrencyFlagUrl(displayCode);
+  const imageUrl = getCurrencyLogoUrl(displayCode, currency);
 
   if (imageUrl) {
     return <TokenLogo label={displayCode} size={32} src={imageUrl} />;
@@ -1724,7 +1640,117 @@ function CurrencyMark({
   );
 }
 
+const useIsDarkMode = () => {
+  const [isDark, setIsDark] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    const checkDark = () => {
+      const root = typeof document !== "undefined" ? document.documentElement : undefined;
+      const body = typeof document !== "undefined" ? document.body : undefined;
+      const isDarkClass = Boolean(
+        root?.classList?.contains("dark") || body?.classList?.contains("dark"),
+      );
+      const isDataThemeDark = root?.getAttribute?.("data-theme") === "dark";
+      const prefersDark =
+        typeof window.matchMedia === "function"
+          ? Boolean(window.matchMedia("(prefers-color-scheme: dark)")?.matches)
+          : false;
+      return Boolean(isDarkClass || isDataThemeDark || prefersDark);
+    };
+
+    setIsDark(checkDark());
+
+    const mediaQuery =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : undefined;
+    const handleMediaChange = () => setIsDark(checkDark());
+    mediaQuery?.addEventListener?.("change", handleMediaChange);
+
+    const root = typeof document !== "undefined" ? document.documentElement : undefined;
+    let observer: MutationObserver | undefined;
+    if (root && typeof MutationObserver !== "undefined") {
+      observer = new MutationObserver(() => {
+        setIsDark(checkDark());
+      });
+      observer.observe(root, {
+        attributes: true,
+        attributeFilter: ["class", "data-theme"],
+      });
+    }
+
+    return () => {
+      mediaQuery?.removeEventListener?.("change", handleMediaChange);
+      observer?.disconnect();
+    };
+  }, []);
+
+  return isDark;
+};
+
 function ProviderMark({ provider }: { provider?: string }) {
+  const isDark = useIsDarkMode();
+  const meta = getProviderMetadata(provider);
+  const logo = meta?.logo;
+  const [failed, setFailed] = React.useState(false);
+
+  const logoUrl = React.useMemo(() => {
+    if (!logo) return undefined;
+    if (isDark) {
+      return (
+        logo.darkShort ||
+        logo.lightShort ||
+        logo.dark ||
+        logo.light
+      );
+    }
+    return (
+      logo.lightShort ||
+      logo.darkShort ||
+      logo.light ||
+      logo.dark
+    );
+  }, [logo, isDark]);
+
+  React.useEffect(() => {
+    setFailed(false);
+  }, [logoUrl]);
+
+  if (logoUrl && !failed) {
+    return (
+      <div
+        style={{
+          alignItems: "center",
+          backgroundColor: isDark
+            ? "rgba(255, 255, 255, 0.06)"
+            : theme.colors.surfaceCool,
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: "8px",
+          display: "flex",
+          flexShrink: 0,
+          height: "34px",
+          justifyContent: "center",
+          overflow: "hidden",
+          width: "34px",
+        }}
+      >
+        <img
+          alt={meta?.name ?? getProviderLabel(provider)}
+          onError={() => setFailed(true)}
+          src={logoUrl}
+          style={{
+            height: "100%",
+            objectFit: "contain",
+            padding: "3px",
+            width: "100%",
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -4374,6 +4400,10 @@ export function DepositOnrampFlow({
 
   const applyOptions = React.useCallback(
     (data: OnrampOptionsResponse, fallbackCountryCode: string) => {
+      cacheOnrampProviders(data.providers);
+      cacheOnrampFiatMetadata(
+        data.selection?.fiatCurrencyMetadata ?? data.fiatCurrencyMetadata,
+      );
       setOptions(data);
       setCountryCode(
         data.selection?.countryCode?.toUpperCase() ?? fallbackCountryCode,
@@ -4401,6 +4431,11 @@ export function DepositOnrampFlow({
           const requestedCountryCode = countryCodeToLoad.toUpperCase();
           const cached = readCachedOnrampOptions(baseUrl, requestedCountryCode);
           if (cached) {
+            cacheOnrampProviders(cached.providers);
+            cacheOnrampFiatMetadata(
+              cached.selection?.fiatCurrencyMetadata ??
+                cached.fiatCurrencyMetadata,
+            );
             logOnramp("options.cache_hit", { requestedCountryCode });
             return { data: cached, requestedCountryCode };
           }
@@ -4411,6 +4446,10 @@ export function DepositOnrampFlow({
               requestedCountryCode,
             )}`,
             { method: "GET", signal },
+          );
+          cacheOnrampProviders(data.providers);
+          cacheOnrampFiatMetadata(
+            data.selection?.fiatCurrencyMetadata ?? data.fiatCurrencyMetadata,
           );
           writeCachedOnrampOptions(baseUrl, requestedCountryCode, data);
 
