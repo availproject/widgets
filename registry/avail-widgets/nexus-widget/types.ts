@@ -140,6 +140,8 @@ export interface NexusWidgetConfigBase {
 export interface NexusWidgetDepositConfig extends NexusWidgetConfigBase {
   depositAddress: Address;
   destination: NexusWidgetDepositDestination;
+  /** Show local currency funding alongside wallet funding. Defaults to false. */
+  enableOnRamp?: boolean;
   executeDeposit: NexusWidgetDepositOpportunityConfig["executeDeposit"];
   mode: "deposit";
   prefill?: NexusWidgetAmountPrefill;

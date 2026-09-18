@@ -6,6 +6,7 @@ import { parseAmount as parseDecimal } from "../utils/amount";
 import { useNexusWidgetThemeStyle } from "../theme-context";
 import React, { useRef, useState } from "react";
 import { PayWithSources as SharedPayWithSources } from "./pay-with-sources";
+import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import {
   formatSelectedTokenBalanceLabel,
   formatUsdBalanceLabel,
@@ -383,7 +384,11 @@ function PayWithSources({
           >
             <Loader2
               className="animate-spin"
-              style={{ height: 13, width: 13 }}
+              style={{
+                ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+                height: 13,
+                width: 13,
+              }}
             />
             Calculating best route...
           </div>
@@ -802,6 +807,7 @@ export function DepositIdleForm({
                 <Loader2
                   className="animate-spin"
                   style={{
+                    ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
                     alignSelf: "center",
                     color: brand,
                     flexShrink: 0,

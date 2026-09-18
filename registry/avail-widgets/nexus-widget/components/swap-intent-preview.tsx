@@ -14,6 +14,7 @@ import {
   type NexusWidgetDepositOpportunityMetadata,
   type NexusWidgetMode,
 } from "../types";
+import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { type SwapTokenOption } from "./swap-asset-selector";
 
 export interface SwapIntentSource {
@@ -523,7 +524,7 @@ function MayanPoweredBadge() {
       <span style={{ flexShrink: 0 }}>This transaction is powered by</span>
       <img
         alt="Mayan"
-        src="/mayan_logo.svg"
+        src="https://files.availproject.org/widgets/assets/mayan_logo.svg"
         style={{
           display: "block",
           height: "20px",
@@ -1328,7 +1329,8 @@ export function SwapIntentPreview({
         : "Swap now";
   const shouldPulseCta =
     !isLoading && !isRefreshing && !isExecuting && !quoteUnavailable;
-  const shouldShowMayanBadge = intentData?.bridgeProvider === "mayan";
+  const shouldShowMayanBadge =
+    !isDepositMode && intentData?.bridgeProvider === "mayan";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1875,6 +1877,7 @@ export function SwapIntentPreview({
         disabled={isLoading || isRefreshing || isExecuting || quoteUnavailable}
         onClick={onAccept}
         style={{
+          alignItems: "center",
           animation: shouldPulseCta
             ? "nexusPreviewCtaPulse 1800ms ease-in-out infinite"
             : undefined,
@@ -1886,10 +1889,13 @@ export function SwapIntentPreview({
           color: quoteUnavailable
             ? "var(--nexus-widget-text-secondary, #848483)"
             : "var(--nexus-widget-primary-foreground, #FFFFFE)",
+          display: "flex",
           fontFamily,
           fontSize: "14px",
           fontWeight: 500,
+          gap: "8px",
           height: "42px",
+          justifyContent: "center",
           transformOrigin: "center",
           willChange: shouldPulseCta
             ? "box-shadow, transform, background-color"
@@ -1906,7 +1912,10 @@ export function SwapIntentPreview({
             "Swapping..."
           )
         ) : isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2
+            className="h-4 w-4 animate-spin"
+            style={NEXUS_WIDGET_FAST_SPINNER_STYLE}
+          />
         ) : isRefreshing ? (
           "Refreshing quotes..."
         ) : quoteUnavailable ? (

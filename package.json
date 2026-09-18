@@ -1,6 +1,6 @@
 {
   "name": "avail-widgets",
-  "version": "2.0.10",
+  "version": "2.1.0-rc.3",
   "description": "A modern component registry built with Next.js and shadcn/ui for Avail Nexus",
   "author": "decocereus <amartya@availproject.org>",
   "contributors": [
@@ -18,14 +18,15 @@
     "build": "pnpm postinstall && next build",
     "start": "next start",
     "lint": "next lint",
+    "test:onramp": "node --import tsx --test tests/onramp.test.tsx tests/onramp-chain-id.test.ts tests/onramp-history.test.tsx",
     "build:registry": "shadcn build",
     "build:registry:json": "npx tsx scripts/build-registry/index.ts",
     "build:registry:branch": "pnpm build:registry:json -- --base-url availproject/widgets && pnpm build:registry",
-    "build:widgets-package": "pnpm --filter @avail-project/widgets build",
+    "build:widgets-package": "node scripts/build-widgets-package.mjs",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
-    "@avail-project/nexus-core": "2.4.1",
+    "@avail-project/nexus-core": "2.5.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -67,14 +68,17 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^20.19.9",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
+    "@types/react-test-renderer": "19.1.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "eslint": "^9.32.0",
     "eslint-config-next": "16.2.3",
+    "react-test-renderer": "19.2.2",
     "stream-browserify": "^3.0.0",
     "tailwindcss": "^4.1.11",
     "ts-node": "^10.9.2",

@@ -137,12 +137,12 @@ export function App({ address }: { address?: `0x${string}` }) {
 | --- | --- | --- |
 | `config` | `object` | Selects the workflow and any mode-specific behavior. |
 | `connectedAddress` | `` `0x${string}` `` | Wallet address to use. If omitted, Nexus Widget falls back to the connected wagmi wallet account. |
-| `embed` | `boolean` | Defaults to `true`. Set `false` when rendering Nexus Widget as a modal surface. |
+| `embed` | `boolean` | Defaults to `true`. Set `false` for a popup with a header close button. Outside clicks and Escape do not dismiss it. |
 | `open`, `onOpenChange`, `defaultOpen` | modal controls | Control modal state when `embed={false}`. |
 | `onComplete` | `(explorerUrl?: string) => void` | Called after a successful swap, send, or deposit. |
 | `onStart` | `() => void` | Called when the user starts execution. |
 | `onError` | `(message: string) => void` | Called when execution fails. |
-| `onClose` | `() => void` | Used by modal mode. |
+| `onClose` | `() => void` | Optional callback when the popup closes; the close button also works without this callback. |
 | `onConnectClick` | `() => void \| Promise<void>` | Called when the internal Connect Wallet CTA is clicked. Use this to open your app/header wallet modal. |
 | `onConnectWallet` | `() => void \| Promise<void>` | Backward-compatible connect callback prop. |
 
@@ -186,7 +186,7 @@ Dark mode uses a plain background. Light mode keeps its existing background grap
 
 ### Deposit Config
 
-Deposit requires a fixed destination chain, at least one destination token, a deposit contract address, and an execution builder.
+Deposit requires a fixed destination chain, at least one destination token, a deposit contract address, and an execution builder. Set `enableOnRamp: true` to also offer local currency funding; omitting it or setting `false` opens the wallet deposit flow directly.
 
 ```ts
 type NexusWidgetDepositConfig = {
@@ -202,6 +202,7 @@ type NexusWidgetDepositConfig = {
     }[];
   };
   depositAddress: `0x${string}`;
+  enableOnRamp?: boolean; // Defaults to false.
   executeDeposit: (
     tokenSymbol: string,
     tokenAddress: `0x${string}`,
@@ -496,6 +497,7 @@ function buildDepositExecuteConfig(
 
 const depositConfig = {
   mode: "deposit",
+  enableOnRamp: true, // Optional; defaults to false (wallet funding only).
   destination: {
     chain: DESTINATION_CHAIN_ID,
     tokens: [

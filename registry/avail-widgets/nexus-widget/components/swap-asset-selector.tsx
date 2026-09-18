@@ -33,6 +33,7 @@ import {
   isSwapSupportedBySdkChainList,
 } from "../../common/utils/constant";
 import type { UserAsset } from "../../nexus/NexusProvider";
+import { NEXUS_WIDGET_FAST_SPINNER_ANIMATION } from "../theme";
 
 const tabularNums: React.CSSProperties = {
   fontFeatureSettings: '"tnum"',
@@ -75,7 +76,10 @@ interface SwapAssetSelectorProps {
   onBack: () => void;
   onClearSelection?: () => void;
   onDone?: (tokens?: SwapTokenOption[]) => void;
-  onFilterTabSelect?: (tab: FilterTab, scopedTokens?: SwapTokenOption[]) => void;
+  onFilterTabSelect?: (
+    tab: FilterTab,
+    scopedTokens?: SwapTokenOption[],
+  ) => void;
   onSelect: (token: SwapTokenOption) => void;
   onSelectionChange?: (tokens: SwapTokenOption[], tab?: FilterTab) => void;
   onToggle?: (token: SwapTokenOption) => void;
@@ -136,8 +140,12 @@ export const RadioDot = ({ selected }: { selected: boolean }) => (
       height: 20,
       borderRadius: "999px",
       boxSizing: "border-box",
-      border: selected ? "none" : "2px solid var(--nexus-widget-border, #E8E8E7)",
-      backgroundColor: selected ? brand : "var(--nexus-widget-surface, #FFFFFE)",
+      border: selected
+        ? "none"
+        : "2px solid var(--nexus-widget-border, #E8E8E7)",
+      backgroundColor: selected
+        ? brand
+        : "var(--nexus-widget-surface, #FFFFFE)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -174,8 +182,12 @@ const SelectionControl = ({
     <div
       style={{
         alignItems: "center",
-        backgroundColor: isActive ? brand : "var(--nexus-widget-surface, #FFFFFE)",
-        border: isActive ? "none" : "1.5px solid var(--nexus-widget-border-unchecked, #E0E0DE)",
+        backgroundColor: isActive
+          ? brand
+          : "var(--nexus-widget-surface, #FFFFFE)",
+        border: isActive
+          ? "none"
+          : "1.5px solid var(--nexus-widget-border-unchecked, #E0E0DE)",
         borderRadius: "5px",
         boxSizing: "border-box",
         display: "flex",
@@ -186,10 +198,22 @@ const SelectionControl = ({
       }}
     >
       {selected && (
-        <Check style={{ color: "var(--nexus-widget-primary-foreground, #FFFFFE)", height: 14, width: 14 }} />
+        <Check
+          style={{
+            color: "var(--nexus-widget-primary-foreground, #FFFFFE)",
+            height: 14,
+            width: 14,
+          }}
+        />
       )}
       {!selected && indeterminate && (
-        <Minus style={{ color: "var(--nexus-widget-primary-foreground, #FFFFFE)", height: 14, width: 14 }} />
+        <Minus
+          style={{
+            color: "var(--nexus-widget-primary-foreground, #FFFFFE)",
+            height: 14,
+            width: 14,
+          }}
+        />
       )}
     </div>
   );
@@ -347,7 +371,8 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
               backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
               border: "1px solid var(--nexus-widget-border, #E8E8E7)",
               borderRadius: 10,
-              boxShadow: "0 8px 24px var(--nexus-widget-shadow-strong, rgba(22,22,21,0.12))",
+              boxShadow:
+                "0 8px 24px var(--nexus-widget-shadow-strong, rgba(22,22,21,0.12))",
               ...tabularNums,
               left: Math.min(
                 Math.max(tooltipRect.left - 24, 8),
@@ -382,7 +407,11 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
             >
               <span>UNIFIED · {uniqueChains.length} CHAINS</span>
               <span
-                style={{ color: "var(--nexus-widget-text-strong, #161615)", fontSize: 12, letterSpacing: 0 }}
+                style={{
+                  color: "var(--nexus-widget-text-strong, #161615)",
+                  fontSize: 12,
+                  letterSpacing: 0,
+                }}
               >
                 {tokens
                   .reduce((sum, token) => sum + getTokenFiatValue(token), 0)
@@ -1149,9 +1178,7 @@ export function SwapAssetSelector({
     (tab: FilterTab, chainId = selectedChainFilter) => {
       let result = allTokens;
       if (chainId !== null) {
-        result = result.filter(
-          (token) => token.chainId === chainId,
-        );
+        result = result.filter((token) => token.chainId === chainId);
       }
       if (tab === "native") result = result.filter(isNativeToken);
       else if (tab === "stables") {
@@ -1169,7 +1196,12 @@ export function SwapAssetSelector({
         lockedSelectedTokens,
       );
     },
-    [allTokens, lockedSelectedTokens, selectedChainFilter, showBelowMinimumInline],
+    [
+      allTokens,
+      lockedSelectedTokens,
+      selectedChainFilter,
+      showBelowMinimumInline,
+    ],
   );
 
   /* Search + tab + chain filter */
@@ -1422,7 +1454,7 @@ export function SwapAssetSelector({
       (st) =>
         group.tokens.some((gt) => sameTokenOption(gt, st)) ||
         (st.isUnified && st.unifiedSymbol === group.symbol),
-      );
+    );
   };
 
   const selectorRows = useMemo(() => {
@@ -1561,7 +1593,10 @@ export function SwapAssetSelector({
     showBelowMinimumInline,
   ]);
 
-  const handleFilterTabClick = (tab: FilterTab, chainId = selectedChainFilter) => {
+  const handleFilterTabClick = (
+    tab: FilterTab,
+    chainId = selectedChainFilter,
+  ) => {
     setActiveTab(tab);
     if (!autoSelectFilterTabs || !isMulti) return;
     if (tab === "custom") {
@@ -1573,10 +1608,14 @@ export function SwapAssetSelector({
       (tab === "all" || filterTabBehavior === "source-pool" || chainId !== null)
     ) {
       // A chain-scoped selection must not reuse the all-chain quote's sources.
-      onFilterTabSelect(tab, chainId === null ? undefined : getFilterTabTokens(tab, chainId));
+      onFilterTabSelect(
+        tab,
+        chainId === null ? undefined : getFilterTabTokens(tab, chainId),
+      );
       return;
     }
-    if (onSelectionChange) emitSelectionChange(getFilterTabTokens(tab, chainId), tab);
+    if (onSelectionChange)
+      emitSelectionChange(getFilterTabTokens(tab, chainId), tab);
   };
 
   const handleChainFilterChange = (chainId: number | null) => {
@@ -1850,7 +1889,8 @@ export function SwapAssetSelector({
               backgroundColor: "transparent",
               border: "none",
               cursor: "pointer",
-              borderBottom: "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
+              borderBottom:
+                "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
               boxSizing: "border-box",
             }}
           >
@@ -1910,7 +1950,8 @@ export function SwapAssetSelector({
                       fontSize: 11,
                       fontWeight: 600,
                       color: brand,
-                      backgroundColor: "var(--nexus-widget-primary-soft, #E8F0FF)",
+                      backgroundColor:
+                        "var(--nexus-widget-primary-soft, #E8F0FF)",
                       borderRadius: 4,
                       padding: "2px 8px",
                       letterSpacing: "0.04em",
@@ -2002,12 +2043,10 @@ export function SwapAssetSelector({
       : new Decimal(0);
   const hasSelectionShortfall = Boolean(
     requiredUsdAmount &&
-      requiredUsdAmount.gt(0) &&
-      selectionDeficitUsdAmount.gt(0),
+    requiredUsdAmount.gt(0) &&
+    selectionDeficitUsdAmount.gt(0),
   );
-  const shouldShowSelectionProgress = Boolean(
-    isMulti && hasSelectionShortfall,
-  );
+  const shouldShowSelectionProgress = Boolean(isMulti && hasSelectionShortfall);
   const selectionProgressPercent =
     shouldShowSelectionProgress && requiredUsdAmount
       ? Decimal.min(
@@ -2264,7 +2303,12 @@ export function SwapAssetSelector({
           }}
         >
           <Search
-            style={{ width: 20, height: 20, color: "var(--nexus-widget-text-secondary, #848483)", flexShrink: 0 }}
+            style={{
+              width: 20,
+              height: 20,
+              color: "var(--nexus-widget-text-secondary, #848483)",
+              flexShrink: 0,
+            }}
           />
           <input
             onBlur={() => setIsSearchFocused(false)}
@@ -2293,7 +2337,13 @@ export function SwapAssetSelector({
                 padding: 0,
               }}
             >
-              <X style={{ width: 16, height: 16, color: "var(--nexus-widget-text-secondary, #848483)" }} />
+              <X
+                style={{
+                  width: 16,
+                  height: 16,
+                  color: "var(--nexus-widget-text-secondary, #848483)",
+                }}
+              />
             </button>
           )}
           {/* Chain Selector Badge */}
@@ -2310,7 +2360,8 @@ export function SwapAssetSelector({
               cursor: "pointer",
               height: 38,
               flexShrink: 0,
-              boxShadow: "0px 1px 2px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.05))",
+              boxShadow:
+                "0px 1px 2px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.05))",
             }}
           >
             {selectedChainFilter === null ? (
@@ -2347,7 +2398,13 @@ export function SwapAssetSelector({
             >
               {selectedChainLabel}
             </span>
-            <ChevronDown style={{ width: 14, height: 14, color: "var(--nexus-widget-text-secondary, #848483)" }} />
+            <ChevronDown
+              style={{
+                width: 14,
+                height: 14,
+                color: "var(--nexus-widget-text-secondary, #848483)",
+              }}
+            />
           </button>
         </div>
       </div>
@@ -2371,20 +2428,29 @@ export function SwapAssetSelector({
               flex: 1,
               padding: "6px 0",
               backgroundColor:
-                activeTab === tab.key ? "var(--nexus-widget-surface-active, #FFFFFE)" : "transparent",
+                activeTab === tab.key
+                  ? "var(--nexus-widget-surface-active, #FFFFFE)"
+                  : "transparent",
               border: "none",
               borderRadius: 6,
               cursor: "pointer",
               fontFamily: '"Geist", system-ui, sans-serif',
               fontSize: 13,
               fontWeight: 500,
-              color: activeTab === tab.key ? "var(--nexus-widget-text-strong, #161615)" : "var(--nexus-widget-text-secondary, #848483)",
+              color:
+                activeTab === tab.key
+                  ? "var(--nexus-widget-text-strong, #161615)"
+                  : "var(--nexus-widget-text-secondary, #848483)",
               boxShadow:
-                activeTab === tab.key ? "0px 1px 2px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.05))" : "none",
+                activeTab === tab.key
+                  ? "0px 1px 2px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.05))"
+                  : "none",
               transition: "all 0.15s",
             }}
           >
-            {autoSelectFilterTabs && tab.key === "all" ? "Any token" : tab.label}
+            {autoSelectFilterTabs && tab.key === "all"
+              ? "Any token"
+              : tab.label}
           </button>
         ))}
       </div>
@@ -2414,8 +2480,8 @@ export function SwapAssetSelector({
               style={{
                 width: 20,
                 height: 20,
+                animation: NEXUS_WIDGET_FAST_SPINNER_ANIMATION,
                 color: "var(--nexus-widget-text-secondary, #848483)",
-                animation: "spin 1s linear infinite",
               }}
             />
             <p
@@ -2463,7 +2529,8 @@ export function SwapAssetSelector({
             {belowMin.length > 0 && (
               <div
                 style={{
-                  backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
+                  backgroundColor:
+                    "var(--nexus-widget-surface-raised, #FFFFFE)",
                   border: "1px solid var(--nexus-widget-border, #E8E8E7)",
                   borderRadius: 12,
                   overflow: "hidden",
@@ -2494,7 +2561,8 @@ export function SwapAssetSelector({
                     <span
                       style={{
                         alignItems: "center",
-                        backgroundColor: "var(--nexus-widget-warning-background, #FFF0D6)",
+                        backgroundColor:
+                          "var(--nexus-widget-warning-background, #FFF0D6)",
                         borderRadius: "999px",
                         display: "flex",
                         flexShrink: 0,
@@ -2504,7 +2572,11 @@ export function SwapAssetSelector({
                       }}
                     >
                       <Info
-                        style={{ width: 12, height: 12, color: "var(--nexus-widget-warning-text, #D98A1C)" }}
+                        style={{
+                          width: 12,
+                          height: 12,
+                          color: "var(--nexus-widget-warning-text, #D98A1C)",
+                        }}
                       />
                     </span>
                     <div
@@ -2546,7 +2618,7 @@ export function SwapAssetSelector({
                   >
                     {/* Small token logo cluster */}
                     <div style={{ display: "flex", alignItems: "center" }}>
-                      {belowMin.slice(0, 3).map((t, i) =>
+                      {belowMin.slice(0, 3).map((t, i) => (
                         <TokenLogo
                           fallbackBackground="var(--nexus-widget-border, #E8E8E7)"
                           fallbackColor="var(--nexus-widget-text-strong, #161615)"
@@ -2556,26 +2628,30 @@ export function SwapAssetSelector({
                           size={18}
                           src={t.logo}
                           style={{
-                            border: "1.5px solid var(--nexus-widget-surface, #fff)",
+                            border:
+                              "1.5px solid var(--nexus-widget-surface, #fff)",
                             marginLeft: i > 0 ? -6 : 0,
                           }}
-                        />,
-                      )}
+                        />
+                      ))}
                       {belowMin.length > 3 && (
                         <div
                           style={{
                             width: 18,
                             height: 18,
                             borderRadius: "999px",
-                            backgroundColor: "var(--nexus-widget-surface-active, #161615)",
+                            backgroundColor:
+                              "var(--nexus-widget-surface-active, #161615)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             fontSize: 9,
                             fontWeight: 700,
-                            color: "var(--nexus-widget-primary-foreground, #fff)",
+                            color:
+                              "var(--nexus-widget-primary-foreground, #fff)",
                             marginLeft: -6,
-                            border: "1.5px solid var(--nexus-widget-surface, #fff)",
+                            border:
+                              "1.5px solid var(--nexus-widget-surface, #fff)",
                           }}
                         >
                           +{belowMin.length - 3}
@@ -2584,11 +2660,19 @@ export function SwapAssetSelector({
                     </div>
                     {showBelowMin ? (
                       <ChevronUp
-                        style={{ width: 18, height: 18, color: "var(--nexus-widget-text-secondary, #848483)" }}
+                        style={{
+                          width: 18,
+                          height: 18,
+                          color: "var(--nexus-widget-text-secondary, #848483)",
+                        }}
                       />
                     ) : (
                       <ChevronDown
-                        style={{ width: 18, height: 18, color: "var(--nexus-widget-text-secondary, #848483)" }}
+                        style={{
+                          width: 18,
+                          height: 18,
+                          color: "var(--nexus-widget-text-secondary, #848483)",
+                        }}
                       />
                     )}
                   </div>
@@ -2615,7 +2699,10 @@ export function SwapAssetSelector({
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
-                          borderTop: index === 0 ? "none" : "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
+                          borderTop:
+                            index === 0
+                              ? "none"
+                              : "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
                           opacity: 0.58,
                           padding: "8px 12px",
                         }}
@@ -2653,7 +2740,8 @@ export function SwapAssetSelector({
                                 size={10}
                                 src={getChainLogo(token)}
                                 style={{
-                                  border: "1.5px solid var(--nexus-widget-surface, #FFFFFE)",
+                                  border:
+                                    "1.5px solid var(--nexus-widget-surface, #FFFFFE)",
                                   bottom: -2,
                                   filter: "grayscale(0.2)",
                                   position: "absolute",
@@ -2667,7 +2755,8 @@ export function SwapAssetSelector({
                               fontFamily: '"Geist", system-ui, sans-serif',
                               fontWeight: 500,
                               fontSize: 12,
-                              color: "var(--nexus-widget-text-secondary, #848483)",
+                              color:
+                                "var(--nexus-widget-text-secondary, #848483)",
                               lineHeight: "18px",
                               minWidth: 0,
                               overflow: "hidden",
@@ -2683,7 +2772,8 @@ export function SwapAssetSelector({
                           style={{
                             fontFamily: '"Geist", system-ui, sans-serif',
                             fontSize: 12,
-                            color: "var(--nexus-widget-text-secondary, #848483)",
+                            color:
+                              "var(--nexus-widget-text-secondary, #848483)",
                             fontWeight: 500,
                             lineHeight: "18px",
                             flexShrink: 0,
@@ -2734,12 +2824,12 @@ export function SwapAssetSelector({
                     {selectedChainFilter !== null
                       ? "Your selection doesn't cover the full amount"
                       : activeTab === "all"
-                      ? "You don't have enough balances to meet this requirement"
-                      : activeTab === "native"
-                        ? "Your native tokens don't cover the full amount"
-                        : activeTab === "stables"
-                          ? "Your stablecoins don't cover the full amount"
-                          : "Your selection doesn't cover the full amount"}
+                        ? "You don't have enough balances to meet this requirement"
+                        : activeTab === "native"
+                          ? "Your native tokens don't cover the full amount"
+                          : activeTab === "stables"
+                            ? "Your stablecoins don't cover the full amount"
+                            : "Your selection doesn't cover the full amount"}
                   </span>
                   <span
                     style={{
@@ -2750,10 +2840,10 @@ export function SwapAssetSelector({
                     }}
                   >
                     {selectedChainFilter !== null
-                      ? 'Switch to “All chains” to include more tokens.'
+                      ? "Switch to “All chains” to include more tokens."
                       : activeTab === "all"
-                      ? "Add more tokens to your wallet"
-                      : `${formatUsdBalanceLabel(selectionDeficitUsdAmount)} more is needed.`}
+                        ? "Add more tokens to your wallet"
+                        : `${formatUsdBalanceLabel(selectionDeficitUsdAmount)} more is needed.`}
                   </span>
                   {(activeTab === "native" || activeTab === "stables") && (
                     <div
@@ -2835,7 +2925,12 @@ export function SwapAssetSelector({
                       lineHeight: "20px",
                     }}
                   >
-                    <strong style={{ color: "var(--nexus-widget-text-strong, #161615)", fontWeight: 600 }}>
+                    <strong
+                      style={{
+                        color: "var(--nexus-widget-text-strong, #161615)",
+                        fontWeight: 600,
+                      }}
+                    >
                       {formatUsdBalanceLabel(selectionDeficitUsdAmount)}
                     </strong>{" "}
                     more
@@ -2843,7 +2938,8 @@ export function SwapAssetSelector({
                 </div>
                 <div
                   style={{
-                    backgroundColor: "var(--nexus-widget-surface-raised, #F0F0EF)",
+                    backgroundColor:
+                      "var(--nexus-widget-surface-raised, #F0F0EF)",
                     borderRadius: "999px",
                     height: 6,
                     overflow: "hidden",
@@ -2872,7 +2968,8 @@ export function SwapAssetSelector({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: "var(--nexus-widget-button-background, #1F1F1F)",
+                backgroundColor:
+                  "var(--nexus-widget-button-background, #1F1F1F)",
                 color: "var(--nexus-widget-button-foreground, #FFFFFE)",
                 border: "none",
                 borderRadius: 14,
@@ -2880,7 +2977,8 @@ export function SwapAssetSelector({
                 fontFamily: '"Geist", system-ui, sans-serif',
                 fontSize: 16,
                 fontWeight: 600,
-                boxShadow: "0px 1px 4px 0px var(--nexus-widget-shadow-soft, #5555550D)",
+                boxShadow:
+                  "0px 1px 4px 0px var(--nexus-widget-shadow-soft, #5555550D)",
               }}
             >
               Done
@@ -2932,7 +3030,8 @@ export function SwapAssetSelector({
                   ...modalHeightTransitionStyle,
                   backgroundColor: "var(--nexus-widget-surface-inset, #FFFFFE)",
                   borderRadius: "24px 24px 0 0",
-                  boxShadow: "0 -4px 16px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.08))",
+                  boxShadow:
+                    "0 -4px 16px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.08))",
                   boxSizing: "border-box",
                   display: "flex",
                   flexDirection: "column",
@@ -2961,7 +3060,8 @@ export function SwapAssetSelector({
                 >
                   <div
                     style={{
-                      backgroundColor: "var(--nexus-widget-surface-hover, #D8D8D6)",
+                      backgroundColor:
+                        "var(--nexus-widget-surface-hover, #D8D8D6)",
                       borderRadius: "999px",
                       height: 4,
                       width: 32,
@@ -2986,7 +3086,8 @@ export function SwapAssetSelector({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
+                      backgroundColor:
+                        "var(--nexus-widget-surface-raised, #FFFFFE)",
                       cursor: "pointer",
                       flexShrink: 0,
                     }}
@@ -3022,7 +3123,8 @@ export function SwapAssetSelector({
                       borderRadius: 11,
                       border: `1px solid ${isChainSearchFocused ? "var(--nexus-widget-focus-border, #A8C9FF)" : "var(--nexus-widget-border, #E8E8E7)"}`,
                       padding: "0 12px",
-                      backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
+                      backgroundColor:
+                        "var(--nexus-widget-surface-raised, #FFFFFE)",
                       boxShadow: isChainSearchFocused
                         ? "0 0 0 1px var(--nexus-widget-focus-ring, rgba(0,107,244,0.16))"
                         : "none",
@@ -3083,7 +3185,8 @@ export function SwapAssetSelector({
                         padding: "8px 14px",
                         backgroundColor: "transparent",
                         border: "none",
-                        borderBottom: "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
+                        borderBottom:
+                          "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
                         cursor: "pointer",
                         boxSizing: "border-box",
                       }}
@@ -3131,7 +3234,8 @@ export function SwapAssetSelector({
                             padding: "8px 14px",
                             backgroundColor: "transparent",
                             border: "none",
-                            borderBottom: "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
+                            borderBottom:
+                              "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
                             cursor: "pointer",
                             boxSizing: "border-box",
                           }}

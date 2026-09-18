@@ -1,7 +1,4 @@
-import {
-  type NexusNetwork,
-  type NexusClient,
-} from "@avail-project/nexus-core";
+import { type NexusNetwork, type NexusClient } from "@avail-project/nexus-core";
 import { formatUnits } from "@avail-project/nexus-core/utils";
 import { SUPPORTED_CHAINS } from "./constant";
 import { type Address } from "viem";
@@ -115,7 +112,7 @@ export const getCoverageDecimals = ({
   if (
     type === "bridge" &&
     token === "USDC" &&
-    chainId === SUPPORTED_CHAINS.BNB
+    (chainId === SUPPORTED_CHAINS.BNB || chainId === SUPPORTED_CHAINS.ARC)
   ) {
     return 18;
   }

@@ -5,7 +5,7 @@
   "title": "Nexus Provider",
   "description": "Shared Nexus SDK provider and types for Avail Widgets",
   "dependencies": [
-    "@avail-project/nexus-core@2.2.3",
+    "@avail-project/nexus-core@2.5.0",
     "wagmi"
   ],
   "files": [
