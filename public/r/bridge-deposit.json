@@ -4,7 +4,11 @@
   "type": "registry:component",
   "title": "Bridge Deposit",
   "description": "Deprecated: use Nexus Widget instead. Bridge Deposit has been removed in favor of Nexus Widget deposit mode.",
-  "dependencies": ["@avail-project/nexus-core@2.5.0", "lucide-react", "viem"],
+  "dependencies": [
+    "@avail-project/nexus-core@2.5.0",
+    "lucide-react",
+    "viem"
+  ],
   "registryDependencies": [
     "availproject/widgets/accordion",
     "availproject/widgets/button",

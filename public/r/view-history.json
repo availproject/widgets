@@ -4,7 +4,10 @@
   "type": "registry:component",
   "title": "View History",
   "description": "Deprecated: use Nexus Widget instead. View History has been removed. Use sdk.getMyIntents() for programmatic access.",
-  "dependencies": ["@avail-project/nexus-core@2.5.0", "lucide-react"],
+  "dependencies": [
+    "@avail-project/nexus-core@2.5.0",
+    "lucide-react"
+  ],
   "registryDependencies": [
     "availproject/widgets/badge",
     "availproject/widgets/button",

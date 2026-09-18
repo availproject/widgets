@@ -4,7 +4,10 @@
   "type": "registry:component",
   "title": "Nexus Provider",
   "description": "Shared Nexus SDK provider and types for Avail Widgets",
-  "dependencies": ["@avail-project/nexus-core@2.5.0", "wagmi"],
+  "dependencies": [
+    "@avail-project/nexus-core@2.5.0",
+    "wagmi"
+  ],
   "files": [
     {
       "path": "registry/avail-widgets/nexus/NexusProvider.tsx",
