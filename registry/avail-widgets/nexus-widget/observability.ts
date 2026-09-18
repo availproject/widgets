@@ -28,7 +28,7 @@ const CANCELLATIONS = new Set([
 ]);
 const noop: WidgetCallFinish = () => {};
 type Mode = "deposit" | "swap" | "send";
-type Settings = { identity?: NexusIdentity; config?: NexusObservabilityConfig; mode: Mode; walletAddress?: string };
+type Settings = { identity?: NexusIdentity; config?: NexusObservabilityConfig; mode: Mode; walletAddress?: string; network?: "mainnet" | "testnet" };
 type Runtime = {
   browser: () => boolean;
   hostname: () => string;
@@ -65,7 +65,6 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
     reason: WIDGET_ERROR_REASONS,
     errorCategory: WIDGET_ERROR_CATEGORIES,
     errorStep: WIDGET_ERROR_STEPS,
-    sdkCode: KNOWN_CODES,
     outcome: new Set(["completed", "failed", "stopped", "rejected"]),
     outcomeAuthority: new Set(["browser", "middleware", "protocol"]),
     evidenceSource: new Set(["browser", "sdk", "middleware", "protocol"]),
@@ -78,6 +77,15 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
   for (const [key, values] of Object.entries(choices)) {
     const value = input[key];
     if (typeof value === "string" && values.has(value)) output[key] = value;
+  }
+  const errCode = input["error.code"] ?? input.sdkCode;
+  if (typeof errCode === "string" && KNOWN_CODES.has(errCode)) {
+    output["error.code"] = errCode;
+    output.sdkCode = errCode;
+  }
+  const net = input["nexus.network"] ?? input.network;
+  if (typeof net === "string" && (net === "mainnet" || net === "testnet")) {
+    output["nexus.network"] = net;
   }
   if (typeof output.reason === "string" && input.errorSummary === WIDGET_ERROR_SUMMARIES[output.reason]) output.errorSummary = input.errorSummary as string;
   const chainId = typeof input.errorChainId === "bigint" ? Number(input.errorChainId) : input.errorChainId;
@@ -98,7 +106,11 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
   for (const key of ["commitmentTime", "evidenceObservedAt"]) {
     if (typeof input[key] === "string" && /^\d{4}-\d{2}-\d{2}T/.test(input[key]) && Number.isFinite(Date.parse(input[key]))) output[key] = new Date(input[key]).toISOString();
   }
-  if (typeof input.previous_attempt_id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.previous_attempt_id)) output.previous_attempt_id = input.previous_attempt_id;
+  const prevAttempt = input["attempt.previous_id"] ?? input.previous_attempt_id;
+  if (typeof prevAttempt === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(prevAttempt)) {
+    output["attempt.previous_id"] = prevAttempt;
+    output.previous_attempt_id = prevAttempt;
+  }
   if (input.committed === true && typeof input.commitToDeliveryMs === "number" && Number.isFinite(input.commitToDeliveryMs) && input.commitToDeliveryMs >= 0) output.commitToDeliveryMs = Math.round(input.commitToDeliveryMs);
   if (config.includeAmounts && typeof input.estimatedValueUsd === "number" && Number.isFinite(input.estimatedValueUsd) && input.estimatedValueUsd >= 0) {
     output.estimatedValueUsd = input.estimatedValueUsd;
@@ -235,7 +247,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
           batch: posthogItems.map(({ record, timestamp }) => ({
             event: record.event, uuid: record.properties.eventId,
             timestamp: new Date(timestamp).toISOString(),
-            properties: { ...record.properties, distinct_id: record.properties.session_id,
+            properties: { ...record.properties, distinct_id: (record.properties["session.id"] ?? record.properties.session_id) as string,
               $insert_id: record.properties.eventId, $process_person_profile: false, $geoip_disable: true },
           })),
         }, false, "/batch/") : Promise.resolve(true),
@@ -267,22 +279,35 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       sessionId ??= runtime.uuid();
       const timestamp = stamp?.timestamp ?? runtime.now();
       const sanitized = sanitizeWidgetFields({ ...fields, walletHint: walletHint(settings.walletAddress) }, settings.config);
-      const { sdkCode, transactionHash, intentHash, ...summary } = sanitized;
+      const { sdkCode, "error.code": rawErrorCode, transactionHash, intentHash, ...summary } = sanitized;
+      const errorCode = (rawErrorCode ?? sdkCode) as string | undefined;
       const includeLookupKeys = event === "widget_attempt_committed" || event === "widget_attempt_outcome";
+      const net = settings.network ?? settings.config?.network ?? "mainnet";
       const properties = Object.freeze({
         ...summary,
-        ...(sdkCode ? { sdkCode } : {}),
+        ...(errorCode ? { "error.code": errorCode, sdkCode: errorCode } : {}),
         ...(includeLookupKeys && transactionHash ? { transactionHash } : {}),
         ...(includeLookupKeys && intentHash ? { intentHash } : {}),
-        "nexus.client.id": settings.identity!.clientId, "surface.name": "nexus-widget",
+        "nexus.client.id": settings.identity!.clientId,
+        "surface.name": "nexus-widget",
+        "surface.version": "2.1.0",
+        "nexus.network": net,
         environment: settings.config?.environment ?? (runtime.production() ? "production" : "development"),
-        mode: settings.mode, ...(capturedAttempt ? { attempt_id: capturedAttempt } : {}),
-        session_id: sessionId, eventId: stamp?.eventId ?? runtime.uuid(), timestamp: new Date(timestamp).toISOString(), schemaVersion: SCHEMA_VERSION,
+        mode: settings.mode,
+        ...(capturedAttempt ? { "attempt.id": capturedAttempt, attempt_id: capturedAttempt } : {}),
+        "session.id": sessionId,
+        session_id: sessionId,
+        eventId: stamp?.eventId ?? runtime.uuid(),
+        timestamp: new Date(timestamp).toISOString(),
+        schemaVersion: SCHEMA_VERSION,
       });
       const record = Object.freeze({ event, properties });
       const diagnostic = Object.freeze({
-        ...(sdkCode ? { sdkCode } : {}), ...(transactionHash ? { transactionHash } : {}), ...(intentHash ? { intentHash } : {}),
+        ...(errorCode ? { "error.code": errorCode, sdkCode: errorCode } : {}),
+        ...(transactionHash ? { transactionHash } : {}),
+        ...(intentHash ? { intentHash } : {}),
         sdkVersion: "2.4.1",
+        surfaceVersion: "2.1.0",
       });
       if (queue.length >= MAX_QUEUE) queue.shift();
       queue.push({ record, diagnostic, timestamp, posthog: true, signoz: true, retries: 0 });
@@ -303,12 +328,28 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
         sessionId ??= runtime.uuid();
         const id = attemptId;
         const generation = epoch;
-        emit("widget_attempt_started", { operation, previous_attempt_id: previousAttemptId }, id);
+        const net = settings.network ?? settings.config?.network ?? "mainnet";
+        emit("widget_attempt_started", {
+          operation,
+          ...(previousAttemptId ? { "attempt.previous_id": previousAttemptId, previous_attempt_id: previousAttemptId } : {}),
+        }, id);
         if (generation !== epoch || !enabled()) return;
         publisher = createWidgetAttemptPublisher({
-          context: { attempt_id: id, session_id: sessionId, clientId: settings.identity!.clientId,
-            surface: "nexus-widget", mode: settings.mode,
-            environment: settings.config?.environment ?? (runtime.production() ? "production" : "development") },
+          context: {
+            attempt_id: id,
+            "attempt.id": id,
+            session_id: sessionId,
+            "session.id": sessionId,
+            clientId: settings.identity!.clientId,
+            "nexus.client.id": settings.identity!.clientId,
+            surface: "nexus-widget",
+            "surface.name": "nexus-widget",
+            "surface.version": "2.1.0",
+            mode: settings.mode,
+            environment: settings.config?.environment ?? (runtime.production() ? "production" : "development"),
+            network: net,
+            "nexus.network": net,
+          },
           now: runtime.now,
           publish: (event, fields, stamp) => { if (generation === epoch) emit(event, fields, id, stamp); },
           subscribe: settings.config?.subscribeToAttemptEvidence,
@@ -342,14 +383,28 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
   return {
     enabled,
     configure(next: Settings) {
-      const before = { ...settings, config: { ...settings.config, onRecord: undefined, subscribeToAttemptEvidence: undefined } };
-      const after = { ...next, config: { ...next.config, onRecord: undefined, subscribeToAttemptEvidence: undefined } };
-      if (JSON.stringify(before) !== JSON.stringify(after) || settings.config?.subscribeToAttemptEvidence !== next.config?.subscribeToAttemptEvidence) clear();
+      const clientChanged = settings.identity?.clientId !== next.identity?.clientId;
+      const subscriberChanged = settings.config?.subscribeToAttemptEvidence !== next.config?.subscribeToAttemptEvidence;
+      const optOut = Boolean(next.config?.disableLogging || next.config?.mode === "off");
+      if (clientChanged || optOut || subscriberChanged) {
+        clear();
+      }
       settings = next;
       if (!enabled()) clear();
+      else if (queue.length) schedule(0);
     },
     resume() { active = true; },
-    dispose() { active = false; clear(); },
+    dispose() {
+      if (enabled() && queue.length) {
+        void flush();
+      }
+      active = false;
+      if (timer) clearTimeout(timer);
+      timer = undefined;
+      swaps.clear();
+      for (const item of publishers) item.dispose();
+      publishers.clear();
+    },
     resetAttempt() {
       previousAttemptId = publisher?.terminal ? publisher.id : undefined;
       attemptId = undefined;

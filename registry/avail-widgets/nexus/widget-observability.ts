@@ -22,6 +22,7 @@ export interface NexusObservabilityConfig {
   /** Auto requires a production browser; on permits intentional browser verification. */
   mode?: "auto" | "on" | "off";
   environment?: "production" | "staging" | "development" | "test";
+  network?: "mainnet" | "testnet";
   includeWalletHint?: boolean;
   /** Include optional estimated USD supplied by a trusted final-outcome publisher. */
   includeAmounts?: boolean;
@@ -75,11 +76,18 @@ export function createWidgetObservationHub() {
 
 export interface WidgetAttemptContext {
   readonly attempt_id: string;
+  readonly "attempt.id"?: string;
   readonly clientId: string;
+  readonly "nexus.client.id"?: string;
   readonly session_id: string;
+  readonly "session.id"?: string;
   readonly surface: "nexus-widget";
+  readonly "surface.name"?: "nexus-widget";
+  readonly "surface.version"?: string;
   readonly mode: "deposit" | "swap" | "send";
   readonly environment: string;
+  readonly network?: "mainnet" | "testnet";
+  readonly "nexus.network"?: "mainnet" | "testnet";
 }
 
 /** Trusted publisher input, not an SDK 2.4.1 API. Never pass raw progress as this evidence. */

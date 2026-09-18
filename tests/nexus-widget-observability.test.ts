@@ -807,3 +807,123 @@ test("invalid quote shapes have a widget reason instead of unknown", async () =>
     assert.equal(h.records.at(-1)?.properties.errorCategory, "widget");
   } finally { h.telemetry.dispose(); }
 });
+
+test("records carry nexus.network, surface.version, session.id, attempt.id, and error.code", async () => {
+  const h = harness({ network: "testnet" });
+  try {
+    h.telemetry.beginAttempt("swapWithExactIn");
+    const error = { code: "backend/report_mayan_tx_failed" };
+    h.telemetry.startCall("swapWithExactIn", "quote")("failed", error);
+    await h.telemetry.flush();
+    const startRecord = h.records[0];
+    assert.equal(startRecord.properties["nexus.network"], "testnet");
+    assert.equal(startRecord.properties["surface.version"], "2.1.0");
+    assert.equal(startRecord.properties["surface.name"], "nexus-widget");
+    assert.ok(startRecord.properties["session.id"]);
+    assert.equal(startRecord.properties["session.id"], startRecord.properties.session_id);
+    assert.ok(startRecord.properties["attempt.id"]);
+    assert.equal(startRecord.properties["attempt.id"], startRecord.properties.attempt_id);
+
+    const callRecord = h.records[1];
+    assert.equal(callRecord.properties["error.code"], "backend/report_mayan_tx_failed");
+    assert.equal(callRecord.properties.sdkCode, "backend/report_mayan_tx_failed");
+  } finally { h.telemetry.dispose(); }
+});
+
+test("queued records survive configure() on wallet address or mode change without being dropped", async () => {
+  const h = harness();
+  try {
+    h.telemetry.beginAttempt("swapWithExactIn");
+    assert.equal(h.records.length, 1);
+    // User connects wallet before flush
+    h.telemetry.configure({ ...h.settings, walletAddress: "0x1111111111111111111111111111111111111111" });
+    await h.telemetry.flush();
+    // The queued record was NOT discarded, it reached requests!
+    assert.ok(h.requests.length > 0);
+    const posthog = h.requests.find(r => r.url.includes("posthog"));
+    assert.ok(posthog);
+    assert.equal(posthog.body.batch[0].event, "widget_attempt_started");
+  } finally { h.telemetry.dispose(); }
+});
+
+test("queued records are sent when dispose() is called", async () => {
+  const h = harness();
+  h.telemetry.beginAttempt("swapWithExactIn");
+  assert.equal(h.records.length, 1);
+  // Dispose triggers flush of queued items
+  h.telemetry.dispose();
+  assert.ok(h.requests.length > 0);
+  const posthog = h.requests.find(r => r.url.includes("posthog"));
+  assert.ok(posthog);
+  assert.equal(posthog.body.batch[0].event, "widget_attempt_started");
+});
+
+test("terminal backend outcome with committed: 'unknown' is not dropped after local commit", async () => {
+  let report!: (e: any) => void;
+  let context!: any;
+  const h = harness({ subscribeToAttemptEvidence: (c, r) => { context = c; report = r; } });
+  const p = pendingSwap(h);
+  try {
+    h.telemetry.observeEvent(1, { type: "plan_confirmed", plan: { steps: [depositStep()] } });
+    h.telemetry.observeEvent(1, submission);
+    // Backend reports outcome with committed: "unknown"
+    report({
+      kind: "outcome",
+      attempt_id: context.attempt_id,
+      eventId: "10000000-0000-4000-8000-000000000099",
+      occurredAt: new Date(2000).toISOString(),
+      authority: "middleware",
+      scope: "final_requested_result",
+      outcome: "completed",
+      committed: "unknown",
+      transactionHash: publicTxHash,
+    });
+    p.pending.resolve({});
+    await p.result;
+    const outcomes = h.records.filter(r => r.event === "widget_attempt_outcome");
+    assert.equal(outcomes.length, 1);
+    assert.equal(outcomes[0].properties.outcome, "completed");
+  } finally { h.telemetry.dispose(); }
+});
+
+test("terminal backend failure outcome without on-chain hash is not dropped", async () => {
+  let report!: (e: any) => void;
+  let context!: any;
+  const h = harness({ subscribeToAttemptEvidence: (c, r) => { context = c; report = r; } });
+  try {
+    h.telemetry.beginAttempt("swapWithExactIn");
+    report({
+      kind: "outcome",
+      attempt_id: context.attempt_id,
+      eventId: "10000000-0000-4000-8000-000000000098",
+      occurredAt: new Date(2000).toISOString(),
+      authority: "middleware",
+      scope: "final_requested_result",
+      outcome: "failed",
+      committed: false,
+    });
+    const outcomes = h.records.filter(r => r.event === "widget_attempt_outcome");
+    assert.equal(outcomes.length, 1);
+    assert.equal(outcomes[0].properties.outcome, "failed");
+  } finally { h.telemetry.dispose(); }
+});
+
+test("first-prompt signature rejection with 4001 or ACTION_REJECTED publishes stopped outcome", async () => {
+  for (const code of [4001, "ACTION_REJECTED"]) {
+    const h = harness();
+    const p = pendingSwap(h);
+    try {
+      h.telemetry.observeEvent(1, { type: "plan_confirmed", plan: { steps: [depositStep()] } });
+      h.telemetry.quoteReady(1);
+      h.telemetry.accept(1);
+      h.telemetry.observeEvent(1, { type: "plan_progress", stepType: "request_signing", state: "started", step: { type: "request_signing" } });
+      p.pending.reject({ code });
+      await assert.rejects(p.result);
+      const outcome = h.records.find(r => r.event === "widget_attempt_outcome");
+      assert.ok(outcome);
+      assert.equal(outcome.properties.outcome, "stopped");
+      assert.equal(outcome.properties.reason, "wallet_rejected");
+    } finally { h.telemetry.dispose(); }
+  }
+});
+

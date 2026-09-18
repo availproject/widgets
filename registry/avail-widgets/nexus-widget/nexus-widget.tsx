@@ -3690,7 +3690,7 @@ function NexusWidgetInner({
         : undefined;
   const telemetry = useWidgetTelemetry({
     identity, config: observability, mode: activeMode, walletAddress: ownerAddress,
-    hub: widgetObservationHub,
+    hub: widgetObservationHub, network: (network ?? "mainnet") as "mainnet" | "testnet",
   });
   const getEffectiveWalletProvider = useCallback(
     async (activeConnector = connector) => {

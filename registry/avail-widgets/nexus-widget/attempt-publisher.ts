@@ -78,9 +78,11 @@ export function createWidgetAttemptPublisher(options: {
       } else if (evidence.kind === "outcome") {
         if (terminal || evidence.scope !== "final_requested_result" || !["completed", "failed"].includes(evidence.outcome)) return;
         if (![true, false, "unknown"].includes(evidence.committed)) return;
-        if (committed && evidence.committed !== true) return;
-        if (!isHash(evidence.intentHash) && !isHash(evidence.transactionHash)) return;
-        committed = evidence.committed === true;
+        if (committed && evidence.committed === false) return;
+        if (evidence.intentHash !== undefined && !isHash(evidence.intentHash)) return;
+        if (evidence.transactionHash !== undefined && !isHash(evidence.transactionHash)) return;
+        if (evidence.outcome === "completed" && !isHash(evidence.intentHash) && !isHash(evidence.transactionHash)) return;
+        committed = evidence.committed === true || (evidence.committed === "unknown" && committed);
         terminal = true;
         canonicalEventIds.add(evidence.eventId);
         publish("widget_attempt_outcome", {
@@ -120,7 +122,7 @@ export function createWidgetAttemptPublisher(options: {
         if (!active || committed || terminal) return;
         const code = object(error)?.code;
         // A generic rejected promise or a timeout is not pre-commitment evidence.
-        const signatureDenied = code === "user_action/intent_signature_denied" && lastStep === "request_signing";
+        const signatureDenied = new Set<unknown>([4001, "ACTION_REJECTED", "user_action/intent_signature_denied"]).has(code) && lastStep === "request_signing";
         const allowanceDenied = code === "user_action/allowance_approval_denied" && ["allowance", "allowance_approval"].includes(lastStep ?? "") && !irreversibleActivity;
         const nativeDepositDenied = lastNativeDeposit && new Set<unknown>([4001, "ACTION_REJECTED", "user_action/tx_send_denied"]).has(code);
         if (signatureDenied || allowanceDenied || nativeDepositDenied) stop("stopped", "wallet_rejected_before_commitment", "sdk");

@@ -77,6 +77,7 @@ export function classifyWidgetError(error: unknown): Record<string, unknown> {
     }
     if (reason) return {
       reason, errorSummary: summaries[reason], errorCategory, sdkCode,
+      "error.code": sdkCode,
       service: reason === "wallet_rejected" ? "wallet" : service ?? fallbackService,
       errorStep: read(context, "stepType"),
       errorChainId: read(context, "chainId") ?? templateChainId,

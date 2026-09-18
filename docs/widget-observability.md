@@ -96,10 +96,11 @@ config directly and do not need environment variables.
   Read-only initialization and wallet attachment reuse one SDK per provider.
   Setup and concurrent refreshes share in-flight balance reads by SDK, account and
   balance kind; later manual/post-transaction refreshes perform a fresh read.
-  Calls before the first quote omit `attempt_id`; they carry session/client/mode
+  Calls before the first quote omit `attempt.id`; they carry session/client/mode/network
   context. Swallowed provider balance errors are still recorded as failed reads.
 - Each record has one UUID `eventId`, reused across collectors and retries,
-  plus timestamp, schema version, session, environment, client, surface and mode.
+  plus timestamp, schema version, `session.id`, `nexus.network`, environment, `nexus.client.id`,
+  `surface.name`, `surface.version` and mode.
   Validated execution/destination transaction hashes from SDK results appear only
   in SigNoz diagnostics. A returned hash does not establish final delivery.
   Sessions are in memory per mounted widget; there are no tracking cookies,
@@ -107,9 +108,9 @@ config directly and do not need environment variables.
 - Quote errors do not rotate attempts. An explicit UI reset/new flow creates a
   fresh attempt at its next quote. A browser success/failure screen is not a
   canonical outcome. A retry after a published terminal outcome includes
-  `previous_attempt_id`; unknown outcomes never become retry predecessors.
+  `attempt.previous_id` (aliased to `previous_attempt_id`); unknown outcomes never become retry predecessors.
   Late results keep their original attempt context.
-- Both PostHog and SigNoz receive allowlisted `sdkCode`, a bounded `reason`, static
+- Both PostHog and SigNoz receive allowlisted `error.code` (aliased to `sdkCode`), a bounded `reason`, static
   `errorSummary`, `errorCategory`, known service, and known error step/chain context
   when supplied. Every installed SDK error code has a classification; for example
   `execution/slippage_exceeded` maps to `reason: "slippage_exceeded"`.
