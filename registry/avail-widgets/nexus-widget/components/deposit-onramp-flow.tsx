@@ -109,9 +109,18 @@ type OnrampFiatCurrencyOption = {
   symbolUrl?: string;
 };
 
+type OnrampPaymentMethodLogo =
+  | {
+      dark?: string;
+      light?: string;
+    }
+  | string;
+
 type OnrampOptionsResponse = {
   countries?: OnrampCountry[];
   fiatCurrencyMetadata?: OnrampFiatMetadata[];
+  paymentMethodMetadata?: OnrampPaymentMethod[];
+  paymentMethods?: OnrampPaymentMethod[];
   providers?: OnrampProviderMetadata[];
   selection?: {
     countryCode: string;
@@ -120,6 +129,7 @@ type OnrampOptionsResponse = {
     defaultPaymentMethods?: string[];
     fiatCurrencies?: OnrampFiatCurrency[];
     fiatCurrencyMetadata?: OnrampFiatMetadata[];
+    paymentMethods?: OnrampPaymentMethod[];
   } | null;
 };
 
@@ -140,12 +150,15 @@ type OnrampPaymentMethod = {
   duration?: string;
   estimatedDuration?: string;
   estimatedTime?: string;
+  headlessSupported?: boolean;
   limits?: {
     currencyCode?: string;
     max?: string;
     min?: string;
   };
+  logo?: OnrampPaymentMethodLogo;
   method: string;
+  name?: string;
   subtitle?: string;
   type?: string;
 };
@@ -250,6 +263,7 @@ export type OnrampGasShortfallInfo = {
 };
 
 type OnrampSheet =
+  | "country"
   | "currency"
   | "destination"
   | "fees"
@@ -277,11 +291,16 @@ interface DepositOnrampFlowProps {
 
 const ONRAMP_RETURN_PATH = "/onramp/complete";
 const ONRAMP_IP_COUNTRY_URL = "https://api.country.is/";
+const ONRAMP_IP_API_URL = "http://ip-api.com/json";
+const ONRAMP_IPAPI_CO_URL = "https://ipapi.co/json/";
+const ONRAMP_CLOUDFLARE_META_URL = "https://speed.cloudflare.com/meta";
 const ONRAMP_DISCONNECTED_QUOTE_WALLET_ADDRESS =
   "0xd733d48f2a7f57d4559f98ae07f87dab595e3523" as Address;
 const ONRAMP_OPTIONS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const ONRAMP_COUNTRY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const ONRAMP_USER_COUNTRY_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const ONRAMP_COUNTRY_CACHE_KEY = "nexus-widgets:onramp:country:v1";
+const ONRAMP_USER_COUNTRY_CACHE_KEY = "nexus-widgets:onramp:user-country:v1";
 const ONRAMP_OPTIONS_CACHE_KEY_PREFIX = "nexus-widgets:onramp:options:v1";
 const ONRAMP_SANDBOX_FALLBACK_COUNTRY = "FR";
 const ONRAMP_PRODUCTION_FALLBACK_COUNTRY = "US";
@@ -598,6 +617,40 @@ const getCurrencyLogoUrl = (
   return meta?.symbolUrl ?? meta?.flagUrl;
 };
 
+const onrampPaymentMethodMetadataCache = new Map<string, OnrampPaymentMethod>();
+
+const cacheOnrampPaymentMethods = (methods?: OnrampPaymentMethod[]) => {
+  if (!methods?.length) return;
+  for (const method of methods) {
+    if (!method?.method) continue;
+    const key = method.method.toUpperCase();
+    const existing = onrampPaymentMethodMetadataCache.get(key);
+    onrampPaymentMethodMetadataCache.set(key, {
+      ...existing,
+      ...method,
+    });
+  }
+};
+
+const getPaymentMethodMetadata = (method?: string) => {
+  if (!method) return undefined;
+  return onrampPaymentMethodMetadataCache.get(method.toUpperCase());
+};
+
+const getPaymentMethodLogoUrl = (
+  method?: string,
+  logo?: OnrampPaymentMethodLogo,
+  isDark?: boolean,
+) => {
+  const resolvedLogo = logo ?? getPaymentMethodMetadata(method)?.logo;
+  if (!resolvedLogo) return undefined;
+  if (typeof resolvedLogo === "string") return resolvedLogo;
+  if (isDark) {
+    return resolvedLogo.dark || resolvedLogo.light;
+  }
+  return resolvedLogo.light || resolvedLogo.dark;
+};
+
 const getFiatCurrencyOptions = (
   options: OnrampOptionsResponse | null,
 ): OnrampFiatCurrencyOption[] => {
@@ -607,6 +660,13 @@ const getFiatCurrencyOptions = (
   cacheOnrampFiatMetadata(fiatMetadataList);
   if (options?.providers) {
     cacheOnrampProviders(options.providers);
+  }
+  const paymentMethodList =
+    selection?.paymentMethods ??
+    options?.paymentMethods ??
+    options?.paymentMethodMetadata;
+  if (paymentMethodList) {
+    cacheOnrampPaymentMethods(paymentMethodList);
   }
 
   const byCode = new Map<string, OnrampFiatCurrencyOption>();
@@ -742,18 +802,83 @@ const getUnsupportedCountryFallbackCode = (baseUrl: string) => {
     : ONRAMP_SANDBOX_FALLBACK_COUNTRY;
 };
 
+const isValidCountryCode = (code?: string): code is string =>
+  Boolean(code && /^[A-Za-z]{2}$/.test(code));
+
+const fetchCountryIs = async (signal?: AbortSignal): Promise<string> => {
+  const response = await fetch(ONRAMP_IP_COUNTRY_URL, {
+    signal,
+    headers: { Accept: "application/json" },
+    method: "GET",
+  });
+  if (!response.ok) throw new Error("country.is failed");
+  const data = (await response.json()) as IpCountryResponse;
+  const country = data.country?.trim()?.toUpperCase();
+  if (isValidCountryCode(country)) return country;
+  throw new Error("Invalid country code from country.is");
+};
+
+const fetchIpApi = async (signal?: AbortSignal): Promise<string> => {
+  const response = await fetch(ONRAMP_IP_API_URL, {
+    signal,
+    headers: { Accept: "application/json" },
+    method: "GET",
+  });
+  if (!response.ok) throw new Error("ip-api.com failed");
+  const data = (await response.json()) as {
+    countryCode?: string;
+    country?: string;
+  };
+  const country = (data.countryCode ?? data.country)?.trim()?.toUpperCase();
+  if (isValidCountryCode(country)) return country;
+  throw new Error("Invalid country code from ip-api.com");
+};
+
+const fetchIpapiCo = async (signal?: AbortSignal): Promise<string> => {
+  const response = await fetch(ONRAMP_IPAPI_CO_URL, {
+    signal,
+    headers: { Accept: "application/json" },
+    method: "GET",
+  });
+  if (!response.ok) throw new Error("ipapi.co failed");
+  const data = (await response.json()) as {
+    country?: string;
+    country_code?: string;
+  };
+  const country = (data.country_code ?? data.country)?.trim()?.toUpperCase();
+  if (isValidCountryCode(country)) return country;
+  throw new Error("Invalid country code from ipapi.co");
+};
+
+const fetchCloudflareSpeedMeta = async (
+  signal?: AbortSignal,
+): Promise<string> => {
+  const response = await fetch(ONRAMP_CLOUDFLARE_META_URL, {
+    signal,
+    method: "GET",
+  });
+  if (!response.ok) throw new Error("cloudflare meta failed");
+  const text = await response.text();
+  const data = JSON.parse(text) as { country?: string };
+  const country = data.country?.trim()?.toUpperCase();
+  if (isValidCountryCode(country)) return country;
+  throw new Error("Invalid country code from cloudflare");
+};
+
 const getIpCountryCode = async (signal?: AbortSignal) => {
+  const timeoutSignal = AbortSignal.timeout(15_000);
+  const combinedSignal = signal
+    ? AbortSignal.any([signal, timeoutSignal])
+    : timeoutSignal;
+
   try {
-    const response = await fetch(ONRAMP_IP_COUNTRY_URL, {
-      signal: signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(15_000)])
-        : AbortSignal.timeout(15_000),
-      headers: { Accept: "application/json" },
-      method: "GET",
-    });
-    if (!response.ok) return "";
-    const data = (await response.json()) as IpCountryResponse;
-    return data.country?.toUpperCase() ?? "";
+    const country = await Promise.any([
+      fetchCountryIs(combinedSignal),
+      fetchIpApi(combinedSignal),
+      fetchIpapiCo(combinedSignal),
+      fetchCloudflareSpeedMeta(combinedSignal),
+    ]);
+    return country;
   } catch {
     return "";
   }
@@ -772,6 +897,9 @@ const getLocalCountryCode = () => {
 };
 
 const resolveOnrampCountryCode = async (signal?: AbortSignal) => {
+  const userSelected = readOnrampCache<string>(ONRAMP_USER_COUNTRY_CACHE_KEY);
+  if (userSelected) return userSelected;
+
   const cached = readOnrampCache<string>(ONRAMP_COUNTRY_CACHE_KEY);
   if (cached) return cached;
 
@@ -797,7 +925,10 @@ const getDefaultFiatCurrencyCode = (options: OnrampOptionsResponse | null) => {
   return currencies[0]?.currencyCode ?? "";
 };
 
-const getMethodLabel = (method?: string) => {
+const getMethodLabel = (method?: string, customName?: string) => {
+  if (customName) return customName;
+  const meta = getPaymentMethodMetadata(method);
+  if (meta?.name) return meta.name;
   switch ((method ?? "").toUpperCase()) {
     case "APPLE_PAY":
       return "Apple Pay";
@@ -1665,6 +1796,64 @@ function CurrencyMark({
   );
 }
 
+function CountryMark({
+  countryCode,
+  flagUrl,
+  size = 20,
+}: {
+  countryCode?: string;
+  flagUrl?: string;
+  size?: number;
+}) {
+  const code = countryCode?.toUpperCase() ?? "";
+  const [failed, setFailed] = React.useState(!flagUrl);
+
+  React.useEffect(() => {
+    setFailed(!flagUrl);
+  }, [flagUrl]);
+
+  if (!failed && flagUrl) {
+    return (
+      <img
+        alt={code}
+        onError={() => setFailed(true)}
+        src={flagUrl}
+        style={{
+          backgroundColor: theme.colors.surface,
+          borderRadius: "999px",
+          display: "block",
+          flexShrink: 0,
+          height: `${size}px`,
+          objectFit: "cover",
+          width: `${size}px`,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        backgroundColor: "#EEF3FF",
+        borderRadius: "999px",
+        color: brand,
+        display: "flex",
+        flexShrink: 0,
+        fontFamily: theme.fonts.sans,
+        fontSize: `${Math.max(9, Math.floor(size * 0.4))}px`,
+        fontWeight: 700,
+        height: `${size}px`,
+        justifyContent: "center",
+        width: `${size}px`,
+      }}
+    >
+      {(code || "?").slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+
 const useIsDarkMode = () => {
   const [isDark, setIsDark] = React.useState(false);
 
@@ -1815,22 +2004,42 @@ const PAYMENT_METHOD_LOGO_STYLES: Record<string, React.CSSProperties> = {
   },
 };
 
-function MethodMark({ method }: { method?: string }) {
+function MethodMark({
+  alt,
+  logo,
+  method,
+}: {
+  alt?: string;
+  logo?: OnrampPaymentMethodLogo;
+  method?: string;
+}) {
+  const isDark = useIsDarkMode();
   const normalized = (method ?? "").toUpperCase();
-  const logoUrl = PAYMENT_METHOD_LOGOS[normalized];
+  const apiLogoUrl = getPaymentMethodLogoUrl(method, logo, isDark);
+  const staticLogoUrl = PAYMENT_METHOD_LOGOS[normalized];
   const customLogoStyle = PAYMENT_METHOD_LOGO_STYLES[normalized];
-  const [imgFailed, setImgFailed] = React.useState(false);
+  const [apiFailed, setApiFailed] = React.useState(false);
+  const [staticFailed, setStaticFailed] = React.useState(false);
 
   React.useEffect(() => {
-    setImgFailed(false);
-  }, [logoUrl]);
+    setApiFailed(false);
+  }, [apiLogoUrl]);
 
-  if (logoUrl && !imgFailed) {
+  React.useEffect(() => {
+    setStaticFailed(false);
+  }, [staticLogoUrl]);
+
+  const candidateUrl =
+    (!apiFailed && apiLogoUrl) || (!staticFailed && staticLogoUrl) || undefined;
+
+  if (candidateUrl) {
     return (
       <div
         style={{
           alignItems: "center",
-          backgroundColor: theme.colors.surface,
+          backgroundColor: isDark
+            ? "rgba(255, 255, 255, 0.06)"
+            : theme.colors.surfaceCool,
           border: `1px solid ${theme.colors.border}`,
           borderRadius: "8px",
           display: "flex",
@@ -1842,15 +2051,21 @@ function MethodMark({ method }: { method?: string }) {
         }}
       >
         <img
-          alt={getMethodLabel(method)}
-          onError={() => setImgFailed(true)}
-          src={logoUrl}
+          alt={alt ?? getMethodLabel(method)}
+          onError={() => {
+            if (candidateUrl === apiLogoUrl) {
+              setApiFailed(true);
+            } else {
+              setStaticFailed(true);
+            }
+          }}
+          src={candidateUrl}
           style={{
             maxHeight: "100%",
             maxWidth: "100%",
             objectFit: "contain",
             padding: "4px",
-            ...customLogoStyle,
+            ...(candidateUrl === staticLogoUrl ? customLogoStyle : undefined),
           }}
         />
       </div>
@@ -1875,7 +2090,9 @@ function MethodMark({ method }: { method?: string }) {
     <div
       style={{
         alignItems: "center",
-        backgroundColor: theme.colors.surface,
+        backgroundColor: isDark
+          ? "rgba(255, 255, 255, 0.06)"
+          : theme.colors.surfaceCool,
         border: `1px solid ${theme.colors.border}`,
         borderRadius: "8px",
         color: theme.colors.textStrong,
@@ -3627,6 +3844,7 @@ export function DepositOnrampFlow({
   const [quotesRequestKey, setQuotesRequestKey] = React.useState("");
   const [selectedProvider, setSelectedProvider] = React.useState("");
   const [activeSheet, setActiveSheet] = React.useState<OnrampSheet>(null);
+  const [countrySearch, setCountrySearch] = React.useState("");
   const [currencySearch, setCurrencySearch] = React.useState("");
   const [methodSearch, setMethodSearch] = React.useState("");
   const [partnerSearch, setPartnerSearch] = React.useState("");
@@ -3656,6 +3874,9 @@ export function DepositOnrampFlow({
     QUOTE_REFRESH_SECONDS,
   );
   const [quoteRefreshProgress, setQuoteRefreshProgress] = React.useState(1);
+  const userSelectedCountryRef = React.useRef<string>(
+    readOnrampCache<string>(ONRAMP_USER_COUNTRY_CACHE_KEY) || "",
+  );
   const onErrorRef = React.useRef(onError);
   onErrorRef.current = onError;
   const sessionRef = React.useRef(session);
@@ -3720,6 +3941,34 @@ export function DepositOnrampFlow({
       );
     });
   }, [fiatCurrencyOptions, currencySearch]);
+
+  const filteredCountries = React.useMemo(() => {
+    const list = options?.countries ?? [];
+    const seen = new Set<string>();
+    const unique: OnrampCountry[] = [];
+    for (const item of list) {
+      const code = item.countryCode?.toUpperCase();
+      if (!code || seen.has(code)) continue;
+      seen.add(code);
+      unique.push(item);
+    }
+    const query = countrySearch.trim().toLowerCase();
+    if (!query) return unique;
+    return unique.filter((country) => {
+      const name = (country.name ?? "").toLowerCase();
+      const code = (country.countryCode ?? "").toLowerCase();
+      return name.includes(query) || code.includes(query);
+    });
+  }, [options?.countries, countrySearch]);
+
+  const selectedCountry = React.useMemo(
+    () => getCountryByCode(options?.countries, countryCode),
+    [options?.countries, countryCode],
+  );
+  const selectedCountryFlagUrl =
+    selectedCountry?.flagUrl ??
+    getCountryFlagUrl(options?.countries, countryCode);
+
   const selectedOnrampCryptoCurrency = React.useMemo(
     () => getOnrampCryptoCurrency(options, toToken),
     [options, toToken],
@@ -3808,7 +4057,9 @@ export function DepositOnrampFlow({
         map.set(method.method, method);
       }
     }
-    return Array.from(map.values());
+    const list = Array.from(map.values());
+    cacheOnrampPaymentMethods(list);
+    return list;
   }, [routes, selectedRoute]);
   const selectedPaymentMethodDetails = availablePaymentMethods.find(
     (method) => method.method === selectedPaymentMethod,
@@ -3834,6 +4085,7 @@ export function DepositOnrampFlow({
       availablePaymentMethods.filter((method) =>
         matchesSearch(methodSearch, [
           method.method,
+          method.name,
           getMethodLabel(method.method),
           getMethodSubtitle(method),
         ]),
@@ -3875,6 +4127,7 @@ export function DepositOnrampFlow({
           option.provider,
           getProviderLabel(option.provider),
           option.paymentMethodType,
+          option.paymentMethod?.name,
           getMethodLabel(option.paymentMethodType),
           getMethodSubtitle(option.paymentMethod),
         ]),
@@ -4562,6 +4815,11 @@ export function DepositOnrampFlow({
             cacheOnrampFiatMetadata(
               data.selection?.fiatCurrencyMetadata ?? data.fiatCurrencyMetadata,
             );
+            cacheOnrampPaymentMethods(
+              data.selection?.paymentMethods ??
+                data.paymentMethods ??
+                data.paymentMethodMetadata,
+            );
             writeCachedOnrampOptions(baseUrl, requestedCountryCode, data);
 
             const selectedCountryCode =
@@ -4587,7 +4845,9 @@ export function DepositOnrampFlow({
           }
         };
 
-        const resolvedCountryCode = await resolveOnrampCountryCode(signal);
+        const resolvedCountryCode =
+          userSelectedCountryRef.current ||
+          (await resolveOnrampCountryCode(signal));
         signal?.throwIfAborted();
         logOnramp("country.resolved", { countryCode: resolvedCountryCode });
         let { data, requestedCountryCode } =
@@ -4678,6 +4938,7 @@ export function DepositOnrampFlow({
   }, [quoteRequestKey]);
 
   React.useEffect(() => {
+    if (activeSheet !== "country") setCountrySearch("");
     if (activeSheet !== "currency") setCurrencySearch("");
     if (activeSheet !== "method") setMethodSearch("");
     if (activeSheet !== "partner") setPartnerSearch("");
@@ -4795,6 +5056,9 @@ export function DepositOnrampFlow({
             method: method.method ?? method.name,
           })),
         }));
+        for (const route of nextRoutes) {
+          cacheOnrampPaymentMethods(route.paymentMethods);
+        }
         setRoutes(nextRoutes);
         const firstRoute = nextRoutes[0];
         setSelectedProvider(firstRoute?.provider ?? "");
@@ -5469,6 +5733,88 @@ export function DepositOnrampFlow({
     setSourceAmount("");
   };
 
+  const handleCountrySelect = React.useCallback(
+    async (nextCountryCode: string) => {
+      const normalizedCountryCode = nextCountryCode.toUpperCase();
+      if (!normalizedCountryCode) return;
+      setActiveSheet(null);
+      if (normalizedCountryCode === countryCode.toUpperCase()) return;
+
+      logOnramp("selection.country", { countryCode: normalizedCountryCode });
+      userSelectedCountryRef.current = normalizedCountryCode;
+      writeOnrampCache(
+        ONRAMP_USER_COUNTRY_CACHE_KEY,
+        normalizedCountryCode,
+        ONRAMP_USER_COUNTRY_CACHE_TTL_MS,
+      );
+      setCountryCode(normalizedCountryCode);
+
+      const cached = readCachedOnrampOptions(baseUrl, normalizedCountryCode);
+      if (cached) {
+        cacheOnrampProviders(cached.providers);
+        cacheOnrampFiatMetadata(
+          cached.selection?.fiatCurrencyMetadata ??
+            cached.fiatCurrencyMetadata,
+        );
+        setOptions(cached);
+        const nextFiat = getDefaultFiatCurrencyCode(cached);
+        setSourceCurrencyCode(nextFiat);
+      }
+
+      setSelectedPaymentMethod("");
+      setSelectedProvider("");
+      setQuotes([]);
+      setRoutes([]);
+      setBlockedRateRequest(null);
+      setFailedQuoteRequest(null);
+      setDepositExecution({ status: "idle" });
+      setSession(null);
+      setGasShortfallInfo(null);
+
+      setOptionsLoading(true);
+      try {
+        const data = await fetchOnrampJson<OnrampOptionsResponse>(
+          baseUrl,
+          `/api/v1/onramp/options?countryCode=${encodeURIComponent(
+            normalizedCountryCode,
+          )}`,
+        );
+        cacheOnrampProviders(data.providers);
+        cacheOnrampFiatMetadata(
+          data.selection?.fiatCurrencyMetadata ?? data.fiatCurrencyMetadata,
+        );
+        cacheOnrampPaymentMethods(
+          data.selection?.paymentMethods ??
+            data.paymentMethods ??
+            data.paymentMethodMetadata,
+        );
+        writeCachedOnrampOptions(baseUrl, normalizedCountryCode, data);
+
+        const selectedCode = data.selection?.countryCode?.toUpperCase();
+        if (
+          selectedCode &&
+          selectedCode !== normalizedCountryCode &&
+          isCountryInOptionsList(data, selectedCode)
+        ) {
+          writeCachedOnrampOptions(baseUrl, selectedCode, data);
+        }
+
+        setOptions(data);
+        const mappedFiat = getDefaultFiatCurrencyCode(data);
+        setSourceCurrencyCode(mappedFiat);
+      } catch (fetchError) {
+        if (!cached) {
+          const message = getErrorMessage(fetchError);
+          setError(message);
+          onErrorRef.current?.(message);
+        }
+      } finally {
+        setOptionsLoading(false);
+      }
+    },
+    [baseUrl, countryCode],
+  );
+
   const handleCurrencySelect = (currencyCode: string) => {
     logOnramp("selection.currency", { currencyCode });
     setSourceCurrencyCode(currencyCode);
@@ -5702,40 +6048,84 @@ export function DepositOnrampFlow({
         width: "100%",
       }}
     >
-      {shouldShowQuoteTimer && (
-        <div
+      <div
+        style={{
+          alignItems: "center",
+          alignSelf: "flex-end",
+          display: "flex",
+          gap: "8px",
+          height: "32px",
+          marginTop: "-48px",
+          marginBottom: "4px",
+          position: "relative",
+          zIndex: 20,
+        }}
+      >
+        {shouldShowQuoteTimer && (
+          <div
+            style={{
+              alignItems: "center",
+              backgroundColor: theme.colors.surface,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: "9px",
+              boxShadow: theme.shadows.iconButton,
+              color: brand,
+              display: "flex",
+              fontFamily: theme.fonts.sans,
+              fontSize: "13px",
+              fontWeight: 600,
+              gap: "6px",
+              height: "32px",
+              justifyContent: "center",
+              paddingInline: "10px",
+              pointerEvents: "none",
+            }}
+          >
+            {quotesLoading || routesLoading ? (
+              <Loader2
+                className="animate-spin"
+                size={16}
+                style={NEXUS_WIDGET_FAST_SPINNER_STYLE}
+              />
+            ) : (
+              <OnrampQuoteCountdownIcon progress={quoteRefreshProgress} />
+            )}
+            {quotesLoading || routesLoading ? "..." : `${quoteRefreshSeconds}s`}
+          </div>
+        )}
+
+        <button
+          aria-label="Select country"
+          onClick={() => setActiveSheet("country")}
           style={{
             alignItems: "center",
-            alignSelf: "flex-end",
             backgroundColor: theme.colors.surface,
             border: `1px solid ${theme.colors.border}`,
             borderRadius: "9px",
             boxShadow: theme.shadows.iconButton,
-            color: brand,
+            boxSizing: "border-box",
+            cursor: "pointer",
             display: "flex",
-            fontFamily: theme.fonts.sans,
-            fontSize: "13px",
-            fontWeight: 600,
             gap: "6px",
             height: "32px",
             justifyContent: "center",
-            marginTop: "-48px",
-            paddingInline: "10px",
-            pointerEvents: "none",
+            paddingInline: "8px",
           }}
+          type="button"
         >
-          {quotesLoading || routesLoading ? (
-            <Loader2
-              className="animate-spin"
-              size={16}
-              style={NEXUS_WIDGET_FAST_SPINNER_STYLE}
-            />
-          ) : (
-            <OnrampQuoteCountdownIcon progress={quoteRefreshProgress} />
-          )}
-          {quotesLoading || routesLoading ? "..." : `${quoteRefreshSeconds}s`}
-        </div>
-      )}
+          <CountryMark
+            countryCode={countryCode}
+            flagUrl={selectedCountryFlagUrl}
+            size={20}
+          />
+          <ChevronDown
+            aria-hidden="true"
+            color={theme.colors.icon}
+            size={15}
+            strokeWidth={1.8}
+          />
+        </button>
+      </div>
 
       <div style={panelStyle}>
         <div
@@ -5951,7 +6341,14 @@ export function DepositOnrampFlow({
               <div
                 style={{ alignItems: "center", display: "flex", gap: "10px" }}
               >
-                <MethodMark method={selectedPaymentMethod} />
+                <MethodMark
+                  alt={
+                    selectedPaymentMethodDetails?.name ??
+                    getMethodLabel(selectedPaymentMethod)
+                  }
+                  logo={selectedPaymentMethodDetails?.logo}
+                  method={selectedPaymentMethod}
+                />
                 <div
                   style={{
                     color: theme.colors.textStrong,
@@ -5961,7 +6358,8 @@ export function DepositOnrampFlow({
                     lineHeight: "19px",
                   }}
                 >
-                  {getMethodLabel(selectedPaymentMethod)}
+                  {selectedPaymentMethodDetails?.name ??
+                    getMethodLabel(selectedPaymentMethod)}
                 </div>
               </div>
             </DetailRow>
@@ -6332,7 +6730,11 @@ export function DepositOnrampFlow({
                 );
                 const methodSubtitle = getMethodSubtitle(option.paymentMethod);
                 const optionSubtitle = option.paymentMethodType
-                  ? [getMethodLabel(option.paymentMethodType), methodSubtitle]
+                  ? [
+                      option.paymentMethod?.name ??
+                        getMethodLabel(option.paymentMethodType),
+                      methodSubtitle,
+                    ]
                       .filter(Boolean)
                       .join(" · ")
                   : "Available route";
@@ -6356,6 +6758,47 @@ export function DepositOnrampFlow({
             </div>
           ) : (
             <EmptySheetMessage>No payment partners found.</EmptySheetMessage>
+          )}
+        </Sheet>
+      )}
+
+      {activeSheet === "country" && (
+        <Sheet onClose={() => setActiveSheet(null)} title="Select country">
+          <SheetSearchInput
+            onChange={setCountrySearch}
+            placeholder="Search country"
+            value={countrySearch}
+          />
+          <div style={sectionLabelStyle}>Supported countries</div>
+          {filteredCountries.length > 0 ? (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
+              {filteredCountries.map((country) => (
+                <SelectRow
+                  icon={
+                    <CountryMark
+                      countryCode={country.countryCode}
+                      flagUrl={country.flagUrl}
+                      size={32}
+                    />
+                  }
+                  key={country.countryCode}
+                  onClick={() => {
+                    void handleCountrySelect(country.countryCode);
+                    setCountrySearch("");
+                  }}
+                  selected={
+                    country.countryCode.toUpperCase() ===
+                    countryCode.toUpperCase()
+                  }
+                  subtitle={country.countryCode}
+                  title={country.name}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptySheetMessage>No countries found.</EmptySheetMessage>
           )}
         </Sheet>
       )}
@@ -6408,12 +6851,18 @@ export function DepositOnrampFlow({
             >
               {filteredPaymentMethods.map((method) => (
                 <SelectRow
-                  icon={<MethodMark method={method.method} />}
+                  icon={
+                    <MethodMark
+                      alt={method.name ?? getMethodLabel(method.method)}
+                      logo={method.logo}
+                      method={method.method}
+                    />
+                  }
                   key={method.method}
                   onClick={() => handleMethodSelect(method.method)}
                   selected={method.method === selectedPaymentMethod}
                   subtitle={getMethodSubtitle(method)}
-                  title={getMethodLabel(method.method)}
+                  title={method.name ?? getMethodLabel(method.method)}
                 />
               ))}
             </div>

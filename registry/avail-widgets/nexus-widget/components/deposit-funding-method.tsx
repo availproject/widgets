@@ -1,6 +1,5 @@
 // biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
-import { CreditCard, Wallet } from "lucide-react";
 import React from "react";
 import { nexusWidgetTheme } from "../theme";
 
@@ -15,83 +14,137 @@ interface DepositFundingMethodProps {
   totalBalance: string;
 }
 
+interface LogoItem {
+  alt: string;
+  height?: string;
+  invertDark?: boolean;
+  url: string;
+  width?: string;
+}
+
+const WALLET_LOGOS: LogoItem[] = [
+  {
+    alt: "MetaMask",
+    height: "22px",
+    url: "https://files.availproject.org/widgets/assets/metamask.png",
+    width: "22px",
+  },
+  {
+    alt: "Rabby",
+    height: "22px",
+    url: "https://files.availproject.org/widgets/assets/rabby.png",
+    width: "22px",
+  },
+  {
+    alt: "Zerion",
+    height: "20px",
+    url: "https://files.availproject.org/widgets/assets/zerion.png",
+    width: "20px",
+  },
+];
+
+const CASH_LOGOS: LogoItem[] = [
+  {
+    alt: "Mastercard",
+    height: "15px",
+    url: "https://files.availproject.org/widgets/assets/mastercard.png",
+    width: "24px",
+  },
+  {
+    alt: "Apple Pay",
+    height: "20px",
+    invertDark: true,
+    url: "https://files.availproject.org/widgets/assets/apple-pay.png",
+    width: "20px",
+  },
+  {
+    alt: "Google Pay",
+    height: "20px",
+    url: "https://files.availproject.org/widgets/assets/google-pay.png",
+    width: "20px",
+  },
+];
+
 const theme = nexusWidgetTheme;
 const brand = "var(--foreground-brand)";
 
-const optionBaseStyle: React.CSSProperties = {
-  alignItems: "center",
-  backgroundColor: theme.colors.surface,
-  borderRadius: "12px",
-  borderStyle: "solid",
-  borderWidth: "1px",
-  boxSizing: "border-box",
-  cursor: "pointer",
-  display: "flex",
-  gap: "10px",
-  minHeight: "66px",
-  padding: "12px",
-  textAlign: "left",
-  width: "100%",
-};
+const useIsDarkMode = () => {
+  const [isDark, setIsDark] = React.useState(false);
 
-function MethodIcon({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        alignItems: "center",
-        backgroundColor: theme.colors.surface,
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: "7px",
-        boxSizing: "border-box",
-        display: "flex",
-        flexShrink: 0,
-        height: "36px",
-        justifyContent: "center",
-        width: "36px",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+  React.useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined")
+      return;
+
+    const checkDark = () => {
+      const root =
+        typeof document !== "undefined" ? document.documentElement : undefined;
+      const body = typeof document !== "undefined" ? document.body : undefined;
+      const isDarkClass = Boolean(
+        root?.classList?.contains("dark") || body?.classList?.contains("dark"),
+      );
+      const isDataThemeDark = root?.getAttribute?.("data-theme") === "dark";
+      const prefersDark =
+        typeof window.matchMedia === "function"
+          ? Boolean(window.matchMedia("(prefers-color-scheme: dark)")?.matches)
+          : false;
+      return Boolean(isDarkClass || isDataThemeDark || prefersDark);
+    };
+
+    setIsDark(checkDark());
+
+    const mediaQuery =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : undefined;
+    const handleMediaChange = () => setIsDark(checkDark());
+    mediaQuery?.addEventListener?.("change", handleMediaChange);
+
+    const root =
+      typeof document !== "undefined" ? document.documentElement : undefined;
+    let observer: MutationObserver | undefined;
+    if (root && typeof MutationObserver !== "undefined") {
+      observer = new MutationObserver(() => {
+        setIsDark(checkDark());
+      });
+      observer.observe(root, {
+        attributes: true,
+        attributeFilter: ["class", "data-theme"],
+      });
+    }
+
+    return () => {
+      mediaQuery?.removeEventListener?.("change", handleMediaChange);
+      observer?.disconnect();
+    };
+  }, []);
+
+  return isDark;
+};
 
 function RadioMark({ selected }: { selected: boolean }) {
   return (
     <span
       aria-hidden="true"
       style={{
-        alignItems: "center",
-        border: `1.5px solid ${selected ? brand : theme.colors.border}`,
+        backgroundColor: theme.colors.surface,
+        borderColor: selected ? brand : theme.colors.border,
         borderRadius: "999px",
+        borderStyle: "solid",
+        borderWidth: selected ? "5px" : "1.5px",
         boxSizing: "border-box",
-        display: "flex",
+        display: "inline-block",
         flexShrink: 0,
-        height: "20px",
-        justifyContent: "center",
-        width: "20px",
+        height: "18px",
+        transition: "border-color 150ms ease, border-width 150ms ease",
+        width: "18px",
       }}
-    >
-      {selected && (
-        <span
-          style={{
-            backgroundColor: brand,
-            borderRadius: "999px",
-            height: "10px",
-            width: "10px",
-          }}
-        />
-      )}
-    </span>
+    />
   );
 }
 
 function AmountSkeleton({
-  height = "16px",
-  width = "64px",
+  height = "14px",
+  width = "48px",
 }: {
   height?: string;
   width?: string;
@@ -104,7 +157,7 @@ function AmountSkeleton({
         background:
           "linear-gradient(90deg, #F0F0EF 0%, #E6EEFF 48%, #F0F0EF 100%)",
         backgroundSize: "200% 100%",
-        borderRadius: "6px",
+        borderRadius: "4px",
         display: "inline-block",
         flexShrink: 0,
         height,
@@ -115,109 +168,167 @@ function AmountSkeleton({
   );
 }
 
+function LogoStack({
+  isDark,
+  items,
+}: {
+  isDark: boolean;
+  items: LogoItem[];
+}) {
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        borderRadius: "999px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexShrink: 0,
+        height: "36px",
+        justifyContent: "center",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          alignItems: "center",
+          boxSizing: "border-box",
+          display: "flex",
+        }}
+      >
+        {items.map((item, index) => (
+          <div
+            key={item.alt}
+            style={{
+              alignItems: "center",
+              backgroundColor: isDark ? "#262626" : "#F2F2F2",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              display: "flex",
+              flexShrink: 0,
+              height: "32px",
+              justifyContent: "center",
+              marginLeft: index === 0 ? "0px" : "-4px",
+              outline: `1.5px solid ${theme.colors.surface}`,
+              position: "relative",
+              width: "32px",
+              zIndex: index + 1,
+            }}
+          >
+            <img
+              alt={item.alt}
+              src={item.url}
+              style={{
+                filter: item.invertDark && isDark ? "invert(1)" : undefined,
+                height: item.height ?? "20px",
+                objectFit: "contain",
+                width: item.width ?? "20px",
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FundingOption({
   active,
   amount,
   amountLoading = false,
   description,
-  icon,
+  hasDivider = false,
+  isDark = false,
   label,
+  logos,
   onClick,
-  recommended,
 }: {
   active: boolean;
   amount?: string;
   amountLoading?: boolean;
   description: string;
-  icon: React.ReactNode;
+  hasDivider?: boolean;
+  isDark?: boolean;
   label: string;
+  logos: LogoItem[];
   onClick: () => void;
-  recommended?: boolean;
 }) {
+  const [isHovered, setIsHovered] = React.useState(false);
+
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
-        ...optionBaseStyle,
-        borderColor: active ? brand : theme.colors.divider,
+        alignItems: "center",
+        backgroundColor: isHovered
+          ? isDark
+            ? "rgba(255, 255, 255, 0.04)"
+            : "#FBFBFA"
+          : theme.colors.surface,
+        border: "none",
+        borderBottom: hasDivider ? `1px solid ${theme.colors.divider}` : "none",
+        boxSizing: "border-box",
+        cursor: "pointer",
+        display: "flex",
+        gap: "12px",
+        paddingBlock: "14px",
+        paddingInline: "16px",
+        textAlign: "left",
+        transition: "background-color 150ms ease",
+        width: "100%",
       }}
       type="button"
     >
-      <MethodIcon>{icon}</MethodIcon>
+      <RadioMark selected={active} />
       <div
         style={{
+          boxSizing: "border-box",
           display: "flex",
-          flex: "1 1 0%",
+          flexBasis: "0%",
           flexDirection: "column",
-          gap: "4px",
+          flexGrow: 1,
+          gap: "2px",
           minWidth: 0,
         }}
       >
         <div
           style={{
-            alignItems: "center",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "7px",
-          }}
-        >
-          <span
-            style={{
-              color: theme.colors.textStrong,
-              fontFamily: theme.fonts.sans,
-              fontSize: "15px",
-              fontWeight: 500,
-              letterSpacing: "0",
-              lineHeight: "19px",
-            }}
-          >
-            {label}
-          </span>
-          {recommended && (
-            <span
-              style={{
-                backgroundColor: "#E8F5E9",
-                borderRadius: "999px",
-                color: "#2E7D32",
-                fontFamily: theme.fonts.sans,
-                fontSize: "11px",
-                fontWeight: 500,
-                lineHeight: "14px",
-                padding: "2px 8px",
-              }}
-            >
-              Recommended
-            </span>
-          )}
-        </div>
-        <span
-          style={{
-            color: theme.colors.textSubtle,
-            fontFamily: theme.fonts.sans,
-            fontSize: "13px",
-            letterSpacing: "0",
-            lineHeight: "17px",
-          }}
-        >
-          {description}
-        </span>
-      </div>
-      {(amount || amountLoading) && (
-        <span
-          style={{
+            boxSizing: "border-box",
             color: theme.colors.textStrong,
-            flexShrink: 0,
-            fontFamily: theme.fonts.display,
-            fontSize: "15px",
+            fontFamily: theme.fonts.sans,
+            fontSize: "16px",
             fontWeight: 500,
-            letterSpacing: "0",
             lineHeight: "20px",
           }}
         >
-          {amountLoading ? <AmountSkeleton /> : `$${amount}`}
-        </span>
-      )}
-      <RadioMark selected={active} />
+          {label}
+        </div>
+        <div
+          style={{
+            alignItems: "center",
+            boxSizing: "border-box",
+            color: theme.colors.textSubtle,
+            display: "flex",
+            fontFamily: theme.fonts.sans,
+            fontSize: amount !== undefined || amountLoading ? "13px" : "14px",
+            gap: "4px",
+            lineHeight: amount !== undefined || amountLoading ? "16px" : "18px",
+          }}
+        >
+          {amountLoading ? (
+            <>
+              <span>Wallet balance: </span>
+              <AmountSkeleton />
+            </>
+          ) : amount !== undefined ? (
+            `Wallet balance: $${amount || "0.00"}`
+          ) : (
+            description
+          )}
+        </div>
+      </div>
+      <LogoStack isDark={isDark} items={logos} />
     </button>
   );
 }
@@ -232,6 +343,7 @@ export function DepositFundingMethod({
 }: DepositFundingMethodProps) {
   const [selectedMethod, setSelectedMethod] =
     React.useState<FundingMethod | null>(null);
+  const isDark = useIsDarkMode();
 
   React.useEffect(() => {
     if (!enableOnRamp) {
@@ -262,19 +374,18 @@ export function DepositFundingMethod({
     >
       <div
         style={{
-          color: theme.colors.textSubtle,
-          fontFamily: theme.fonts.sans,
-          fontSize: "13px",
-          lineHeight: "17px",
-        }}
-      >
-        Select a funding method
-      </div>
-      <div
-        style={{
+          alignSelf: "stretch",
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+          borderRadius: "14px",
+          borderStyle: "solid",
+          borderWidth: "1px",
+          boxShadow: "#5B5B5B0D 0px 1px 12px",
+          boxSizing: "border-box",
           display: "flex",
+          flex: 1,
           flexDirection: "column",
-          gap: "8px",
+          overflow: "hidden",
         }}
       >
         <FundingOption
@@ -282,15 +393,10 @@ export function DepositFundingMethod({
           amount={totalBalance}
           amountLoading={isBalanceLoading}
           description="Wallet balance"
-          icon={
-            <Wallet
-              aria-hidden="true"
-              color={theme.colors.textStrong}
-              size={20}
-              strokeWidth={1.7}
-            />
-          }
-          label="Pay with Wallet"
+          hasDivider={enableOnRamp}
+          isDark={isDark}
+          label="Deposit with Wallet"
+          logos={WALLET_LOGOS}
           onClick={() => {
             setSelectedMethod("wallet");
           }}
@@ -298,49 +404,72 @@ export function DepositFundingMethod({
         {enableOnRamp && (
           <FundingOption
             active={selectedMethod === "local-currency"}
-            description="Card, Apple Pay, UPI"
-            icon={
-              <CreditCard
-                aria-hidden="true"
-                color={theme.colors.textStrong}
-                size={20}
-                strokeWidth={1.7}
-              />
-            }
-            label="Pay with Local Currency"
+            description="Card, Apple Pay, Bank Transfer"
+            hasDivider={false}
+            isDark={isDark}
+            label="Deposit with Cash"
+            logos={CASH_LOGOS}
             onClick={() => {
               setSelectedMethod("local-currency");
             }}
-            recommended
           />
         )}
       </div>
-      <button
-        disabled={!selectedMethod}
-        onClick={handleContinue}
+
+      <div
         style={{
-          alignItems: "center",
-          backgroundColor: selectedMethod ? brand : theme.colors.surfaceCool,
-          border: "none",
-          borderRadius: theme.radius.primaryButton,
-          boxShadow: selectedMethod ? theme.shadows.primaryButton : "none",
+          alignSelf: "stretch",
           boxSizing: "border-box",
-          color: selectedMethod ? primaryButtonForeground : theme.colors.muted,
-          cursor: selectedMethod ? "pointer" : "default",
           display: "flex",
-          fontFamily: theme.fonts.sans,
-          fontSize: "14px",
-          fontWeight: 500,
-          height: "44px",
-          justifyContent: "center",
-          lineHeight: "18px",
-          marginTop: "4px",
-          width: "100%",
+          flexDirection: "column",
+          gap: "12px",
         }}
-        type="button"
       >
-        Continue
-      </button>
+        <div
+          style={{
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            marginTop: "4px",
+            width: "100%",
+          }}
+        >
+          <button
+            disabled={!selectedMethod}
+            onClick={handleContinue}
+            style={{
+              alignItems: "center",
+              backgroundColor: selectedMethod
+                ? brand
+                : isDark
+                  ? "#262626"
+                  : theme.colors.surfaceCool,
+              border: "none",
+              borderRadius: "12px",
+              boxShadow: selectedMethod ? theme.shadows.primaryButton : "none",
+              boxSizing: "border-box",
+              color: selectedMethod
+                ? primaryButtonForeground
+                : theme.colors.muted,
+              cursor: selectedMethod ? "pointer" : "default",
+              display: "flex",
+              flexShrink: 0,
+              fontFamily: theme.fonts.sans,
+              fontSize: "16px",
+              fontWeight: 500,
+              height: "52px",
+              justifyContent: "center",
+              letterSpacing: "-0.005em",
+              lineHeight: "20px",
+              transition: "background-color 150ms ease, box-shadow 150ms ease",
+              width: "100%",
+            }}
+            type="button"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

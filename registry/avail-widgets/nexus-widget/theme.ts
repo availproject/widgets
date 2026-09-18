@@ -9,10 +9,10 @@ const ink = {
 
 export const NEXUS_WIDGET_DEFAULT_PRIMARY_COLOR = "rgb(0, 107, 244)" as const;
 export const NEXUS_WIDGET_FAST_SPINNER_STYLE = {
-  animationDuration: "700ms",
+  animation: "nexusWidgetSpin 700ms linear infinite",
 } as const;
 export const NEXUS_WIDGET_FAST_SPINNER_ANIMATION =
-  "spin 700ms linear infinite" as const;
+  "nexusWidgetSpin 700ms linear infinite" as const;
 
 const blue = {
   700: "var(--foreground-brand)",

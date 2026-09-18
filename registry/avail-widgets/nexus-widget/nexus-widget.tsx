@@ -11041,6 +11041,16 @@ function NexusWidgetInner({
         MozOsxFontSmoothing: "grayscale",
       }}
     >
+      <style>
+        {`
+          @keyframes nexusWidgetSpin {
+            to { transform: rotate(360deg); }
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
       <div
         ref={rootContentRef}
         style={{
@@ -11101,12 +11111,34 @@ function NexusWidgetInner({
             )}
             <div
               style={{
-                boxSizing: "border-box",
-                color: theme.colors.text,
-                ...theme.typography.headingPanel,
+                alignItems: isTitleCentered() ? "center" : "flex-start",
+                display: "flex",
+                flexDirection: "column",
+                gap: "2px",
               }}
             >
-              {getTitle()}
+              <div
+                style={{
+                  boxSizing: "border-box",
+                  color: theme.colors.text,
+                  ...theme.typography.headingPanel,
+                }}
+              >
+                {getTitle()}
+              </div>
+              {isDepositMethodScreen && (
+                <div
+                  style={{
+                    boxSizing: "border-box",
+                    color: theme.colors.muted,
+                    fontFamily: theme.fonts.sans,
+                    fontSize: "12px",
+                    lineHeight: "16px",
+                  }}
+                >
+                  Select a funding method
+                </div>
+              )}
             </div>
 
             {/* Sub-screen asset counts */}

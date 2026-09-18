@@ -1,6 +1,6 @@
-# Onramp + Deposit diagnostics (2.1.0-rc.1)
+# Onramp + Deposit diagnostics (2.1.0-rc.2)
 
-Both package manifests and the shadcn registry pin `@avail-project/nexus-core` to `2.4.1`.
+Both package manifests and the shadcn registry pin `@avail-project/nexus-core` to `2.5.0`.
 
 ## Fixed failure paths
 

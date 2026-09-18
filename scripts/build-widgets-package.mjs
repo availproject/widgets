@@ -121,3 +121,39 @@ if (existsSync(localTsc)) {
     stdio: "inherit",
   });
 }
+
+// Extract & compile Tailwind styles used across widget sources
+const tempInputCss = path.join(packageRoot, ".build-src", "tailwind-input.css");
+const distStylesCss = path.join(distRoot, "styles.css");
+writeFileSync(
+  tempInputCss,
+  '@import "tailwindcss";\n@source "./**/*.{ts,tsx}";\n'
+);
+
+const localTailwindBin = path.join(
+  repoRoot,
+  "node_modules",
+  ".bin",
+  process.platform === "win32" ? "tailwindcss.cmd" : "tailwindcss"
+);
+
+if (existsSync(localTailwindBin)) {
+  execFileSync(
+    localTailwindBin,
+    ["-i", tempInputCss, "-o", distStylesCss, "--minify"],
+    {
+      cwd: packageRoot,
+      stdio: "inherit",
+    }
+  );
+} else {
+  execFileSync(
+    "npx",
+    ["@tailwindcss/cli", "-i", tempInputCss, "-o", distStylesCss, "--minify"],
+    {
+      cwd: packageRoot,
+      stdio: "inherit",
+    }
+  );
+}
+

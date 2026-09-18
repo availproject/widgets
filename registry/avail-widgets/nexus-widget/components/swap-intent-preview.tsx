@@ -540,7 +540,7 @@ function MayanPoweredBadge() {
       <span style={{ flexShrink: 0 }}>This transaction is powered by</span>
       <img
         alt="Mayan"
-        src="/mayan_logo.svg"
+        src="https://files.availproject.org/widgets/assets/mayan_logo.svg"
         style={{
           display: "block",
           height: "20px",
@@ -1345,7 +1345,8 @@ export function SwapIntentPreview({
         : "Swap now";
   const shouldPulseCta =
     !isLoading && !isRefreshing && !isExecuting && !quoteUnavailable;
-  const shouldShowMayanBadge = intentData?.bridgeProvider === "mayan";
+  const shouldShowMayanBadge =
+    !isDepositMode && intentData?.bridgeProvider === "mayan";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1892,6 +1893,7 @@ export function SwapIntentPreview({
         disabled={isLoading || isRefreshing || isExecuting || quoteUnavailable}
         onClick={onAccept}
         style={{
+          alignItems: "center",
           animation: shouldPulseCta
             ? "nexusPreviewCtaPulse 1800ms ease-in-out infinite"
             : undefined,
@@ -1903,10 +1905,13 @@ export function SwapIntentPreview({
           color: quoteUnavailable
             ? "#848483"
             : "var(--nexus-widget-primary-foreground, #FFFFFE)",
+          display: "flex",
           fontFamily,
           fontSize: "14px",
           fontWeight: 500,
+          gap: "8px",
           height: "42px",
+          justifyContent: "center",
           transformOrigin: "center",
           willChange: shouldPulseCta
             ? "box-shadow, transform, background-color"

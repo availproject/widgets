@@ -112,7 +112,7 @@ export const getCoverageDecimals = ({
   if (
     type === "bridge" &&
     token === "USDC" &&
-    chainId === SUPPORTED_CHAINS.BNB
+    (chainId === SUPPORTED_CHAINS.BNB || chainId === SUPPORTED_CHAINS.ARC)
   ) {
     return 18;
   }

@@ -58,6 +58,13 @@ const mountFlow = async ({
   actualPaymentMethod = undefined as string | undefined,
   actualSourceAmount = undefined as string | undefined,
   optionsData = undefined as any,
+  mockCountry = "US",
+  countryIsError = false,
+  ipApiError = false,
+  ipapiCoError = false,
+  cloudflareError = false,
+  storage = undefined as Map<string, string> | undefined,
+  routesData = undefined as any,
 } = {}) => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
   logs = [];
@@ -65,13 +72,18 @@ const mountFlow = async ({
     logs.push(args.join(" "));
   };
   windowEvents = new EventTarget();
+  const sharedStorage = storage ?? new Map<string, string>();
   const fakeWindow = Object.assign(windowEvents, {
     location: { origin: "https://example.com", href: "https://example.com/" },
     setTimeout,
     clearTimeout,
     setInterval,
     clearInterval,
-    localStorage: { getItem: () => null, setItem: () => {} },
+    localStorage: {
+      getItem: (k: string) => sharedStorage.get(k) ?? null,
+      setItem: (k: string, v: string) => sharedStorage.set(k, String(v)),
+      removeItem: (k: string) => sharedStorage.delete(k),
+    },
     open: () => ({ document: { body: { style: {} } }, location: { href: "" }, close() {} }),
   });
   (globalThis as any).window = fakeWindow;
@@ -133,16 +145,24 @@ const mountFlow = async ({
     }
     if (path.includes("/options"))
       return Response.json(
-        optionsData ?? {
-          countries: [{ countryCode: "US", name: "United States" }],
-          selection: {
-            countryCode: "US",
-            defaultFiat: "USD",
-            fiatCurrencies: ["USD"],
-          },
-        },
+        typeof optionsData === "function"
+          ? optionsData(path)
+          : (optionsData ?? {
+              countries: [{ countryCode: "US", name: "United States" }],
+              selection: {
+                countryCode: "US",
+                defaultFiat: "USD",
+                fiatCurrencies: ["USD"],
+              },
+            }),
       );
-    if (path.includes("/routes")) return Response.json({ routes: quoteFlow ? [{ provider: "BANXA", paymentMethods: [{ method: "CREDIT_DEBIT_CARD" }] }] : [] });
+    if (path.includes("/routes")) {
+      if (routesData) {
+        const data = typeof routesData === "function" ? routesData(path) : routesData;
+        return Response.json(data);
+      }
+      return Response.json({ routes: quoteFlow ? [{ provider: "BANXA", paymentMethods: [{ method: "CREDIT_DEBIT_CARD" }] }] : [] });
+    }
     if (path.endsWith("/quote")) {
       const body = JSON.parse(String(init?.body));
       quoteWallets.push(body.walletAddress);
@@ -152,7 +172,22 @@ const mountFlow = async ({
       sessionCreates++;
       return Response.json({ sessionId: "session", state: "PENDING", widgetUrl: "https://example.com/checkout" });
     }
-    if (path.includes("country.is")) return Response.json({ country: "US" });
+    if (path.includes("country.is")) {
+      if (countryIsError) return new Response("Service Unavailable", { status: 503 });
+      return Response.json({ country: mockCountry });
+    }
+    if (path.includes("ip-api.com")) {
+      if (ipApiError) return new Response("Fail", { status: 500 });
+      return Response.json({ status: "success", countryCode: mockCountry });
+    }
+    if (path.includes("ipapi.co")) {
+      if (ipapiCoError) return new Response("Fail", { status: 500 });
+      return Response.json({ country: mockCountry, country_code: mockCountry });
+    }
+    if (path.includes("cloudflare.com")) {
+      if (cloudflareError) return new Response("Fail", { status: 500 });
+      return new Response(JSON.stringify({ country: mockCountry }));
+    }
     if (path.includes("open.er-api.com"))
       return Response.json({ rates: { USD: 1 } });
     const body = JSON.parse(String(init?.body));
@@ -720,8 +755,8 @@ test("onramp funding is opt-in; the default only offers wallet funding", async (
       totalBalance="10"
     />);
   });
-  assert.equal(renderer!.root.findAllByProps({ label: "Pay with Local Currency" }).length, 0);
-  await act(async () => renderer!.root.findByProps({ label: "Pay with Wallet" }).props.onClick());
+  assert.equal(renderer!.root.findAllByProps({ label: "Deposit with Cash" }).length, 0);
+  await act(async () => renderer!.root.findByProps({ label: "Deposit with Wallet" }).props.onClick());
   await act(async () => renderer!.root.findAllByType("button").find(button => button.children.includes("Continue"))!.props.onClick());
   assert.equal(walletSelections, 1);
   assert.equal(onrampSelections, 0);
@@ -737,11 +772,11 @@ test("disabling onramp clears a selected local currency option and prevents cont
     totalBalance: "10",
   };
   await act(async () => { renderer = create(<DepositFundingMethod {...props} enableOnRamp />); });
-  await act(async () => renderer!.root.findByProps({ label: "Pay with Local Currency" }).props.onClick());
+  await act(async () => renderer!.root.findByProps({ label: "Deposit with Cash" }).props.onClick());
   await act(async () => renderer!.root.findAllByType("button").find(button => button.children.includes("Continue"))!.props.onClick());
   assert.equal(onrampSelections, 1);
   await act(async () => renderer!.update(<DepositFundingMethod {...props} enableOnRamp={false} />));
-  assert.equal(renderer!.root.findAllByProps({ label: "Pay with Local Currency" }).length, 0);
+  assert.equal(renderer!.root.findAllByProps({ label: "Deposit with Cash" }).length, 0);
   const continueButton = renderer!.root.findAllByType("button").find(button => button.children.includes("Continue"))!;
   assert.equal(continueButton.props.disabled, true);
   await act(async () => continueButton.props.onClick());
@@ -835,4 +870,337 @@ test("options response in dark mode renders dark short logo", async () => {
   );
   assert.ok(darkProviderImg, "Expected provider dark short logo img to be rendered in dark mode");
 });
+
+test("country picker pre-fills with country.is resolved country and displays top country button", async () => {
+  const optionsData = (path: string) => {
+    if (path.includes("countryCode=IN")) {
+      return {
+        countries: [
+          { countryCode: "IN", name: "India", flagUrl: "https://example.com/in.png" },
+          { countryCode: "US", name: "United States", flagUrl: "https://example.com/us.png" },
+        ],
+        selection: {
+          countryCode: "IN",
+          defaultFiat: "INR",
+          fiatCurrencies: ["INR"],
+        },
+      };
+    }
+    return {
+      countries: [
+        { countryCode: "IN", name: "India", flagUrl: "https://example.com/in.png" },
+        { countryCode: "US", name: "United States", flagUrl: "https://example.com/us.png" },
+      ],
+      selection: {
+        countryCode: "US",
+        defaultFiat: "USD",
+        fiatCurrencies: ["USD"],
+      },
+    };
+  };
+
+  await mountFlow({ resume: false, mockCountry: "IN", optionsData });
+
+  const countryButton = renderer!.root.findByProps({ "aria-label": "Select country" });
+  assert.ok(countryButton, "Expected country picker button in top section");
+
+  const inrPill = renderer!.root.findAll((node) => node.children?.includes("INR"));
+  assert.ok(inrPill.length > 0, "Expected mapped fiat currency INR to be prefilled");
+});
+
+test("changing country updates mapped fiat and populates currency dropdown, while changing currency does not change country", async () => {
+  const optionsData = (path: string) => {
+    if (path.includes("countryCode=US")) {
+      return {
+        countries: [
+          { countryCode: "IN", name: "India", flagUrl: "https://example.com/in.png" },
+          { countryCode: "US", name: "United States", flagUrl: "https://example.com/us.png" },
+        ],
+        selection: {
+          countryCode: "US",
+          defaultFiat: "USD",
+          fiatCurrencies: ["USD", "EUR"],
+        },
+      };
+    }
+    return {
+      countries: [
+        { countryCode: "IN", name: "India", flagUrl: "https://example.com/in.png" },
+        { countryCode: "US", name: "United States", flagUrl: "https://example.com/us.png" },
+      ],
+      selection: {
+        countryCode: "IN",
+        defaultFiat: "INR",
+        fiatCurrencies: ["INR"],
+      },
+    };
+  };
+
+  await mountFlow({ resume: false, mockCountry: "IN", optionsData });
+
+  assert.ok(renderer!.root.findAll((node) => node.children?.includes("INR")).length > 0);
+
+  const countryButton = renderer!.root.findByProps({ "aria-label": "Select country" });
+  await act(async () => countryButton.props.onClick());
+
+  const usText = renderer!.root.findAll((node) =>
+    node.children?.includes("United States"),
+  );
+  assert.ok(usText.length > 0, "Expected United States country text");
+  let usButton = usText[0].parent;
+  while (usButton && usButton.type !== "button") {
+    usButton = usButton.parent;
+  }
+  assert.ok(usButton, "Expected button for United States");
+  await act(async () => usButton.props.onClick());
+
+  assert.ok(
+    renderer!.root.findAll((node) => node.children?.includes("USD")).length > 0,
+    "Expected mapped fiat USD",
+  );
+
+  const countryImg = renderer!.root
+    .findAllByType("img")
+    .find((img) => img.props.src === "https://example.com/us.png");
+  assert.ok(countryImg, "Expected country flag to update to US");
+
+  // Open currency sheet
+  const usdText = renderer!.root.findAll((node) =>
+    node.children?.includes("USD"),
+  );
+  let currencyButton = usdText[0].parent;
+  while (currencyButton && currencyButton.type !== "button") {
+    currencyButton = currencyButton.parent;
+  }
+  assert.ok(currencyButton, "Expected currency button");
+  await act(async () => currencyButton.props.onClick());
+
+  // Check that EUR is available in dropdown (populated from US fiat currencies)
+  const eurText = renderer!.root.findAll((node) =>
+    node.children?.includes("EUR"),
+  );
+  assert.ok(eurText.length > 0, "Expected EUR in currency dropdown");
+  let eurButton = eurText[0].parent;
+  while (eurButton && eurButton.type !== "button") {
+    eurButton = eurButton.parent;
+  }
+  assert.ok(eurButton, "Expected button for EUR");
+  await act(async () => eurButton.props.onClick());
+
+  // Currency changed to EUR
+  assert.ok(
+    renderer!.root.findAll((node) => node.children?.includes("EUR")).length > 0,
+    "Expected EUR selected",
+  );
+
+  // Country did NOT change when currency changed
+  const countryImgAfter = renderer!.root
+    .findAllByType("img")
+    .find((img) => img.props.src === "https://example.com/us.png");
+  assert.ok(
+    countryImgAfter,
+    "Expected country to remain US when currency is changed",
+  );
+});
+
+test("country resolution falls back to alternative IP providers when country.is fails", async () => {
+  const optionsData = (path: string) => {
+    if (path.includes("countryCode=IN")) {
+      return {
+        countries: [
+          { countryCode: "IN", name: "India", flagUrl: "https://example.com/in.png" },
+        ],
+        selection: {
+          countryCode: "IN",
+          defaultFiat: "INR",
+          fiatCurrencies: ["INR"],
+        },
+      };
+    }
+    return {
+      countries: [{ countryCode: "US", name: "United States" }],
+      selection: { countryCode: "US", defaultFiat: "USD", fiatCurrencies: ["USD"] },
+    };
+  };
+
+  // country.is fails (503), but ip-api.com / cloudflare / ipapi.co succeed with IN
+  await mountFlow({
+    resume: false,
+    mockCountry: "IN",
+    countryIsError: true,
+    optionsData,
+  });
+
+  const inrPill = renderer!.root.findAll((node) => node.children?.includes("INR"));
+  assert.ok(inrPill.length > 0, "Expected fallback IP provider to resolve country to IN and map fiat to INR");
+});
+
+test("switched country is persisted in storage for 7 days and used on next load", async () => {
+  const sharedStorage = new Map<string, string>();
+  const optionsData = (path: string) => {
+    if (path.includes("countryCode=IN")) {
+      return {
+        countries: [
+          { countryCode: "IN", name: "India", flagUrl: "https://example.com/in.png" },
+          { countryCode: "US", name: "United States", flagUrl: "https://example.com/us.png" },
+        ],
+        selection: {
+          countryCode: "IN",
+          defaultFiat: "INR",
+          fiatCurrencies: ["INR"],
+        },
+      };
+    }
+    return {
+      countries: [
+        { countryCode: "IN", name: "India", flagUrl: "https://example.com/in.png" },
+        { countryCode: "US", name: "United States", flagUrl: "https://example.com/us.png" },
+      ],
+      selection: {
+        countryCode: "US",
+        defaultFiat: "USD",
+        fiatCurrencies: ["USD"],
+      },
+    };
+  };
+
+  await mountFlow({
+    resume: false,
+    mockCountry: "US",
+    storage: sharedStorage,
+    optionsData,
+  });
+
+  const countryButton = renderer!.root.findByProps({ "aria-label": "Select country" });
+  await act(async () => countryButton.props.onClick());
+
+  const inText = renderer!.root.findAll((node) =>
+    node.children?.includes("India"),
+  );
+  assert.ok(inText.length > 0, "Expected India country text");
+  let inButton = inText[0].parent;
+  while (inButton && inButton.type !== "button") {
+    inButton = inButton.parent;
+  }
+  assert.ok(inButton, "Expected button for India");
+  await act(async () => inButton.props.onClick());
+
+  const rawSaved = sharedStorage.get("nexus-widgets:onramp:user-country:v1");
+  assert.ok(rawSaved, "Expected user country cache record to be in storage");
+  const parsed = JSON.parse(rawSaved!);
+  assert.equal(parsed.value, "IN");
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  assert.ok(
+    parsed.expiresAt >= Date.now() + sevenDaysMs - 5000 &&
+      parsed.expiresAt <= Date.now() + sevenDaysMs + 5000,
+    "Expected expiresAt to be ~7 days in the future",
+  );
+
+  // Unmount first renderer before remounting
+  if (renderer) await act(async () => renderer!.unmount());
+
+  // Second mount: next load uses persisted user country even if mockCountry is US
+  await mountFlow({
+    resume: false,
+    mockCountry: "US",
+    storage: sharedStorage,
+    optionsData,
+  });
+
+  const inrPill = renderer!.root.findAll((node) =>
+    node.children?.includes("INR"),
+  );
+  assert.ok(
+    inrPill.length > 0,
+    "Expected persisted user country IN to be used on next load",
+  );
+});
+
+test("routes response with dynamic payment method name and logo renders custom name and light logo in light mode", async () => {
+  const routesData = {
+    routes: [
+      {
+        provider: "BANXA",
+        paymentMethods: [
+          {
+            method: "CREDIT_DEBIT_CARD",
+            name: "Credit & Debit Card",
+            type: "CARD",
+            logo: {
+              dark: "https://cdn.meld.io/images-paymentmethod/CREDIT_DEBIT_CARD/logo_dark.png",
+              light: "https://cdn.meld.io/images-paymentmethod/CREDIT_DEBIT_CARD/logo_light.png",
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  await mountFlow({ resume: false, quoteFlow: true, routesData });
+  await act(async () =>
+    renderer!.root.findByType("input").props.onChange({ target: { value: "50" } }),
+  );
+  await waitForQuotes();
+
+  const customNameNode = renderer!.root.findAll((node) =>
+    node.children?.includes("Credit & Debit Card"),
+  );
+  assert.ok(
+    customNameNode.length > 0,
+    "Expected dynamic payment method name 'Credit & Debit Card' from routes API",
+  );
+
+  const imgs = renderer!.root.findAllByType("img");
+  const lightMethodLogo = imgs.find((img) =>
+    img.props.src ===
+    "https://cdn.meld.io/images-paymentmethod/CREDIT_DEBIT_CARD/logo_light.png",
+  );
+  assert.ok(
+    lightMethodLogo,
+    "Expected payment method light logo from routes API to be rendered in light mode",
+  );
+});
+
+test("routes response with dynamic payment method logo renders dark logo in dark mode", async () => {
+  const routesData = {
+    routes: [
+      {
+        provider: "BANXA",
+        paymentMethods: [
+          {
+            method: "CREDIT_DEBIT_CARD",
+            name: "Credit & Debit Card",
+            type: "CARD",
+            logo: {
+              dark: "https://cdn.meld.io/images-paymentmethod/CREDIT_DEBIT_CARD/logo_dark.png",
+              light: "https://cdn.meld.io/images-paymentmethod/CREDIT_DEBIT_CARD/logo_light.png",
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  await mountFlow({ resume: false, quoteFlow: true, routesData });
+  (globalThis as any).document.documentElement = {
+    classList: { contains: (c: string) => c === "dark" },
+    getAttribute: (a: string) => (a === "data-theme" ? "dark" : null),
+  };
+  await act(async () =>
+    renderer!.root.findByType("input").props.onChange({ target: { value: "50" } }),
+  );
+  await waitForQuotes();
+
+  const imgs = renderer!.root.findAllByType("img");
+  const darkMethodLogo = imgs.find((img) =>
+    img.props.src ===
+    "https://cdn.meld.io/images-paymentmethod/CREDIT_DEBIT_CARD/logo_dark.png",
+  );
+  assert.ok(
+    darkMethodLogo,
+    "Expected payment method dark logo from routes API to be rendered in dark mode",
+  );
+});
+
+
 
