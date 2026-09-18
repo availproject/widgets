@@ -16,13 +16,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-accordion",
-        "lucide-react"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-accordion", "lucide-react"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "all",
@@ -72,13 +67,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-slot",
-        "class-variance-authority"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-slot", "class-variance-authority"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "bridge-deposit",
@@ -286,13 +276,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-slot",
-        "class-variance-authority"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-slot", "class-variance-authority"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "card",
@@ -306,9 +291,7 @@
           "type": "registry:component"
         }
       ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "checkbox",
@@ -322,13 +305,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-checkbox",
-        "lucide-react"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-checkbox", "lucide-react"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "collapsible",
@@ -342,9 +320,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-collapsible"
-      ]
+      "dependencies": ["@radix-ui/react-collapsible"]
     },
     {
       "name": "deposit",
@@ -646,13 +622,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-dialog",
-        "lucide-react"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-dialog", "lucide-react"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "fast-bridge",
@@ -844,9 +815,7 @@
           "type": "registry:component"
         }
       ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "label",
@@ -860,12 +829,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-label"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-label"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "nexus",
@@ -964,6 +929,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/theme-context.ts",
+          "target": "components/nexus/theme-context.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/theme.ts",
           "target": "components/nexus/theme.ts",
           "type": "registry:component"
@@ -971,6 +941,11 @@
         {
           "path": "registry/avail-widgets/nexus-widget/types.ts",
           "target": "components/nexus/types.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/utils/amount.ts",
+          "target": "components/nexus/utils/amount.ts",
           "type": "registry:component"
         },
         {
@@ -1129,10 +1104,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
-        "wagmi"
-      ]
+      "dependencies": ["@avail-project/nexus-core@2.5.0", "wagmi"]
     },
     {
       "name": "popover",
@@ -1146,12 +1118,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-popover"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-popover"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "select",
@@ -1165,13 +1133,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-select",
-        "lucide-react"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-select", "lucide-react"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "separator",
@@ -1185,9 +1148,7 @@
           "type": "registry:component"
         }
       ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "skeleton",
@@ -1201,9 +1162,7 @@
           "type": "registry:component"
         }
       ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "swaps",
@@ -1417,12 +1376,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-tabs"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-tabs"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "tooltip",
@@ -1436,12 +1391,8 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@radix-ui/react-tooltip"
-      ],
-      "registryDependencies": [
-        "availproject/widgets/utils"
-      ]
+      "dependencies": ["@radix-ui/react-tooltip"],
+      "registryDependencies": ["availproject/widgets/utils"]
     },
     {
       "name": "transfer",
@@ -1633,10 +1584,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
-        "lucide-react"
-      ],
+      "dependencies": ["@avail-project/nexus-core@2.5.0", "lucide-react"],
       "registryDependencies": [
         "availproject/widgets/accordion",
         "availproject/widgets/label",
@@ -1664,10 +1612,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "clsx",
-        "tailwind-merge"
-      ]
+      "dependencies": ["clsx", "tailwind-merge"]
     },
     {
       "name": "view-history",
@@ -1786,10 +1731,7 @@
           "type": "registry:component"
         }
       ],
-      "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
-        "lucide-react"
-      ],
+      "dependencies": ["@avail-project/nexus-core@2.5.0", "lucide-react"],
       "registryDependencies": [
         "availproject/widgets/badge",
         "availproject/widgets/button",

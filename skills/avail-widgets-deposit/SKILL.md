@@ -14,7 +14,7 @@ All deposit flows (swap + execute into a protocol) are now handled by **Nexus Wi
 Replace any `NexusDeposit` usage with `NexusWidget`:
 
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 import { encodeFunctionData } from "viem";
 
 const AAVE_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
@@ -30,6 +30,7 @@ const USDT_ARBITRUM = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
     depositAddress: AAVE_POOL,
     executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) => ({
       to: AAVE_POOL,
+      gas: 400_000n,
       data: encodeFunctionData({ /* ... */ }),
       tokenApproval: {
         toTokenAddress: tokenAddress,
@@ -45,6 +46,12 @@ const USDT_ARBITRUM = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
 
 ## Install Nexus Widget
 
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn:**
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
@@ -54,8 +61,3 @@ npx shadcn@latest add availproject/widgets/nexus
 For integration guidance, refer to the **Nexus Widget Deposit agent skill**:
 
 - `nexus-widget-deposit` — Setup, prefill config, and contract transaction building for deposits with Nexus Widget.
-
-## Documentation
-
-- [Nexus Widget component docs](https://elements.nexus.availproject.org/docs/components/nexus)
-- [Deposit docs](https://elements.nexus.availproject.org/docs/components/deposit)

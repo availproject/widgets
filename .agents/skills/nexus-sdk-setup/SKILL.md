@@ -6,10 +6,32 @@ description: Set up and initialize Nexus SDK in any JS/TS frontend project. Use 
 # Nexus SDK Setup
 
 ## Install dependency
-- Install the SDK package:
-  - `npm install @avail-project/nexus-core@2.0.0`
-  - or `pnpm add @avail-project/nexus-core@2.0.0`
-  - or `yarn add @avail-project/nexus-core@2.0.0`
+
+**Recommended (pre-compiled widget + SDK):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**SDK-only (for custom UI / headless use):**
+```bash
+npm install @avail-project/nexus-core
+```
+
+- or `pnpm add @avail-project/nexus-core`
+- or `yarn add @avail-project/nexus-core`
+
+## Import paths
+
+When using `@avail-project/widgets` (npm package):
+```ts
+import { NexusWidget, NexusProvider, useNexus } from "@avail-project/widgets";
+```
+
+When using the shadcn path (source files copied locally):
+```ts
+import { NexusWidget } from "@/components/nexus/nexus";
+import NexusProvider, { useNexus } from "@/components/nexus/NexusProvider";
+```
 
 ## Obtain an EIP-1193 provider
 - Use any wallet connection stack to get a provider.

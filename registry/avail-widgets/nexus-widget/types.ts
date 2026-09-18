@@ -1,6 +1,7 @@
 import type { Address } from "viem";
 
 export type NexusWidgetMode = "swap" | "send" | "deposit";
+export type NexusWidgetTheme = "dark" | "light" | "system";
 export type NexusWidgetNumericString = string;
 export type NexusWidgetUrlString = `http://${string}` | `https://${string}`;
 
@@ -126,11 +127,14 @@ export interface NexusWidgetAppearance {
   appLogoURL?: NexusWidgetUrlString | string;
   heading?: string;
   primaryColor?: string;
-  mode?: "system" | "light" | "dark";
+  /** Legacy theme setting. Prefer config.theme. */
+  mode?: NexusWidgetTheme;
 }
 
 export interface NexusWidgetConfigBase {
   appearance?: NexusWidgetAppearance;
+  /** Defaults to light. System follows live OS color-scheme changes. */
+  theme?: NexusWidgetTheme;
 }
 
 export interface NexusWidgetDepositConfig extends NexusWidgetConfigBase {

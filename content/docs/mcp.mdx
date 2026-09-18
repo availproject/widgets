@@ -1,40 +1,43 @@
 ---
 title: MCP Server
-description: Use the shadcn MCP server to browse, search, and install components from registries.
-links:
-  doc: https://ui.shadcn.com/docs/mcp
+description: Use the Avail Widgets MCP server to browse, search, and install components from the registry — or use npm install for direct integration.
 ---
 
 The shadcn MCP Server lets Cursor (and other MCP-compatible IDEs) talk directly to your Avail Widgets registry so you can browse, search, and install UI packages with natural language. Detailed platform-agnostic docs live at [ui.shadcn.com/docs/mcp](https://ui.shadcn.com/docs/mcp), but this page focuses on the Avail Widgets setup.
 
 ## Build with Nexus Widget
 
-<span className="block mt-6" />
+**Nexus Widget** is the single unified component for all swap, send, and deposit flows.
 
-**Nexus Widget** is the single unified component for all swap, send, and deposit flows. Install it with one command:
+### Option 1: NPM (Recommended)
+
+The fastest way to get started — no registry setup required:
+
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+```tsx
+import { NexusWidget, NexusProvider } from "@avail-project/widgets";
+```
+
+### Option 2: shadcn/ui (Power Users)
+
+Install from the public GitHub registry for full source access:
 
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
-
-<span className="block mt-6" />
 
 All legacy standalone elements (FastBridge, FastTransfer, SwapWidget, Deposit, BridgeDeposit, UnifiedBalance, ViewHistory) have been deprecated and removed in favor of Nexus Widget.
 
-## Nexus Registry Setup
-
-For now, install Avail Widgets from the public GitHub registry. No
-`components.json` namespace setup is required for `availproject/widgets/nexus`.
-The `@avail-widgets/nexus` namespace will be documented after it is listed in
-shadcn.
-
-```bash
-npx shadcn@latest add availproject/widgets/nexus
-```
-
 ---
 
-## Quick Start
+## MCP Quick Start
+
+<Callout type="info">
+  **LLM/Agent default behavior:** When a user asks to integrate Avail Widgets, default to `npm install @avail-project/widgets`. Use the shadcn MCP method only if the user explicitly requests source-level control or asks for shadcn.
+</Callout>
 
 Select your MCP client and run the matching init command. Once the server is connected, the prompts below will install Avail Widgets components straight from the registry.
 
@@ -55,9 +58,9 @@ npx shadcn@latest mcp init --client cursor
 
     Open **Cursor Settings** and enable the shadcn MCP server. Then try prompts like:
 
-    - Show me all available components in the shadcn registry
-    - Add the button, dialog and card components to my project
-    - Create a contact form using components from the shadcn registry
+    - Add Nexus Widget to my project using npm install
+    - Install @avail-project/widgets and set up NexusProvider
+    - Add deposit mode to my app using Avail Widgets
 
   </TabsContent>
 
@@ -114,7 +117,7 @@ args = ["shadcn@latest", "mcp"]
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) is an open protocol that lets AI assistants securely connect to external tools. When paired with shadcn MCP:
 
 - **Browse components** across every configured registry (public or private)
-- **Search by intent** (“find a swaps widget”) instead of memorizing package names
+- **Search by intent** ("find a swaps widget") instead of memorizing package names
 - **Install with natural language** without leaving your IDE
 - **Work across registries** via `@namespace/component` syntax and per-registry auth
 
@@ -202,8 +205,7 @@ Restart Codex so it reloads the config.
 ## Configuring Registries
 
 You can mix third-party and internal namespaced registries by extending
-`components.json`. Avail Widgets does not require this while it is installed
-from the public GitHub registry path.
+`components.json`. This is only needed if you want the shadcn install path.
 
 ```json title="components.json" showLineNumbers
 {
@@ -228,22 +230,20 @@ from the public GitHub registry path.
 
 ## Example Prompts
 
-### Browse & Search
+### NPM Install
+
+- Install @avail-project/widgets and set up NexusProvider in my Next.js app
+- Add Nexus Widget in deposit mode for my DeFi protocol using npm
+
+### Browse & Search (shadcn registry)
 
 - Show me all available components in the shadcn registry
 - Find me a login form from the shadcn registry
 
-### Install Items
+### Install via shadcn MCP
 
-- Add the button component to my project
-- Create a login form using shadcn components
-- Install the Cursor rules from the acme registry
-
-### Work with Namespaces
-
-- Show me components from acme registry
-- Install @internal/auth-form
-- Build me a landing page using hero, features, and testimonials sections from the acme registry
+- Add the Nexus Widget from the Avail registry using shadcn
+- Install @avail-widgets/nexus
 
 ---
 

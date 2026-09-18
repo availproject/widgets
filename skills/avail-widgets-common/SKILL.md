@@ -16,6 +16,12 @@ Shared hooks like `useTransactionSteps`, `usePolling`, `useDebouncedValue`, and 
 
 ## Install Nexus Widget
 
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn:**
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
@@ -30,7 +36,3 @@ For building custom integrations, refer to the **Nexus SDK agent skills** (`.age
 - `nexus-sdk-hooks-events` — intent hooks and event streaming
 - `nexus-sdk-balances-metadata-utils` — balances, supported chains/tokens, formatters
 - `nexus-sdk-integration` — end-to-end integration guide
-
-## Documentation
-
-- [Nexus Widget component docs](https://elements.nexus.availproject.org/docs/components/nexus)

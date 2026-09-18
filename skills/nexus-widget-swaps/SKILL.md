@@ -7,14 +7,18 @@ description: Scaffolding, configuration, and integration of the Nexus Widget com
 
 Use `NexusWidget` with `config.mode = "swap"` for the unified swap and bridge flow.
 
+For bridge mode configuration, use the [Avail Configurator](https://configurator.availproject.org/) to generate the exact config object based on your token and chain selection.
+
 ## Installation
 
+**npm (recommended):**
 ```bash
-npx shadcn@latest add availproject/widgets/nexus
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
 ```
 
+**shadcn (source files):**
 ```bash
-npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ## Config Shape
@@ -29,8 +33,9 @@ Swap config is intentionally small:
 
 Swap supports `prefill.token` only. It does not support `prefill.amount`, source-token prefill, or validation yet. If `destination.tokens` is supplied, the first destination token wins and `prefill.token` is ignored.
 
+**npm:**
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 
@@ -60,6 +65,8 @@ export function SwapWidget({ address }: { address?: `0x${string}` }) {
   );
 }
 ```
+
+**shadcn:** Same config, change import to `import { NexusWidget } from "@/components/nexus/nexus"`.
 
 ## Notes
 

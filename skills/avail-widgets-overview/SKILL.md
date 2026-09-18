@@ -21,32 +21,53 @@ All legacy standalone widgets have been **deprecated and removed**. **Nexus Widg
 
 ## Install Nexus Widget
 
+**Default (npm — recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**Power users (shadcn — full source access):**
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
 
+> Ask the user which install method they prefer if not specified. Default to npm.
+
+## Import paths
+
+**npm:**
+```ts
+import { NexusWidget, NexusProvider, useNexus } from "@avail-project/widgets";
+```
+
+**shadcn (local files):**
+```ts
+import { NexusWidget } from "@/components/nexus/nexus";
+import NexusProvider, { useNexus } from "@/components/nexus/NexusProvider";
+```
+
 ## Integrate end-to-end in any TS/React app
 
-### 1. Install project deps
+### 1. Install project deps (npm path)
 ```bash
-pnpm add @avail-project/nexus-core@2.0.0 wagmi viem lucide-react @tanstack/react-query
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
 ```
 
-### 2. Use the GitHub shadcn registry
-For now, install from the public GitHub registry at
-`https://github.com/availproject/widgets`. Do not require an
-`@avail-widgets` namespace mapping unless the user's project has configured one.
+### 2. Set up NexusProvider
 
-### 3. Set up NexusProvider
-Install and wire `nexus-provider` before Nexus Widget:
-```bash
-npx shadcn@latest add availproject/widgets/nexus-provider
-```
-
-Wrap your app with `NexusProvider`:
+**npm:**
 ```tsx
 "use client";
+import { NexusProvider } from "@avail-project/widgets";
 
+export function AppNexusProvider({ children }: { children: React.ReactNode }) {
+  return <NexusProvider config={{ network: "mainnet" }}>{children}</NexusProvider>;
+}
+```
+
+**shadcn:**
+```tsx
+"use client";
 import NexusProvider from "@/components/nexus/NexusProvider";
 
 export function AppNexusProvider({ children }: { children: React.ReactNode }) {
@@ -54,14 +75,17 @@ export function AppNexusProvider({ children }: { children: React.ReactNode }) {
 }
 ```
 
-### 4. Initialize SDK on wallet connect
+### 3. Initialize SDK on wallet connect
+
 ```tsx
 "use client";
 
 import { useEffect } from "react";
 import { useAccount, useConnectorClient } from "wagmi";
 import type { EthereumProvider } from "@avail-project/nexus-core";
-import { useNexus } from "@/components/nexus/NexusProvider";
+// npm path:
+import { useNexus } from "@avail-project/widgets";
+// shadcn path: import { useNexus } from "@/components/nexus/NexusProvider";
 
 export function InitNexusOnConnect() {
   const { status, connector } = useAccount();
@@ -86,9 +110,11 @@ export function InitNexusOnConnect() {
 }
 ```
 
-### 5. Render Nexus Widget
+### 4. Render Nexus Widget
+
+**npm:**
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 
 // Swap mode (also handles bridges)
 <NexusWidget config={{ mode: "swap" }} connectedAddress={address} />
@@ -114,6 +140,16 @@ import { NexusWidget } from "@/components/nexus/nexus";
   connectedAddress={address}
 />
 ```
+
+**shadcn:**
+```tsx
+import { NexusWidget } from "@/components/nexus/nexus";
+// Same config props, only import path changes
+```
+
+## Deposit/bridge config generation
+
+For deposit and bridge mode, use the [Avail Configurator](https://configurator.availproject.org/) to generate the exact `depositConfig` object based on your contract and token setup.
 
 ## Nexus SDK agent skills
 

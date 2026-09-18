@@ -1,6 +1,7 @@
 "use client";
-import { Moon, Palette, Sun } from "lucide-react";
-import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
+
+import { Monitor, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import {
   Select,
   SelectContent,
@@ -8,111 +9,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/registry/avail-widgets/ui/select";
+import { useWidgetPreviewTheme } from "../helpers/use-widget-preview-theme";
 
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/registry/avail-widgets/ui/popover";
-import { Button } from "@/registry/avail-widgets/ui/button";
+const THEMES = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+] as const;
 
-type ThemeControlProps = {
-  theme: string;
-  setTheme: React.Dispatch<React.SetStateAction<string>>;
-  palette: string;
-  setPalette: React.Dispatch<React.SetStateAction<string>>;
-  isMobile?: boolean;
-};
+export default function ThemeControl() {
+  const theme = useWidgetPreviewTheme();
+  const { setTheme } = useTheme();
 
-const PALETTES: Record<string, string> = {
-  default: "default",
-  blue: "blue",
-  cyber: "cyber",
-  mono: "mono",
-  neo: "neo",
-};
-
-const ThemeControlContent = ({
-  theme,
-  setTheme,
-  palette,
-  setPalette,
-}: ThemeControlProps) => {
   return (
-    <div className="flex items-center gap-x-2">
-      <ToggleGroup
-        type="single"
-        value={theme}
-        onValueChange={(v) => v && setTheme(v)}
-        variant="outline"
+    <Select
+      value={theme}
+      onValueChange={(value) => {
+        if (value === "light" || value === "dark" || value === "system") {
+          setTheme(value);
+        }
+      }}
+    >
+      <SelectTrigger
+        aria-label="Choose color theme"
+        className="w-32"
         size="sm"
-        spacing={0}
-        aria-label="Toggle theme"
       >
-        <ToggleGroupItem value="light" aria-label="Light theme">
-          <Sun className="size-3" />
-        </ToggleGroupItem>
-        <ToggleGroupItem value="dark" aria-label="Dark theme">
-          <Moon className="size-3" />
-        </ToggleGroupItem>
-      </ToggleGroup>
-      <Select
-        defaultValue={"default"}
-        value={palette}
-        onValueChange={(v) => setPalette(PALETTES[v])}
-      >
-        <SelectTrigger size="sm" aria-label="Choose color palette">
-          <SelectValue placeholder="Palette" />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.keys(PALETTES).map((p) => (
-            <SelectItem key={p} value={p}>
-              {p.charAt(0).toUpperCase() + p.slice(1)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end">
+        {THEMES.map(({ value, label, icon: Icon }) => (
+          <SelectItem key={value} value={value}>
+            <Icon aria-hidden="true" className="size-4" />
+            {label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
-};
-
-const ThemeControl = ({
-  theme,
-  setTheme,
-  palette,
-  setPalette,
-  isMobile = false,
-}: ThemeControlProps) => {
-  if (isMobile) {
-    return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline">
-            <Palette className="size-4" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80">
-          <ThemeControlContent
-            theme={theme}
-            setTheme={setTheme}
-            palette={palette}
-            setPalette={setPalette}
-            isMobile={isMobile}
-          />
-        </PopoverContent>
-      </Popover>
-    );
-  }
-
-  return (
-    <ThemeControlContent
-      theme={theme}
-      setTheme={setTheme}
-      palette={palette}
-      setPalette={setPalette}
-      isMobile={isMobile}
-    />
-  );
-};
-
-export default ThemeControl;
+}

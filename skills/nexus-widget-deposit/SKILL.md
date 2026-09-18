@@ -7,14 +7,18 @@ description: Scaffolding, configuration, and integration of the Nexus Widget com
 
 Use `NexusWidget` with `config.mode = "deposit"` when the app owns the final smart-contract action. Nexus routes funds into one configured destination token/chain and then calls `executeDeposit`.
 
+For deposit and bridge mode configuration, use the [Avail Configurator](https://configurator.availproject.org/) to generate the exact `depositConfig` object based on your contract and token setup.
+
 ## Installation
 
+**npm (recommended):**
 ```bash
-npx shadcn@latest add availproject/widgets/nexus
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
 ```
 
+**shadcn (source files):**
 ```bash
-npm install @avail-project/nexus-core@2.0.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
+npx shadcn@latest add availproject/widgets/nexus
 ```
 
 ## Config Shape
@@ -27,8 +31,9 @@ Deposit config requires:
 - `executeDeposit`: transaction builder called as `(tokenSymbol, tokenAddress, amount, chainId, user)`.
 - Optional `prefill.amount`, `validation.minAmount`, `validation.maxAmount`, and `appearance`.
 
+**npm:**
 ```tsx
-import { NexusWidget } from "@/components/nexus/nexus";
+import { NexusWidget } from "@avail-project/widgets";
 import { encodeFunctionData } from "viem";
 
 const DEPOSIT_CONTRACT = "0xYourDepositContract" as const;
@@ -68,6 +73,7 @@ export function DepositWidget({ address }: { address?: `0x${string}` }) {
         depositAddress: DEPOSIT_CONTRACT,
         executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) => ({
           to: DEPOSIT_CONTRACT,
+          gas: 400_000n,
           data: encodeFunctionData({
             abi: ABI,
             functionName: "deposit",
@@ -93,6 +99,8 @@ export function DepositWidget({ address }: { address?: `0x${string}` }) {
   );
 }
 ```
+
+**shadcn:** Same config, change import to `import { NexusWidget } from "@/components/nexus/nexus"`.
 
 ## Notes
 

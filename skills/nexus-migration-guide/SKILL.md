@@ -1,69 +1,79 @@
 ---
 name: nexus-migration-guide
-description: Detailed guidelines for LLMs and developer agents on migrating codebases from legacy standalone Avail Widgets widgets (swaps, fast-bridge, transfer, deposit) to the unified Nexus Widget component.
+description: Guidelines for updating legacy Avail Widgets integrations (Nexus One, SwapWidget, FastBridge, FastTransfer, NexusDeposit) to the current NexusWidget API.
 ---
 
-# Avail Widgets - Migration Guide for Agents & LLMs
+# Avail Widgets - Updating Legacy Integrations
 
-Use this skill when migrating legacy Avail widgets to the unified `NexusWidget`.
-
-## Replacement Mapping
-
-- Standalone swaps and FastBridge:
-  - Replace with `<NexusWidget config={{ mode: "swap" }} />`.
-  - Use `config.destination` to restrict receive chain/token. Use `prefill.token` only to set the initial receive token without restricting later choices. Swap amount/source prefill is not supported.
-- FastTransfer:
-  - Replace with `<NexusWidget config={{ mode: "send" }} />`.
-  - Use `recipientAddress`, `prefill.amount`, optional `prefill.token`, `validation`, and optional `destination`.
-- NexusDeposit and BridgeDeposit:
-  - Replace with `<NexusWidget config={{ mode: "deposit", destination, depositAddress, executeDeposit }} />`.
-  - Do not use the removed `deposit` object.
-- UnifiedBalance and ViewHistory:
-  - Remove the components. Balances and history are handled inside NexusWidget, or use SDK APIs for custom surfaces.
+All legacy standalone widgets and the old Nexus One component have been removed. **NexusWidget** is the single unified component for all swap, send, and deposit flows.
 
 ## Install
 
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+Import: `import { NexusWidget, NexusProvider, useNexus } from "@avail-project/widgets"`
+
+**shadcn (source files):**
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
 
-Update imports:
+Import: `import { NexusWidget } from "@/components/nexus/nexus"`
 
-```diff
--import { SwapWidget } from "@/components/avail-widgets/swaps";
--import { FastTransfer } from "@/components/avail-widgets/transfer";
-+import { NexusWidget } from "@/components/nexus/nexus";
-+import NexusProvider from "@/components/nexus/NexusProvider";
-```
+## Replacement Mapping
 
-## Provider
+- **Nexus One / SwapWidget / FastBridge** → `<NexusWidget config={{ mode: "swap" }} />`
+  - `destination.chain` and `destination.tokens` replace `allowedDestinationPairs`
+  - `prefill.token` replaces old `prefill.destination` (token only, no amount prefill in swap)
+  - Remove `allowedSourcePairs` — not supported in current API
+- **FastTransfer / Nexus One send** → `<NexusWidget config={{ mode: "send" }} />`
+  - Use `recipientAddress` (not `prefill.recipient`)
+  - Use `prefill.amount` (not `prefill.amount` inside nested `prefill`)
+  - Use `destination.chain` / `destination.tokens` instead of `allowedDestinationPairs`
+- **NexusDeposit / BridgeDeposit / Nexus One deposit** → `<NexusWidget config={{ mode: "deposit", destination, depositAddress, executeDeposit }} />`
+  - Replace the old `deposit.chainId/tokenSymbol/tokenAddress/title` shape with `destination.chain`, `destination.tokens`, `depositAddress`, and `executeDeposit`
+  - `executeDeposit` receives `(tokenSymbol, tokenAddress, amount, chainId, user)` and must return `{ to, gas, data?, value?, tokenApproval? }`
+  - `gas` field is **required** as a positive `bigint`
+- **UnifiedBalance / ViewHistory** → Remove. Use `sdk.getBalancesForBridge()` / `sdk.getMyIntents()` for programmatic access.
 
-Ensure `NexusProvider` wraps the app and initializes Nexus SDK v2 from an EIP-1193 provider on wallet connect.
-
-## Examples
+## Updated Examples
 
 ```tsx
+// npm import:
+import { NexusWidget } from "@avail-project/widgets";
+// shadcn import:
+// import { NexusWidget } from "@/components/nexus/nexus";
+
+// Swap / Bridge
+<NexusWidget
+  connectedAddress={address}
+  config={{
+    mode: "swap",
+    destination: {
+      chain: 8453,
+      tokens: [{ address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", symbol: "USDC", decimals: 6 }],
+    },
+  }}
+/>
+
+// Send
 <NexusWidget
   connectedAddress={address}
   config={{
     mode: "send",
     destination: {
       chain: 8453,
-      tokens: [
-        {
-          address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-          symbol: "USDC",
-          decimals: 6,
-        },
-      ],
+      tokens: [{ address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", symbol: "USDC", decimals: 6 }],
     },
     recipientAddress: "0xRecipient...",
     prefill: { amount: "10" },
   }}
 />
-```
 
-```tsx
+// Deposit
 <NexusWidget
   connectedAddress={address}
   config={{
@@ -75,12 +85,9 @@ Ensure `NexusProvider` wraps the app and initializes Nexus SDK v2 from an EIP-11
     depositAddress: "0xContract...",
     executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) => ({
       to: "0xContract...",
+      gas: 400_000n,
       data: "0xCalldata...",
-      tokenApproval: {
-        toTokenAddress: tokenAddress,
-        amount,
-        spender: "0xContract...",
-      },
+      tokenApproval: { toTokenAddress: tokenAddress, amount, spender: "0xContract..." },
     }),
     appearance: { appName: "My App", mode: "system" },
   }}
@@ -92,3 +99,4 @@ Ensure `NexusProvider` wraps the app and initializes Nexus SDK v2 from an EIP-11
 - Prefer public callbacks (`onStart`, `onComplete`, `onError`, `onConnectClick`) before editing component internals.
 - Do not copy legacy component internals over the new `components/nexus` files.
 - Preserve host app wallet behavior by wiring `onConnectClick` to the app/header connect function.
+- For deposit/bridge config generation, use the [Avail Configurator](https://configurator.availproject.org/).

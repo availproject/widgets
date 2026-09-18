@@ -121,7 +121,7 @@ export const getCitreaChainMeta = () => ({
 export const getCitreaReceiveTokenOptions = (): SwapTokenOption[] => {
   const chain = getCitreaChainMeta();
   return CITREA_LOCAL_TOKENS.map((token) => ({
-    balance: `0 ${token.symbol}`,
+    balance: "0",
     balanceInFiat: "$0.00",
     chainId: CITREA_CHAIN_ID,
     chainLogo: chain.logo,

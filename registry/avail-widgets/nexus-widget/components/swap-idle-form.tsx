@@ -3,6 +3,8 @@
 import Decimal from "decimal.js";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { parseAmount as parseDecimal } from "../utils/amount";
+import { useNexusWidgetThemeStyle } from "../theme-context";
 import {
   formatSelectedTokenBalanceLabel,
   formatUsdBalanceLabel,
@@ -55,7 +57,7 @@ const ChevronDownIcon = () => (
     <path
       d="M2 3.5L5 6.5L8 3.5"
       fill="none"
-      stroke="#848483"
+      stroke="var(--nexus-widget-text-secondary, #848483)"
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth="1.15"
@@ -74,7 +76,7 @@ const ArrowUpDownIcon = () => (
     <path
       d="M7 15L7 3M7 3L11 7M7 3L3 7M17 9L17 21M17 21L13 17M17 21L21 17"
       fill="none"
-      stroke="#848483"
+      stroke="var(--nexus-widget-text-secondary, #848483)"
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth="2"
@@ -87,20 +89,30 @@ function PercentButtons({
   visible,
   onSelect,
   maxLabel = "Max",
+  token,
 }: {
   visible: boolean;
   onSelect: (pct: number) => void;
   maxLabel?: string;
+  token: SwapTokenOption;
 }) {
+  const themeStyle = useNexusWidgetThemeStyle();
   const [hoveredPct, setHoveredPct] = useState<number | null>(null);
+  const isUsdMode = token.userAmountMode === "usd";
+  const balance = parseDecimal(isUsdMode ? token.balanceInFiat : token.balance);
+  const enteredAmount = parseDecimal(token.userAmount);
+  const decimals = isUsdMode
+    ? MAX_AMOUNT_DISPLAY_DECIMALS
+    : getTokenInputDecimals(token);
 
   return (
     <div
       style={{
         alignItems: "center",
-        backgroundColor: "#F0F3F9",
+        backgroundColor: "var(--nexus-widget-surface-raised, #F0F3F9)",
         borderRadius: "6px",
-        boxShadow: "#2A388B0F 0px 1px 2px inset",
+        boxShadow:
+          "var(--nexus-widget-shadow-inset, #2A388B0F) 0px 1px 2px inset",
         boxSizing: "border-box",
         display: "flex",
         flexShrink: 0,
@@ -116,9 +128,23 @@ function PercentButtons({
       {[20, 50, 100].map((pct) => {
         const label = pct === 100 ? maxLabel : `${pct}%`;
         const isHovered = hoveredPct === pct;
+        const isSelected = Boolean(
+          balance?.gt(0) &&
+          enteredAmount?.gt(0) &&
+          enteredAmount.eq(
+            balance
+              .mul(pct)
+              .div(100)
+              .toDecimalPlaces(decimals, Decimal.ROUND_DOWN),
+          ),
+        );
 
         return (
           <button
+            data-nexus-widget-percent
+            data-nexus-widget-percent-theme={themeStyle.colorScheme}
+            data-selected={isSelected}
+            data-disabled={!balance?.gt(0)}
             key={pct}
             onClick={(e) => {
               e.stopPropagation();
@@ -131,11 +157,17 @@ function PercentButtons({
             onMouseLeave={() => setHoveredPct(null)}
             style={{
               alignItems: "center",
-              backgroundColor: isHovered ? "#FFFFFF" : "transparent",
+              backgroundColor: isHovered
+                ? "var(--nexus-widget-surface, #FFFFFF)"
+                : "transparent",
               borderRadius: "4px",
-              boxShadow: isHovered ? "#3C286414 0px 1px 2px" : "none",
+              boxShadow: isHovered
+                ? "var(--nexus-widget-shadow-soft, #3C286414) 0px 1px 2px"
+                : "none",
               boxSizing: "border-box",
-              color: isHovered ? "#1F1F1F" : "#8E8E89",
+              color: isHovered
+                ? "var(--nexus-widget-text, #1F1F1F)"
+                : "var(--nexus-widget-text-secondary, #8E8E89)",
               cursor: "pointer",
               display: "flex",
               fontFamily: '"Geist", system-ui, sans-serif',
@@ -167,6 +199,7 @@ function UnifiedTokenLogoBadge({
   token: SwapTokenOption;
   size?: number;
 }) {
+  const themeStyle = useNexusWidgetThemeStyle();
   const [popover, setPopover] = useState<{
     left: number;
     top: number;
@@ -225,11 +258,11 @@ function UnifiedTokenLogoBadge({
           style={{
             alignItems: "center",
             backgroundColor: brand,
-            border: "1px solid #FFFFFE",
+            border: "1px solid var(--nexus-widget-surface, #FFFFFE)",
             borderRadius: "999px",
             bottom: -3,
             boxSizing: "border-box",
-            color: "#FFFFFE",
+            color: "var(--nexus-widget-primary-foreground, #FFFFFE)",
             display: "flex",
             fontFamily: '"Geist", system-ui, sans-serif',
             fontSize: "8px",
@@ -252,10 +285,12 @@ function UnifiedTokenLogoBadge({
         createPortal(
           <div
             style={{
-              backgroundColor: "#FFFFFE",
-              border: "1px solid #E8E8E7",
+              ...themeStyle,
+              backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
+              border: "1px solid var(--nexus-widget-border, #E8E8E7)",
               borderRadius: "10px",
-              boxShadow: "0 10px 28px rgba(22, 22, 21, 0.14)",
+              boxShadow:
+                "0 10px 28px var(--nexus-widget-shadow-strong, rgba(22, 22, 21, 0.14))",
               boxSizing: "border-box",
               ...tabularNums,
               left: popover.left,
@@ -279,7 +314,7 @@ function UnifiedTokenLogoBadge({
             >
               <span
                 style={{
-                  color: "#848483",
+                  color: "var(--nexus-widget-text-secondary, #848483)",
                   fontFamily: '"Geist", system-ui, sans-serif',
                   fontSize: "11px",
                   fontWeight: 700,
@@ -292,7 +327,7 @@ function UnifiedTokenLogoBadge({
               </span>
               <span
                 style={{
-                  color: "#161615",
+                  color: "var(--nexus-widget-text-strong, #161615)",
                   fontFamily: '"Geist", system-ui, sans-serif',
                   fontSize: "15px",
                   fontWeight: 700,
@@ -336,7 +371,7 @@ function UnifiedTokenLogoBadge({
                     />
                     <span
                       style={{
-                        color: "#161615",
+                        color: "var(--nexus-widget-text-strong, #161615)",
                         fontFamily: '"Geist", system-ui, sans-serif',
                         fontSize: "15px",
                         fontWeight: 500,
@@ -351,7 +386,7 @@ function UnifiedTokenLogoBadge({
                   </div>
                   <span
                     style={{
-                      color: "#161615",
+                      color: "var(--nexus-widget-text-strong, #161615)",
                       fontFamily: '"Geist", system-ui, sans-serif',
                       fontSize: "15px",
                       fontWeight: 600,
@@ -440,7 +475,9 @@ function PercentHoverButton({
       }}
       style={{
         alignItems: "center",
-        backgroundColor: isHighlighted ? "#E8F0FF" : "#F4F4F3",
+        backgroundColor: isHighlighted
+          ? "var(--nexus-widget-primary-soft, #E8F0FF)"
+          : "var(--nexus-widget-surface-raised, #F4F4F3)",
         borderRadius: "6px",
         boxSizing: "border-box",
         display: "flex",
@@ -457,7 +494,7 @@ function PercentHoverButton({
       <div
         style={{
           boxSizing: "border-box",
-          color: isHighlighted ? brand : "#363635",
+          color: isHighlighted ? brand : "var(--nexus-widget-text, #363635)",
           fontFamily: '"Geist", system-ui, sans-serif',
           fontSize: "11px",
           fontWeight: 500,
@@ -486,7 +523,7 @@ function SkeletonBar({
       aria-hidden="true"
       style={{
         background:
-          "linear-gradient(90deg, #F0F0EF 0%, #E6EEFF 48%, #F0F0EF 100%)",
+          "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #E6EEFF) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
         backgroundSize: "200% 100%",
         borderRadius,
         height,
@@ -530,7 +567,7 @@ function LogoCircle({
         onError={() => setFailed(true)}
         src={src}
         style={{
-          backgroundColor: "#FFFFFE",
+          backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
           borderRadius: "999px",
           height: `${size}px`,
           objectFit: "cover",
@@ -548,7 +585,7 @@ function LogoCircle({
       role="img"
       style={{
         alignItems: "center",
-        backgroundColor: "#E8F0FF",
+        backgroundColor: "var(--nexus-widget-primary-soft, #E8F0FF)",
         borderRadius: "999px",
         color: brand,
         display: "flex",
@@ -579,21 +616,6 @@ const formatShortAddress = (address?: string) => {
 };
 
 const formatTokenBalanceLabel = formatSelectedTokenBalanceLabel;
-
-const parseDecimal = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (Decimal.isDecimal(value)) return value;
-  const cleaned = String(value).replace(/[^0-9.-]/g, "");
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return undefined;
-  }
-  try {
-    const parsed = new Decimal(cleaned);
-    return parsed.isFinite() ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
 
 const formatUsdValue = (value: Decimal) =>
   value.gt(0) && value.lt(0.01) ? "<0.01" : value.toDecimalPlaces(2).toFixed(2);
@@ -641,6 +663,7 @@ export function SwapIdleForm({
   hideDestinationTokenDropdownIcon = false,
   isSourcePickerDisabled = false,
 }: SwapIdleFormProps) {
+  const themeStyle = useNexusWidgetThemeStyle();
   const [focusedPanel, setFocusedPanel] = useState<"send" | "receive" | null>(
     null,
   );
@@ -783,10 +806,8 @@ export function SwapIdleForm({
     const token = fromTokens[index];
     if (!token) return;
 
-    const tokenBalance =
-      Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
-    const fiatBalance =
-      Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+    const tokenBalance = parseDecimal(token.balance)?.toNumber() ?? 0;
+    const fiatBalance = parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
     const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
     if (price === 0) return;
 
@@ -812,10 +833,8 @@ export function SwapIdleForm({
     if (!token || !token.userAmount) return 0;
     const quotedUsd = parseDecimal(token.userAmountUsd);
     if (quotedUsd && quotedUsd.gte(0)) return quotedUsd.toNumber();
-    const tokenBalance =
-      Number(String(token.balance).replace(/[^0-9.]/g, "")) || 0;
-    const fiatBalance =
-      Number(String(token.balanceInFiat).replace(/[^0-9.]/g, "")) || 0;
+    const tokenBalance = parseDecimal(token.balance)?.toNumber() ?? 0;
+    const fiatBalance = parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
     const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
     const amountNumber = Number(token.userAmount || 0);
     if (!Number.isFinite(amountNumber)) return 0;
@@ -881,8 +900,8 @@ export function SwapIdleForm({
       : formatAmountInputDisplay(receiveInputValue);
   const receiveAmountTextColor =
     (!isExactIn && amount) || (isExactIn && receiveQuoteAmount)
-      ? "#161615"
-      : "#9E9E9C";
+      ? "var(--nexus-widget-text-strong, #161615)"
+      : "var(--nexus-widget-text-tertiary, #9E9E9C)";
   const receiveUsdRate = getReceiveUsdRate();
   const receiveTokenAmount = parseDecimal(receiveInputValue);
   const receiveUsdAmount = receiveQuoteUsd
@@ -899,9 +918,9 @@ export function SwapIdleForm({
   );
   const recipientColor = recipientAddress
     ? isDefaultRecipient
-      ? brand
-      : "#B7791F"
-    : "#848483";
+      ? "var(--nexus-widget-primary-soft-text, var(--foreground-brand))"
+      : "var(--nexus-widget-warning-text, #B7791F)"
+    : "var(--nexus-widget-text-secondary, #848483)";
   const getTokenAmountTotal = (tokens: SwapTokenOption[]) =>
     tokens.reduce((sum, item) => sum + Number(item.userAmount || 0), 0);
 
@@ -998,12 +1017,12 @@ export function SwapIdleForm({
         className="nexus-focus-container"
         style={{
           alignItems: "center",
-          backgroundColor: "#FFFFFE",
-          borderColor: "#E8E8E7",
+          backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
+          borderColor: "var(--nexus-widget-border, #E8E8E7)",
           borderRadius: "9px",
           borderStyle: "solid",
           borderWidth: "1px",
-          boxShadow: "#1616150A 0px 1px 2px",
+          boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
@@ -1029,7 +1048,7 @@ export function SwapIdleForm({
           <div
             style={{
               boxSizing: "border-box",
-              color: "#848483",
+              color: "var(--nexus-widget-text-secondary, #848483)",
               fontFamily: '"Geist", system-ui, sans-serif',
               fontSize: "12px",
               fontWeight: 500,
@@ -1053,8 +1072,8 @@ export function SwapIdleForm({
               padding: "2px 0",
               color:
                 fromTokens.length > 0 && !isSourcePickerDisabled
-                  ? brand
-                  : "#A8A8A6",
+                  ? "var(--nexus-widget-primary-soft-text, var(--foreground-brand))"
+                  : "var(--nexus-widget-text-secondary, #A8A8A6)",
               cursor:
                 fromTokens.length > 0 && !isSourcePickerDisabled
                   ? "pointer"
@@ -1156,8 +1175,8 @@ export function SwapIdleForm({
                                   ? Boolean(token.userAmount)
                                   : Boolean(isExactIn && amount)
                               )
-                                ? "#161615"
-                                : "#9E9E9C",
+                                ? "var(--nexus-widget-text-strong, #161615)"
+                                : "var(--nexus-widget-text-tertiary, #9E9E9C)",
                               fontFamily:
                                 '"Delight-Medium", "Delight", system-ui, sans-serif',
                               fontSize: "29px",
@@ -1192,8 +1211,8 @@ export function SwapIdleForm({
                                 ? Boolean(token.userAmount)
                                 : Boolean(isExactIn && amount)
                             )
-                              ? "#161615"
-                              : "#9E9E9C",
+                              ? "var(--nexus-widget-text-strong, #161615)"
+                              : "var(--nexus-widget-text-tertiary, #9E9E9C)",
                             cursor: isAmountReadOnly ? "default" : "text",
                             fontFamily:
                               '"Delight-Medium", "Delight", system-ui, sans-serif',
@@ -1241,13 +1260,13 @@ export function SwapIdleForm({
                           alignItems: "center",
                           display: "flex",
                           flexShrink: 0,
-                          height: "25px",
-                          width: "90px",
+                          height: "38px",
+                          width: "120px",
                         }}
                       >
                         <SkeletonBar
                           borderRadius="999px"
-                          height="23px"
+                          height="38px"
                           width="100%"
                         />
                       </div>
@@ -1257,12 +1276,17 @@ export function SwapIdleForm({
                         onClick={() => onOpenSourcePicker(index)}
                         style={{
                           alignItems: "center",
-                          backgroundColor: "#FFFFFE",
-                          borderColor: token ? "#E8E8E7" : "#C8C8C7",
+                          backgroundColor:
+                            "var(--nexus-widget-surface-raised, #FFFFFE)",
+                          borderColor: token
+                            ? "var(--nexus-widget-border, #E8E8E7)"
+                            : "var(--nexus-widget-border-empty, #C8C8C7)",
                           borderRadius: "999px",
                           borderStyle: token ? "solid" : "dashed",
                           borderWidth: "1px",
-                          boxShadow: token ? "#1616150A 0px 1px 2px" : "none",
+                          boxShadow: token
+                            ? "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px"
+                            : "none",
                           boxSizing: "border-box",
                           display: "flex",
                           gap: "8px",
@@ -1302,7 +1326,7 @@ export function SwapIdleForm({
                                   alt={token.chainName}
                                   fontSize={6}
                                   label={token.chainName}
-                                  outline="1px solid #FFFFFE"
+                                  outline="1px solid var(--nexus-widget-surface-raised, #FFFFFE)"
                                   size={12}
                                   src={token.chainLogo}
                                   style={{
@@ -1317,7 +1341,8 @@ export function SwapIdleForm({
                         ) : (
                           <div
                             style={{
-                              borderColor: "#C8C8C7",
+                              borderColor:
+                                "var(--nexus-widget-border-empty, #C8C8C7)",
                               borderRadius: "999px",
                               borderStyle: "dashed",
                               borderWidth: "1.5px",
@@ -1331,7 +1356,7 @@ export function SwapIdleForm({
                         <div
                           style={{
                             boxSizing: "border-box",
-                            color: "#161615",
+                            color: "var(--nexus-widget-text-strong, #161615)",
                             fontFamily: '"Geist", system-ui, sans-serif',
                             fontSize: "16px",
                             fontWeight: 500,
@@ -1360,7 +1385,8 @@ export function SwapIdleForm({
                           width: "18px",
                           height: "18px",
                           borderRadius: "999px",
-                          backgroundColor: "#F0F0EF",
+                          backgroundColor:
+                            "var(--nexus-widget-surface-raised, #F0F0EF)",
                           border: "none",
                           display: "flex",
                           alignItems: "center",
@@ -1372,7 +1398,7 @@ export function SwapIdleForm({
                         <svg
                           fill="none"
                           height="10"
-                          stroke="#848483"
+                          stroke="var(--nexus-widget-text-secondary, #848483)"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth="2"
@@ -1416,7 +1442,8 @@ export function SwapIdleForm({
                             <div
                               style={{
                                 boxSizing: "border-box",
-                                color: "#848483",
+                                color:
+                                  "var(--nexus-widget-text-secondary, #848483)",
                                 fontFamily: '"Geist", system-ui, sans-serif',
                                 fontSize: "11px",
                                 lineHeight: "16px",
@@ -1427,13 +1454,9 @@ export function SwapIdleForm({
                             </div>
                           );
                         const tokenBalance =
-                          Number(
-                            String(token.balance).replace(/[^0-9.]/g, ""),
-                          ) || 0;
+                          parseDecimal(token.balance)?.toNumber() ?? 0;
                         const fiatBalance =
-                          Number(
-                            String(token.balanceInFiat).replace(/[^0-9.]/g, ""),
-                          ) || 0;
+                          parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
                         const price =
                           tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
                         const isUsdMode = token.userAmountMode === "usd";
@@ -1467,7 +1490,8 @@ export function SwapIdleForm({
                             <div
                               style={{
                                 boxSizing: "border-box",
-                                color: "#848483",
+                                color:
+                                  "var(--nexus-widget-text-secondary, #848483)",
                                 fontFamily: '"Geist", system-ui, sans-serif',
                                 fontSize: "11px",
                                 lineHeight: "16px",
@@ -1501,6 +1525,7 @@ export function SwapIdleForm({
                   >
                     {token && !isAmountReadOnly && (
                       <PercentButtons
+                        token={token}
                         onSelect={(pct) =>
                           token
                             ? handleSendPercentForToken(index, pct, token)
@@ -1546,7 +1571,8 @@ export function SwapIdleForm({
                         <div
                           style={{
                             boxSizing: "border-box",
-                            color: "#848483",
+                            color:
+                              "var(--nexus-widget-text-secondary, #848483)",
                             fontFamily: '"Geist", system-ui, sans-serif',
                             fontSize: "11px",
                             fontVariantNumeric: "tabular-nums",
@@ -1559,7 +1585,8 @@ export function SwapIdleForm({
                         <div
                           style={{
                             boxSizing: "border-box",
-                            color: "#848483",
+                            color:
+                              "var(--nexus-widget-text-secondary, #848483)",
                             fontFamily: '"Geist", system-ui, sans-serif',
                             fontSize: "11px",
                             fontVariantNumeric: "tabular-nums",
@@ -1576,6 +1603,7 @@ export function SwapIdleForm({
                           createPortal(
                             <div
                               style={{
+                                ...themeStyle,
                                 position: "fixed",
                                 right:
                                   window.innerWidth - tooltipTriggerRect.right,
@@ -1588,10 +1616,13 @@ export function SwapIdleForm({
                                         8,
                                     }),
                                 width: "198px",
-                                backgroundColor: "#fff",
-                                border: "1px solid #E8E8E7",
+                                backgroundColor:
+                                  "var(--nexus-widget-surface-raised, #fff)",
+                                border:
+                                  "1px solid var(--nexus-widget-border, #E8E8E7)",
                                 borderRadius: "12px",
-                                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                                boxShadow:
+                                  "0 4px 12px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.08))",
                                 padding: "12px",
                                 display: "flex",
                                 flexDirection: "column",
@@ -1604,7 +1635,8 @@ export function SwapIdleForm({
                                 style={{
                                   fontSize: "11px",
                                   fontWeight: 600,
-                                  color: "#848483",
+                                  color:
+                                    "var(--nexus-widget-text-secondary, #848483)",
                                   letterSpacing: "0.06em",
                                   textTransform: "uppercase",
                                   marginBottom: "4px",
@@ -1616,7 +1648,8 @@ export function SwapIdleForm({
                               <div
                                 style={{
                                   fontSize: "14px",
-                                  color: "#161615",
+                                  color:
+                                    "var(--nexus-widget-text-strong, #161615)",
                                   lineHeight: "18px",
                                   fontFamily: '"Geist", system-ui, sans-serif',
                                 }}
@@ -1658,7 +1691,7 @@ export function SwapIdleForm({
               alignSelf: "center",
               background: "transparent",
               border: "none",
-              color: "#686866",
+              color: "var(--nexus-widget-text-secondary, #686866)",
               cursor: "pointer",
               display: "flex",
               fontFamily: '"Geist", system-ui, sans-serif',
@@ -1680,7 +1713,10 @@ export function SwapIdleForm({
           <div
             style={{
               alignSelf: "stretch",
-              color: sourceRouteStatus === "insufficient" ? "#D32F2F" : brand,
+              color:
+                sourceRouteStatus === "insufficient"
+                  ? "var(--nexus-widget-error-text, #D32F2F)"
+                  : brand,
               fontFamily: '"Geist", system-ui, sans-serif',
               fontSize: "13px",
               fontWeight: 500,
@@ -1708,7 +1744,7 @@ export function SwapIdleForm({
               style={{
                 fontSize: "15px",
                 fontWeight: 600,
-                color: "#161615",
+                color: "var(--nexus-widget-text-strong, #161615)",
                 fontFamily: '"Geist", system-ui, sans-serif',
               }}
             >
@@ -1717,7 +1753,7 @@ export function SwapIdleForm({
             <span
               style={{
                 fontSize: "12px",
-                color: "#848483",
+                color: "var(--nexus-widget-text-secondary, #848483)",
                 fontWeight: 600,
                 fontFamily: '"Geist", system-ui, sans-serif',
                 letterSpacing: "0.05em",
@@ -1732,12 +1768,12 @@ export function SwapIdleForm({
       {/* ─── RECEIVE PANEL ─── */}
       <div
         style={{
-          backgroundColor: "#FFFFFE",
-          borderColor: "#E8E8E7",
+          backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
+          borderColor: "var(--nexus-widget-border, #E8E8E7)",
           borderRadius: "9px",
           borderStyle: "solid",
           borderWidth: "1px",
-          boxShadow: "#1616150A 0px 1px 2px",
+          boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
@@ -1752,7 +1788,7 @@ export function SwapIdleForm({
           style={{
             alignSelf: "stretch",
             boxSizing: "border-box",
-            color: "#848483",
+            color: "var(--nexus-widget-text-secondary, #848483)",
             fontFamily: '"Geist", system-ui, sans-serif',
             fontSize: "12px",
             fontWeight: 500,
@@ -1833,12 +1869,16 @@ export function SwapIdleForm({
               onClick={onOpenDestPicker}
               style={{
                 alignItems: "center",
-                backgroundColor: "#FFFFFE",
-                borderColor: toToken ? "#E8E8E7" : "#C8C8C7",
+                backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
+                borderColor: toToken
+                  ? "var(--nexus-widget-border, #E8E8E7)"
+                  : "var(--nexus-widget-border-empty, #C8C8C7)",
                 borderRadius: "999px",
                 borderStyle: toToken ? "solid" : "dashed",
                 borderWidth: "1px",
-                boxShadow: toToken ? "#1616150A 0px 1px 2px" : "none",
+                boxShadow: toToken
+                  ? "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px"
+                  : "none",
                 boxSizing: "border-box",
                 display: "flex",
                 gap: "8px",
@@ -1872,7 +1912,7 @@ export function SwapIdleForm({
                       alt={toToken.chainName}
                       fontSize={6}
                       label={toToken.chainName}
-                      outline="1px solid #FFFFFE"
+                      outline="1px solid var(--nexus-widget-surface-raised, #FFFFFE)"
                       size={12}
                       src={toToken.chainLogo}
                       style={{
@@ -1886,7 +1926,7 @@ export function SwapIdleForm({
               ) : (
                 <div
                   style={{
-                    borderColor: "#C8C8C7",
+                    borderColor: "var(--nexus-widget-border-empty, #C8C8C7)",
                     borderRadius: "999px",
                     borderStyle: "dashed",
                     borderWidth: "1.5px",
@@ -1900,7 +1940,7 @@ export function SwapIdleForm({
               <div
                 style={{
                   boxSizing: "border-box",
-                  color: "#161615",
+                  color: "var(--nexus-widget-text-strong, #161615)",
                   fontFamily: '"Geist", system-ui, sans-serif',
                   fontSize: "16px",
                   fontWeight: 500,
@@ -1931,7 +1971,7 @@ export function SwapIdleForm({
               <div
                 style={{
                   boxSizing: "border-box",
-                  color: "#848483",
+                  color: "var(--nexus-widget-text-secondary, #848483)",
                   fontFamily: '"Geist", system-ui, sans-serif',
                   fontSize: "11px",
                   lineHeight: "16px",
@@ -1957,7 +1997,7 @@ export function SwapIdleForm({
                 <div
                   style={{
                     boxSizing: "border-box",
-                    color: "#848483",
+                    color: "var(--nexus-widget-text-secondary, #848483)",
                     fontFamily: '"Geist", system-ui, sans-serif',
                     fontSize: "11px",
                     fontVariantNumeric: "tabular-nums",
@@ -1970,7 +2010,7 @@ export function SwapIdleForm({
                 <div
                   style={{
                     boxSizing: "border-box",
-                    color: "#848483",
+                    color: "var(--nexus-widget-text-secondary, #848483)",
                     fontFamily: '"Geist", system-ui, sans-serif',
                     fontSize: "11px",
                     fontVariantNumeric: "tabular-nums",
@@ -1993,10 +2033,12 @@ export function SwapIdleForm({
                       right: 0,
                       bottom: "calc(100% + 8px)",
                       width: "198px",
-                      backgroundColor: "#fff",
-                      border: "1px solid #E8E8E7",
+                      backgroundColor:
+                        "var(--nexus-widget-surface-raised, #fff)",
+                      border: "1px solid var(--nexus-widget-border, #E8E8E7)",
                       borderRadius: "12px",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                      boxShadow:
+                        "0 4px 12px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.08))",
                       padding: "12px",
                       display: "flex",
                       flexDirection: "column",
@@ -2009,7 +2051,7 @@ export function SwapIdleForm({
                       style={{
                         fontSize: "11px",
                         fontWeight: 600,
-                        color: "#848483",
+                        color: "var(--nexus-widget-text-secondary, #848483)",
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         marginBottom: "4px",
@@ -2021,7 +2063,7 @@ export function SwapIdleForm({
                     <div
                       style={{
                         fontSize: "14px",
-                        color: "#161615",
+                        color: "var(--nexus-widget-text-strong, #161615)",
                         lineHeight: "18px",
                         fontFamily: '"Geist", system-ui, sans-serif',
                       }}
@@ -2041,7 +2083,7 @@ export function SwapIdleForm({
             <div
               style={{
                 alignSelf: "stretch",
-                backgroundColor: "#E8E8E7",
+                backgroundColor: "var(--nexus-widget-border, #E8E8E7)",
                 boxSizing: "border-box",
                 flexShrink: 0,
                 height: "1px",
@@ -2063,7 +2105,7 @@ export function SwapIdleForm({
               <div
                 style={{
                   boxSizing: "border-box",
-                  color: "#7C7C7A",
+                  color: "var(--nexus-widget-text-secondary, #7C7C7A)",
                   fontFamily: '"Geist", system-ui, sans-serif',
                   fontSize: "12px",
                   fontWeight: 500,
@@ -2104,7 +2146,8 @@ export function SwapIdleForm({
                   onClick={onOpenRecipientPicker}
                   style={{
                     alignItems: "center",
-                    backgroundColor: "#F4F6FF",
+                    backgroundColor:
+                      "var(--nexus-widget-primary-soft, #F4F6FF)",
                     borderRadius: "4px",
                     boxSizing: "border-box",
                     display: "flex",
@@ -2118,7 +2161,8 @@ export function SwapIdleForm({
                   <div
                     style={{
                       boxSizing: "border-box",
-                      color: brand,
+                      color:
+                        "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
                       fontFamily: '"Geist", system-ui, sans-serif',
                       fontSize: "13px",
                       fontWeight: 500,

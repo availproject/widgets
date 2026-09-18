@@ -1,130 +1,107 @@
 ---
 name: nexus-one-swaps
-description: Scaffolding, configuration, and integration of the Nexus One component in swap mode (config.mode = "swap"). Handles cross-chain swaps and bridges.
+description: Scaffolding, configuration, and integration of NexusWidget in swap mode (config.mode = "swap"). Handles cross-chain swaps and bridges.
 ---
 
-# Nexus One - Swaps & Bridges
+# Nexus Widget - Swaps & Bridges
 
-Use the **Nexus One** component with `config.mode = "swap"` to enable users to swap or bridge assets across supported blockchains. Nexus One automatically calculates routes and swaps between exact-in and exact-out flows.
+Use `NexusWidget` with `config.mode = "swap"` for the unified swap and bridge flow.
 
-## 1. Installation
+For bridge mode configuration, use the [Avail Configurator](https://configurator.availproject.org/) to generate the exact config object.
 
-Install dependencies and the component via the shadcn CLI:
+## Installation
 
+**npm (recommended):**
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+**shadcn (source files):**
 ```bash
 npx shadcn@latest add availproject/widgets/nexus
 ```
 
-Make sure peer dependencies are installed:
-```bash
-npm install @avail-project/nexus-core@1.6.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
-```
-
-## 2. Basic Setup
-
-Wrap the component with `NexusProvider` (usually in your root layout or app provider stack). For provider setup and SDK initialization details, refer to `nexus-elements-nexus-provider` or the Migration Guide.
+## Basic Setup
 
 ```tsx
-import { NexusOne } from "@/components/nexus-one/nexus-one";
+// npm:
+import { NexusWidget } from "@avail-project/widgets";
+// shadcn: import { NexusWidget } from "@/components/nexus/nexus";
 
 export function SwapWidget({ address }: { address?: `0x${string}` }) {
   return (
-    <NexusOne
-      config={{
-        mode: "swap",
-      }}
+    <NexusWidget
+      config={{ mode: "swap" }}
       connectedAddress={address}
     />
   );
 }
 ```
 
-## 3. Prefilling Assets & Chains
+## Restricting Destination Token/Chain
 
-To guide the user's initial selection, you can prefill the source and destination tokens/chains.
-- **USDC on Arbitrum (42161):** `0xaf88d065e77c8cC2239327C5EDb3A432268e5831`
-- **USDC on Base (8453):** `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+Use `destination.chain` and `destination.tokens` to restrict the receive selector:
 
 ```tsx
-<NexusOne
+<NexusWidget
+  connectedAddress={address}
+  config={{
+    mode: "swap",
+    destination: {
+      chain: 8453,
+      tokens: [
+        {
+          address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          symbol: "USDC",
+          decimals: 6,
+        },
+      ],
+    },
+    appearance: {
+      heading: "Swap and Bridge",
+      mode: "system",
+      primaryColor: "#0A6BEB",
+    },
+  }}
+/>
+```
+
+## Initial Token Prefill (Without Restricting)
+
+Use `prefill.token` to set an initial receive token while keeping the full selector available:
+
+```tsx
+<NexusWidget
+  connectedAddress={address}
   config={{
     mode: "swap",
     prefill: {
-      amount: "100.0", // optional initial amount
-      source: {
-        token: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // USDC on Arbitrum
-        chain: 42161,
-      },
-      destination: {
-        token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
+      token: {
         chain: 8453,
+        address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        symbol: "USDC",
+        decimals: 6,
       },
     },
   }}
-  connectedAddress={address}
 />
 ```
 
-## 4. Restricting Token Selection
-
-Use `allowedSourcePairs` and `allowedDestinationPairs` to restrict which networks and tokens users are allowed to interact with.
+## Event Callbacks
 
 ```tsx
-<NexusOne
-  config={{
-    mode: "swap",
-    allowedSourcePairs: [
-      { token: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", chain: 42161 }, // USDC on Arbitrum
-      { token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", chain: 8453 },   // USDC on Base
-    ],
-    allowedDestinationPairs: [
-      { token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", chain: 42161 }, // USDT on Arbitrum
-    ]
-  }}
-/>
-```
-
-## 5. Integrating Event Callbacks
-
-Use event callbacks to trigger toasts, navigate, or track metrics:
-
-```tsx
-<NexusOne
+<NexusWidget
   config={{ mode: "swap" }}
   connectedAddress={address}
-  onStart={() => {
-    console.log("Transaction flow initiated");
-  }}
-  onComplete={(explorerUrl) => {
-    console.log("Swap completed successfully! Explorer URL:", explorerUrl);
-  }}
-  onError={(errorMessage) => {
-    console.error("Swap flow failed:", errorMessage);
-  }}
+  onStart={() => console.log("Swap started")}
+  onComplete={(explorerUrl) => console.log("Swap succeeded!", explorerUrl)}
+  onError={(message) => console.error("Swap failed:", message)}
+  onConnectClick={() => openWalletModal()}
 />
 ```
 
-## 6. Rendering as a Modal
+## Notes
 
-Set `embed={false}` to render as a modal. You can control the open state or let it be uncontrolled.
-
-```tsx
-// Controlled modal rendering
-import { useState } from "react";
-
-export function ControlledSwapModal() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <button onClick={() => setOpen(true)}>Open Swap Modal</button>
-      <NexusOne
-        config={{ mode: "swap" }}
-        embed={false}
-        open={open}
-        onOpenChange={setOpen}
-      />
-    </>
-  );
-}
-```
+- Swap does **not** support `prefill.amount`, source-token prefill, or validation.
+- `prefill.token` is ignored when `destination.tokens` is supplied.
+- Do not use the old `allowedSourcePairs`, `allowedDestinationPairs`, or `prefill.source/destination` fields.
