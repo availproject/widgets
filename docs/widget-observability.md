@@ -108,9 +108,9 @@ config directly and do not need environment variables.
 - Quote errors do not rotate attempts. An explicit UI reset/new flow creates a
   fresh attempt at its next quote. A browser success/failure screen is not a
   canonical outcome. A retry after a published terminal outcome includes
-  `attempt.previous_id` (aliased to `previous_attempt_id`); unknown outcomes never become retry predecessors.
+  `attempt.previous_id`; unknown outcomes never become retry predecessors.
   Late results keep their original attempt context.
-- Both PostHog and SigNoz receive allowlisted `error.code` (aliased to `sdkCode`), a bounded `reason`, static
+- Both PostHog and SigNoz receive allowlisted `error.code`, a bounded `reason`, static
   `errorSummary`, `errorCategory`, known service, and known error step/chain context
   when supplied. Every installed SDK error code has a classification; for example
   `execution/slippage_exceeded` maps to `reason: "slippage_exceeded"`.
@@ -235,11 +235,13 @@ acceptance are not implemented here. Schema `1` observations must not be mixed
 with the removed `deposit_*` widget funnel history.
 
 Transport is best effort: at most 100 queued records, batches of 20, 500 ms initial
-flush delay, a five-second request timeout and two retries per failed sink. A
-successful sink is not retried because the other failed. PostHog receives the
-UUID as `uuid`/`$insert_id`; SigNoz queries should deduplicate by `eventId`.
-Unmount discards pending exports. Nothing waits for telemetry before proceeding
-with a transaction. No live ingestion or wallet transaction is required by tests.
+flush delay, a five-second request timeout and two retries per failed sink. Requests
+use `keepalive: true` so in-flight requests outlive page navigation. On `pagehide`,
+`visibilitychange` (hidden), or `dispose()`, all queued batches are drained immediately
+without dropping records exceeding a single batch. A successful sink is not retried
+because the other failed. PostHog receives the UUID as `uuid`/`$insert_id`; SigNoz queries
+should deduplicate by `eventId`. Nothing waits for telemetry before proceeding with a transaction.
+No live ingestion or wallet transaction is required by tests.
 
 Reference branch: `availproject/nexus-fast-bridge`, `chore/add-signoz`, verified
 at `257f685374518b07124286b0b97e8d07247ff8e9`. Only public collector configuration

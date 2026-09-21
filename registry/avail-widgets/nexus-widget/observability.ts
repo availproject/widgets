@@ -81,7 +81,6 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
   const errCode = input["error.code"] ?? input.sdkCode;
   if (typeof errCode === "string" && KNOWN_CODES.has(errCode)) {
     output["error.code"] = errCode;
-    output.sdkCode = errCode;
   }
   const net = input["nexus.network"] ?? input.network;
   if (typeof net === "string" && (net === "mainnet" || net === "testnet")) {
@@ -109,7 +108,6 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
   const prevAttempt = input["attempt.previous_id"] ?? input.previous_attempt_id;
   if (typeof prevAttempt === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(prevAttempt)) {
     output["attempt.previous_id"] = prevAttempt;
-    output.previous_attempt_id = prevAttempt;
   }
   if (input.committed === true && typeof input.commitToDeliveryMs === "number" && Number.isFinite(input.commitToDeliveryMs) && input.commitToDeliveryMs >= 0) output.commitToDeliveryMs = Math.round(input.commitToDeliveryMs);
   if (config.includeAmounts && typeof input.estimatedValueUsd === "number" && Number.isFinite(input.estimatedValueUsd) && input.estimatedValueUsd >= 0) {
@@ -140,7 +138,7 @@ function resultDiagnostic(result: unknown): { transactionHash?: string } {
 function resultForError(error: unknown): WidgetTelemetryResult {
   try {
     const classified = classifyWidgetError(error);
-    const code = classified.sdkCode ?? (error as { code?: unknown } | null)?.code;
+    const code = (classified["error.code"] ?? classified.sdkCode ?? (error as { code?: unknown } | null)?.code) as string | undefined;
     return classified.reason === "wallet_rejected" || (typeof code === "string" && CANCELLATIONS.has(code)) ? "cancelled" : "failed";
   } catch { return "failed"; }
 }
@@ -226,43 +224,46 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       const response = await runtime.fetch(endpoint(url, suffix), {
         method: "POST", headers: { "Content-Type": "application/json", ...(signoz ? { "x-otlp-force-fetch": "1" } : {}) },
         body: JSON.stringify(body), credentials: "omit", referrerPolicy: "no-referrer",
-        signal: controller.signal, cache: "no-store",
+        signal: controller.signal, cache: "no-store", keepalive: true,
       });
       return response.ok;
     } catch { return false; }
     finally { clearTimeout(timeout); controllers.delete(controller); }
+  };
+  const sendBatch = async (batch: Pending[]) => {
+    const config = settings.config ?? {};
+    const posthogItems = batch.filter(item => item.posthog);
+    const signozItems = batch.filter(item => item.signoz);
+    return Promise.allSettled([
+      posthogItems.length ? send(config.posthog?.apiHost ?? DEFAULT_WIDGET_POSTHOG_HOST, {
+        api_key: config.posthog?.apiKey ?? DEFAULT_WIDGET_POSTHOG_KEY,
+        batch: posthogItems.map(({ record, timestamp }) => ({
+          event: record.event, uuid: record.properties.eventId,
+          timestamp: new Date(timestamp).toISOString(),
+          properties: { ...record.properties, distinct_id: record.properties["session.id"] as string,
+            $insert_id: record.properties.eventId, $process_person_profile: false, $geoip_disable: true },
+        })),
+      }, false, "/batch/") : Promise.resolve(true),
+      signozItems.length ? send(config.signoz?.logsUrl ?? DEFAULT_WIDGET_SIGNOZ_URL, {
+        resourceLogs: [{ resource: { attributes: attributes({ "service.name": "nexus-widget" }) }, scopeLogs: [{
+          scope: { name: "nexus-widget", version: SCHEMA_VERSION },
+          logRecords: signozItems.map(({ record, diagnostic, timestamp }) => ({
+            timeUnixNano: `${timestamp}000000`, severityNumber: (record.properties.result === "failed" || record.properties.outcome === "failed") ? 17 : 9,
+            severityText: (record.properties.result === "failed" || record.properties.outcome === "failed") ? "ERROR" : "INFO",
+            body: { stringValue: record.event },
+            attributes: attributes({ ...record.properties, ...diagnostic }),
+          })),
+        }] }],
+      }, true) : Promise.resolve(true),
+    ]);
   };
   async function flush() {
     if (flushing || !enabled() || !queue.length) return;
     flushing = true;
     const currentEpoch = epoch;
     const batch = queue.splice(0, BATCH_SIZE);
-    const config = settings.config ?? {};
     try {
-      const posthogItems = batch.filter(item => item.posthog);
-      const signozItems = batch.filter(item => item.signoz);
-      const results = await Promise.allSettled([
-        posthogItems.length ? send(config.posthog?.apiHost ?? DEFAULT_WIDGET_POSTHOG_HOST, {
-          api_key: config.posthog?.apiKey ?? DEFAULT_WIDGET_POSTHOG_KEY,
-          batch: posthogItems.map(({ record, timestamp }) => ({
-            event: record.event, uuid: record.properties.eventId,
-            timestamp: new Date(timestamp).toISOString(),
-            properties: { ...record.properties, distinct_id: (record.properties["session.id"] ?? record.properties.session_id) as string,
-              $insert_id: record.properties.eventId, $process_person_profile: false, $geoip_disable: true },
-          })),
-        }, false, "/batch/") : Promise.resolve(true),
-        signozItems.length ? send(config.signoz?.logsUrl ?? DEFAULT_WIDGET_SIGNOZ_URL, {
-          resourceLogs: [{ resource: { attributes: attributes({ "service.name": "nexus-widget" }) }, scopeLogs: [{
-            scope: { name: "nexus-widget", version: SCHEMA_VERSION },
-            logRecords: signozItems.map(({ record, diagnostic, timestamp }) => ({
-              timeUnixNano: `${timestamp}000000`, severityNumber: (record.properties.result === "failed" || record.properties.outcome === "failed") ? 17 : 9,
-              severityText: (record.properties.result === "failed" || record.properties.outcome === "failed") ? "ERROR" : "INFO",
-              body: { stringValue: record.event },
-              attributes: attributes({ ...record.properties, ...diagnostic }),
-            })),
-          }] }],
-        }, true) : Promise.resolve(true),
-      ]);
+      const results = await sendBatch(batch);
       if (currentEpoch !== epoch || !enabled()) return;
       const succeeded = results.map(result => result.status === "fulfilled" && result.value);
       for (const item of batch) {
@@ -273,6 +274,15 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
     } catch { /* Bad configuration and transport failure never escape. */ }
     finally { flushing = false; schedule(1000); }
   }
+  const drain = () => {
+    if (!enabled() || !queue.length) return;
+    const promises: Promise<unknown>[] = [];
+    while (queue.length > 0) {
+      const batch = queue.splice(0, BATCH_SIZE);
+      promises.push(sendBatch(batch));
+    }
+    return Promise.allSettled(promises);
+  };
   const emit = (event: WidgetTelemetryEventName, fields: Record<string, unknown>, capturedAttempt?: string, stamp?: { eventId: string; timestamp: number }) => {
     try {
       if (!enabled()) return;
@@ -285,7 +295,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       const net = settings.network ?? settings.config?.network ?? "mainnet";
       const properties = Object.freeze({
         ...summary,
-        ...(errorCode ? { "error.code": errorCode, sdkCode: errorCode } : {}),
+        ...(errorCode ? { "error.code": errorCode } : {}),
         ...(includeLookupKeys && transactionHash ? { transactionHash } : {}),
         ...(includeLookupKeys && intentHash ? { intentHash } : {}),
         "nexus.client.id": settings.identity!.clientId,
@@ -294,16 +304,15 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
         "nexus.network": net,
         environment: settings.config?.environment ?? (runtime.production() ? "production" : "development"),
         mode: settings.mode,
-        ...(capturedAttempt ? { "attempt.id": capturedAttempt, attempt_id: capturedAttempt } : {}),
+        ...(capturedAttempt ? { "attempt.id": capturedAttempt } : {}),
         "session.id": sessionId,
-        session_id: sessionId,
         eventId: stamp?.eventId ?? runtime.uuid(),
         timestamp: new Date(timestamp).toISOString(),
         schemaVersion: SCHEMA_VERSION,
       });
       const record = Object.freeze({ event, properties });
       const diagnostic = Object.freeze({
-        ...(errorCode ? { "error.code": errorCode, sdkCode: errorCode } : {}),
+        ...(errorCode ? { "error.code": errorCode } : {}),
         ...(transactionHash ? { transactionHash } : {}),
         ...(intentHash ? { intentHash } : {}),
         sdkVersion: "2.4.1",
@@ -331,7 +340,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
         const net = settings.network ?? settings.config?.network ?? "mainnet";
         emit("widget_attempt_started", {
           operation,
-          ...(previousAttemptId ? { "attempt.previous_id": previousAttemptId, previous_attempt_id: previousAttemptId } : {}),
+          ...(previousAttemptId ? { "attempt.previous_id": previousAttemptId } : {}),
         }, id);
         if (generation !== epoch || !enabled()) return;
         publisher = createWidgetAttemptPublisher({
@@ -380,6 +389,22 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       }, capturedAttempt);
     };
   };
+  const pageHideHandler = () => {
+    void drain();
+  };
+  const visibilityChangeHandler = () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      void drain();
+    }
+  };
+  if (runtime.browser()) {
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("pagehide", pageHideHandler);
+    }
+    if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+      document.addEventListener("visibilitychange", visibilityChangeHandler);
+    }
+  }
   return {
     enabled,
     configure(next: Settings) {
@@ -395,15 +420,21 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
     },
     resume() { active = true; },
     dispose() {
-      if (enabled() && queue.length) {
-        void flush();
-      }
+      void drain();
       active = false;
       if (timer) clearTimeout(timer);
       timer = undefined;
       swaps.clear();
       for (const item of publishers) item.dispose();
       publishers.clear();
+      if (runtime.browser()) {
+        if (typeof window !== "undefined" && typeof window.removeEventListener === "function") {
+          window.removeEventListener("pagehide", pageHideHandler);
+        }
+        if (typeof document !== "undefined" && typeof document.removeEventListener === "function") {
+          document.removeEventListener("visibilitychange", visibilityChangeHandler);
+        }
+      }
     },
     resetAttempt() {
       previousAttemptId = publisher?.terminal ? publisher.id : undefined;
@@ -429,6 +460,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
     beginAttempt,
     startCall,
     flush,
+    drain,
     quoteFailed(runId: number) {
       swaps.get(runId)?.quote("failed", { code: "widget/invalid_quote" });
     },
