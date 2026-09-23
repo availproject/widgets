@@ -444,7 +444,7 @@ const NexusWidgetDepositShowcase = () => {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [renderMode, setRenderMode] = useState<NexusWidgetRenderMode>("inline");
   const isPopupMode = renderMode === "popup";
-  const [enableOnRamp, setEnableOnRamp] = useState(false);
+  const [enableOnRamp, setEnableOnRamp] = useState(true);
 
   // Default sandbox configuration state
   const [sandboxConfig, setSandboxConfig] = useState<{

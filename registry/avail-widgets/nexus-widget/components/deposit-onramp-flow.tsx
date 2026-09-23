@@ -2163,10 +2163,12 @@ function EditButton({
       disabled={disabled}
       onClick={onClick}
       style={{
-        backgroundColor: disabled ? theme.colors.surfaceCool : "#E8F0FF",
+        backgroundColor: disabled
+          ? theme.colors.surfaceCool
+          : "var(--nexus-widget-primary-soft, #E8F0FF)",
         border: "none",
         borderRadius: "999px",
-        color: disabled ? theme.colors.muted : brand,
+        color: disabled ? theme.colors.muted : theme.colors.textStrong,
         cursor: disabled ? "default" : "pointer",
         fontFamily: theme.fonts.sans,
         fontSize: "13px",
@@ -2336,10 +2338,16 @@ function SheetSearchInput({
     <div
       style={{
         alignItems: "center",
-        backgroundColor: "#F0F0EF",
-        border: `1px solid ${focused ? "#A8C9FF" : theme.colors.border}`,
+        backgroundColor: theme.colors.surfaceCool,
+        border: `1px solid ${
+          focused
+            ? "var(--nexus-widget-focus-border, #A8C9FF)"
+            : theme.colors.border
+        }`,
         borderRadius: "12px",
-        boxShadow: focused ? "0 0 0 1px rgba(0,107,244,0.16)" : "none",
+        boxShadow: focused
+          ? "0 0 0 1px var(--nexus-widget-focus-ring, rgba(0,107,244,0.16))"
+          : "none",
         boxSizing: "border-box",
         display: "flex",
         flexShrink: 0,
@@ -6096,7 +6104,9 @@ export function DepositOnrampFlow({
 
         <button
           aria-label="Select country"
-          onClick={() => setActiveSheet("country")}
+          onClick={() =>
+            setActiveSheet((prev) => (prev === "country" ? null : "country"))
+          }
           style={{
             alignItems: "center",
             backgroundColor: theme.colors.surface,
