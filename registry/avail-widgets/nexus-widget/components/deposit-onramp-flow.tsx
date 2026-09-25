@@ -789,7 +789,7 @@ const getOnrampRuntimeEnvironment = (_baseUrl: string) => {
     typeof process !== "undefined"
       ? process.env.NEXT_PUBLIC_NEXUS_ONRAMP_ENV?.trim().toLowerCase()
       : undefined;
-  // Canary is a mainnet-class Nexus deployment, not evidence of a Meld sandbox.
+  // Mainnet is a production Nexus deployment, not evidence of a Meld sandbox.
   return explicit === "sandbox" || explicit === "testnet"
     ? "sandbox"
     : "production";

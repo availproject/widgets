@@ -271,7 +271,7 @@ const mountFlow = async ({
       <DepositOnrampFlow
         getWalletProvider={getWalletProvider}
         walletConnected={wallet}
-        baseUrl="https://nexus-v2.canary.avail.so/middleware"
+        baseUrl="https://nexus-v2.mainnet.avail.so/middleware"
         ownerAddress={account}
         walletClient={wallet ? (walletClient as any) : null}
         nexusSDK={sdk}
@@ -347,7 +347,7 @@ const mountFlow = async ({
   };
 };
 
-test("raw Meld settlement on canary deposits despite zero cached UI balance and waits for the receipt", async () => {
+test("raw Meld settlement on mainnet deposits despite zero cached UI balance and waits for the receipt", async () => {
   const flow = await mountFlow();
   assert.equal(flow.sends(), 1);
   assert.ok(!flow.states.includes("DEPOSIT_SUCCESS"));

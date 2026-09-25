@@ -60,7 +60,7 @@ export const ONRAMP_CLIENT_HEADER = "nexus-widgets";
 export const getOnrampBaseUrl = () =>
   ((typeof process !== "undefined" &&
     process.env.NEXT_PUBLIC_NEXUS_ONRAMP_BASE_URL?.trim()) ||
-    "https://nexus-v2.canary.avail.so/middleware").replace(/\/+$/, "");
+    "https://nexus-v2.mainnet.avail.so/middleware").replace(/\/+$/, "");
 
 const TERMINAL_STATES = new Set([
   "SETTLED",

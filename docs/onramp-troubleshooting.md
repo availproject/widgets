@@ -1,4 +1,4 @@
-# Onramp + Deposit diagnostics (2.1.0-rc.3)
+# Onramp + Deposit diagnostics (2.1.0)
 
 Both package manifests and the shadcn registry pin `@avail-project/nexus-core` to `2.5.0`.
 
@@ -58,11 +58,11 @@ Meld references: [integration and transaction tracking](https://docs.meld.io/doc
 Onramp is opt-in for deposit widgets: set `config.enableOnRamp: true`. The default is `false`, which opens the wallet deposit flow without mounting the onramp component. In the deposit showcase, enable the **Onramp** toggle before running a payment test.
 
 ```dotenv
-NEXT_PUBLIC_NEXUS_ONRAMP_BASE_URL=https://nexus-v2.canary.avail.so/middleware
+NEXT_PUBLIC_NEXUS_ONRAMP_BASE_URL=https://nexus-v2.mainnet.avail.so/middleware
 NEXT_PUBLIC_NEXUS_ONRAMP_ENV=production
 ```
 
-Rebuild/redeploy after changing public environment variables. A canary Nexus hostname does not identify the Meld sandbox. Even an explicitly configured sandbox cannot fake a successful deposit without a receipt.
+Rebuild/redeploy after changing public environment variables. A mainnet Nexus hostname does not identify the Meld sandbox. Even an explicitly configured sandbox cannot fake a successful deposit without a receipt.
 
 ```sh
 pnpm test:onramp
