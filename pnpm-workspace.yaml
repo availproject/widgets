@@ -7,6 +7,7 @@ allowBuilds:
   "@avail-project/ca-common": true
   "@avail-project/nexus-core": true
   "@avail-project/nexus-types": true
+  '@parcel/watcher': true
   bufferutil: true
   core-js: true
   esbuild: true

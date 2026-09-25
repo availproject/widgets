@@ -3,6 +3,7 @@
 import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
+import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { parseAmount as parseDecimal } from "../utils/amount";
 import { type SwapTokenOption } from "./swap-asset-selector";
 
@@ -241,10 +242,14 @@ export function PayWithSources({
             disabled={isSourcePickerDisabled}
             onClick={onOpenSourcePicker}
             style={{
-              backgroundColor: isSourcePickerDisabled ? "var(--nexus-widget-surface-raised, #F4F4F3)" : "var(--nexus-widget-primary-soft, #E8F0FF)",
+              backgroundColor: isSourcePickerDisabled
+                ? "var(--nexus-widget-surface-raised, #F4F4F3)"
+                : "var(--nexus-widget-primary-soft, #E8F0FF)",
               border: "none",
               borderRadius: "4px",
-              color: isSourcePickerDisabled ? "var(--nexus-widget-text-secondary, #A8A8A6)" : "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
+              color: isSourcePickerDisabled
+                ? "var(--nexus-widget-text-secondary, #A8A8A6)"
+                : "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
               cursor: isSourcePickerDisabled ? "not-allowed" : "pointer",
               fontFamily: uiFont,
               fontSize: "12px",
@@ -276,7 +281,11 @@ export function PayWithSources({
           >
             <Loader2
               className="animate-spin"
-              style={{ height: 14, width: 14 }}
+              style={{
+                ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+                height: 14,
+                width: 14,
+              }}
             />
             Calculating best route...
           </div>
@@ -406,7 +415,8 @@ export function PayWithSources({
                 border: `1px solid ${border}`,
                 borderRadius: "999px",
                 bottom: "4px",
-                boxShadow: "0 2px 8px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.08))",
+                boxShadow:
+                  "0 2px 8px var(--nexus-widget-shadow-soft, rgba(22,22,21,0.08))",
                 cursor: "pointer",
                 display: "flex",
                 height: "22px",

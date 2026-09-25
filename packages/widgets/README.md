@@ -16,6 +16,7 @@ pnpm add github:availproject/widgets
 
 ```tsx
 import { NexusProvider, NexusWidget } from "@avail-project/widgets";
+import "@avail-project/widgets/styles.css";
 
 export function App() {
   return (
@@ -33,21 +34,10 @@ namespace is listed in shadcn, install with:
 npx shadcn@latest add availproject/widgets/nexus
 ```
 
-## Theme
+## Onramp + Deposit diagnostics
 
-All three modes support `config.theme: "dark" | "light" | "system"`:
+For `config.mode: "deposit"`, set `config.enableOnRamp: true` to offer local currency funding. It defaults to `false`, which opens the wallet deposit flow directly. The deposit showcase includes an Onramp toggle for both settings.
 
-```tsx
-<NexusWidget
-  config={{
-    mode: "swap",
-    theme: "system",
-    appearance: { primaryColor: "#006BF4" },
-  }}
-/>
-```
+Onramp checks the active wallet provider instead of trusting a persisted address. Disconnected users see Connect Wallet after quotes arrive; reconnecting refreshes the quote for the verified account before Pay is enabled. If the wallet disconnects during checkout, reconnect the funded wallet from the settled purchase screen to finish the deposit. Popup widgets (`embed={false}`) dismiss through the header close button, not outside clicks or Escape.
 
-The default is light. System follows live OS preference changes. Dark uses a
-plain background; light keeps the background graphic. Primary-color overrides
-continue to work in all themes. The legacy `config.appearance.mode` setting is
-used when `config.theme` is omitted. Both embedded widgets and modals are supported.
+Version `2.1.0` uses Nexus Core `2.5.0`. Filter the browser console by `[Nexus Onramp]` to trace payment status, SDK gas-swap events, wallet approval and the final deposit receipt. Keep the page open and approve the wallet prompts. See [onramp troubleshooting](../../docs/onramp-troubleshooting.md) in the source repository for configuration, failure cases and testing.

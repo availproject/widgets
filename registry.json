@@ -248,7 +248,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.4.1",
+        "@avail-project/nexus-core@2.5.0",
         "lucide-react",
         "viem"
       ],
@@ -609,7 +609,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.4.1",
+        "@avail-project/nexus-core@2.5.0",
         "clsx",
         "lucide-react",
         "tailwind-merge",
@@ -807,7 +807,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.4.1",
+        "@avail-project/nexus-core@2.5.0",
         "lucide-react",
         "viem"
       ],
@@ -884,13 +884,28 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-funding-method.tsx",
+          "target": "components/nexus/components/deposit-funding-method.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/deposit-idle-form.tsx",
           "target": "components/nexus/components/deposit-idle-form.tsx",
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-onramp-flow.tsx",
+          "target": "components/nexus/components/deposit-onramp-flow.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/nexus-widget-progress-screen.tsx",
           "target": "components/nexus/components/nexus-widget-progress-screen.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/components/onramp-history-card.tsx",
+          "target": "components/nexus/components/onramp-history-card.tsx",
           "type": "registry:component"
         },
         {
@@ -976,6 +991,26 @@
         {
           "path": "registry/avail-widgets/nexus-widget/utils/deposit-source-selection.ts",
           "target": "components/nexus/utils/deposit-source-selection.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/utils/onramp-history.ts",
+          "target": "components/nexus/utils/onramp-history.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/utils/onramp-session.ts",
+          "target": "components/nexus/utils/onramp-session.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/utils/use-onramp-history.ts",
+          "target": "components/nexus/utils/use-onramp-history.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/utils/use-onramp-wallet.ts",
+          "target": "components/nexus/utils/use-onramp-wallet.ts",
           "type": "registry:component"
         },
         {
@@ -1075,7 +1110,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.4.1",
+        "@avail-project/nexus-core@2.5.0",
         "decimal.js",
         "lucide-react",
         "viem",
@@ -1105,7 +1140,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.4.1",
+        "@avail-project/nexus-core@2.5.0",
         "wagmi"
       ]
     },
@@ -1358,7 +1393,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.4.1",
+        "@avail-project/nexus-core@2.5.0",
         "lucide-react",
         "viem"
       ],
@@ -1571,7 +1606,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.4.1",
+        "@avail-project/nexus-core@2.5.0",
         "lucide-react",
         "viem"
       ],
@@ -1609,7 +1644,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.4.1",
+        "@avail-project/nexus-core@2.5.0",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1762,7 +1797,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.4.1",
+        "@avail-project/nexus-core@2.5.0",
         "lucide-react"
       ],
       "registryDependencies": [

@@ -59,6 +59,16 @@ jobs:
         working-directory: ${{ env.PACKAGE_DIR }}
         run: npm pack --dry-run
 
+      - name: Determine npm dist-tag
+        id: dist-tag
+        run: |
+          VERSION="${{ steps.package.outputs.version }}"
+          if [[ "$VERSION" == *-rc.* ]] || [[ "$VERSION" == *-beta.* ]] || [[ "$VERSION" == *-alpha.* ]]; then
+            echo "tag=rc" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish package with trusted publishing
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm publish --access public
+        run: npm publish --access public --tag ${{ steps.dist-tag.outputs.tag }}

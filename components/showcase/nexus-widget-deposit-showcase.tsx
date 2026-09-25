@@ -12,6 +12,7 @@ import {
 } from "viem";
 import { useAccount } from "wagmi";
 import { useConnectWalletClick } from "../helpers/use-connect-wallet-click";
+import { cn } from "@/lib/utils";
 import {
   NexusWidgetRenderModeToggle,
   type NexusWidgetRenderMode,
@@ -223,29 +224,15 @@ const resolveDepositAddress = (opportunity: DepositShowcaseOpportunity) => {
 const OPPORTUNITIES = {
   // 1. Aave on Arbitrum
   "aave-arbitrum": {
-    label: "Aave - Arbitrum",
+    label: "Aave - Optimism",
     protocol: "Aave",
     depositTargetLogo:
       "https://files.availproject.org/uploads/2026-04-16/aave.svg",
-    chainId: 42161,
-    tokenSymbol: "USD₮0",
-    tokenAddress: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" as const,
+    chainId: 10,
+    tokenSymbol: "USDC",
+    tokenAddress: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" as const,
     tokenDecimals: 6,
-    tokenLogo: "https://arbiscan.io/token/images/centre-usdc_28.png",
-    tokens: [
-      {
-        address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-        decimals: 6,
-        logo: "https://arbiscan.io/token/images/usdt0_64.png",
-        symbol: "USD₮0",
-      },
-      {
-        address: "0xba5DdD1f9d7F570dc94a51479a000E3BCE967196",
-        decimals: 18,
-        logo: "https://arbiscan.io/token/images/aave_32.svg",
-        symbol: "AAVE",
-      },
-    ],
+    tokenLogo: "https://optimistic.etherscan.io/token/images/usdc_32.png",
     executeDeposit: (
       symbol: string,
       tokenAddress: `0x${string}`,
@@ -269,46 +256,28 @@ const OPPORTUNITIES = {
   },
 
   // 2. Aave on Ethereum
-  "aave-ethereum": {
-    label: "Aave - Ethereum",
+  "aave-bsc": {
+    label: "Aave - BSC",
     protocol: "Aave",
     depositTargetLogo:
       "https://files.availproject.org/uploads/2026-04-16/aave.svg",
-    chainId: 1,
+    chainId: 56,
     tokenSymbol: "USDC",
-    tokenAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const,
-    tokenDecimals: 6,
-    tokenLogo: "https://etherscan.io/token/images/usdc_ofc_32.svg",
+    tokenAddress: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d" as const,
+    tokenDecimals: 18,
+    tokenLogo: "https://bscscan.com/token/images/centre-usdc_28.png",
     tokens: [
       {
-        address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-        decimals: 6,
-        logo: "https://etherscan.io/token/images/usdc_ofc_32.svg",
+        address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+        decimals: 18,
+        logo: "https://bscscan.com/token/images/centre-usdc_28.png",
         symbol: "USDC",
       },
       {
-        address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-        decimals: 6,
-        logo: "https://etherscan.io/token/images/tethernew_32.svg",
+        address: "0x55d398326f99059fF775485246999027B3197955",
+        decimals: 18,
+        logo: "https://bscscan.com/token/images/busdt_32.png",
         symbol: "USDT",
-      },
-      {
-        address: "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f",
-        decimals: 18,
-        logo: "https://etherscan.io/token/images/aavegho_new_32.png",
-        symbol: "GHO",
-      },
-      {
-        address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-        decimals: 18,
-        logo: "https://etherscan.io/token/images/dairplce_32.svg",
-        symbol: "DAI",
-      },
-      {
-        address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-        decimals: 18,
-        logo: "https://etherscan.io/token/images/weth_28.png",
-        symbol: "WETH",
       },
     ],
     executeDeposit: (
@@ -318,7 +287,7 @@ const OPPORTUNITIES = {
       chainId: number,
       user: `0x${string}`,
     ) => ({
-      to: "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2" as const,
+      to: "0x6807dc923806fE8Fd134338EABCA509979a7e0cB" as const,
       gas: BigInt(400_000),
       data: encodeFunctionData({
         abi: AAVE_ABI,
@@ -328,22 +297,21 @@ const OPPORTUNITIES = {
       tokenApproval: {
         toTokenAddress: tokenAddress,
         amount,
-        spender: "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2" as const,
+        spender: "0x6807dc923806fE8Fd134338EABCA509979a7e0cB" as const,
       },
     }),
   },
 
   // 3. Compound on Polygon (USDT)
-  "compound-pol-usdt": {
+  "compound-eth-usdt": {
     protocol: "Compound",
     depositTargetLogo:
       "https://files.availproject.org/uploads/2026-04-16/compound.svg",
-    chainId: 137,
+    chainId: 1,
     tokenSymbol: "USDT",
-    tokenAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" as const,
+    tokenAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7" as const,
     tokenDecimals: 6,
-    tokenLogo:
-      "https://raw.githubusercontent.com/availproject/nexus-assets/refs/heads/main/tokens/usdt/logo.png",
+    tokenLogo: "https://etherscan.io/token/images/tethernew_32.svg",
     executeDeposit: (
       symbol: string,
       tokenAddress: `0x${string}`,
@@ -351,7 +319,7 @@ const OPPORTUNITIES = {
       chainId: number,
       user: `0x${string}`,
     ) => ({
-      to: "0xaeB318360f27748Acb200CE616E389A6C9409a07" as const,
+      to: "0x3Afdc9BCA9213A35503b077a6072F3D0d5AB0840" as const,
       gas: BigInt(400_000),
       data: encodeFunctionData({
         abi: COMPOUND_ABI,
@@ -361,21 +329,20 @@ const OPPORTUNITIES = {
       tokenApproval: {
         toTokenAddress: tokenAddress,
         amount,
-        spender: "0xaeB318360f27748Acb200CE616E389A6C9409a07" as const,
+        spender: "0x3Afdc9BCA9213A35503b077a6072F3D0d5AB0840" as const,
       },
     }),
   },
 
   // 4. Fluid on Base (USDC)
-  "fluid-base-usdc": {
+  "fluid-arb-usdc": {
     protocol: "Fluid",
     depositTargetLogo: "https://fluid.instad.app/images/logo.png",
-    chainId: 8453,
+    chainId: 42161,
     tokenSymbol: "USDC",
-    tokenAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const,
+    tokenAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" as const,
     tokenDecimals: 6,
-    tokenLogo:
-      "https://raw.githubusercontent.com/availproject/nexus-assets/refs/heads/main/tokens/usdc/logo.png",
+    tokenLogo: "https://arbiscan.io/token/images/centre-usdc_28.png",
     executeDeposit: (
       symbol: string,
       tokenAddress: `0x${string}`,
@@ -383,7 +350,7 @@ const OPPORTUNITIES = {
       chainId: number,
       user: `0x${string}`,
     ) => ({
-      to: "0xf42f5795D9ac7e9D757dB633D693cD548Cfd9169" as const,
+      to: "0x1A996cb54bb95462040408C06122D45D6Cdb6096" as const,
       gas: BigInt(400_000),
       data: encodeFunctionData({
         abi: FLUID_ABI,
@@ -393,13 +360,14 @@ const OPPORTUNITIES = {
       tokenApproval: {
         toTokenAddress: tokenAddress,
         amount,
-        spender: "0xf42f5795D9ac7e9D757dB633D693cD548Cfd9169" as const,
+        spender: "0x1A996cb54bb95462040408C06122D45D6Cdb6096" as const,
       },
     }),
   },
 
   // 5. Mystic on Citrea (ctUSD)
   "mystic-citrea-ctusd": {
+    label: "Mystic ctUSD (onramp not supported)",
     protocol: "Mystic",
     depositTargetLogo:
       "https://files.availproject.org/nexus-elements/mystic.png",
@@ -432,6 +400,7 @@ const OPPORTUNITIES = {
 
   // 6. Zentra on Citrea (wcBTC)
   "zentra-citrea-wcbtc": {
+    label: "Zentra wcBTC (onramp not supported)",
     protocol: "Zentra",
     depositTargetLogo:
       "https://zentrafinance.gitbook.io/zentra/~gitbook/image?url=https%3A%2F%2F2899070418-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Forganizations%252F1jzW9aBSq190MuRJKgIj%252Fsites%252Fsite_2l6Ro%252Ficon%252Fb8adwB6RA7Y6VJH3vGjh%252FZentra%2520%284%29.png%3Falt%3Dmedia%26token%3D8aa44578-e817-4c2f-b20e-abd25827d4fe&width=32&dpr=3&quality=100&sign=d18163fe&sv=2",
@@ -473,9 +442,9 @@ const NexusWidgetDepositShowcase = () => {
   >("aave-arbitrum");
   const [isOpen, setIsOpen] = useState(false);
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
-  const [renderMode, setRenderMode] =
-    useState<NexusWidgetRenderMode>("inline");
+  const [renderMode, setRenderMode] = useState<NexusWidgetRenderMode>("inline");
   const isPopupMode = renderMode === "popup";
+  const [enableOnRamp, setEnableOnRamp] = useState(true);
 
   // Default sandbox configuration state
   const [sandboxConfig, setSandboxConfig] = useState<{
@@ -746,10 +715,33 @@ const NexusWidgetDepositShowcase = () => {
       type="nexus-widget"
       connectLabel="Connect wallet to use Deposit"
       controls={
-        <NexusWidgetRenderModeToggle
-          value={renderMode}
-          onValueChange={setRenderMode}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            aria-pressed={enableOnRamp}
+            onClick={() => setEnableOnRamp((prev) => !prev)}
+            className={cn(
+              "inline-flex items-center gap-1.5 h-9 rounded-md border px-3 text-xs font-medium transition-colors shadow-sm cursor-pointer",
+              enableOnRamp
+                ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
+                : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
+            )}
+          >
+            <span
+              className={cn(
+                "w-2 h-2 rounded-full transition-colors",
+                enableOnRamp
+                  ? "bg-emerald-400 dark:bg-emerald-500"
+                  : "bg-zinc-300 dark:bg-zinc-600",
+              )}
+            />
+            Onramp
+          </button>
+          <NexusWidgetRenderModeToggle
+            value={renderMode}
+            onValueChange={setRenderMode}
+          />
+        </div>
       }
     >
       <div className="flex flex-col gap-6 w-full items-center">
@@ -936,7 +928,7 @@ const NexusWidgetDepositShowcase = () => {
           }}
         >
           <NexusWidget
-            key={`${selectedOpt}-${renderMode}`}
+            key={`${selectedOpt}-${renderMode}-${enableOnRamp}`}
             embed={!isPopupMode}
             defaultOpen={isPopupMode}
             config={{
@@ -948,6 +940,7 @@ const NexusWidgetDepositShowcase = () => {
               },
               depositAddress: resolveDepositAddress(currentOpportunity),
               executeDeposit: currentOpportunity.executeDeposit,
+              enableOnRamp,
               appearance: {
                 appLogoURL: currentOpportunity.depositTargetLogo,
                 appName: currentOpportunity.protocol,

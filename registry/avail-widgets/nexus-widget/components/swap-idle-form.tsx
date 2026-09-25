@@ -60,7 +60,7 @@ const ChevronDownIcon = () => (
       stroke="var(--nexus-widget-text-secondary, #848483)"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth="1.3"
+      strokeWidth="1.15"
     />
   </svg>
 );
@@ -101,7 +101,9 @@ function PercentButtons({
   const isUsdMode = token.userAmountMode === "usd";
   const balance = parseDecimal(isUsdMode ? token.balanceInFiat : token.balance);
   const enteredAmount = parseDecimal(token.userAmount);
-  const decimals = isUsdMode ? MAX_AMOUNT_DISPLAY_DECIMALS : getTokenInputDecimals(token);
+  const decimals = isUsdMode
+    ? MAX_AMOUNT_DISPLAY_DECIMALS
+    : getTokenInputDecimals(token);
 
   return (
     <div
@@ -109,7 +111,8 @@ function PercentButtons({
         alignItems: "center",
         backgroundColor: "var(--nexus-widget-surface-raised, #F0F3F9)",
         borderRadius: "6px",
-        boxShadow: "var(--nexus-widget-shadow-inset, #2A388B0F) 0px 1px 2px inset",
+        boxShadow:
+          "var(--nexus-widget-shadow-inset, #2A388B0F) 0px 1px 2px inset",
         boxSizing: "border-box",
         display: "flex",
         flexShrink: 0,
@@ -126,8 +129,14 @@ function PercentButtons({
         const label = pct === 100 ? maxLabel : `${pct}%`;
         const isHovered = hoveredPct === pct;
         const isSelected = Boolean(
-          balance?.gt(0) && enteredAmount?.gt(0) &&
-          enteredAmount.eq(balance.mul(pct).div(100).toDecimalPlaces(decimals, Decimal.ROUND_DOWN))
+          balance?.gt(0) &&
+          enteredAmount?.gt(0) &&
+          enteredAmount.eq(
+            balance
+              .mul(pct)
+              .div(100)
+              .toDecimalPlaces(decimals, Decimal.ROUND_DOWN),
+          ),
         );
 
         return (
@@ -148,11 +157,17 @@ function PercentButtons({
             onMouseLeave={() => setHoveredPct(null)}
             style={{
               alignItems: "center",
-              backgroundColor: isHovered ? "var(--nexus-widget-surface, #FFFFFF)" : "transparent",
+              backgroundColor: isHovered
+                ? "var(--nexus-widget-surface, #FFFFFF)"
+                : "transparent",
               borderRadius: "4px",
-              boxShadow: isHovered ? "var(--nexus-widget-shadow-soft, #3C286414) 0px 1px 2px" : "none",
+              boxShadow: isHovered
+                ? "var(--nexus-widget-shadow-soft, #3C286414) 0px 1px 2px"
+                : "none",
               boxSizing: "border-box",
-              color: isHovered ? "var(--nexus-widget-text, #1F1F1F)" : "var(--nexus-widget-text-secondary, #8E8E89)",
+              color: isHovered
+                ? "var(--nexus-widget-text, #1F1F1F)"
+                : "var(--nexus-widget-text-secondary, #8E8E89)",
               cursor: "pointer",
               display: "flex",
               fontFamily: '"Geist", system-ui, sans-serif',
@@ -274,7 +289,8 @@ function UnifiedTokenLogoBadge({
               backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
               border: "1px solid var(--nexus-widget-border, #E8E8E7)",
               borderRadius: "10px",
-              boxShadow: "0 10px 28px var(--nexus-widget-shadow-strong, rgba(22, 22, 21, 0.14))",
+              boxShadow:
+                "0 10px 28px var(--nexus-widget-shadow-strong, rgba(22, 22, 21, 0.14))",
               boxSizing: "border-box",
               ...tabularNums,
               left: popover.left,
@@ -459,7 +475,9 @@ function PercentHoverButton({
       }}
       style={{
         alignItems: "center",
-        backgroundColor: isHighlighted ? "var(--nexus-widget-primary-soft, #E8F0FF)" : "var(--nexus-widget-surface-raised, #F4F4F3)",
+        backgroundColor: isHighlighted
+          ? "var(--nexus-widget-primary-soft, #E8F0FF)"
+          : "var(--nexus-widget-surface-raised, #F4F4F3)",
         borderRadius: "6px",
         boxSizing: "border-box",
         display: "flex",
@@ -788,10 +806,8 @@ export function SwapIdleForm({
     const token = fromTokens[index];
     if (!token) return;
 
-    const tokenBalance =
-      parseDecimal(token.balance)?.toNumber() ?? 0;
-    const fiatBalance =
-      parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
+    const tokenBalance = parseDecimal(token.balance)?.toNumber() ?? 0;
+    const fiatBalance = parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
     const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
     if (price === 0) return;
 
@@ -817,10 +833,8 @@ export function SwapIdleForm({
     if (!token || !token.userAmount) return 0;
     const quotedUsd = parseDecimal(token.userAmountUsd);
     if (quotedUsd && quotedUsd.gte(0)) return quotedUsd.toNumber();
-    const tokenBalance =
-      parseDecimal(token.balance)?.toNumber() ?? 0;
-    const fiatBalance =
-      parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
+    const tokenBalance = parseDecimal(token.balance)?.toNumber() ?? 0;
+    const fiatBalance = parseDecimal(token.balanceInFiat)?.toNumber() ?? 0;
     const price = tokenBalance > 0 ? fiatBalance / tokenBalance : 0;
     const amountNumber = Number(token.userAmount || 0);
     if (!Number.isFinite(amountNumber)) return 0;
@@ -1262,12 +1276,17 @@ export function SwapIdleForm({
                         onClick={() => onOpenSourcePicker(index)}
                         style={{
                           alignItems: "center",
-                          backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
-                          borderColor: token ? "var(--nexus-widget-border, #E8E8E7)" : "var(--nexus-widget-border-empty, #C8C8C7)",
+                          backgroundColor:
+                            "var(--nexus-widget-surface-raised, #FFFFFE)",
+                          borderColor: token
+                            ? "var(--nexus-widget-border, #E8E8E7)"
+                            : "var(--nexus-widget-border-empty, #C8C8C7)",
                           borderRadius: "999px",
                           borderStyle: token ? "solid" : "dashed",
                           borderWidth: "1px",
-                          boxShadow: token ? "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px" : "none",
+                          boxShadow: token
+                            ? "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px"
+                            : "none",
                           boxSizing: "border-box",
                           display: "flex",
                           gap: "8px",
@@ -1322,14 +1341,15 @@ export function SwapIdleForm({
                         ) : (
                           <div
                             style={{
-                              borderColor: "var(--nexus-widget-border-empty, #C8C8C7)",
+                              borderColor:
+                                "var(--nexus-widget-border-empty, #C8C8C7)",
                               borderRadius: "999px",
                               borderStyle: "dashed",
                               borderWidth: "1.5px",
                               boxSizing: "border-box",
                               flexShrink: 0,
-                              height: "18px",
-                              width: "18px",
+                              height: "26px",
+                              width: "26px",
                             }}
                           />
                         )}
@@ -1365,7 +1385,8 @@ export function SwapIdleForm({
                           width: "18px",
                           height: "18px",
                           borderRadius: "999px",
-                          backgroundColor: "var(--nexus-widget-surface-raised, #F0F0EF)",
+                          backgroundColor:
+                            "var(--nexus-widget-surface-raised, #F0F0EF)",
                           border: "none",
                           display: "flex",
                           alignItems: "center",
@@ -1421,7 +1442,8 @@ export function SwapIdleForm({
                             <div
                               style={{
                                 boxSizing: "border-box",
-                                color: "var(--nexus-widget-text-secondary, #848483)",
+                                color:
+                                  "var(--nexus-widget-text-secondary, #848483)",
                                 fontFamily: '"Geist", system-ui, sans-serif',
                                 fontSize: "11px",
                                 lineHeight: "16px",
@@ -1468,7 +1490,8 @@ export function SwapIdleForm({
                             <div
                               style={{
                                 boxSizing: "border-box",
-                                color: "var(--nexus-widget-text-secondary, #848483)",
+                                color:
+                                  "var(--nexus-widget-text-secondary, #848483)",
                                 fontFamily: '"Geist", system-ui, sans-serif',
                                 fontSize: "11px",
                                 lineHeight: "16px",
@@ -1548,7 +1571,8 @@ export function SwapIdleForm({
                         <div
                           style={{
                             boxSizing: "border-box",
-                            color: "var(--nexus-widget-text-secondary, #848483)",
+                            color:
+                              "var(--nexus-widget-text-secondary, #848483)",
                             fontFamily: '"Geist", system-ui, sans-serif',
                             fontSize: "11px",
                             fontVariantNumeric: "tabular-nums",
@@ -1561,7 +1585,8 @@ export function SwapIdleForm({
                         <div
                           style={{
                             boxSizing: "border-box",
-                            color: "var(--nexus-widget-text-secondary, #848483)",
+                            color:
+                              "var(--nexus-widget-text-secondary, #848483)",
                             fontFamily: '"Geist", system-ui, sans-serif',
                             fontSize: "11px",
                             fontVariantNumeric: "tabular-nums",
@@ -1591,10 +1616,13 @@ export function SwapIdleForm({
                                         8,
                                     }),
                                 width: "198px",
-                                backgroundColor: "var(--nexus-widget-surface-raised, #fff)",
-                                border: "1px solid var(--nexus-widget-border, #E8E8E7)",
+                                backgroundColor:
+                                  "var(--nexus-widget-surface-raised, #fff)",
+                                border:
+                                  "1px solid var(--nexus-widget-border, #E8E8E7)",
                                 borderRadius: "12px",
-                                boxShadow: "0 4px 12px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.08))",
+                                boxShadow:
+                                  "0 4px 12px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.08))",
                                 padding: "12px",
                                 display: "flex",
                                 flexDirection: "column",
@@ -1607,7 +1635,8 @@ export function SwapIdleForm({
                                 style={{
                                   fontSize: "11px",
                                   fontWeight: 600,
-                                  color: "var(--nexus-widget-text-secondary, #848483)",
+                                  color:
+                                    "var(--nexus-widget-text-secondary, #848483)",
                                   letterSpacing: "0.06em",
                                   textTransform: "uppercase",
                                   marginBottom: "4px",
@@ -1619,7 +1648,8 @@ export function SwapIdleForm({
                               <div
                                 style={{
                                   fontSize: "14px",
-                                  color: "var(--nexus-widget-text-strong, #161615)",
+                                  color:
+                                    "var(--nexus-widget-text-strong, #161615)",
                                   lineHeight: "18px",
                                   fontFamily: '"Geist", system-ui, sans-serif',
                                 }}
@@ -1683,7 +1713,10 @@ export function SwapIdleForm({
           <div
             style={{
               alignSelf: "stretch",
-              color: sourceRouteStatus === "insufficient" ? "var(--nexus-widget-error-text, #D32F2F)" : brand,
+              color:
+                sourceRouteStatus === "insufficient"
+                  ? "var(--nexus-widget-error-text, #D32F2F)"
+                  : brand,
               fontFamily: '"Geist", system-ui, sans-serif',
               fontSize: "13px",
               fontWeight: 500,
@@ -1837,11 +1870,15 @@ export function SwapIdleForm({
               style={{
                 alignItems: "center",
                 backgroundColor: "var(--nexus-widget-surface-raised, #FFFFFE)",
-                borderColor: toToken ? "var(--nexus-widget-border, #E8E8E7)" : "var(--nexus-widget-border-empty, #C8C8C7)",
+                borderColor: toToken
+                  ? "var(--nexus-widget-border, #E8E8E7)"
+                  : "var(--nexus-widget-border-empty, #C8C8C7)",
                 borderRadius: "999px",
                 borderStyle: toToken ? "solid" : "dashed",
                 borderWidth: "1px",
-                boxShadow: toToken ? "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px" : "none",
+                boxShadow: toToken
+                  ? "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px"
+                  : "none",
                 boxSizing: "border-box",
                 display: "flex",
                 gap: "8px",
@@ -1895,8 +1932,8 @@ export function SwapIdleForm({
                     borderWidth: "1.5px",
                     boxSizing: "border-box",
                     flexShrink: 0,
-                    height: "18px",
-                    width: "18px",
+                    height: "26px",
+                    width: "26px",
                   }}
                 />
               )}
@@ -1996,10 +2033,12 @@ export function SwapIdleForm({
                       right: 0,
                       bottom: "calc(100% + 8px)",
                       width: "198px",
-                      backgroundColor: "var(--nexus-widget-surface-raised, #fff)",
+                      backgroundColor:
+                        "var(--nexus-widget-surface-raised, #fff)",
                       border: "1px solid var(--nexus-widget-border, #E8E8E7)",
                       borderRadius: "12px",
-                      boxShadow: "0 4px 12px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.08))",
+                      boxShadow:
+                        "0 4px 12px var(--nexus-widget-shadow-soft, rgba(0,0,0,0.08))",
                       padding: "12px",
                       display: "flex",
                       flexDirection: "column",
@@ -2107,7 +2146,8 @@ export function SwapIdleForm({
                   onClick={onOpenRecipientPicker}
                   style={{
                     alignItems: "center",
-                    backgroundColor: "var(--nexus-widget-primary-soft, #F4F6FF)",
+                    backgroundColor:
+                      "var(--nexus-widget-primary-soft, #F4F6FF)",
                     borderRadius: "4px",
                     boxSizing: "border-box",
                     display: "flex",
@@ -2121,7 +2161,8 @@ export function SwapIdleForm({
                   <div
                     style={{
                       boxSizing: "border-box",
-                      color: "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
+                      color:
+                        "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
                       fontFamily: '"Geist", system-ui, sans-serif',
                       fontSize: "13px",
                       fontWeight: 500,
