@@ -2,14 +2,18 @@
 
 import {
   type NexusClient,
+  type ExecuteParams,
+} from "@avail-project/nexus-core";
+import {
   type OnIntentHookData,
   type OnAllowanceHookData,
-  type ExecuteParams,
   type BridgeAndExecuteParams,
   type BridgeAndExecuteResult,
   type BridgeAndExecuteSimulationResult,
   type TokenBalance,
-} from "@avail-project/nexus-core";
+  type NexusClientWithCompat,
+  adaptIntentEvent,
+} from "../../nexus/better-intent-compat";
 import { formatTokenBalance, formatUnits } from "@avail-project/nexus-core/utils";
 import { CHAIN_METADATA } from "../../common/utils/constant";
 import { type BridgeStepType } from "../../common/types/transaction-flow";
@@ -354,7 +358,8 @@ const useDeposit = ({
     dispatch({ type: "setError", payload: null });
     try {
       if (!nexusSDK) throw new Error("Nexus SDK not initialized");
-      const amountBigInt = nexusSDK.convertTokenReadableAmountToBigInt(
+      const compatSDK = nexusSDK as NexusClientWithCompat;
+      const amountBigInt = compatSDK.convertTokenReadableAmountToBigInt!(
         inputs.amount,
         token,
         inputs.chain,
@@ -372,15 +377,16 @@ const useDeposit = ({
         waitForReceipt: true,
       };
 
-      const result: BridgeAndExecuteResult = await nexusSDK.bridgeAndExecute(
+      const result: BridgeAndExecuteResult = await compatSDK.bridgeAndExecute!(
         params,
         {
-          onIntent: (data) => {
+          onIntent: (data: any) => {
             intent.current = data as any;
           },
-          onEvent: (event) => {
+          onEvent: (rawEvent: any) => {
+            const event: any = adaptIntentEvent(rawEvent);
             if (event.type === "plan_preview" || event.type === "plan_confirmed") {
-              const list = event.plan.steps.map((step) => ({
+              const list = event.plan.steps.map((step: any) => ({
                 ...step,
                 type: step.type.toUpperCase(),
                 typeID: step.type.toUpperCase(),
@@ -469,7 +475,8 @@ const useDeposit = ({
     activeSimulationIdRef.current = requestId;
     setSimulating(true);
     try {
-      const amountBigInt = nexusSDK.convertTokenReadableAmountToBigInt(
+      const compatSDK = nexusSDK as NexusClientWithCompat;
+      const amountBigInt = compatSDK.convertTokenReadableAmountToBigInt!(
         amountToUse,
         token,
         inputs.chain,
@@ -485,7 +492,7 @@ const useDeposit = ({
         sources: inputs.selectedSources,
         execute: executeParams as Omit<ExecuteParams, "toChainId">,
       };
-      const sim = await nexusSDK.simulateBridgeAndExecute(params);
+      const sim = await compatSDK.simulateBridgeAndExecute?.(params);
       if (activeSimulationIdRef.current !== requestId) {
         return;
       }

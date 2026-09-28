@@ -13,7 +13,7 @@ import { Label } from "../../ui/label";
 import {
   type AllowanceHookSource,
   type OnAllowanceHookData,
-} from "@avail-project/nexus-core";
+} from "../../nexus/better-intent-compat";
 import { CHAIN_METADATA } from "../../common";
 import { formatTokenBalance, parseUnits } from "@avail-project/nexus-core/utils";
 import { useNexusError } from "../../common";

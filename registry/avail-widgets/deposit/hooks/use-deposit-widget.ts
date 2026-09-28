@@ -10,10 +10,14 @@ import type {
 } from "../types";
 import {
   ERROR_CODES,
-  type OnSwapIntentHookData,
   type SwapAndExecuteParams,
   type SwapAndExecuteResult,
 } from "@avail-project/nexus-core";
+import {
+  adaptIntentEvent,
+  adaptIntentHook,
+  type OnSwapIntentHookData,
+} from "../../nexus/better-intent-compat";
 import {
   SWAP_EXPECTED_STEPS,
   useNexusError,
@@ -96,6 +100,7 @@ export function useDepositWidget(
     getFiatValue,
     exchangeRate,
     resolveTokenUsdRate,
+    supportedChainsAndTokens,
   } = useNexus();
   const { address } = useAccount();
   const handleNexusError = useNexusError();
@@ -238,8 +243,9 @@ export function useDepositWidget(
       };
       let transactionSucceeded = false;
       nexusSDK
-        .swapAndExecute(inputsWithSources, {
-          onEvent: (event) => {
+        .swapAndExecute(inputsWithSources as any, {
+          onEvent: (rawEvent) => {
+            const event = adaptIntentEvent(rawEvent);
             if (
               event.type === "plan_preview" ||
               event.type === "plan_confirmed"
@@ -253,7 +259,7 @@ export function useDepositWidget(
               seed(list as any);
 
               // If swap is not required, handle as skipped
-              if (event.plan && !event.plan.swapRequired) {
+              if (event.plan && (event.plan as any).swapRequired === false) {
                 dispatch({ type: "setSkipSwap", payload: true });
                 dispatch({ type: "setStatus", payload: "executing" });
                 dispatch({
@@ -298,37 +304,33 @@ export function useDepositWidget(
               }
             }
           },
-          onIntent: (data) => {
-            const swapIntentData = data.intent.swapRequired
-              ? {
-                  allow: data.allow,
-                  deny: data.deny,
-                  intent:
-                    (data.intent as any).normalizedIntent ?? data.intent.swap,
-                  refresh: async (sources?: any) => {
-                    const refreshed = await data.refresh(sources);
-                    return refreshed.swapRequired
-                      ? (refreshed as any).normalizedIntent ?? refreshed.swap
-                      : (refreshed as any);
-                  },
-                }
-              : null;
-            swapIntent.current = swapIntentData as any;
-            dispatch({ type: "setIntentReady", payload: true });
+          hooks: {
+            onIntent: (rawIntentData: any) => {
+              const data = adaptIntentHook(
+                rawIntentData,
+                supportedChainsAndTokens ?? []
+              );
+              swapIntent.current = data;
+              dispatch({ type: "setIntentReady", payload: true });
+            },
           },
         })
         .then((data: SwapAndExecuteResult) => {
           suppressNextWidgetPreviewCancelError.current = false;
 
           // Extract source swaps from the result
-          const sourceSwapsFromResult = data.swapResult?.sourceSwaps ?? [];
+          const swapResult = (data as any).swapResult;
+          const sourceSwapsFromResult: any[] =
+            swapResult?.nativeTransactions ??
+            swapResult?.sourceSwaps ??
+            [];
           sourceSwapsFromResult.forEach((sourceSwap) => {
             const chainMeta =
               CHAIN_METADATA[sourceSwap.chainId as keyof typeof CHAIN_METADATA];
             const baseUrl = chainMeta?.blockExplorerUrls?.[0] ?? "";
-            const explorerUrl = baseUrl
-              ? `${baseUrl}/tx/${sourceSwap.txHash}`
-              : "";
+            const explorerUrl =
+              sourceSwap.txExplorerUrl ||
+              (baseUrl ? `${baseUrl}/tx/${sourceSwap.txHash}` : "");
             dispatch({
               type: "addSourceSwap",
               payload: {
@@ -347,9 +349,9 @@ export function useDepositWidget(
                 firstSourceSwap.chainId as keyof typeof CHAIN_METADATA
               ];
             const baseUrl = chainMeta?.blockExplorerUrls?.[0] ?? "";
-            const sourceExplorerUrl = baseUrl
-              ? `${baseUrl}/tx/${firstSourceSwap.txHash}`
-              : "";
+            const sourceExplorerUrl =
+              firstSourceSwap.txExplorerUrl ||
+              (baseUrl ? `${baseUrl}/tx/${firstSourceSwap.txHash}` : "");
             dispatch({
               type: "setExplorerUrls",
               payload: { sourceExplorerUrl },
@@ -361,7 +363,7 @@ export function useDepositWidget(
             CHAIN_METADATA[destination.chainId as keyof typeof CHAIN_METADATA];
           const destBaseUrl = destChainMeta?.blockExplorerUrls?.[0] ?? "";
           const destinationExplorerUrl =
-            data.swapResult?.intentExplorerUrl ??
+            swapResult?.intentExplorerUrl ??
             (data.execute?.txHash && destBaseUrl
               ? `${destBaseUrl}/tx/${data.execute.txHash}`
               : null);
@@ -376,7 +378,7 @@ export function useDepositWidget(
           // Store Nexus intent URL and deposit tx hash
           dispatch({
             type: "setNexusIntentUrl",
-            payload: data.swapResult?.intentExplorerUrl ?? null,
+            payload: swapResult?.intentExplorerUrl ?? null,
           });
           dispatch({
             type: "setDepositTxHash",

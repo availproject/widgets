@@ -1,7 +1,7 @@
 import type {
   ExecuteParams,
-  OnSwapIntentHookData,
 } from "@avail-project/nexus-core";
+import type { OnSwapIntentHookData } from "../nexus/better-intent-compat";
 import type { UserAsset } from "../nexus/NexusProvider";
 import type { SwapStepType } from "../common/types/transaction-flow";
 import type { Address } from "viem";

@@ -8,9 +8,7 @@ import {
 import {
   type SwapStepType,
 } from "../../common";
-import {
-  type OnSwapIntentHookData,
-} from "@avail-project/nexus-core";
+import type { LegacyIntentHookData } from "../../nexus/better-intent-compat";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { ChevronDown, ChevronUp, Info, MoveDown, XIcon } from "lucide-react";
 import { TokenIcon } from "./token-icon";
@@ -76,7 +74,7 @@ interface ViewTransactionProps {
   steps: GenericStep<SwapStepType>[];
   status: TransactionStatus;
   swapMode: SwapMode;
-  swapIntent: RefObject<OnSwapIntentHookData | null>;
+  swapIntent: RefObject<LegacyIntentHookData | null>;
   getFiatValue: (amount: number, token: string) => number;
   continueSwap: () => void | Promise<void>;
   exactOutSourceOptions: ExactOutSourceOption[];
@@ -150,7 +148,7 @@ const TokenBreakdown = ({
 
 interface MultiSourceBreakdownProps {
   getFiatValue: (amount: number, token: string) => number;
-  sources: NonNullable<OnSwapIntentHookData["intent"]>["sources"];
+  sources: LegacyIntentHookData["intent"]["sources"];
 }
 
 const MultiSourceBreakdown = ({

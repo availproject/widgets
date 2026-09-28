@@ -7,7 +7,7 @@ import {
 } from "../../ui/accordion";
 import {
   type BridgeIntent,
-} from "@avail-project/nexus-core";
+} from "../../nexus/better-intent-compat";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { Skeleton } from "../../ui/skeleton";
 import { useNexus } from "../../nexus/NexusProvider";
@@ -68,7 +68,7 @@ const FeeBreakdown: FC<FeeBreakdownProps> = ({
               <Skeleton className="h-5 w-24" />
             ) : (
               <p className="font-light text-base min-w-max">
-                {formatTokenBalance(intent.fees?.total, {
+                {formatTokenBalance(intent.fees?.total ?? "0", {
                   symbol: tokenSymbol,
                   decimals: intent?.destination?.token?.decimals,
                 })}
@@ -100,7 +100,7 @@ const FeeBreakdown: FC<FeeBreakdownProps> = ({
                       <Skeleton className="h-4 w-20" />
                     ) : (
                       <p className="text-sm font-light">
-                        {formatTokenBalance(value, {
+                        {formatTokenBalance(value ?? "0", {
                           symbol: tokenSymbol,
                           decimals: intent?.destination?.token?.decimals,
                         })}

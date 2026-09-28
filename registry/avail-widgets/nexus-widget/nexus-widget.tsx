@@ -9461,8 +9461,10 @@ function NexusWidgetInner({
               )
             : await nexusSDK.swapAndExecute(exactOutOperationInput as any, {
                 onEvent,
-                onIntent: (data) =>
-                  handleSwapIntentCallback(data, runId, quoteInputKey),
+                hooks: {
+                  onIntent: (data: any) =>
+                    handleSwapIntentCallback(data, runId, quoteInputKey),
+                },
               });
           const swapResult = result?.swapResult ?? result?.result ?? null;
           const swapSkipped = Boolean((result as any)?.swapSkipped);

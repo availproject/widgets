@@ -1,5 +1,6 @@
 import { type NexusNetwork, type NexusClient } from "@avail-project/nexus-core";
 import { formatUnits } from "@avail-project/nexus-core/utils";
+import { convertTokenReadableAmountToBigInt } from "../../nexus/better-intent-compat";
 import { SUPPORTED_CHAINS } from "./constant";
 import { type Address } from "viem";
 
@@ -35,12 +36,12 @@ export const clampAmountToMax = ({
 }): string => {
   if (!maxAmount) return amount;
   try {
-    const amountRaw = nexusSDK.convertTokenReadableAmountToBigInt(
+    const amountRaw = convertTokenReadableAmountToBigInt(
       amount,
       token,
       chainId,
     );
-    const maxRaw = nexusSDK.convertTokenReadableAmountToBigInt(
+    const maxRaw = convertTokenReadableAmountToBigInt(
       maxAmount,
       token,
       chainId,

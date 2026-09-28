@@ -9,13 +9,12 @@ import {
 } from "@/registry/avail-widgets/ui/dialog";
 import { Clock, LoaderPinwheel, SquareArrowOutUpRight } from "lucide-react";
 import { TOKEN_METADATA } from "../common";
-import { type IntentRecord } from "@avail-project/nexus-core";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/registry/avail-widgets/ui/badge";
 import { Button } from "@/registry/avail-widgets/ui/button";
 import { Card } from "@/registry/avail-widgets/ui/card";
 import { Separator } from "@/registry/avail-widgets/ui/separator";
-import useViewHistory from "./hooks/useViewHistory";
+import useViewHistory, { type IntentHistoryItem } from "./hooks/useViewHistory";
 import { useEffect, useState } from "react";
 
 const TOKEN_ICON_FALLBACKS: Record<string, string> = {
@@ -45,7 +44,7 @@ function resolveTokenMetadata(symbol?: string) {
   return { icon, name };
 }
 
-const SourceChains = ({ sources }: { sources: IntentRecord["sources"] }) => {
+const SourceChains = ({ sources }: { sources?: IntentHistoryItem["sources"] }) => {
   const sourceList = sources ?? [];
   return (
     <div className="flex items-center">
@@ -96,11 +95,12 @@ const StatusBadge = ({ status }: { status: string }) => {
 const DestinationToken = ({
   destination,
 }: {
-  destination: IntentRecord["destinations"];
+  destination?: IntentHistoryItem["destinations"];
 }) => {
+  const destinationList = destination ?? [];
   return (
     <div className="flex items-center">
-      {destination.map((dest, index) => {
+      {destinationList.map((dest, index) => {
         const tokenMeta = resolveTokenMetadata(dest.token.symbol);
         return (
           <div
@@ -109,7 +109,7 @@ const DestinationToken = ({
               "rounded-full transition-transform hover:scale-110",
               index > 0 && "-ml-2"
             )}
-            style={{ zIndex: destination.length - index }}
+            style={{ zIndex: destinationList.length - index }}
           >
             <img
               src={tokenMeta.icon}
@@ -157,20 +157,24 @@ const ViewHistory = ({
         <>
           {displayedHistory?.map((pastIntent) => (
             <Card
-              key={pastIntent.requestHash}
+              key={pastIntent.id ?? pastIntent.requestHash}
               className="p-4 hover:shadow-md transition-shadow duration-200 border-border/50 gap-3"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <DestinationToken destination={pastIntent?.destinations} />
+                  {pastIntent.destinations && pastIntent.destinations.length > 0 ? (
+                    <DestinationToken destination={pastIntent.destinations} />
+                  ) : null}
                   <div className="flex flex-col">
                     <p className="text-sm font-medium">
-                      {pastIntent?.destinations
-                        .map((d) => d?.token?.symbol)
-                        .join(", ")}
+                      {pastIntent.destinations && pastIntent.destinations.length > 0
+                        ? pastIntent.destinations.map((d) => d?.token?.symbol).join(", ")
+                        : pastIntent.provider
+                          ? `${pastIntent.provider.toUpperCase()} Intent`
+                          : "Intent"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Intent #{pastIntent?.requestHash ? `${pastIntent.requestHash.slice(0, 10)}...` : ""}
+                      Intent #{pastIntent?.id ? `${pastIntent.id.slice(0, 10)}...` : ""}
                     </p>
                   </div>
                 </div>
@@ -181,21 +185,27 @@ const ViewHistory = ({
 
               <div className="flex flex-col sm:flex-row  items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center justify-between gap-x-3 flex-1 w-full sm:min-w-fit">
-                  <SourceChains sources={pastIntent?.sources} />
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="h-px w-8 bg-border" />
-                    <span className="text-xs">→</span>
-                    <div className="h-px w-8 bg-border" />
-                  </div>
-                  <div className="rounded-full hover:scale-110">
-                    <img
-                      src={pastIntent?.destinationChain?.logo ?? ""}
-                      alt={pastIntent?.destinationChain?.name}
-                      width={24}
-                      height={24}
-                      className="rounded-full"
-                    />
-                  </div>
+                  {pastIntent.sources && pastIntent.sources.length > 0 ? (
+                    <>
+                      <SourceChains sources={pastIntent.sources} />
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <div className="h-px w-8 bg-border" />
+                        <span className="text-xs">→</span>
+                        <div className="h-px w-8 bg-border" />
+                      </div>
+                    </>
+                  ) : null}
+                  {pastIntent?.destinationChain?.logo ? (
+                    <div className="rounded-full hover:scale-110">
+                      <img
+                        src={pastIntent.destinationChain.logo}
+                        alt={pastIntent.destinationChain.name}
+                        width={24}
+                        height={24}
+                        className="rounded-full"
+                      />
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center justify-between sm:justify-end  gap-x-2 w-full">
@@ -205,15 +215,17 @@ const ViewHistory = ({
                       {formatExpiryDate(pastIntent?.expiry)}
                     </p>
                   </div>
-                  <a
-                    href={pastIntent?.explorerUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Button variant="outline" size="icon">
-                      <SquareArrowOutUpRight className="size-4" />
-                    </Button>
-                  </a>
+                  {pastIntent?.explorerUrl ? (
+                    <a
+                      href={pastIntent.explorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Button variant="outline" size="icon">
+                        <SquareArrowOutUpRight className="size-4" />
+                      </Button>
+                    </a>
+                  ) : null}
                 </div>
               </div>
             </Card>

@@ -2,10 +2,8 @@
 
 import { useMemo } from "react";
 import type { DestinationConfig, AssetSelectionState } from "../types";
-import type {
-  OnSwapIntentHookData,
-  NexusClient as NexusSDK,
-} from "@avail-project/nexus-core";
+import type { NexusClient as NexusSDK } from "@avail-project/nexus-core";
+import type { OnSwapIntentHookData } from "../../nexus/better-intent-compat";
 import type { UserAsset } from "../../nexus/NexusProvider";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { CHAIN_METADATA } from "../../common/utils/constant";

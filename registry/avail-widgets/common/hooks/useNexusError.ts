@@ -1,4 +1,5 @@
 import { ERROR_CODES, NexusError } from "@avail-project/nexus-core";
+import { classifyIntentError } from "../../nexus/intent-error-classifier";
 
 const DEFAULT_ERROR_MESSAGE = "Oops! Something went wrong. Please try again.";
 const USER_REJECTED_MESSAGE = "Transaction was rejected in your wallet.";
@@ -6,8 +7,6 @@ const EMPTY_ERROR_MESSAGE =
   "Unable to determine transaction state. Please refresh and try again.";
 
 const ERROR_MESSAGE_BY_CODE: Partial<Record<string, string>> = {
-  [ERROR_CODES.INVALID_VALUES_ALLOWANCE_HOOK]:
-    "Invalid allowance selection. Please review allowance values and try again.",
   [ERROR_CODES.SDK_NOT_INITIALIZED]:
     "Nexus SDK is not initialized. Reconnect your wallet and try again.",
   [ERROR_CODES.SDK_INIT_STATE_NOT_EXPECTED]:
@@ -135,13 +134,24 @@ function handler(err: unknown) {
   }
 
   if (err instanceof NexusError) {
+    const classified = classifyIntentError(err);
     const mappedMessage =
-      ERROR_MESSAGE_BY_CODE[err.code] ?? sanitizeMessage(err.message);
+      ERROR_MESSAGE_BY_CODE[err.code] ?? (classified.bucket !== "unknown" ? classified.message : sanitizeMessage(err.message));
     return {
       code: err.code,
       message: mappedMessage,
       context: err.context,
       details: err.details,
+    };
+  }
+
+  const classified = classifyIntentError(err);
+  if (classified.bucket !== "unknown") {
+    return {
+      code: String(getErrorCode(err) ?? classified.bucket),
+      message: classified.message,
+      context: undefined,
+      details: undefined,
     };
   }
 

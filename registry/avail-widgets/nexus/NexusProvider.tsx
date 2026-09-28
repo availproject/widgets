@@ -1,17 +1,27 @@
 "use client";
 import {
-  type ChainBalance,
   createNexusClient,
   type EthereumProvider,
   type NexusClient,
   type NexusNetwork,
+} from "@avail-project/nexus-core";
+import { getCoinbaseRates } from "@avail-project/nexus-core/utils";
+import {
+  type ChainBalance,
+  convertTokenReadableAmountToBigInt,
+  type GetRouteSupportedChains,
+  type LegacyAllowanceHookData,
+  type LegacyIntentHookData,
+  normalizeIntentBalances,
+  normalizeSupportedChains,
   type OnAllowanceHookData,
   type OnIntentHookData,
   type OnSwapIntentHookData,
+  populateChainsWithTokens,
+  resolveTokenContractAddress,
   type SupportedChainsAndTokensResult,
   type TokenBalance,
-} from "@avail-project/nexus-core";
-import { getCoinbaseRates } from "@avail-project/nexus-core/utils";
+} from "./better-intent-compat";
 
 export type UserAsset = TokenBalance & {
   breakdown: (ChainBalance & {
@@ -73,6 +83,7 @@ interface NexusContextType {
   fetchBridgableBalance: () => Promise<void>;
   fetchSwapBalance: () => Promise<UserAsset[] | null>;
   getFiatValue: (amount: number, token: string) => number;
+  getRouteSupportedChains?: GetRouteSupportedChains;
   handleInit: (
     provider: EthereumProvider,
     accountAddress?: string,
@@ -108,10 +119,10 @@ type NexusProviderProps = {
   };
 };
 
-const defaultConfig: NexusProviderProps["config"] = {
-  // this is place to switch between "canary" and "mainnet"
-  network: "mainnet",
+const defaultConfig: Required<NexusProviderProps["config"]> = {
+  network: "canary",
   debug: true,
+  mode: "swap",
 };
 
 type SourceBalance = ChainBalance & {
@@ -176,13 +187,105 @@ const filterUnsupportedSwapSources = (
   });
 };
 
+const attachSdkCompat = (
+  client: NexusClient,
+  chainsRef: { current: SupportedChainsAndTokensResult | null }
+) => {
+  const c = client as any;
+  if (!c.convertTokenReadableAmountToBigInt) {
+    c.convertTokenReadableAmountToBigInt = (
+      amount: string,
+      tokenSymbol: string,
+      chainId: number
+    ) => {
+      return convertTokenReadableAmountToBigInt(
+        amount,
+        tokenSymbol,
+        chainId,
+        chainsRef.current
+      );
+    };
+  }
+  if (!c.bridge) {
+    c.bridge = async (params: any, options?: any) => {
+      const toTokenAddress = resolveTokenContractAddress(
+        params.toChainId,
+        params.toTokenSymbol,
+        chainsRef.current
+      );
+      return client.swapWithExactOut(
+        {
+          toAmountRaw: params.toAmountRaw,
+          toChainId: params.toChainId,
+          toTokenAddress,
+          sources: params.sources?.map((s: any) =>
+            typeof s === "number" ? { chainId: s } : s
+          ),
+        },
+        options
+      );
+    };
+  }
+  if (!c.bridgeAndTransfer) {
+    c.bridgeAndTransfer = async (params: any, options?: any) => {
+      const toTokenAddress = resolveTokenContractAddress(
+        params.toChainId,
+        params.toTokenSymbol,
+        chainsRef.current
+      );
+      const res = await client.swapWithExactOut(
+        {
+          toAmountRaw: params.toAmountRaw,
+          toChainId: params.toChainId,
+          toTokenAddress,
+          sources: params.sources?.map((s: any) =>
+            typeof s === "number" ? { chainId: s } : s
+          ),
+        },
+        options
+      );
+      return {
+        ...res,
+        bridgeSkipped: false,
+        bridgeResult: res,
+        execute: {
+          txExplorerUrl: res.intentExplorerUrl,
+        },
+      };
+    };
+  }
+  if (!c.bridgeAndExecute) {
+    c.bridgeAndExecute = async (params: any, options?: any) => {
+      const toTokenAddress = resolveTokenContractAddress(
+        params.toChainId,
+        params.toTokenSymbol,
+        chainsRef.current
+      );
+      return client.swapAndExecute(
+        {
+          toChainId: params.toChainId,
+          toTokenAddress,
+          toAmountRaw: params.toAmountRaw,
+          sources: params.sources?.map((s: any) =>
+            typeof s === "number" ? { chainId: s } : s
+          ),
+          execute: params.execute,
+        },
+        options
+      );
+    };
+  }
+  if (!c.getBalancesForBridge) {
+    c.getBalancesForBridge = async () => {
+      return client.getBalances();
+    };
+  }
+};
+
 const NexusProvider = ({
   children,
   config = defaultConfig,
 }: NexusProviderProps) => {
-  const configNetwork = config?.network;
-  const configDebug = config?.debug;
-  const configMode = config?.mode;
   const stableConfig = useMemo(
     () => ({ ...defaultConfig, ...config }),
     [config],
@@ -298,9 +401,11 @@ const NexusProvider = ({
     let cancelled = false;
     console.log("NEXUS CONFIG", stableConfig);
     const nextSdk = createNexusClient({
+      clientId: "nexus-elements",
       network: stableConfig.network,
       debug: stableConfig.debug,
     });
+    attachSdkCompat(nextSdk, supportedChainsAndTokens);
 
     void nextSdk
       .initialize()
@@ -314,7 +419,6 @@ const NexusProvider = ({
         }
         sdkRef.current = nextSdk;
         setSdk(nextSdk);
-        console.log("ChainList", nextSdk.chainList.chains);
         console.log("SupportedChains", nextSdk.getSupportedChains());
       })
       .catch((err) => {
@@ -387,8 +491,7 @@ const NexusProvider = ({
       }
     }
 
-    // 2. Explicit pegging fallback (e.g. WCBTC→BTC, WETH→ETH) — checked
-    //    BEFORE usdPeggedSymbols so the SDK's dynamic set can't override it.
+    // 2. Explicit pegging fallback (e.g. WCBTC→BTC, WETH→ETH)
     const baseSymbol = resolveBaseSymbol(normalizedSymbol);
     if (baseSymbol) {
       if (usdPeggedSymbols.current.has(baseSymbol) || baseSymbol === "USD") {
@@ -398,6 +501,7 @@ const NexusProvider = ({
           );
         return USD_PEGGED_FALLBACK_RATE;
       }
+
       for (const candidate of getCoinbaseSymbolCandidates(baseSymbol)) {
         const sdkRate = toFinitePositiveNumber(
           exchangeRate.current?.[candidate],
@@ -427,7 +531,7 @@ const NexusProvider = ({
         );
     }
 
-    // 3. Dynamic USD-pegged set (only if no explicit peg was defined)
+    // 3. Dynamic USD-pegged set
     if (!baseSymbol && usdPeggedSymbols.current.has(normalizedSymbol)) {
       if (_debug)
         console.debug(
@@ -452,8 +556,8 @@ const NexusProvider = ({
     let list: SupportedChainsAndTokensResult | null = null;
     let swapList: SupportedChainsAndTokensResult | null = null;
     try {
-      list = sdk.getSupportedChains();
-      swapList = sdk.getSupportedChains();
+      list = normalizeSupportedChains(sdk.getSupportedChains());
+      swapList = list;
     } catch (e) {
       console.warn(
         "SDK getSupportedChains failed (likely not initialized yet):",
@@ -466,6 +570,21 @@ const NexusProvider = ({
     usdPeggedSymbols.current = buildUsdPeggedSymbolSet(list);
     setSupportedChainsAndTokensState(list);
     setSwapSupportedChainsAndTokensState(swapList);
+
+    sdk
+      .getTokens({ limit: 1000 })
+      .then((tokenPage) => {
+        if (cancelled || !tokenPage?.tokens?.length || !list) {
+          return;
+        }
+        const enriched = populateChainsWithTokens(list, tokenPage.tokens);
+        supportedChainsAndTokens.current = enriched;
+        swapSupportedChainsAndTokens.current = enriched;
+        usdPeggedSymbols.current = buildUsdPeggedSymbolSet(enriched);
+        setSupportedChainsAndTokensState(enriched);
+        setSwapSupportedChainsAndTokensState(enriched);
+      })
+      .catch(() => {});
 
     void getCoinbaseRates()
       .then((rates) => {
@@ -519,8 +638,6 @@ const NexusProvider = ({
           const safeExistingUsd =
             Number.isFinite(existingUsd) && existingUsd >= 0 ? existingUsd : 0;
 
-          // For pegged tokens (e.g. wcBTC→BTC) the SDK may return a
-          // bogus 1:1 USD value — always recalculate with our rate.
           const hasPeg = Boolean(resolveBaseSymbol(entrySymbol));
 
           let normalizedUsd = safeExistingUsd;
@@ -671,11 +788,11 @@ const NexusProvider = ({
     const isCurrentSdkRun = () =>
       sdkRef.current === activeSdk &&
       initializedAccountAddress.current === activeAccountAddress;
-    const list = activeSdk.getSupportedChains();
+    const list = normalizeSupportedChains(activeSdk.getSupportedChains());
     supportedChainsAndTokens.current = list ?? null;
     setSupportedChainsAndTokensState(list ?? null);
     usdPeggedSymbols.current = buildUsdPeggedSymbolSet(list ?? null);
-    const swapList = activeSdk.getSupportedChains();
+    const swapList = list;
     swapSupportedChainsAndTokens.current = swapList ?? null;
     setSwapSupportedChainsAndTokensState(swapList ?? null);
     setBridgableBalanceLoading(true);
@@ -683,21 +800,35 @@ const NexusProvider = ({
     const balanceTiming = startBalanceFetchTiming("setup");
     let balanceTimingStatus: "resolved" | "failed" = "resolved";
     try {
-      const [bridgeAbleBalanceResult, swapBalanceResult, rates] =
+      const [tokensResult, swapBalanceResult, rates] =
         await Promise.allSettled([
-          activeSdk.getBalancesForBridge(),
+          activeSdk.getTokens({ limit: 1000 }).catch(() => null),
           activeSdk.getBalancesForSwap(),
           getCoinbaseRates(),
         ]);
+
+      let currentList = list;
+      if (
+        tokensResult?.status === "fulfilled" &&
+        tokensResult.value?.tokens &&
+        currentList
+      ) {
+        currentList = populateChainsWithTokens(
+          currentList,
+          tokensResult.value.tokens
+        );
+        supportedChainsAndTokens.current = currentList;
+        swapSupportedChainsAndTokens.current = currentList;
+        usdPeggedSymbols.current = buildUsdPeggedSymbolSet(currentList);
+        setSupportedChainsAndTokensState(currentList);
+        setSwapSupportedChainsAndTokensState(currentList);
+      }
 
       if (rates?.status === "fulfilled") {
         const usdPerUnit: Record<string, number> = {};
 
         for (const [symbol, value] of Object.entries(rates.value)) {
           const normalized = normalizeTokenSymbol(symbol);
-          // Skip tokens with an explicit peg (e.g. WCBTC→BTC) — the SDK
-          // may return a bogus 1:1 USD rate for these. Our pegging map
-          // will resolve them correctly via their base symbol.
           if (TOKEN_PRICE_PEGS[normalized]) continue;
 
           const unitsPerUsd = Number.parseFloat(String(value));
@@ -713,25 +844,23 @@ const NexusProvider = ({
         return;
       }
 
-      if (bridgeAbleBalanceResult.status === "fulfilled") {
-        setBridgableBalance(
-          normalizeUserAssetFiatValues(bridgeAbleBalanceResult.value),
-        );
-      }
-
       if (swapBalanceResult.status === "fulfilled") {
-        const rawSwapBalance = swapBalanceResult.value;
+        const rawSwapBalance = normalizeIntentBalances(
+          swapBalanceResult.value,
+          currentList ?? list ?? []
+        );
         const filteredSwapBalance = filterUnsupportedSwapSources(
           rawSwapBalance,
-          swapList,
+          currentList ?? swapList
         );
         const normalizedSwapBalance =
           normalizeUserAssetFiatValues(filteredSwapBalance);
         console.log(
           "[NexusProvider] getBalancesForSwap:init raw",
-          rawSwapBalance,
+          swapBalanceResult.value,
         );
         setSwapBalance(normalizedSwapBalance);
+        setBridgableBalance(normalizedSwapBalance);
       }
     } catch (error) {
       balanceTimingStatus = "failed";
@@ -744,7 +873,6 @@ const NexusProvider = ({
       }
     }
   }, [
-    config?.network,
     finishBalanceFetchTiming,
     normalizeUserAssetFiatValues,
     startBalanceFetchTiming,
@@ -758,9 +886,11 @@ const NexusProvider = ({
         const previousSdk = sdkRef.current;
         const shouldDestroyPreviousSdk = Boolean(previousSdk);
         const nextSdk = createNexusClient({
+          clientId: "nexus-elements",
           network: stableConfig.network,
           debug: stableConfig.debug,
         });
+        attachSdkCompat(nextSdk, supportedChainsAndTokens);
 
         await nextSdk.initialize();
         await nextSdk.setEVMProvider(provider);
@@ -905,14 +1035,18 @@ const NexusProvider = ({
       const activeAccountAddress = initializedAccountAddress.current;
       balanceTiming = startBalanceFetchTiming("bridge-refresh");
       setBridgableBalanceLoading(true);
-      const updatedBalance = await activeSdk.getBalancesForBridge();
+      const updatedBalance = await activeSdk.getBalancesForSwap();
       if (
         sdkRef.current !== activeSdk ||
         initializedAccountAddress.current !== activeAccountAddress
       ) {
         return;
       }
-      setBridgableBalance(normalizeUserAssetFiatValues(updatedBalance));
+      const rawBalance = normalizeIntentBalances(
+        updatedBalance,
+        supportedChainsAndTokens.current ?? []
+      );
+      setBridgableBalance(normalizeUserAssetFiatValues(rawBalance));
     } catch (error) {
       balanceTimingStatus = "failed";
       console.error("Error fetching bridgable balance:", error);
@@ -948,8 +1082,12 @@ const NexusProvider = ({
       ) {
         return null;
       }
-      const filteredSwapBalance = filterUnsupportedSwapSources(
+      const rawSwapBalance = normalizeIntentBalances(
         updatedBalance,
+        swapSupportedChainsAndTokens.current ?? []
+      );
+      const filteredSwapBalance = filterUnsupportedSwapSources(
+        rawSwapBalance,
         swapSupportedChainsAndTokens.current,
       );
       const normalizedSwapBalance =
@@ -959,6 +1097,7 @@ const NexusProvider = ({
         updatedBalance,
       );
       setSwapBalance(normalizedSwapBalance);
+      setBridgableBalance(normalizedSwapBalance);
       return normalizedSwapBalance;
     } catch (error) {
       balanceTimingStatus = "failed";
@@ -978,6 +1117,19 @@ const NexusProvider = ({
     normalizeUserAssetFiatValues,
     startBalanceFetchTiming,
   ]);
+
+  const getRouteSupportedChains = useCallback<GetRouteSupportedChains>(
+    async (constraints) => {
+      const activeSdk = sdkRef.current;
+      if (!activeSdk) {
+        throw new Error("Nexus SDK is not initialized");
+      }
+      return normalizeSupportedChains(
+        await activeSdk.getSupportedChainsForRoute(constraints)
+      );
+    },
+    []
+  );
 
   const getFiatValue = useCallback(
     (amount: number, token: string) => {
@@ -1033,6 +1185,7 @@ const NexusProvider = ({
       swapIntent,
       exchangeRate: exchangeRateState,
       getFiatValue,
+      getRouteSupportedChains,
       resolveTokenUsdRate,
     }),
     [
@@ -1045,7 +1198,7 @@ const NexusProvider = ({
       bridgableBalanceLoading,
       swapBalance,
       swapBalanceLoading,
-      stableConfig.network,
+      config?.network,
       loading,
       fetchBridgableBalance,
       fetchSwapBalance,
@@ -1053,6 +1206,7 @@ const NexusProvider = ({
       setIntent,
       exchangeRateState,
       getFiatValue,
+      getRouteSupportedChains,
       resolveTokenUsdRate,
       supportedChainsAndTokensState,
       swapSupportedChainsAndTokensState,

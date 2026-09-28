@@ -62,7 +62,7 @@ const SourceAssetSelect: FC<SourceAssetSelectProps> = ({
           "";
 
         tokens.push({
-          contractAddress: breakdown.contractAddress,
+          contractAddress: breakdown.contractAddress as `0x${string}`,
           decimals: breakdown.decimals ?? asset.decimals,
           logo: tokenLogo,
           name: tokenSymbol,

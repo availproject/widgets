@@ -1,8 +1,9 @@
+import { type NexusClient } from "@avail-project/nexus-core";
 import {
-  type NexusClient,
-  type OnAllowanceHookData,
-  type OnIntentHookData,
-} from "@avail-project/nexus-core";
+  convertTokenReadableAmountToBigInt,
+  type LegacyAllowanceHookData as OnAllowanceHookData,
+  type LegacyIntentHookData as OnIntentHookData,
+} from "../../nexus/better-intent-compat";
 import {
   type Dispatch,
   type RefObject,
@@ -198,14 +199,14 @@ export function useTransactionExecution({
         return;
       }
 
-      const amountBigInt = nexusSDK.convertTokenReadableAmountToBigInt(
+      const amountBigInt = convertTokenReadableAmountToBigInt(
         inputs.amount,
         inputs.token,
         inputs.chain,
       );
 
       if (configuredMaxAmount) {
-        const configuredMaxRaw = nexusSDK.convertTokenReadableAmountToBigInt(
+        const configuredMaxRaw = convertTokenReadableAmountToBigInt(
           configuredMaxAmount,
           inputs.token,
           inputs.chain,
@@ -228,7 +229,7 @@ export function useTransactionExecution({
         setStatus("error");
         return;
       }
-      const maxForSelectionRaw = nexusSDK.convertTokenReadableAmountToBigInt(
+      const maxForSelectionRaw = convertTokenReadableAmountToBigInt(
         maxForCurrentSelection,
         inputs.token,
         inputs.chain,

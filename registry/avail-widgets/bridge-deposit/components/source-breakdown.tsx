@@ -1,6 +1,6 @@
 import { CHAIN_METADATA } from "../../common";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
-import { type BridgeIntent } from "@avail-project/nexus-core";
+import { type BridgeIntent } from "../../nexus/better-intent-compat";
 import { type UserAsset } from "../../nexus/NexusProvider";
 import {
   Accordion,
@@ -67,7 +67,8 @@ const SourceBreakdown = ({
           contractAddress: "",
         },
       ];
-    const baseSources: ReadableIntentSource[] = (intent?.selectedSources ?? []).map((s) => ({
+    const rawBaseSources = (intent?.selectedSources ?? intent?.sources ?? []) as any[];
+    const baseSources: ReadableIntentSource[] = rawBaseSources.map((s: any) => ({
       chainID: s.chain.id,
       chainLogo: s.chain.logo,
       chainName: s.chain.name,
@@ -82,7 +83,8 @@ const SourceBreakdown = ({
     if (destUsed <= 0) {
       return baseSources;
     }
-    const allSources: ReadableIntentSource[] = (intent?.availableSources ?? []).map((s) => ({
+    const rawAllSources = ((intent as any)?.availableSources ?? intent?.sources ?? []) as any[];
+    const allSources: ReadableIntentSource[] = rawAllSources.map((s: any) => ({
       chainID: s.chain.id,
       chainLogo: s.chain.logo,
       chainName: s.chain.name,

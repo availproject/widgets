@@ -1,6 +1,6 @@
 import {
   type BridgeIntent,
-} from "@avail-project/nexus-core";
+} from "../../nexus/better-intent-compat";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { type UserAsset } from "../../nexus/NexusProvider";
 import {
@@ -278,9 +278,9 @@ const SourceBreakdown = ({
                     ? selectedSourceChains.length === 1
                     : false;
 
-                  const willUseFromIntent = intent?.selectedSources?.find(
-                    (s) => s.chain.id === chainId,
-                  )?.amount;
+                  const willUseFromIntent = (
+                    intent?.selectedSources ?? intent?.sources
+                  )?.find((s) => s.chain.id === chainId)?.amount;
 
                   return (
                     <div

@@ -1,7 +1,7 @@
 // biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 "use client";
-import type { SupportedChainsAndTokensResult } from "@avail-project/nexus-core";
+import type { SupportedChainsAndTokensResult } from "../../nexus/better-intent-compat";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import Decimal from "decimal.js";
 import {
