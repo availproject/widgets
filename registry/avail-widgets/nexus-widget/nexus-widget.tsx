@@ -1390,8 +1390,11 @@ const extractIntentIdFromUrl = (url?: string | null) => {
   if (!url) return undefined;
   const match = url.match(/(?:^|\/)(0x[a-fA-F0-9]{64}|\d+)(?:\/)?$/);
   if (!match) return undefined;
-  const parsed = Number(match[1]);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : match[1];
+  if (/^\d+$/.test(match[1])) {
+    const num = Number(match[1]);
+    if (Number.isSafeInteger(num) && num > 0) return num;
+  }
+  return match[1];
 };
 
 const getNonEmptyString = (...values: unknown[]) => {
@@ -2798,9 +2801,7 @@ function SwapReceiptPanel({
   const value = requestedExactOutValue || destination?.value;
   const displayAmount = requestedExactOutAmount || amount;
   const showIntentExplorer = hasValidIntentExplorer(entry);
-  const intentLabel = entry.intentId
-    ? `Intent #${entry.intentId}`
-    : "View Explorer";
+  const intentLabel = "View Intent";
   const sourceRows = getSourceRows(entry);
   const sourceCount = sourceRows.length;
   const sourceTotalUsd = sourceRows.reduce(

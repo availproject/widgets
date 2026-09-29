@@ -77,6 +77,7 @@ const getStepType = (step?: ProgressSdkStep) =>
 
 type ProgressStatusId =
   | "approveTokens"
+  | "intentVerified"
   | "swapTokens"
   | "receiveToken"
   | "action";
@@ -108,24 +109,32 @@ type ProgressListEventName =
 
 const STATUS_ORDER: ProgressStatusId[] = [
   "approveTokens",
+  "intentVerified",
   "swapTokens",
   "receiveToken",
   "action",
 ];
 
-const SWAP_APPROVAL_TYPES = ["ALLOWANCE"];
+const SWAP_APPROVAL_TYPES = [
+  "ALLOWANCE",
+  "ALLOWANCE_APPROVAL",
+  "ERC20_APPROVAL",
+  "SOURCE_APPROVAL_SIGNATURE",
+];
 
 const REFUND_ELIGIBLE_SWAP_TYPES = [
   "BRIDGE_INTENT_SUBMISSION",
   "BRIDGE_DEPOSIT",
+  "INTENT_SUBMISSION",
 ];
 
 const DESTINATION_SWAP_TYPES = [
   "DESTINATION_SWAP",
   "DESTINATION_SWAP_BATCH_TX",
   "DESTINATION_SWAP_HASH",
+  "INTENT_FULFILLMENT",
 ];
-const BRIDGE_FILL_RECEIVE_TYPES = ["BRIDGE_FILL"];
+const BRIDGE_FILL_RECEIVE_TYPES = ["BRIDGE_FILL", "INTENT_FULFILLMENT"];
 
 const getStatusForStep = (
   step: ProgressSdkStep | undefined,
@@ -142,12 +151,19 @@ const getStatusForStep = (
     return mode === "swap" && !hasTransferAction ? null : "action";
   }
 
-  if (type.includes("SWAP_START")) {
-    return "swapTokens";
-  }
-
   if (SWAP_APPROVAL_TYPES.some((token) => type.includes(token))) {
     return "approveTokens";
+  }
+
+  if (
+    type.includes("INTENT_SIGNATURE") ||
+    type.includes("REQUEST_SIGNING")
+  ) {
+    return "intentVerified";
+  }
+
+  if (type.includes("SWAP_START")) {
+    return "swapTokens";
   }
 
   if (
@@ -158,13 +174,19 @@ const getStatusForStep = (
     type.includes("BRIDGE_DEPOSIT") ||
     type.includes("BRIDGE_FILL") ||
     type.includes("BRIDGE_INTENT_SUBMISSION") ||
+    type.includes("INTENT_SUBMISSION") ||
+    type.includes("NATIVE_TRANSACTION") ||
     type.includes("SWAP_COMPLETE") ||
     type.includes("SWAP_SKIPPED")
   ) {
     return "swapTokens";
   }
 
-  if (type.includes("DESTINATION_SWAP") || type.includes("DESTINATION_BATCH")) {
+  if (
+    type.includes("DESTINATION_SWAP") ||
+    type.includes("DESTINATION_BATCH") ||
+    type.includes("INTENT_FULFILLMENT")
+  ) {
     return "receiveToken";
   }
 
@@ -370,19 +392,17 @@ export const buildStatusRows = ({
   if (approval.failed) failedStatus = "approveTokens";
   const refundEligibleFailure = Boolean(failedStep &&
     stepMatches(failedStep, REFUND_ELIGIBLE_SWAP_TYPES));
-  const hasSwapList =
-    swapListSteps.length > 0 ||
-    hasStepType(events, steps, [
-      "SWAP_START",
-      "DETERMINING_SWAP",
-      "SOURCE_SWAP",
-      "DESTINATION_SWAP",
-      "BRIDGE_DEPOSIT",
-      "BRIDGE_FILL",
-      "BRIDGE_INTENT_SUBMISSION",
-      "SWAP_COMPLETE",
-      "SWAP_SKIPPED",
-    ]);
+  const isExplicitSourceOnlyPlan =
+    currentPlan.length > 0 &&
+    currentPlan.every((step) => {
+      const type = getStepType(step);
+      return (
+        type.includes("SOURCE_SWAP") ||
+        type.includes("ALLOWANCE") ||
+        type === "TRANSACTION_SENT" ||
+        type === "TRANSACTION_CONFIRMED"
+      );
+    });
   const hasDestinationReceiveStep =
     countListedSteps(swapListSteps, DESTINATION_SWAP_TYPES) > 0 ||
     countListedSteps(fallbackSteps, DESTINATION_SWAP_TYPES) > 0 ||
@@ -391,10 +411,12 @@ export const buildStatusRows = ({
     ? DESTINATION_SWAP_TYPES
     : BRIDGE_FILL_RECEIVE_TYPES;
   const hasReceiveTokenStep =
-    hasDestinationReceiveStep ||
-    countListedSteps(swapListSteps, receiveTokenTypes) > 0 ||
-    countListedSteps(fallbackSteps, receiveTokenTypes) > 0 ||
-    hasProgressEventType(events, receiveTokenTypes);
+    !isExplicitSourceOnlyPlan &&
+    (hasDestinationReceiveStep ||
+      countListedSteps(swapListSteps, receiveTokenTypes) > 0 ||
+      countListedSteps(fallbackSteps, receiveTokenTypes) > 0 ||
+      hasProgressEventType(events, receiveTokenTypes) ||
+      currentPlan.length === 0);
   const receiveTokenStarted = events.some((event) =>
     !event.steps && stepMatches(event.step, receiveTokenTypes) &&
     !approval.pendingOwnerIds.has(getStepId(event.step)),
@@ -407,7 +429,7 @@ export const buildStatusRows = ({
   ]);
   const swapSkipped = hasCompletedType(events, steps, ["SWAP_SKIPPED"]);
   const shouldShowSwapRows =
-    hasSwapList && !(swapSkipped && (mode === "deposit" || mode === "send"));
+    !(swapSkipped && (mode === "deposit" || mode === "send"));
   const swapExecutionSteps = currentPlan.filter((step) =>
     getStatusForStep(step, mode, hasTransferAction) === "swapTokens",
   );
@@ -416,7 +438,7 @@ export const buildStatusRows = ({
     events.some((event) => !event.steps && event.completed && isSameStep(event.step, step)),
   );
   const swapTokensComplete = hasReceiveTokenStep
-    ? receiveTokenStarted
+    ? receiveTokenStarted || receiveTokenComplete
     : swapComplete || swapExecutionComplete;
   const transactionSent = hasCompletedType(events, steps, ["TRANSACTION_SENT"]) ||
     events.some((event) => !event.steps && getStepType(event.step) === "TRANSACTION_SENT" &&
@@ -424,6 +446,44 @@ export const buildStatusRows = ({
   const transactionConfirmed = hasCompletedType(events, steps, [
     "TRANSACTION_CONFIRMED",
   ]);
+
+  const intentVerifiedComplete =
+    hasCompletedType(events, steps, [
+      "INTENT_SIGNATURE",
+      "INTENT_SUBMISSION",
+      "REQUEST_SIGNING",
+      "REQUEST_SUBMISSION",
+      "BRIDGE_INTENT_SUBMISSION",
+      "SWAP_START",
+      "DETERMINING_SWAP",
+    ]) ||
+    hasStartedStatus(events, "swapTokens", mode, hasTransferAction) ||
+    hasStartedStatus(events, "receiveToken", mode, hasTransferAction) ||
+    hasEventType(events, [
+      "SOURCE_SWAP",
+      "SOURCE_SWAP_BATCH_TX",
+      "SOURCE_SWAP_HASH",
+      "BRIDGE_DEPOSIT",
+      "NATIVE_TRANSACTION",
+      "DESTINATION_SWAP",
+      "DESTINATION_SWAP_BATCH_TX",
+      "DESTINATION_SWAP_HASH",
+      "BRIDGE_FILL",
+      "INTENT_FULFILLMENT",
+      "SWAP_COMPLETE",
+    ]) ||
+    swapTokensComplete ||
+    receiveTokenComplete;
+
+  let intentVerifiedState: ProgressStatusState = "default";
+  if (failedStatus === "intentVerified") {
+    intentVerifiedState = "error";
+  } else if (intentVerifiedComplete) {
+    intentVerifiedState = "completed";
+  } else if (approvalCompletedCount >= approvalTotal) {
+    intentVerifiedState = "preapproval";
+  }
+
   const rows: ProgressStatusRow[] = [];
 
   const pushRow = (row: ProgressStatusRow) => {
@@ -464,6 +524,14 @@ export const buildStatusRows = ({
   }
 
   if (shouldShowSwapRows) {
+    pushRow({
+      id: "intentVerified",
+      state: intentVerifiedState,
+      description:
+        intentVerifiedState === "preapproval" ? "Sign intent in wallet" : undefined,
+      label: "Intent verified",
+    });
+
     const approvalsSatisfied = !approval.blocksSwapExecution;
     let state: ProgressStatusState = "default";
     if (failedStatus === "swapTokens") {
@@ -472,13 +540,16 @@ export const buildStatusRows = ({
       state = "completed";
     } else if (
       approvalsSatisfied &&
-      (hasStartedStatus(events, "swapTokens", mode, hasTransferAction) ||
+      (intentVerifiedComplete ||
+        hasStartedStatus(events, "swapTokens", mode, hasTransferAction) ||
         hasEventType(events, [
           "DESTINATION_SWAP_BATCH_TX",
           "BRIDGE_DEPOSIT",
           "SOURCE_SWAP_BATCH_TX",
           "SOURCE_SWAP_HASH",
           "SWAP_START",
+          "NATIVE_TRANSACTION",
+          "INTENT_SUBMISSION",
         ]))
     ) {
       state = "inProgress";
@@ -488,15 +559,11 @@ export const buildStatusRows = ({
       id: "swapTokens",
       state,
       label:
-        state === "completed"
-          ? "Swaps completed"
-          : state === "error"
-            ? refundEligibleFailure
-              ? "Swap failed. Refund initiated"
-              : "Swap failed"
-            : state === "inProgress"
-              ? "Swaps in progress"
-              : "Swap tokens",
+        state === "error"
+          ? refundEligibleFailure
+            ? "Swap failed. Refund initiated"
+            : "Swap failed"
+          : "Collected on sources",
     });
 
     if (hasReceiveTokenStep) {
@@ -507,7 +574,7 @@ export const buildStatusRows = ({
             ? "error"
             : receiveTokenComplete
               ? "completed"
-              : receiveTokenStarted
+              : receiveTokenStarted || (swapTokensComplete && !receiveTokenComplete)
                 ? "inProgress"
                 : "default",
         label:
@@ -515,11 +582,7 @@ export const buildStatusRows = ({
             ? refundEligibleFailure
               ? "Destination swap failed. Refund initiated."
               : "Destination swap failed."
-            : receiveTokenComplete
-              ? `Received ${destinationSymbol} on ${destinationChain}`
-              : receiveTokenStarted
-                ? `Receiving ${destinationSymbol} on ${destinationChain}`
-                : `Receive ${destinationSymbol} on ${destinationChain}`,
+            : "Filled on destination",
       });
     }
   }
@@ -588,18 +651,22 @@ export const buildStatusRows = ({
   return orderedRows.map((row, index) => {
     if (index !== nextActiveIndex) return row;
     const nextState =
-      row.id === "approveTokens" || row.id === "action"
+      row.id === "approveTokens" || row.id === "action" || row.id === "intentVerified"
         ? "preapproval"
         : "inProgress";
     return {
       ...row,
       description:
-        nextState === "preapproval" ? "Approve in wallet" : undefined,
+        nextState === "preapproval"
+          ? row.id === "intentVerified"
+            ? "Sign intent in wallet"
+            : "Approve in wallet"
+          : undefined,
       label:
         row.id === "swapTokens"
-          ? "Swaps in progress"
+          ? "Collected on sources"
           : row.id === "receiveToken"
-            ? `Receiving ${destinationSymbol} on ${destinationChain}`
+            ? "Filled on destination"
             : row.label,
       state: nextState,
     };

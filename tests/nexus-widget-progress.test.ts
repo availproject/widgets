@@ -109,3 +109,42 @@ test("destination approval waits for cross-chain funds without blocking bridge p
   events.push(progress(fill, "completed"));
   assert.equal(row(events, "approveTokens")?.state, "preapproval");
 });
+
+test("initial execution with empty events shows milestone rows and prompts intent signature", () => {
+  const emptyEventsRows = rows([]);
+  assert.equal(emptyEventsRows.length, 4);
+  assert.equal(emptyEventsRows[0]?.id, "intentVerified");
+  assert.equal(emptyEventsRows[0]?.state, "preapproval");
+  assert.equal(emptyEventsRows[0]?.description, "Sign intent in wallet");
+  assert.equal(emptyEventsRows[0]?.label, "Intent verified");
+
+  assert.equal(emptyEventsRows[1]?.id, "swapTokens");
+  assert.equal(emptyEventsRows[1]?.state, "default");
+  assert.equal(emptyEventsRows[1]?.label, "Collected on sources");
+
+  assert.equal(emptyEventsRows[2]?.id, "receiveToken");
+  assert.equal(emptyEventsRows[2]?.state, "default");
+  assert.equal(emptyEventsRows[2]?.label, "Filled on destination");
+
+  assert.equal(emptyEventsRows[3]?.id, "action");
+  assert.equal(emptyEventsRows[3]?.state, "default");
+  assert.equal(emptyEventsRows[3]?.label, "Deposit USDT to Aave");
+});
+
+test("SDK v2 Better Intent events progress through milestones", () => {
+  const intentSignature = { id: "intent_signature", typeID: "intent_signature", type: "INTENT_SIGNATURE", chain };
+  const intentSubmission = { id: "intent_submission", typeID: "intent_submission", type: "INTENT_SUBMISSION", chain };
+  const intentFulfillment = { id: "intent_fulfillment", typeID: "intent_fulfillment", type: "INTENT_FULFILLMENT", chain };
+
+  const events: NexusWidgetProgressEvent[] = [progress(intentSignature, "confirmed")];
+  assert.equal(row(events, "intentVerified")?.state, "completed");
+  assert.equal(row(events, "swapTokens")?.state, "inProgress");
+
+  events.push(progress(intentSubmission, "confirmed"));
+  assert.equal(row(events, "swapTokens")?.state, "inProgress");
+
+  events.push(progress(intentFulfillment, "confirmed"));
+  assert.equal(row(events, "receiveToken")?.state, "completed");
+  assert.equal(row(events, "action")?.state, "preapproval");
+});
+
