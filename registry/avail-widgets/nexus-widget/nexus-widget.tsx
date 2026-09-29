@@ -47,6 +47,11 @@ import {
   TOKEN_METADATA,
 } from "../common/utils/constant";
 import { type UserAsset, useNexus } from "../nexus/NexusProvider";
+import {
+  adaptIntentHook,
+  adaptIntentEvent,
+  normalizeIntentQuote,
+} from "../nexus/better-intent-compat";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
 import { DepositFundingMethod } from "./components/deposit-funding-method";
@@ -163,7 +168,7 @@ interface SwapHistoryEntry {
   id: string;
   intentData: SwapIntentData | null;
   intentExplorerUrl?: string | null;
-  intentId?: number;
+  intentId?: number | string;
   mode: NexusWidgetMode;
   opportunity?: NexusWidgetDepositOpportunityMetadata;
   recipientAddress?: string;
@@ -1383,10 +1388,10 @@ const sortIntentSourcesByUsdDesc = (sources: SwapIntentData["sources"]) =>
 
 const extractIntentIdFromUrl = (url?: string | null) => {
   if (!url) return undefined;
-  const match = url.match(/(\d+)(?:\/)?$/);
+  const match = url.match(/(?:^|\/)(0x[a-fA-F0-9]{64}|\d+)(?:\/)?$/);
   if (!match) return undefined;
   const parsed = Number(match[1]);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : match[1];
 };
 
 const getNonEmptyString = (...values: unknown[]) => {
@@ -2013,8 +2018,11 @@ const isAutoRefundAvailableProgressEvent = (event?: NexusWidgetProgressEvent) =>
 const normalizeBridgeProvider = (
   value: unknown,
 ): BridgeProvider | undefined => {
-  if (value === "nexus" || value === "mayan" || value === null) {
-    return value;
+  if (value === "nexus-v2" || value === "nexus") {
+    return "nexus";
+  }
+  if (value === "mayan" || value === "relay" || value === null) {
+    return value as BridgeProvider;
   }
   return undefined;
 };
@@ -2428,7 +2436,18 @@ const normalizeRenderableSwapIntentData = (
     direct || normalizedIntent || nestedSwap
       ? null
       : normalizeSwapAndExecuteRequirementIntent(rawIntent);
-  const normalized = direct ?? normalizedIntent ?? nestedSwap ?? requirement;
+  const fromQuote =
+    direct || normalizedIntent || nestedSwap || requirement
+      ? null
+      : (rawIntent?.output && rawIntent?.input) || rawIntent?.quote
+        ? normalizeSwapIntentData(
+            normalizeIntentQuote(
+              rawIntent?.quote ?? rawIntent,
+              [],
+            ),
+          )
+        : null;
+  const normalized = direct ?? normalizedIntent ?? nestedSwap ?? requirement ?? fromQuote;
   if (!normalized) return null;
 
   return bridgeProvider === undefined
@@ -6893,9 +6912,17 @@ function NexusWidgetInner({
 
   const handleSwapIntentCallback = useCallback(
     (data: any, runId: number, quoteInputKey: string) => {
-      const { intent, allow, deny, refresh } = data;
+      const adaptedData =
+        data?.quote && !data?.intent
+          ? adaptIntentHook(
+              data,
+              (supportedChainsAndTokens ?? swapSupportedChainsAndTokens ?? []) as any,
+            )
+          : data;
+      const { intent, allow, deny, refresh } = adaptedData;
       const bridgeProvider = normalizeBridgeProvider(
         data?.bridgeProvider ??
+          data?.quote?.provider ??
           intent?.bridgeProvider ??
           intent?.normalizedIntent?.bridgeProvider ??
           intent?.swap?.bridgeProvider,
@@ -6951,6 +6978,8 @@ function NexusWidgetInner({
               const refreshed = await refresh(...args);
               const refreshedBridgeProvider = normalizeBridgeProvider(
                 refreshed?.bridgeProvider ??
+                  refreshed?.provider ??
+                  refreshed?.quote?.provider ??
                   refreshed?.normalizedIntent?.bridgeProvider ??
                   refreshed?.swap?.bridgeProvider ??
                   bridgeProvider,
@@ -6986,7 +7015,13 @@ function NexusWidgetInner({
         setPreviewQuoteRefreshing(false);
       });
     },
-    [applySwapIntent, finishIntentFetchTiming, providerSwapIntent],
+    [
+      applySwapIntent,
+      finishIntentFetchTiming,
+      providerSwapIntent,
+      supportedChainsAndTokens,
+      swapSupportedChainsAndTokens,
+    ],
   );
 
   // Deposit-specific
@@ -9018,8 +9053,9 @@ function NexusWidgetInner({
       onStepComplete(step);
     };
 
-    const handleSwapEvent = (event: any) => {
-      if (!event || typeof event !== "object") return;
+    const handleSwapEvent = (rawEvent: any) => {
+      if (!rawEvent || typeof rawEvent !== "object") return;
+      const event = adaptIntentEvent(rawEvent);
       if (typeof event.type === "string") {
         handlePlanEvent(event);
         return;
@@ -9165,7 +9201,7 @@ function NexusWidgetInner({
           toTokenAddress: toToken.contractAddress as `0x${string}`,
         };
         let intentExplorerUrl: string | null = null;
-        let intentId = currentSwapEntry?.intentId;
+        let intentId: number | string | undefined = currentSwapEntry?.intentId;
         let finalExplorerUrl: string | null =
           explorerUrlsRef.current.destinationExplorerUrl ||
           explorerUrlsRef.current.sourceExplorerUrl;
@@ -9583,30 +9619,37 @@ function NexusWidgetInner({
       }
     } catch (err: any) {
       const caughtTimeout = isTimeoutLikeError(err);
+      const hasActiveExecution =
+        swapStepRef.current === "progress" &&
+        Boolean(currentSwapIdRef.current);
+      const errMessage =
+        (typeof err?.message === "string" ? err.message : "") ||
+        (typeof err === "string" ? err : "");
+      const errName = typeof err?.name === "string" ? err.name : "";
+      const isTimeout = isTimeoutLikeError(err);
+      const isUserRejected =
+        err?.code === 4001 ||
+        err?.code === "ACTION_REJECTED" ||
+        err?.code === "USER_INTENT_HOOK_DENIED" ||
+        err?.code === "USER_DENIED_INTENT" ||
+        errName === "UserRejectedRequestError" ||
+        errName === "UserActionError" ||
+        /user rejected|user denied/i.test(errMessage);
+
+      if (swapRunIdRef.current !== runId || !isCurrentQuoteInput()) {
+        return;
+      }
+      if (isUserRejected && (!hasActiveExecution || background || swapStepRef.current === "idle")) {
+        return;
+      }
       if (caughtTimeout) {
         console.warn("Timeout in handleEnterPreview:", err);
       } else {
         console.error("Error in handleEnterPreview:", err);
       }
-      if (swapRunIdRef.current !== runId || !isCurrentQuoteInput()) {
-        return;
-      }
       finishIntentFetchTiming(runId, "failed");
       if (activeMode === "deposit" && err?.code !== "USER_DENIED_INTENT") {
-        const hasActiveExecution =
-          swapStepRef.current === "progress" &&
-          Boolean(currentSwapIdRef.current);
         const isInsufficient = isInsufficientSourcesError(err);
-        const errMessage =
-          (typeof err?.message === "string" ? err.message : "") ||
-          (typeof err === "string" ? err : "");
-        const errName = typeof err?.name === "string" ? err.name : "";
-        const isTimeout = isTimeoutLikeError(err);
-        const isUserRejected =
-          err?.code === 4001 ||
-          err?.code === "ACTION_REJECTED" ||
-          errName === "UserRejectedRequestError" ||
-          /user rejected|user denied/i.test(errMessage);
         const failedAtStep:
           | "simulation"
           | "nexus_operation"
@@ -9643,9 +9686,6 @@ function NexusWidgetInner({
       setQuoteRefreshing(false);
       setIntentLoading(false);
       setReceiveMaxCalculating(false);
-      const hasActiveExecution =
-        swapStepRef.current === "progress" && Boolean(currentSwapIdRef.current);
-      const isTimeout = caughtTimeout;
       const showFailedProgressThenReceipt = (
         error: string,
         patch: Partial<SwapHistoryEntry> = {},
@@ -9765,8 +9805,10 @@ function NexusWidgetInner({
       } else if (!background || swapStepRef.current === "preview-intent") {
         setSwapStep("idle");
       }
-      setTxError(errorMessage);
-      onError?.(errorMessage);
+      if (!isUserRejected || hasActiveExecution || swapStepRef.current !== "idle") {
+        setTxError(errorMessage);
+        onError?.(errorMessage);
+      }
     }
   };
 

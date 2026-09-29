@@ -4597,7 +4597,7 @@ export function DepositOnrampFlow({
           const result = await nexusSDK.swapWithExactOut(input, {
             hooks: {
               onIntent: (data: any) => {
-                logOnramp("sdk.intent", { sessionId, intent: data.intent });
+                logOnramp("sdk.intent", { sessionId, intent: data.intent, quote: data.quote });
                 try {
                   checkActive();
                 } catch {
@@ -4605,21 +4605,26 @@ export function DepositOnrampFlow({
                   return;
                 }
                 try {
-                  const spend = (data.intent?.sources ?? []).reduce(
+                  const sources = data.intent?.sources ?? data.quote?.input ?? [];
+                  const spend = sources.reduce(
                     (total: bigint, source: any) => {
+                      const chainId = source.chain?.id ?? source.chainId;
+                      const tokenAddress =
+                        source.token?.contractAddress ?? source.tokenAddress;
                       if (
-                        !isMatchingOnrampToken(
-                          toToken,
-                          source.chain.id,
-                          source.token.contractAddress,
-                        )
+                        !isMatchingOnrampToken(toToken, chainId, tokenAddress)
                       )
                         throw new Error(
                           "Gas quote uses an unexpected source token.",
                         );
-                      return (
-                        total + parseUnits(source.amount, source.token.decimals)
-                      );
+                      const rawAmount =
+                        source.amountRaw !== undefined
+                          ? BigInt(source.amountRaw)
+                          : parseUnits(
+                              source.amount,
+                              source.token?.decimals ?? source.decimals ?? 18,
+                            );
+                      return total + rawAmount;
                     },
                     BigInt(0),
                   );

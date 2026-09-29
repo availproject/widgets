@@ -51,7 +51,7 @@ export interface SwapIntentDestination {
   value?: string;
 }
 
-export type BridgeProvider = "nexus" | "mayan" | null;
+export type BridgeProvider = "nexus" | "nexus-v2" | "mayan" | "relay" | null;
 
 export interface SwapIntentData {
   bridgeProvider?: BridgeProvider;
