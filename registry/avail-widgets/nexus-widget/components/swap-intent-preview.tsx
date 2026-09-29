@@ -500,42 +500,6 @@ function InlineInfoTooltip({ message }: { message: string }) {
   );
 }
 
-function MayanPoweredBadge() {
-  return (
-    <div
-      style={{
-        alignItems: "center",
-        background: "var(--nexus-widget-primary-soft, #F3F6FF)",
-        border: "1px solid var(--nexus-widget-border, #E8EEFF)",
-        borderRadius: "8px",
-        color: brand,
-        display: "flex",
-        fontFamily,
-        fontSize: "12px",
-        fontWeight: 500,
-        gap: "4px",
-        lineHeight: "16px",
-        minHeight: "36px",
-        padding: "9px 12px",
-        width: "100%",
-      }}
-    >
-      <Info style={{ flexShrink: 0, height: 13, width: 13 }} />
-      <span style={{ flexShrink: 0 }}>This transaction is powered by</span>
-      <img
-        alt="Mayan"
-        src="https://files.availproject.org/widgets/assets/mayan_logo.svg"
-        style={{
-          display: "block",
-          height: "20px",
-          objectFit: "contain",
-          width: "auto",
-        }}
-      />
-    </div>
-  );
-}
-
 function Row({
   title,
   subtitle,
@@ -1329,8 +1293,6 @@ export function SwapIntentPreview({
         : "Swap now";
   const shouldPulseCta =
     !isLoading && !isRefreshing && !isExecuting && !quoteUnavailable;
-  const shouldShowMayanBadge =
-    !isDepositMode && intentData?.bridgeProvider === "mayan";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1870,8 +1832,6 @@ export function SwapIntentPreview({
           />
         </div>
       )}
-
-      {shouldShowMayanBadge && <MayanPoweredBadge />}
 
       <Button
         disabled={isLoading || isRefreshing || isExecuting || quoteUnavailable}
