@@ -258,15 +258,9 @@ export function useDepositWidget(
               }));
               seed(list as any);
 
-              // If swap is not required, handle as skipped
+              // If swap is not required, mark as skipped
               if (event.plan && (event.plan as any).swapRequired === false) {
                 dispatch({ type: "setSkipSwap", payload: true });
-                dispatch({ type: "setStatus", payload: "executing" });
-                dispatch({
-                  type: "setStep",
-                  payload: { step: "transaction-status", direction: "forward" },
-                });
-                stopwatch.start();
               }
             }
             if (event.type === "plan_progress") {
@@ -311,6 +305,11 @@ export function useDepositWidget(
                 supportedChainsAndTokens ?? []
               );
               swapIntent.current = data;
+              if (data?.intent?.swapRequired === false) {
+                dispatch({ type: "setSkipSwap", payload: true });
+              } else if (data?.intent?.swapRequired === true) {
+                dispatch({ type: "setSkipSwap", payload: false });
+              }
               dispatch({ type: "setIntentReady", payload: true });
             },
           },
@@ -701,6 +700,9 @@ export function useDepositWidget(
       const updated = await swapIntent.current?.refresh();
       if (updated) {
         swapIntent.current!.intent = updated;
+        if (updated.swapRequired !== undefined) {
+          dispatch({ type: "setSkipSwap", payload: !updated.swapRequired });
+        }
 
         dispatch({
           type: "setSimulation",

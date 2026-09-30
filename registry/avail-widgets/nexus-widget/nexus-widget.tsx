@@ -2418,8 +2418,15 @@ const normalizeSwapAndExecuteRequirementIntent = (
     ...intent,
     bridgeProvider: normalizeBridgeProvider(intent?.bridgeProvider),
     destination,
-    feesAndBuffer: intent?.feesAndBuffer,
+    feesAndBuffer: intent?.feesAndBuffer ?? {
+      buffer: "0",
+      bridge: {
+        caGas: "0",
+        total: "0",
+      },
+    },
     sources: [],
+    swapRequired: false,
   };
 };
 
@@ -2435,22 +2442,33 @@ const normalizeRenderableSwapIntentData = (
     direct || normalizedIntent
       ? null
       : normalizeSwapIntentData(rawIntent?.swap);
-  const requirement =
+  const fromQuote =
     direct || normalizedIntent || nestedSwap
       ? null
-      : normalizeSwapAndExecuteRequirementIntent(rawIntent);
-  const fromQuote =
-    direct || normalizedIntent || nestedSwap || requirement
-      ? null
-      : (rawIntent?.output && rawIntent?.input) || rawIntent?.quote
+      : rawIntent?.quote
         ? normalizeSwapIntentData(
             normalizeIntentQuote(
-              rawIntent?.quote ?? rawIntent,
+              rawIntent.quote,
               [],
             ),
           )
         : null;
-  const normalized = direct ?? normalizedIntent ?? nestedSwap ?? requirement ?? fromQuote;
+  const requirement =
+    direct || normalizedIntent || nestedSwap || fromQuote
+      ? null
+      : normalizeSwapAndExecuteRequirementIntent(rawIntent);
+  const fromOutputInput =
+    direct || normalizedIntent || nestedSwap || fromQuote || requirement
+      ? null
+      : (rawIntent?.output && rawIntent?.input)
+        ? normalizeSwapIntentData(
+            normalizeIntentQuote(
+              rawIntent,
+              [],
+            ),
+          )
+        : null;
+  const normalized = direct ?? normalizedIntent ?? nestedSwap ?? fromQuote ?? requirement ?? fromOutputInput;
   if (!normalized) return null;
 
   return bridgeProvider === undefined
@@ -6914,7 +6932,7 @@ function NexusWidgetInner({
   const handleSwapIntentCallback = useCallback(
     (data: any, runId: number, quoteInputKey: string) => {
       const adaptedData =
-        data?.quote && !data?.intent
+        data?.quote || (data?.intent && (!data?.intent?.destination || data?.intent?.executeRequirement))
           ? adaptIntentHook(
               data,
               (supportedChainsAndTokens ?? swapSupportedChainsAndTokens ?? []) as any,

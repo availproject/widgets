@@ -261,6 +261,13 @@ const attachSdkCompat = (
         params.toTokenSymbol,
         chainsRef.current
       );
+      const resolvedOptions = {
+        ...options,
+        hooks: {
+          ...options?.hooks,
+          ...(options?.onIntent ? { onIntent: options.onIntent } : {}),
+        },
+      };
       return client.swapAndExecute(
         {
           toChainId: params.toChainId,
@@ -271,7 +278,7 @@ const attachSdkCompat = (
           ),
           execute: params.execute,
         },
-        options
+        resolvedOptions
       );
     };
   }
