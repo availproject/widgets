@@ -59,32 +59,6 @@ const FLUID_ABI = [
   },
 ] as const;
 
-const MYSTIC_ABI = [
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "assets",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "onBehalf",
-        type: "address",
-      },
-    ],
-    name: "deposit",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-] as const;
 
 const ZENTRA_ABI = [
   {
@@ -365,40 +339,7 @@ const OPPORTUNITIES = {
     }),
   },
 
-  // 5. Mystic on Citrea (ctUSD)
-  "mystic-citrea-ctusd": {
-    label: "Mystic ctUSD (onramp not supported)",
-    protocol: "Mystic",
-    depositTargetLogo:
-      "https://files.availproject.org/nexus-elements/mystic.png",
-    chainId: 4114,
-    tokenSymbol: "ctUSD",
-    tokenAddress: "0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D" as const,
-    tokenDecimals: 18,
-    tokenLogo: "https://files.availproject.org/nexus-elements/ctUSD.svg",
-    executeDeposit: (
-      symbol: string,
-      tokenAddress: `0x${string}`,
-      amount: bigint,
-      chainId: number,
-      user: `0x${string}`,
-    ) => ({
-      to: "0x72f8C254548839Fa1Db4156aE01d8C6ae5885EE4" as const,
-      gas: BigInt(400_000),
-      data: encodeFunctionData({
-        abi: MYSTIC_ABI,
-        functionName: "deposit",
-        args: [amount, user],
-      }),
-      tokenApproval: {
-        toTokenAddress: tokenAddress,
-        amount,
-        spender: "0x72f8C254548839Fa1Db4156aE01d8C6ae5885EE4" as const,
-      },
-    }),
-  },
-
-  // 6. Zentra on Citrea (wcBTC)
+  // 5. Zentra on Citrea (wcBTC)
   "zentra-citrea-wcbtc": {
     label: "Zentra wcBTC (onramp not supported)",
     protocol: "Zentra",
