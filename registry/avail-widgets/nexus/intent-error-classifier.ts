@@ -35,6 +35,8 @@ const INSUFFICIENT_GAS_PATTERN =
   /gas required exceeds allowance|insufficient funds for gas/i;
 
 const quoteFailureMessages: Record<string, string> = {
+  INPUT_BELOW_DEPOSIT_FEE:
+    "The source amount is too small to cover the deposit fee. Increase the source amount.",
   INSUFFICIENT_APPROVAL_GAS:
     "You need more native gas on the source chain to approve this token.",
   INSUFFICIENT_BALANCE:
@@ -42,6 +44,8 @@ const quoteFailureMessages: Record<string, string> = {
   INTENT_REFUSED:
     "No provider can complete this route with the selected assets and amount. Try another amount, asset, or network.",
   NO_PROVIDERS_ENABLED: "No quote provider is enabled for this route.",
+  NO_ROUTE_TO_DESTINATION:
+    "No allowed provider supports this destination. Choose another destination supported by the allowed providers.",
   NO_ROUTABLE_SOURCE:
     "None of the selected assets can be used for this route. Try another source asset.",
   PROVIDER_UNAVAILABLE:
@@ -52,6 +56,8 @@ const quoteFailureMessages: Record<string, string> = {
     "A reliable price is not available for this route. Try another asset or network.",
   SAME_CHAIN_GAS_DROP_UNSUPPORTED:
     "This route cannot provide the requested destination gas.",
+  VALUE_ABOVE_CEILING:
+    "The swap value exceeds the supported provider limit. Reduce the swap value.",
 };
 
 const stringifyDetails = (value: unknown) => {
@@ -128,14 +134,26 @@ const classifyQuoteFailure = (
     ...quoteFailure.details,
   };
 
+  const maxValueUsd = quoteFailure.details?.maxValueUsd;
+  const customMessage =
+    quoteFailure.subcode === "VALUE_ABOVE_CEILING" &&
+    typeof maxValueUsd === "number"
+      ? `The swap value exceeds the provider limit ($${maxValueUsd.toLocaleString()}). Reduce the swap value.`
+      : quoteFailureMessages[quoteFailure.subcode];
+
+  const bucket: IntentErrorBucket =
+    quoteFailure.subcode === "INSUFFICIENT_BALANCE" ||
+    quoteFailure.subcode === "INSUFFICIENT_APPROVAL_GAS"
+      ? "insufficient_funds"
+      : quoteFailure.subcode === "VALUE_ABOVE_CEILING" ||
+        quoteFailure.subcode === "INPUT_BELOW_DEPOSIT_FEE"
+      ? "invalid_request"
+      : "quote_provider";
+
   return {
-    bucket:
-      quoteFailure.subcode === "INSUFFICIENT_BALANCE" ||
-      quoteFailure.subcode === "INSUFFICIENT_APPROVAL_GAS"
-        ? "insufficient_funds"
-        : "quote_provider",
+    bucket,
     message:
-      quoteFailureMessages[quoteFailure.subcode] ??
+      customMessage ??
       "A quote is not available for this route. Try another amount, asset, or network.",
     retryable: quoteFailure.retryable,
     technicalDetails: [

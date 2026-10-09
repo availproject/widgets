@@ -41,7 +41,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@avail-project/nexus-core": "github:availproject/nexus-sdk#99e470e5da7d31da3e8c1cef76f73339d48bdcf8",
+    "@avail-project/nexus-core": "github:availproject/nexus-sdk#406208886cbd1f24d9e4c83cc6166e32b5a37b24",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",

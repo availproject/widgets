@@ -40,6 +40,12 @@ const ERROR_MESSAGE_BY_CODE: Partial<Record<string, string>> = {
     "Simulation failed. Please review your inputs and try again.",
   [ERROR_CODES.BACKEND_GET_QUOTE_FAILED]:
     "Unable to fetch a quote right now. Please retry.",
+  [ERROR_CODES.BACKEND_NO_ROUTABLE_SOURCE]:
+    "None of the selected assets can be used for this route. Try another source asset.",
+  [ERROR_CODES.BACKEND_NO_ROUTE_TO_DESTINATION]:
+    "No allowed provider supports this destination. Choose another destination.",
+  [ERROR_CODES.BACKEND_INPUT_BELOW_DEPOSIT_FEE]:
+    "The source amount is too small to cover the deposit fee. Increase the source amount.",
   [ERROR_CODES.VAULT_CONTRACT_NOT_FOUND]:
     "Required vault contract is unavailable on this chain.",
   [ERROR_CODES.EXEC_SLIPPAGE_EXCEEDED]:
