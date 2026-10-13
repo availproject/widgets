@@ -54,6 +54,12 @@ const quoteFailureMessages: Record<string, string> = {
     "This quote was rejected because the price was outside the safe range.",
   QUOTE_PRICE_UNAVAILABLE:
     "A reliable price is not available for this route. Try another asset or network.",
+  PRICE_UNAVAILABLE:
+    "A reliable price is not available for this route. Try another asset or network.",
+  QUOTE_UNAVAILABLE:
+    "A quote is not available for this route. Try another amount, asset, or network.",
+  GET_QUOTE_FAILED:
+    "Unable to fetch a quote right now. Please retry.",
   SAME_CHAIN_GAS_DROP_UNSUPPORTED:
     "This route cannot provide the requested destination gas.",
   VALUE_ABOVE_CEILING:
@@ -115,10 +121,107 @@ export const isUserRejectedIntentError = (error: unknown) => {
   );
 };
 
+export interface RawIntentQuoteFailure {
+  code: string;
+  subcode: string;
+  errorId?: string;
+  retryable?: boolean;
+  sourceVerdicts?: Array<{
+    chainId?: number | string;
+    tokenAddress?: string;
+    tokenSymbol?: string;
+    state?: string;
+  }>;
+  providerReasons?: string[];
+  details?: Record<string, unknown>;
+}
+
+export const extractIntentQuoteFailure = (
+  error: unknown
+): RawIntentQuoteFailure | null => {
+  if (!error) return null;
+
+  try {
+    const sdkFailure = getIntentQuoteFailure(error);
+    if (sdkFailure) return sdkFailure as RawIntentQuoteFailure;
+  } catch {
+    // ignore
+  }
+
+  const err = error as any;
+  const candidate =
+    err?.intentQuoteFailure ??
+    err?.details?.intentQuoteFailure ??
+    err?.cause?.intentQuoteFailure ??
+    err?.cause?.details?.intentQuoteFailure;
+
+  if (
+    candidate &&
+    typeof candidate === "object" &&
+    typeof candidate.subcode === "string"
+  ) {
+    return candidate as RawIntentQuoteFailure;
+  }
+
+  const subcode =
+    err?.middlewareSubcode ??
+    err?.details?.middlewareSubcode ??
+    (typeof err?.code === "string" && err.code.startsWith("backend/")
+      ? err.code.replace("backend/", "").toUpperCase()
+      : undefined);
+  const code =
+    err?.middlewareCode ??
+    err?.details?.middlewareCode ??
+    (subcode ? "QUOTE_UNAVAILABLE" : undefined);
+
+  if (subcode && quoteFailureMessages[subcode]) {
+    const middlewareDetails =
+      err?.middlewareDetails ?? err?.details?.middlewareDetails;
+    return {
+      code: code ?? "QUOTE_UNAVAILABLE",
+      subcode,
+      errorId: err?.errorId ?? err?.details?.errorId,
+      retryable: Boolean(err?.retryable ?? err?.details?.retryable),
+      sourceVerdicts:
+        middlewareDetails?.sourceVerdicts ??
+        err?.sourceVerdicts ??
+        err?.details?.sourceVerdicts,
+      providerReasons:
+        middlewareDetails?.providerReasons ??
+        err?.providerReasons ??
+        err?.details?.providerReasons,
+      details: middlewareDetails ?? err?.details,
+    };
+  }
+
+  return null;
+};
+
+const getActionableProviderReason = (
+  reasons?: unknown
+): string | undefined => {
+  if (!Array.isArray(reasons)) return undefined;
+  for (const r of reasons) {
+    if (typeof r !== "string") continue;
+    const matchMin = r.match(/amount too small\s*\(([^)]+)\)/i);
+    if (matchMin) {
+      const minText = matchMin[1].replace(/^min\s*~?/i, "").trim();
+      return `Amount is too small for available providers (min ~${minText}). Increase the amount.`;
+    }
+    const genericMin = r.match(
+      /min(?:imum)?\s*(?:amount)?\s*(?:is|~|:)?\s*([0-9.]+\s*[A-Za-z0-9]+)/i
+    );
+    if (genericMin) {
+      return `Amount is too small for available providers (min ~${genericMin[1]}). Increase the amount.`;
+    }
+  }
+  return undefined;
+};
+
 const classifyQuoteFailure = (
   error: unknown
 ): ClassifiedIntentError | undefined => {
-  const quoteFailure = getIntentQuoteFailure(error);
+  const quoteFailure = extractIntentQuoteFailure(error);
   if (!quoteFailure) {
     return undefined;
   }
@@ -135,11 +238,16 @@ const classifyQuoteFailure = (
   };
 
   const maxValueUsd = quoteFailure.details?.maxValueUsd;
+  const actionableProviderReason = getActionableProviderReason(
+    quoteFailure.providerReasons
+  );
+
   const customMessage =
-    quoteFailure.subcode === "VALUE_ABOVE_CEILING" &&
+    actionableProviderReason ??
+    (quoteFailure.subcode === "VALUE_ABOVE_CEILING" &&
     typeof maxValueUsd === "number"
       ? `The swap value exceeds the provider limit ($${maxValueUsd.toLocaleString()}). Reduce the swap value.`
-      : quoteFailureMessages[quoteFailure.subcode];
+      : quoteFailureMessages[quoteFailure.subcode]);
 
   const bucket: IntentErrorBucket =
     quoteFailure.subcode === "INSUFFICIENT_BALANCE" ||
@@ -155,11 +263,13 @@ const classifyQuoteFailure = (
     message:
       customMessage ??
       "A quote is not available for this route. Try another amount, asset, or network.",
-    retryable: quoteFailure.retryable,
+    retryable: Boolean(quoteFailure.retryable),
     technicalDetails: [
-      `Middleware ${labels.join(" · ")}`,
+      labels.length > 0 ? `Middleware ${labels.join(" · ")}` : undefined,
       `Details:\n${stringifyDetails(details)}`,
-    ].join("\n"),
+    ]
+      .filter(Boolean)
+      .join("\n"),
   };
 };
 
@@ -168,6 +278,38 @@ const classifyNonQuoteError = (
   code: string,
   message: string
 ): ClassifiedIntentError => {
+  if (code.startsWith("backend/")) {
+    const subcode = code.replace("backend/", "").toUpperCase();
+    if (quoteFailureMessages[subcode]) {
+      return {
+        bucket:
+          subcode === "INSUFFICIENT_BALANCE" ||
+          subcode === "INSUFFICIENT_APPROVAL_GAS"
+            ? "insufficient_funds"
+            : subcode === "VALUE_ABOVE_CEILING" ||
+              subcode === "INPUT_BELOW_DEPOSIT_FEE"
+            ? "invalid_request"
+            : "quote_provider",
+        message: quoteFailureMessages[subcode],
+        retryable: false,
+        technicalDetails: getTechnicalDetails(value),
+      };
+    }
+  }
+
+  if (
+    /every provider refused/i.test(message) ||
+    /intent.+refused/i.test(message) ||
+    /quote.+unavailable/i.test(message)
+  ) {
+    return {
+      bucket: "quote_provider",
+      message: quoteFailureMessages.INTENT_REFUSED,
+      retryable: false,
+      technicalDetails: getTechnicalDetails(value),
+    };
+  }
+
   if (
     code === "validation/insufficient_balance" ||
     INSUFFICIENT_BALANCE_PATTERN.test(message)
