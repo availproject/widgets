@@ -32,7 +32,7 @@ interface SendIdleFormProps {
   recipientAddress: string;
   reserveSourceRows?: boolean;
   routeMessage?: string;
-  routeStatus?: "loading" | "insufficient";
+  routeStatus?: "loading" | "insufficient" | "error";
   showAutoBadge?: boolean;
   toToken?: SwapTokenOption;
   totalBalance: string;
@@ -281,7 +281,7 @@ function PayWithSources({
 }: {
   fromTokens: SwapTokenOption[];
   onOpenSourcePicker: () => void;
-  routeStatus?: "loading" | "insufficient";
+  routeStatus?: "loading" | "insufficient" | "error";
   routeMessage?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -533,16 +533,16 @@ function PayWithSources({
         </div>
       )}
 
-      {routeStatus === "insufficient" && routeMessage && (
+      {(routeStatus === "insufficient" || routeStatus === "error") && routeMessage && (
         <div
           style={{
             alignItems: "center",
             color: "var(--nexus-widget-error-text, #D32F2F)",
             display: "flex",
             fontFamily: uiFont,
-            fontSize: "15px",
+            fontSize: "14px",
             gap: "8px",
-            lineHeight: "20px",
+            lineHeight: "18px",
           }}
         >
           <AlertCircle style={{ flexShrink: 0, height: 15, width: 15 }} />

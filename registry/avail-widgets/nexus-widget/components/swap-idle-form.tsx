@@ -38,7 +38,7 @@ interface SwapIdleFormProps {
   receiveQuoteUsd?: string;
   recipientAddress?: string;
   sourceRouteMessage?: string;
-  sourceRouteStatus?: "loading" | "insufficient";
+  sourceRouteStatus?: "loading" | "insufficient" | "error";
   swapType: "exactIn" | "exactOut";
   toToken?: SwapTokenOption;
   totalBalance: string;
@@ -876,7 +876,9 @@ export function SwapIdleForm({
   const isExactIn = swapType === "exactIn";
   const showSourceRouteSkeleton = !isExactIn && sourceRouteStatus === "loading";
   const sourceRouteHelper =
-    sourceRouteStatus === "insufficient" ? sourceRouteMessage : undefined;
+    sourceRouteStatus === "insufficient" || sourceRouteStatus === "error"
+      ? sourceRouteMessage
+      : undefined;
   const receiveBalanceLabel = formatTokenBalanceLabel(toToken);
   const getReceiveUsdRate = () => {
     const quoteTokenAmount = parseDecimal(receiveQuoteAmount);
@@ -1714,7 +1716,7 @@ export function SwapIdleForm({
             style={{
               alignSelf: "stretch",
               color:
-                sourceRouteStatus === "insufficient"
+                sourceRouteStatus === "insufficient" || sourceRouteStatus === "error"
                   ? "var(--nexus-widget-error-text, #D32F2F)"
                   : brand,
               fontFamily: '"Geist", system-ui, sans-serif',
