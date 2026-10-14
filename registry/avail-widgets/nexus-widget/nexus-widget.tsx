@@ -6193,8 +6193,62 @@ function NexusWidgetInner({
     return sources.length > 0 ? { sources } : {};
   };
 
+  const buildPredictiveExactOutSourcesSync = (
+    requiredSourceUsd: Decimal,
+  ): SwapTokenOption[] => {
+    if (requiredSourceUsd.lte(0)) return [];
+
+    const destinationKey = getTokenSelectionKey(toToken);
+    const candidates = sortExactOutSourcesBySdkPriority(
+      getExactOutSourceTokens(
+        exactOutQuoteSourceModeRef.current,
+        requiredSourceUsd,
+      )
+        .filter((token) => getTokenSelectionKey(token) !== destinationKey)
+        .filter(
+          (token) =>
+            activeMode === "deposit" || hasMinimumSourceUsdBalance(token),
+        ),
+    );
+    const sources: SwapTokenOption[] = [];
+    let remainingUsd = requiredSourceUsd;
+
+    for (const token of candidates) {
+      if (remainingUsd.lte(0)) break;
+
+      const availableUsd = getTokenBalanceUsd(token);
+      if (activeMode !== "deposit" && availableUsd.lt(minimumSourceUsd)) continue;
+
+      const rate = getTokenUsdRate(token);
+      if (rate.lte(0)) continue;
+
+      const targetUsd = Decimal.min(remainingUsd, availableUsd);
+      const tokenAmount = targetUsd
+        .div(rate)
+        .toDecimalPlaces(Math.max(0, token.decimals || 18), Decimal.ROUND_DOWN);
+      if (tokenAmount.lte(0)) continue;
+
+      sources.push({
+        ...token,
+        userAmount: tokenAmount.toFixed(),
+        userAmountMode: "token",
+        userAmountUsd: targetUsd
+          .toDecimalPlaces(6, Decimal.ROUND_DOWN)
+          .toFixed(),
+      });
+      remainingUsd = remainingUsd.minus(targetUsd);
+    }
+
+    return remainingUsd.gt(0.01) ? [] : sources;
+  };
+
   const buildPredictiveExactOutSources = async (requiredSourceUsd: Decimal) => {
     if (requiredSourceUsd.lte(0)) return [];
+
+    const syncSources = buildPredictiveExactOutSourcesSync(requiredSourceUsd);
+    if (syncSources.length > 0) {
+      return syncSources;
+    }
 
     const destinationKey = getTokenSelectionKey(toToken);
     const candidates = sortExactOutSourcesBySdkPriority(
@@ -8029,15 +8083,65 @@ function NexusWidgetInner({
     const runId = ++predictiveQuoteRunRef.current;
     let cancelled = false;
 
+    // Fast-path: try computing synchronously from memory
+    const syncDestinationRate =
+      activeMode === "deposit"
+        ? getDepositTokenUsdRate()
+        : (toToken ? getTokenUsdRate(toToken) : new Decimal(0));
+
+    if (syncDestinationRate.gt(0)) {
+      const baseline = predictiveQuoteCacheRef.current[key];
+      const destinationAmount =
+        activeMode === "deposit" && depositAmountMode === "usd"
+          ? parsedAmount.div(syncDestinationRate)
+          : parsedAmount;
+      const destinationUsd =
+        activeMode === "deposit" && depositAmountMode === "usd"
+          ? parsedAmount
+          : destinationAmount.mul(syncDestinationRate);
+      const destinationCoverage = getExactOutDestinationBalanceCoverage({
+        requestedAmount: destinationAmount,
+        requestedUsd: destinationUsd,
+        token: toToken,
+      });
+      const destinationUsdNeedingSources = Decimal.max(
+        destinationUsd.minus(destinationCoverage?.usd ?? new Decimal(0)),
+        new Decimal(0),
+      );
+      const cachedSourceUsdRatio = parseFiatNumber(
+        baseline?.exactOutSourceUsdPerDestinationUsd,
+      );
+      const requiredSourceUsd = getPredictiveExactOutSourceTargetUsd(
+        destinationUsdNeedingSources,
+        cachedSourceUsdRatio,
+      );
+      const syncSources =
+        requiredSourceUsd.gt(0)
+          ? buildPredictiveExactOutSourcesSync(requiredSourceUsd)
+          : [];
+      if (requiredSourceUsd.lte(0) || syncSources.length > 0) {
+        setPredictiveQuote({
+          key,
+          mode: "exactOut",
+          sources: syncSources,
+          toAmount: getPredictiveDisplayAmount(destinationAmount, toToken),
+          toUsd: destinationUsd.toDecimalPlaces(6).toFixed(),
+        });
+        return;
+      }
+    }
+
     void (async () => {
       const baseline = predictiveQuoteCacheRef.current[key];
       const cachedDestinationRate = parseFiatNumber(
         baseline?.destinationUsdRate,
       );
       const destinationRate =
-        cachedDestinationRate && cachedDestinationRate.gt(0)
-          ? cachedDestinationRate
-          : await resolveUsdRateForToken(toToken);
+        syncDestinationRate.gt(0)
+          ? syncDestinationRate
+          : cachedDestinationRate && cachedDestinationRate.gt(0)
+            ? cachedDestinationRate
+            : await resolveUsdRateForToken(toToken);
 
       if (cancelled || runId !== predictiveQuoteRunRef.current) return;
       if (destinationRate.lte(0)) {
@@ -10535,10 +10639,9 @@ function NexusWidgetInner({
     applyReceiveAmountIssue(receiveIssue);
     const shouldLoadQuote = Boolean(
       !receiveIssue &&
-      nexusSDK &&
       nextAmount?.gt(0) &&
       toToken &&
-      selectedOpportunity,
+      (nexusSDK ? Boolean(selectedOpportunity) : true),
     );
     if (!receiveIssue) {
       clearPendingSwapIntent(true, { keepQuoteRefreshing: shouldLoadQuote });
@@ -10619,7 +10722,6 @@ function NexusWidgetInner({
       );
 
       if (nextAmount) {
-        setQuoteRefreshing(false);
         setReceiveMaxCalculating(false);
         setMaxCalculationPercent(null);
         setDepositAmountMode(nextAmount.mode);
@@ -10634,7 +10736,6 @@ function NexusWidgetInner({
       return;
     }
 
-    setQuoteRefreshing(false);
     setReceiveMaxCalculating(false);
     setMaxCalculationPercent(null);
     const maxAmount = getExactOutPercentAmountFromBalance(
@@ -10644,6 +10745,7 @@ function NexusWidgetInner({
     );
     if (runId !== maxPercentRunRef.current) return;
     if (!maxAmount) {
+      setQuoteRefreshing(false);
       setTxError("No depositable amount is available for this deposit.");
       return;
     }
@@ -10669,7 +10771,6 @@ function NexusWidgetInner({
       );
 
       if (nextAmount) {
-        setQuoteRefreshing(false);
         setReceiveMaxCalculating(false);
         setMaxCalculationPercent(null);
         handleSendAmountChange(nextAmount.amount);
@@ -10683,12 +10784,12 @@ function NexusWidgetInner({
       return;
     }
 
-    setQuoteRefreshing(false);
     setReceiveMaxCalculating(false);
     setMaxCalculationPercent(null);
     const maxAmount = getExactOutPercentAmountFromBalance(toToken, 100, false);
     if (runId !== maxPercentRunRef.current) return;
     if (!maxAmount) {
+      setQuoteRefreshing(false);
       setTxError("No transferable amount is available for this asset.");
       return;
     }
@@ -10727,19 +10828,14 @@ function NexusWidgetInner({
     !blockingQuoteIssue &&
     !hasCurrentExactOutPaymentIntent &&
     (quoteRefreshing || intentLoading || receiveMaxCalculating);
-  const isQuoteUnavailableForAutoSourceFlow =
-    isExactOutPaymentFlow &&
-    Boolean(hasPositiveDecimalInput(amount) && toToken) &&
-    !quoteRefreshing &&
-    !receiveMaxCalculating &&
-    !intentLoading &&
-    !blockingQuoteIssue &&
-    !hasCurrentExactOutPaymentIntent;
+  const isQuoteUnavailableForAutoSourceFlow = Boolean(quoteErrorIssue);
   const hasPositiveRootAmount = hasPositiveDecimalInput(amount);
   const hasReadySwapQuoteInput = hasReadyExactInSwapInput(fromTokens, toToken);
   const needsWalletConnection = !ownerAddress || !nexusSDK;
   const isExactOutPaymentQuotePending =
-    isExactOutPaymentFlow && (quoteRefreshing || intentLoading);
+    isExactOutPaymentFlow &&
+    Boolean(hasPositiveRootAmount && toToken) &&
+    !hasCurrentExactOutPaymentIntent;
   const walletConnectBusy =
     walletActionPending ||
     nexusLoading ||
@@ -10765,8 +10861,7 @@ function NexusWidgetInner({
       !toToken ||
       receiveMaxCalculating ||
       isExactOutPaymentQuotePending ||
-      (!hasCurrentExactOutPaymentIntent &&
-        isQuoteUnavailableForAutoSourceFlow) ||
+      !hasCurrentExactOutPaymentIntent ||
       Boolean(blockingQuoteIssue);
   const sendNeedsRecipient = activeMode === "send" && !recipientAddress;
   const isSendCtaDisabled = needsWalletConnection
@@ -10776,9 +10871,7 @@ function NexusWidgetInner({
       hasSameOwnerSendRecipient ||
       receiveMaxCalculating ||
       (!sendNeedsRecipient &&
-        (isExactOutPaymentQuotePending ||
-          (!hasCurrentExactOutPaymentIntent &&
-            isQuoteUnavailableForAutoSourceFlow))) ||
+        (isExactOutPaymentQuotePending || !hasCurrentExactOutPaymentIntent)) ||
       Boolean(blockingQuoteIssue);
   const quoteCtaLabel = (fallback: string) => {
     if (needsWalletConnection) return walletCtaLabel;
@@ -10787,6 +10880,14 @@ function NexusWidgetInner({
     if (receiveAmountIssue) return receiveAmountIssue.ctaLabel;
     if (configuredAmountIssue) return configuredAmountIssue.ctaLabel;
     if (receiveMaxCalculating) return "Calculating...";
+    if (
+      !hasCurrentExactOutPaymentIntent &&
+      isExactOutPaymentFlow &&
+      hasPositiveRootAmount &&
+      toToken
+    ) {
+      return "Fetching quotes...";
+    }
     if (
       isExactOutPaymentQuotePending ||
       (!hasCurrentExactOutPaymentIntent && (quoteRefreshing || intentLoading))
@@ -10930,7 +11031,6 @@ function NexusWidgetInner({
   );
   const shouldShowPredictiveExactOutDisplay =
     (activeMode === "deposit" || activeMode === "send") &&
-    (quoteRefreshing || intentLoading) &&
     !hasIntentSources &&
     Boolean(
       predictiveExactOutQuote &&
@@ -10986,7 +11086,9 @@ function NexusWidgetInner({
     !hasCurrentExactOutPaymentIntent &&
     Boolean(
       shouldShowPredictiveExactOutDisplay ||
-        (predictiveExactOutQuote && (intentLoading || quoteRefreshing)),
+        predictiveExactOutQuote ||
+        quoteRefreshing ||
+        intentLoading,
     );
   const isSourcePickerRefreshDisabled =
     quoteRefreshing || intentLoading || previewQuoteRefreshing;

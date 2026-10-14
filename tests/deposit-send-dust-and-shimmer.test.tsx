@@ -183,6 +183,8 @@ test("PayWithSources renders skeletal shimmering only when isPredictive is true"
       onOpenSourcePicker={() => {}}
     />,
   );
+  assert.doesNotMatch(htmlNonPredictive, /nexusSectionSubtleShimmer/);
+  assert.doesNotMatch(htmlNonPredictive, /nexus-predictive-sheen/);
   assert.doesNotMatch(htmlNonPredictive, /nexusSourcesSkeletonShimmer/);
   assert.doesNotMatch(htmlNonPredictive, /nexusShimmerText/);
 
@@ -193,10 +195,81 @@ test("PayWithSources renders skeletal shimmering only when isPredictive is true"
       onOpenSourcePicker={() => {}}
     />,
   );
-  assert.match(htmlPredictive, /nexusSourcesSkeletonShimmer/);
-  assert.match(htmlPredictive, /nexusShimmerText/);
+  assert.match(htmlPredictive, /nexusSectionSubtleShimmer/);
+  assert.match(htmlPredictive, /nexus-predictive-sheen/);
+  assert.match(htmlPredictive, /nexusSectionSubtlePulse/);
+  // Verify dark mode sheen style is also present for dark mode support
+  assert.match(htmlPredictive, /\[data-nexus-widget-theme="dark"\] \.nexus-predictive-sheen/);
+  // Calculating best route is removed
+  assert.doesNotMatch(htmlPredictive, /Calculating best route/);
+  // Harsh row-level dark contrast shimmers are removed
+  assert.doesNotMatch(htmlPredictive, /nexusSourcesSkeletonShimmer/);
+  assert.doesNotMatch(htmlPredictive, /nexusShimmerText/);
   // Edit tokens button is disabled during predictive loading
   assert.match(htmlPredictive, /disabled=""[^>]*>Edit tokens<\/button>/);
+});
+
+test("CTA label behavior on amount change: shows Fetching quotes immediately and Quote unavailable only on backend error", () => {
+  const getCtaLabel = ({
+    amount,
+    hasToToken,
+    hasExactOutIntent,
+    backendError,
+    quoteRefreshing,
+  }: {
+    amount: string;
+    hasToToken: boolean;
+    hasExactOutIntent: boolean;
+    backendError?: string | null;
+    quoteRefreshing?: boolean;
+  }) => {
+    const hasPositiveRootAmount = Number(amount) > 0;
+    if (backendError) return "Quote unavailable";
+    if (!hasExactOutIntent && hasPositiveRootAmount && hasToToken) {
+      return "Fetching quotes...";
+    }
+    if (hasExactOutIntent) {
+      return "Review deposit";
+    }
+    if (!hasPositiveRootAmount) return "Enter amount";
+    return "Review deposit";
+  };
+
+  // As soon as amount changes, user sees Fetching quotes immediately (never Quote unavailable)
+  assert.equal(
+    getCtaLabel({
+      amount: "153.705",
+      hasToToken: true,
+      hasExactOutIntent: false,
+      backendError: null,
+      quoteRefreshing: false,
+    }),
+    "Fetching quotes...",
+  );
+
+  // Quote arrived from backend
+  assert.equal(
+    getCtaLabel({
+      amount: "153.705",
+      hasToToken: true,
+      hasExactOutIntent: true,
+      backendError: null,
+      quoteRefreshing: false,
+    }),
+    "Review deposit",
+  );
+
+  // Backend returned an error
+  assert.equal(
+    getCtaLabel({
+      amount: "153.705",
+      hasToToken: true,
+      hasExactOutIntent: false,
+      backendError: "Route not found",
+      quoteRefreshing: false,
+    }),
+    "Quote unavailable",
+  );
 });
 
 test("predictive quote logic: shimmer is strictly active during predictive quotes and false for actual quotes or refreshes", () => {

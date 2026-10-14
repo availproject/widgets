@@ -371,29 +371,7 @@ function PayWithSources({
       </div>
 
       {isRouteLoading ? (
-        <>
-          <SkeletonRow />
-          <div
-            style={{
-              alignItems: "center",
-              color: brand,
-              display: "flex",
-              fontFamily: uiFont,
-              fontSize: "15px",
-              gap: "6px",
-            }}
-          >
-            <Loader2
-              className="animate-spin"
-              style={{
-                ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
-                height: 13,
-                width: 13,
-              }}
-            />
-            Calculating best route...
-          </div>
-        </>
+        <SkeletonRow />
       ) : shouldShowSourceSummary ? (
         <div style={{ position: "relative" }}>
           <div

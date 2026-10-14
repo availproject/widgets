@@ -233,6 +233,8 @@ export function PayWithSources({
         flexDirection: "column",
         gap: "14px",
         padding: "16px",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
       <div
@@ -296,43 +298,48 @@ export function PayWithSources({
       </div>
 
       {isPredictive && (
-        <style>
-          {`@keyframes nexusSourcesSkeletonShimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-          }
-          @keyframes nexusShimmerText {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-          }`}
-        </style>
+        <>
+          <style>
+            {`@keyframes nexusSectionSubtleShimmer {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+            @keyframes nexusSectionSubtlePulse {
+              0%, 100% { opacity: 0.78; }
+              50% { opacity: 0.98; }
+            }
+            .nexus-predictive-sheen {
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              pointer-events: none;
+              border-radius: inherit;
+              z-index: 2;
+              background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.45) 50%,
+                transparent 100%
+              );
+              animation: nexusSectionSubtleShimmer 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            }
+            [data-nexus-widget-theme="dark"] .nexus-predictive-sheen {
+              background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.08) 50%,
+                transparent 100%
+              );
+            }`}
+          </style>
+          <div className="nexus-predictive-sheen" aria-hidden="true" />
+        </>
       )}
 
       {isRouteLoading ? (
-        <>
-          <SkeletonRow />
-          <div
-            style={{
-              alignItems: "center",
-              color: brand,
-              display: "flex",
-              fontFamily: uiFont,
-              fontSize: "14px",
-              gap: "6px",
-              lineHeight: "20px",
-            }}
-          >
-            <Loader2
-              className="animate-spin"
-              style={{
-                ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
-                height: 14,
-                width: 14,
-              }}
-            />
-            Calculating best route...
-          </div>
-        </>
+        <SkeletonRow />
       ) : shouldShowSourceSummary ? (
         <div style={{ position: "relative" }}>
           <div
@@ -346,6 +353,9 @@ export function PayWithSources({
                 reserveSourceRows && !shouldScroll ? "162px" : undefined,
               overflowY: shouldScroll ? "auto" : undefined,
               paddingRight: shouldScroll ? "8px" : 0,
+              animation: isPredictive
+                ? "nexusSectionSubtlePulse 2.2s ease-in-out infinite"
+                : undefined,
             }}
           >
             {displayTokens.map((token, index) => (
@@ -357,15 +367,6 @@ export function PayWithSources({
                   gap: "14px",
                   justifyContent: "space-between",
                   minHeight: "44px",
-                  borderRadius: "8px",
-                  padding: isPredictive ? "6px 8px" : undefined,
-                  background: isPredictive
-                    ? "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #E6EEFF) 50%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)"
-                    : undefined,
-                  backgroundSize: isPredictive ? "200% 100%" : undefined,
-                  animation: isPredictive
-                    ? "nexusSourcesSkeletonShimmer 1.5s ease-in-out infinite"
-                    : undefined,
                 }}
               >
                 <div
@@ -375,7 +376,6 @@ export function PayWithSources({
                     display: "flex",
                     gap: "14px",
                     minWidth: 0,
-                    opacity: isPredictive ? 0.75 : 1,
                   }}
                 >
                   <div
@@ -446,17 +446,6 @@ export function PayWithSources({
                       fontSize: "14px",
                       fontWeight: 500,
                       lineHeight: "18px",
-                      background: isPredictive
-                        ? "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--nexus-widget-text-strong, #161615) 50%, var(--nexus-widget-text-secondary, #848483) 100%)"
-                        : undefined,
-                      backgroundSize: isPredictive ? "200% 100%" : undefined,
-                      WebkitBackgroundClip: isPredictive ? "text" : undefined,
-                      WebkitTextFillColor: isPredictive
-                        ? "transparent"
-                        : primary,
-                      animation: isPredictive
-                        ? "nexusShimmerText 1.5s ease-in-out infinite"
-                        : undefined,
                     }}
                   >
                     {formatToken(token.userAmount || token.balance)}{" "}
@@ -468,17 +457,6 @@ export function PayWithSources({
                       fontFamily: uiFont,
                       fontSize: "12px",
                       lineHeight: "18px",
-                      background: isPredictive
-                        ? "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--nexus-widget-text-strong, #161615) 50%, var(--nexus-widget-text-secondary, #848483) 100%)"
-                        : undefined,
-                      backgroundSize: isPredictive ? "200% 100%" : undefined,
-                      WebkitBackgroundClip: isPredictive ? "text" : undefined,
-                      WebkitTextFillColor: isPredictive
-                        ? "transparent"
-                        : muted,
-                      animation: isPredictive
-                        ? "nexusShimmerText 1.5s ease-in-out infinite"
-                        : undefined,
                     }}
                   >
                     {formatUsd(token.userAmountUsd || token.balanceInFiat)}
@@ -487,42 +465,6 @@ export function PayWithSources({
               </div>
             ))}
           </div>
-
-          {isPredictive && !isRouteLoading && (
-            <div
-              style={{
-                alignItems: "center",
-                color: brand,
-                display: "flex",
-                fontFamily: uiFont,
-                fontSize: "13px",
-                gap: "6px",
-                lineHeight: "18px",
-                marginTop: "10px",
-              }}
-            >
-              <Loader2
-                className="animate-spin"
-                style={{
-                  ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
-                  height: 13,
-                  width: 13,
-                }}
-              />
-              <span
-                style={{
-                  background:
-                    "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--foreground-brand) 50%, var(--nexus-widget-text-secondary, #848483) 100%)",
-                  backgroundSize: "200% 100%",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  animation: "nexusShimmerText 1.5s ease-in-out infinite",
-                }}
-              >
-                Calculating best route…
-              </span>
-            </div>
-          )}
           {shouldScroll && (
             <button
               aria-label="Scroll payment sources"
