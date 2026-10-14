@@ -978,3 +978,19 @@ test("first-prompt signature rejection with 4001 or ACTION_REJECTED publishes st
   }
 });
 
+test("failAttempt publishes widget_attempt_outcome with outcome: failed and error fields", async () => {
+  const h = harness();
+  try {
+    h.telemetry.beginAttempt("swapAndExecute");
+    h.telemetry.failAttempt({ code: "execution/slippage_exceeded" }, { committed: true });
+    // Calling failAttempt again is deduplicated
+    h.telemetry.failAttempt({ code: "execution/slippage_exceeded" });
+    const outcomes = h.records.filter(r => r.event === "widget_attempt_outcome");
+    assert.equal(outcomes.length, 1);
+    assert.equal(outcomes[0].properties.outcome, "failed");
+    assert.equal(outcomes[0].properties.outcomeAuthority, "browser");
+    assert.equal(outcomes[0].properties.committed, true);
+    assert.equal(outcomes[0].properties.reason, "slippage_exceeded");
+    assert.equal(outcomes[0].properties["error.code"], "execution/slippage_exceeded");
+  } finally { h.telemetry.dispose(); }
+});

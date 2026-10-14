@@ -443,6 +443,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       swaps.clear();
     },
     stopBeforeExecution(outcome: "stopped" | "rejected" = "stopped") { publisher?.stopBeforeExecution(outcome); },
+    failAttempt(error?: unknown, fields?: Record<string, unknown>) { publisher?.fail(error, fields); },
     supersedeQuote(runId: number | undefined) {
       if (runId === undefined) return;
       const call = swaps.get(runId);

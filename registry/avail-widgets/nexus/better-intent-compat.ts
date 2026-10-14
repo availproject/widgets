@@ -10,6 +10,8 @@ import type {
   IntentStepError,
   IntentToken,
   NexusClient,
+  SwapAndExecuteHookData,
+  SwapAndExecuteIntent,
 } from "@avail-project/nexus-core";
 import { formatUnits, parseUnits } from "@avail-project/nexus-core/utils";
 import Decimal from "decimal.js";
@@ -185,6 +187,11 @@ export interface LegacyIntent {
   }>;
   /** Total source amount when every source uses the same token symbol. */
   sourcesTotal?: string;
+  swapRequired?: boolean;
+  executeRequirement?: SwapAndExecuteIntent["executeRequirement"];
+  available?: SwapAndExecuteIntent["available"];
+  shortfall?: SwapAndExecuteIntent["shortfall"];
+  quote?: IntentQuote;
 }
 
 export type BridgeIntent = LegacyIntent;
@@ -653,33 +660,155 @@ export const normalizeIntentQuote = (
 
 const normalizeRefreshSources = (
   sources: number[] | IntentSource[] | undefined,
-  quote: IntentQuote
+  quote?: IntentQuote
 ): IntentSource[] | undefined => {
-  if (!sources || sources.length === 0) {
+  if (!sources) {
     return undefined;
+  }
+  if (sources.length === 0) {
+    return [];
   }
   if (typeof sources[0] !== "number") {
     return sources as IntentSource[];
   }
-  return (sources as number[]).flatMap((chainId) => {
-    const input = quote.input.find((entry) => entry.chainId === chainId);
-    return input ? [{ chainId, tokenAddress: input.tokenAddress }] : [];
+  return (sources as number[]).map((chainId) => {
+    const input = quote?.input?.find((entry) => entry.chainId === chainId);
+    return input
+      ? { chainId, tokenAddress: input.tokenAddress }
+      : ({ chainId } as IntentSource);
   });
 };
 
-export const adaptIntentHook = (
-  data: IntentHookData,
+export const normalizeSwapAndExecuteIntent = (
+  intent: SwapAndExecuteIntent,
   chains: SupportedChainsAndTokensResult
-): LegacyIntentHookData => ({
-  allow: data.allow,
-  deny: data.deny,
-  intent: normalizeIntentQuote(data.quote, chains),
-  refresh: async (sources) =>
-    normalizeIntentQuote(
-      await data.refresh(normalizeRefreshSources(sources, data.quote)),
-      chains
-    ),
-});
+): LegacyIntent => {
+  const req = intent.executeRequirement;
+  const chain = chainById(chains, req.chain.id);
+  const token = tokenByAddress(chains, req.chain.id, req.token.address);
+  const nativeCurrency =
+    chain?.nativeCurrency ?? CHAIN_METADATA[req.chain.id]?.nativeCurrency;
+
+  const executionGas = {
+    amount: req.gas.amount,
+    value: req.gas.valueUsd ?? "0",
+    token: {
+      contractAddress: req.gas.address as `0x${string}`,
+      decimals: req.gas.decimals,
+      symbol: req.gas.symbol || nativeCurrency?.symbol || "ETH",
+    },
+  };
+
+  if (intent.swapRequired && intent.quote) {
+    const normalizedQuote = normalizeIntentQuote(intent.quote, chains);
+    return {
+      ...normalizedQuote,
+      destination: {
+        ...normalizedQuote.destination,
+        gas: executionGas,
+      },
+      swapRequired: true,
+      executeRequirement: intent.executeRequirement,
+      available: intent.available,
+      shortfall: intent.shortfall,
+      quote: intent.quote,
+    };
+  }
+
+  const outputDecimals = req.token.decimals || token?.decimals || 18;
+  const zeroFees = {
+    caGas: "0",
+    caGasUsd: "0",
+    fulfillmentUsd: "0",
+    protocol: "0",
+    protocolUsd: "0",
+    solver: "0",
+    solverUsd: "0",
+    total: "0",
+    totalUsd: "0",
+  };
+
+  return {
+    bridgeProvider: null,
+    destination: {
+      amount: req.token.amount,
+      minAmount: req.token.amount,
+      minAmountUsd: req.token.valueUsd,
+      value: req.token.valueUsd,
+      chain: {
+        id: req.chain.id,
+        logo: req.chain.logo ?? chain?.logo ?? "",
+        name: req.chain.name ?? chain?.name ?? `Chain ${req.chain.id}`,
+      },
+      token: {
+        contractAddress: req.token.address as `0x${string}`,
+        decimals: outputDecimals,
+        logo: token?.logo,
+        symbol: req.token.symbol || token?.symbol || "",
+      },
+      gas: executionGas,
+    },
+    feesAndBuffer: {
+      buffer: "0",
+      bridge: zeroFees,
+    },
+    fees: zeroFees,
+    sources: [],
+    selectedSources: [],
+    swapRequired: false,
+    executeRequirement: intent.executeRequirement,
+    available: intent.available,
+    shortfall: intent.shortfall,
+  };
+};
+
+export const adaptIntentHook = (
+  data: IntentHookData | SwapAndExecuteHookData | any,
+  chains: SupportedChainsAndTokensResult
+): LegacyIntentHookData => {
+  if (data && "intent" in data && data.intent && typeof data.intent === "object") {
+    if (
+      "destination" in data.intent &&
+      "sources" in data.intent &&
+      !("executeRequirement" in data.intent)
+    ) {
+      return data as LegacyIntentHookData;
+    }
+    const intentObj = data.intent;
+    if (
+      "executeRequirement" in intentObj ||
+      "shortfall" in intentObj ||
+      "swapRequired" in intentObj
+    ) {
+      const swapAndExecuteData = data as SwapAndExecuteHookData;
+      return {
+        allow: swapAndExecuteData.allow,
+        deny: swapAndExecuteData.deny,
+        intent: normalizeSwapAndExecuteIntent(swapAndExecuteData.intent, chains),
+        refresh: async (sources) => {
+          const quote = swapAndExecuteData.intent.swapRequired
+            ? swapAndExecuteData.intent.quote
+            : undefined;
+          const normalizedSources = normalizeRefreshSources(sources, quote);
+          const refreshed = await swapAndExecuteData.refresh(normalizedSources);
+          return normalizeSwapAndExecuteIntent(refreshed, chains);
+        },
+      };
+    }
+  }
+
+  const intentData = data as IntentHookData;
+  return {
+    allow: intentData.allow,
+    deny: intentData.deny,
+    intent: normalizeIntentQuote(intentData.quote, chains),
+    refresh: async (sources) =>
+      normalizeIntentQuote(
+        await intentData.refresh(normalizeRefreshSources(sources, intentData.quote)),
+        chains
+      ),
+  };
+};
 
 export const adaptAllowanceHook = (
   data: IntentAllowanceHookData,

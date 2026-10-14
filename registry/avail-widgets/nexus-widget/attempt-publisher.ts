@@ -1,4 +1,5 @@
 import type { WidgetAttemptContext, WidgetAttemptEvidence, WidgetAttemptEvidenceSubscriber, WidgetTelemetryEventName } from "../nexus/widget-observability";
+import { classifyWidgetError } from "./error-classification";
 
 type Fields = Record<string, unknown>;
 type Stamp = { eventId: string; timestamp: number };
@@ -116,6 +117,21 @@ export function createWidgetAttemptPublisher(options: {
     accept() { executionStarted = true; },
     stopBeforeExecution(outcome: "stopped" | "rejected") {
       if (!executionStarted && !irreversibleActivity) stop(outcome, outcome === "rejected" ? "preview_rejected" : "explicit_cancel", "browser");
+    },
+    fail(error?: unknown, fields?: Fields) {
+      if (!active || terminal) return;
+      terminal = true;
+      const errProps = error ? classifyWidgetError(error) : {};
+      publish("widget_attempt_outcome", {
+        outcome: "failed",
+        outcomeAuthority: "browser",
+        committed: committed ? true : "unknown",
+        authoritative: true,
+        publicationSource: "browser",
+        evidenceSource: "browser",
+        ...errProps,
+        ...fields,
+      });
     },
     observeRejection(error: unknown) {
       try {

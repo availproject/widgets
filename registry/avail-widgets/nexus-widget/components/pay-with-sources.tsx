@@ -162,7 +162,7 @@ export function PayWithSources({
 }: {
   fromTokens: SwapTokenOption[];
   onOpenSourcePicker: () => void;
-  routeStatus?: "loading" | "insufficient";
+  routeStatus?: "loading" | "insufficient" | "error";
   routeMessage?: string;
   showAutoBadge?: boolean;
   isSourcePickerDisabled?: boolean;
@@ -446,7 +446,7 @@ export function PayWithSources({
         </div>
       )}
 
-      {routeStatus === "insufficient" && routeMessage && (
+      {(routeStatus === "insufficient" || routeStatus === "error") && routeMessage && (
         <div
           style={{
             alignItems: "center",
@@ -455,7 +455,7 @@ export function PayWithSources({
             fontFamily: uiFont,
             fontSize: "14px",
             gap: "8px",
-            lineHeight: "20px",
+            lineHeight: "18px",
           }}
         >
           <AlertCircle style={{ flexShrink: 0, height: 15, width: 15 }} />
