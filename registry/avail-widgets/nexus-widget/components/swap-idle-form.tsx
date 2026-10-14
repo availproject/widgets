@@ -9,6 +9,7 @@ import {
   formatSelectedTokenBalanceLabel,
   formatUsdBalanceLabel,
   type SwapTokenOption,
+  UnverifiedBadge,
 } from "./swap-asset-selector";
 
 const tabularNums: React.CSSProperties = {
@@ -1372,9 +1373,13 @@ export function SwapIdleForm({
                             fontSize: "16px",
                             fontWeight: 500,
                             lineHeight: "24px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
                           }}
                         >
                           {token ? token.symbol : "Assets"}
+                          {token?.verified === false && <UnverifiedBadge />}
                         </div>
                         <ChevronDownIcon />
                       </button>
@@ -1965,9 +1970,13 @@ export function SwapIdleForm({
                   fontSize: "16px",
                   fontWeight: 500,
                   lineHeight: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
                 {toToken ? toToken.symbol : "Assets"}
+                {toToken?.verified === false && <UnverifiedBadge />}
               </div>
               {!hideDestinationTokenDropdownIcon && <ChevronDownIcon />}
             </button>

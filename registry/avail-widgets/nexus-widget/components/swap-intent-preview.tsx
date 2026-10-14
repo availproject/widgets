@@ -15,7 +15,7 @@ import {
   type NexusWidgetMode,
 } from "../types";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
-import { type SwapTokenOption } from "./swap-asset-selector";
+import { type SwapTokenOption, UnverifiedBadge } from "./swap-asset-selector";
 
 export interface SwapIntentSource {
   amount: string;
@@ -236,12 +236,34 @@ const formatSymbolSummary = (symbols: string[]) => {
 };
 
 const sortSourceDetailRowsByUsdDesc = <
-  T extends { symbol?: string; usdAmount?: string },
+  T extends { symbol?: string; usdAmount?: string; verified?: boolean },
 >(
   rows: T[],
 ) =>
   [...rows].sort((a, b) => {
-    const usdDelta = toDecimal(b.usdAmount).cmp(toDecimal(a.usdAmount));
+    const aVerified = a.verified !== false;
+    const bVerified = b.verified !== false;
+    const aUsd = toDecimal(a.usdAmount);
+    const bUsd = toDecimal(b.usdAmount);
+    const aTier =
+      aVerified && aUsd.gt(0)
+        ? 0
+        : !aVerified && aUsd.gt(0)
+          ? 1
+          : aVerified
+            ? 2
+            : 3;
+    const bTier =
+      bVerified && bUsd.gt(0)
+        ? 0
+        : !bVerified && bUsd.gt(0)
+          ? 1
+          : bVerified
+            ? 2
+            : 3;
+    if (aTier !== bTier) return aTier - bTier;
+
+    const usdDelta = bUsd.cmp(aUsd);
     if (usdDelta !== 0) return usdDelta;
     return (a.symbol ?? "").localeCompare(b.symbol ?? "");
   });
@@ -1103,6 +1125,14 @@ export function SwapIntentPreview({
               displaySourceUsd !== undefined
                 ? formatUsdValue(displaySourceUsd)
                 : pendingValue,
+            verified:
+              (source as any).verified !== undefined
+                ? (source as any).verified !== false
+                : (source as any).token?.verified !== undefined
+                  ? (source as any).token.verified !== false
+                  : fallbackSource?.verified !== undefined
+                    ? fallbackSource.verified !== false
+                    : true,
             index,
           };
         })
@@ -1158,6 +1188,7 @@ export function SwapIntentPreview({
               displaySourceUsd !== undefined
                 ? formatUsdValue(displaySourceUsd)
                 : pendingValue,
+            verified: source.verified !== false,
             index,
           };
         });
@@ -1183,6 +1214,7 @@ export function SwapIntentPreview({
             displayOnlyDestinationSourceUsd !== undefined
               ? formatUsdValue(displayOnlyDestinationSourceUsd)
               : pendingValue,
+          verified: (toToken as any)?.verified !== false,
           index: baseSourceDetailRows.length,
         }
       : undefined;
@@ -1541,17 +1573,26 @@ export function SwapIntentPreview({
                             minWidth: 0,
                           }}
                         >
-                          <span
+                          <div
                             style={{
-                              color: primary,
-                              fontFamily,
-                              fontSize: "13px",
-                              fontWeight: 600,
-                              lineHeight: "16px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
                             }}
                           >
-                            {source.symbol}
-                          </span>
+                            <span
+                              style={{
+                                color: primary,
+                                fontFamily,
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                lineHeight: "16px",
+                              }}
+                            >
+                              {source.symbol}
+                            </span>
+                            {source.verified === false && <UnverifiedBadge />}
+                          </div>
                           <span
                             style={{
                               color: muted,

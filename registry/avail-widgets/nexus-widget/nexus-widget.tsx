@@ -1364,16 +1364,60 @@ const getSwapTokenBalanceUsdValue = (token: SwapTokenOption) =>
 
 const sortSwapTokensByUsdDesc = (tokens: SwapTokenOption[]) =>
   [...tokens].sort((a, b) => {
-    const usdDelta = getSwapTokenUsdValue(b).cmp(getSwapTokenUsdValue(a));
+    const aVerified = a.verified !== false;
+    const bVerified = b.verified !== false;
+    const aUsd = getSwapTokenUsdValue(a);
+    const bUsd = getSwapTokenUsdValue(b);
+
+    const aTier =
+      aVerified && aUsd.gt(0)
+        ? 0
+        : !aVerified && aUsd.gt(0)
+          ? 1
+          : aVerified
+            ? 2
+            : 3;
+    const bTier =
+      bVerified && bUsd.gt(0)
+        ? 0
+        : !bVerified && bUsd.gt(0)
+          ? 1
+          : bVerified
+            ? 2
+            : 3;
+    if (aTier !== bTier) return aTier - bTier;
+
+    const usdDelta = bUsd.cmp(aUsd);
     if (usdDelta !== 0) return usdDelta;
     return (a.symbol ?? "").localeCompare(b.symbol ?? "");
   });
 
 const sortDisplaySourcesByBalanceUsdDesc = (tokens: SwapTokenOption[]) =>
   [...tokens].sort((a, b) => {
-    const balanceUsdDelta = getSwapTokenBalanceUsdValue(b).cmp(
-      getSwapTokenBalanceUsdValue(a),
-    );
+    const aVerified = a.verified !== false;
+    const bVerified = b.verified !== false;
+    const aBalUsd = getSwapTokenBalanceUsdValue(a);
+    const bBalUsd = getSwapTokenBalanceUsdValue(b);
+
+    const aTier =
+      aVerified && aBalUsd.gt(0)
+        ? 0
+        : !aVerified && aBalUsd.gt(0)
+          ? 1
+          : aVerified
+            ? 2
+            : 3;
+    const bTier =
+      bVerified && bBalUsd.gt(0)
+        ? 0
+        : !bVerified && bBalUsd.gt(0)
+          ? 1
+          : bVerified
+            ? 2
+            : 3;
+    if (aTier !== bTier) return aTier - bTier;
+
+    const balanceUsdDelta = bBalUsd.cmp(aBalUsd);
     if (balanceUsdDelta !== 0) return balanceUsdDelta;
 
     const spendUsdDelta = getSwapTokenUsdValue(b).cmp(getSwapTokenUsdValue(a));
@@ -4796,6 +4840,14 @@ function NexusWidgetInner({
       userAmount: source.amount,
       userAmountUsd: Number.isFinite(sourceValue) ? source.value : undefined,
       userAmountMode: "token",
+      verified:
+        matchedBreakdown?.verified !== undefined
+          ? matchedBreakdown.verified !== false
+          : matchedAsset?.verified !== undefined
+            ? matchedAsset.verified !== false
+            : (source as any).token?.verified !== undefined
+              ? (source as any).token.verified !== false
+              : true,
     };
   };
 
@@ -5183,11 +5235,34 @@ function NexusWidgetInner({
 
   const sortExactOutSourcesBySdkPriority = (tokens: SwapTokenOption[]) =>
     [...tokens].sort((a, b) => {
+      const aVerified = a.verified !== false;
+      const bVerified = b.verified !== false;
+      const aUsd = getTokenBalanceUsd(a);
+      const bUsd = getTokenBalanceUsd(b);
+
+      const aTier =
+        aVerified && aUsd.gt(0)
+          ? 0
+          : !aVerified && aUsd.gt(0)
+            ? 1
+            : aVerified
+              ? 2
+              : 3;
+      const bTier =
+        bVerified && bUsd.gt(0)
+          ? 0
+          : !bVerified && bUsd.gt(0)
+            ? 1
+            : bVerified
+              ? 2
+              : 3;
+      if (aTier !== bTier) return aTier - bTier;
+
       const priorityDiff =
         getSdkExactOutSourcePriority(a) - getSdkExactOutSourcePriority(b);
       if (priorityDiff !== 0) return priorityDiff;
 
-      const usdDiff = getTokenBalanceUsd(b).cmp(getTokenBalanceUsd(a));
+      const usdDiff = bUsd.cmp(aUsd);
       if (usdDiff !== 0) return usdDiff;
 
       return `${a.symbol} ${a.chainName ?? ""}`.localeCompare(
@@ -5552,7 +5627,30 @@ function NexusWidgetInner({
 
   const sortUnifiedSourceTokens = (tokens: SwapTokenOption[]) =>
     [...tokens].sort((a, b) => {
-      const fiatDiff = getTokenBalanceUsd(b).cmp(getTokenBalanceUsd(a));
+      const aVerified = a.verified !== false;
+      const bVerified = b.verified !== false;
+      const aUsd = getTokenBalanceUsd(a);
+      const bUsd = getTokenBalanceUsd(b);
+
+      const aTier =
+        aVerified && aUsd.gt(0)
+          ? 0
+          : !aVerified && aUsd.gt(0)
+            ? 1
+            : aVerified
+              ? 2
+              : 3;
+      const bTier =
+        bVerified && bUsd.gt(0)
+          ? 0
+          : !bVerified && bUsd.gt(0)
+            ? 1
+            : bVerified
+              ? 2
+              : 3;
+      if (aTier !== bTier) return aTier - bTier;
+
+      const fiatDiff = bUsd.cmp(aUsd);
       if (fiatDiff !== 0) return fiatDiff;
       return getTokenBalanceAmount(b).cmp(getTokenBalanceAmount(a));
     });
@@ -5845,6 +5943,12 @@ function NexusWidgetInner({
             fiatBalance !== undefined
               ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
               : "$0.00",
+          verified:
+            breakdown.verified !== undefined
+              ? breakdown.verified !== false
+              : (asset as any).verified !== undefined
+                ? (asset as any).verified !== false
+                : true,
         } satisfies SwapTokenOption;
       }
     }

@@ -95,6 +95,7 @@ export interface ChainBalance {
   usableBalance?: string;
   balanceInFiat?: number;
   totalBalanceInFiat?: number;
+  verified?: boolean;
 }
 
 export interface TokenBalance {
@@ -109,6 +110,7 @@ export interface TokenBalance {
   usableBalance?: string;
   balanceInFiat?: number;
   totalBalanceInFiat?: number;
+  verified?: boolean;
 }
 
 export interface LegacyIntent {
@@ -483,22 +485,40 @@ export const normalizeIntentBalances = (
     if (!entry.usable) {
       continue;
     }
-    const readable = formatUnits(entry.balanceRaw, entry.decimals);
-    const chain = chainById(chains, entry.chainId);
-    const token = tokenByAddress(chains, entry.chainId, entry.tokenAddress);
+    const resolvedChainId =
+      typeof entry.chainId === "string"
+        ? Number.parseInt(String(entry.chainId).replace(/^EVM_/i, ""), 10)
+        : entry.chainId;
+    const tokenAddress =
+      (entry as any).tokenAddress ?? (entry as any).address ?? "";
+    const isEntryVerified = (entry as any).verified !== false;
+    const rawBalance =
+      (entry as any).balanceRaw ??
+      (entry as any).usableBalanceRaw ??
+      (entry as any).usableBalance ??
+      (entry as any).balance ??
+      "0";
+    const readable =
+      typeof rawBalance === "bigint" ||
+      (/^\d+$/.test(String(rawBalance)) && !String(rawBalance).includes("."))
+        ? formatUnits(rawBalance, entry.decimals)
+        : String(rawBalance);
+    const chain = chainById(chains, resolvedChainId);
+    const token = tokenByAddress(chains, resolvedChainId, tokenAddress);
     const identity = `${entry.symbol.toUpperCase()}:${entry.decimals}`;
     const chainBalance: ChainBalance = {
       balance: readable,
       value: String(entry.valueUsd ?? 0),
       symbol: entry.symbol,
       chain: {
-        id: entry.chainId,
+        id: resolvedChainId,
         logo: chain?.logo ?? "",
-        name: chain?.name ?? `Chain ${entry.chainId}`,
+        name: chain?.name ?? `Chain ${resolvedChainId}`,
       },
-      contractAddress: entry.tokenAddress,
+      contractAddress: tokenAddress,
       decimals: entry.decimals,
       universe: "EVM",
+      verified: isEntryVerified,
     };
     const existing = grouped.get(identity);
     if (existing) {
@@ -507,6 +527,9 @@ export const normalizeIntentBalances = (
       existing.value = String(
         Number(existing.value) + Number(entry.valueUsd ?? 0)
       );
+      if (!isEntryVerified) {
+        existing.verified = false;
+      }
       continue;
     }
     grouped.set(identity, {
@@ -517,6 +540,7 @@ export const normalizeIntentBalances = (
       logo: token?.logo ?? entry.logo ?? "",
       name: entry.name,
       symbol: entry.symbol,
+      verified: isEntryVerified,
     });
   }
 

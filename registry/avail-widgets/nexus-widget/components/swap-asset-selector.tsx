@@ -61,6 +61,7 @@ export interface SwapTokenOption {
   userAmount?: string;
   userAmountMode?: "token" | "usd";
   userAmountUsd?: string;
+  verified?: boolean;
 }
 
 interface SwapAssetSelectorProps {
@@ -122,6 +123,12 @@ export function deriveTokenOptions(
           chainMeta?.name ?? bd.chain?.name,
         ),
         chainLogo: chainMeta?.logo ?? bd.chain?.logo,
+        verified:
+          (bd as any).verified !== undefined
+            ? (bd as any).verified !== false
+            : (asset as any).verified !== undefined
+              ? (asset as any).verified !== false
+              : true,
       });
     }
   }
@@ -130,6 +137,43 @@ export function deriveTokenOptions(
     seen.set(`${t.contractAddress.toLowerCase()}-${t.chainId}`, t);
   }
   return Array.from(seen.values());
+}
+
+export function UnverifiedBadge({
+  style,
+  className,
+}: {
+  style?: React.CSSProperties;
+  className?: string;
+}) {
+  return (
+    <span
+      className={className}
+      data-testid="unverified-badge"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1px 6px",
+        borderRadius: "999px",
+        border: "1px solid var(--nexus-widget-warning-border, #D98A1C)",
+        color: "var(--nexus-widget-warning-text, #D98A1C)",
+        backgroundColor:
+          "var(--nexus-widget-warning-soft-background, rgba(217, 138, 28, 0.08))",
+        fontSize: "10px",
+        fontWeight: 500,
+        fontFamily: '"Geist", system-ui, sans-serif',
+        lineHeight: "14px",
+        letterSpacing: "0.02em",
+        whiteSpace: "nowrap",
+        flexShrink: 0,
+        boxSizing: "border-box",
+        ...style,
+      }}
+    >
+      Unverified
+    </span>
+  );
 }
 
 /* ── Radio dot (circular) ── */
@@ -689,7 +733,22 @@ const formatBalanceWithSymbol = (
   return symbol ? `${formatted} ${symbol}` : formatted;
 };
 
+export const getSwapTokenSortTier = (
+  token: Pick<SwapTokenOption, "balanceInFiat"> & { verified?: boolean },
+) => {
+  const isVerified = token.verified !== false;
+  const fiat = getTokenFiatValue(token);
+  if (isVerified && fiat > 0) return 0;
+  if (!isVerified && fiat > 0) return 1;
+  if (isVerified) return 2;
+  return 3;
+};
+
 const compareTokensByUsdBalance = (a: SwapTokenOption, b: SwapTokenOption) => {
+  const aTier = getSwapTokenSortTier(a);
+  const bTier = getSwapTokenSortTier(b);
+  if (aTier !== bTier) return aTier - bTier;
+
   const fiatDelta = getTokenFiatValue(b) - getTokenFiatValue(a);
   if (fiatDelta !== 0) return fiatDelta;
 
@@ -1364,6 +1423,25 @@ export function SwapAssetSelector({
           );
           if (aScore !== bScore) return aScore - bScore;
         }
+        const aVerified = !a.tokens.some((token) => token.verified === false);
+        const bVerified = !b.tokens.some((token) => token.verified === false);
+        const aTier =
+          aVerified && a.totalFiat > 0
+            ? 0
+            : !aVerified && a.totalFiat > 0
+              ? 1
+              : aVerified
+                ? 2
+                : 3;
+        const bTier =
+          bVerified && b.totalFiat > 0
+            ? 0
+            : !bVerified && b.totalFiat > 0
+              ? 1
+              : bVerified
+                ? 2
+                : 3;
+        if (aTier !== bTier) return aTier - bTier;
         return b.totalFiat - a.totalFiat;
       });
   }, [
@@ -1572,10 +1650,30 @@ export function SwapAssetSelector({
       }
     }
 
+    const getRowSortTier = (row: (typeof rows)[number]) => {
+      if (row.kind === "token") {
+        const isVerified = row.token.verified !== false;
+        const hasFiat = (row.fiat ?? 0) > 0;
+        if (isVerified && hasFiat) return 0;
+        if (!isVerified && hasFiat) return 1;
+        if (isVerified) return 2;
+        return 3;
+      }
+      const isVerified = !row.group.tokens.some((t) => t.verified === false);
+      const hasFiat = (row.fiat ?? 0) > 0;
+      if (isVerified && hasFiat) return 0;
+      if (!isVerified && hasFiat) return 1;
+      if (isVerified) return 2;
+      return 3;
+    };
+
     return rows.sort((a, b) => {
       if (hasQuery && a.searchScore !== b.searchScore) {
         return a.searchScore - b.searchScore;
       }
+      const aTier = getRowSortTier(a);
+      const bTier = getRowSortTier(b);
+      if (aTier !== bTier) return aTier - bTier;
       if (a.fiat !== b.fiat) return b.fiat - a.fiat;
       if (a.kind !== b.kind) return a.kind === "group" ? -1 : 1;
       return a.label.localeCompare(b.label);
@@ -1739,16 +1837,19 @@ export function SwapAssetSelector({
               alignItems: "flex-start",
             }}
           >
-            <span
-              style={{
-                fontFamily: '"Geist", system-ui, sans-serif',
-                fontWeight: 500,
-                fontSize: 15,
-                color: "var(--nexus-widget-text-strong, #161615)",
-              }}
-            >
-              {token.symbol}
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  fontFamily: '"Geist", system-ui, sans-serif',
+                  fontWeight: 500,
+                  fontSize: 15,
+                  color: "var(--nexus-widget-text-strong, #161615)",
+                }}
+              >
+                {token.symbol}
+              </span>
+              {token.verified === false && <UnverifiedBadge />}
+            </div>
             {token.chainName && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <TokenLogo
@@ -1980,6 +2081,9 @@ export function SwapAssetSelector({
                   >
                     UNIFIED
                   </span>
+                  {group.tokens.some((token) => token.verified === false) && (
+                    <UnverifiedBadge />
+                  )}
                 </div>
                 <ChainLogos tokens={group.tokens} />
               </div>
@@ -2787,6 +2891,7 @@ export function SwapAssetSelector({
                             {token.symbol} on{" "}
                             {token.chainName || "Unknown chain"}
                           </span>
+                          {token.verified === false && <UnverifiedBadge />}
                         </div>
                         <span
                           style={{

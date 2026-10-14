@@ -85,7 +85,7 @@ const getSdkExactOutPriority = (
   return 7;
 };
 
-const sortSourcesByPriority = (
+export const sortSourcesByPriority = (
   swapBalance: UserAsset[],
   destination: DepositSourceDestination,
 ) =>
@@ -96,8 +96,27 @@ const sortSourcesByPriority = (
       balanceInFiat: parseNonNegativeNumber(breakdown.balanceInFiat),
       symbol: breakdown.symbol,
       tokenAddress: breakdown.contractAddress,
+      verified: breakdown.verified !== false,
     }))
     .sort((a, b) => {
+      const aTier =
+        a.verified && a.balanceInFiat > 0
+          ? 0
+          : !a.verified && a.balanceInFiat > 0
+            ? 1
+            : a.verified
+              ? 2
+              : 3;
+      const bTier =
+        b.verified && b.balanceInFiat > 0
+          ? 0
+          : !b.verified && b.balanceInFiat > 0
+            ? 1
+            : b.verified
+              ? 2
+              : 3;
+      if (aTier !== bTier) return aTier - bTier;
+
       const priorityDiff =
         getSdkExactOutPriority(a, destination) -
         getSdkExactOutPriority(b, destination);
@@ -217,6 +236,22 @@ export const buildSortedSourceCandidates = (params: {
 
   const sourceFiatByKeyMap = buildSourceFiatByKeyMap(swapBalance);
   const priorityRankMap = buildPriorityRankMap(swapBalance, destination);
+  const sourceVerifiedByKeyMap = (() => {
+    const map = new Map<string, boolean>();
+    if (!swapBalance) return map;
+    for (const asset of swapBalance) {
+      for (const breakdown of asset.breakdown ?? []) {
+        const chainId = breakdown.chain?.id;
+        const tokenAddress = breakdown.contractAddress;
+        if (!chainId || !tokenAddress) continue;
+        map.set(
+          getFiatLookupKey(tokenAddress, chainId),
+          breakdown.verified !== false,
+        );
+      }
+    }
+    return map;
+  })();
 
   return uniqueIds
     .map((sourceId) => {
@@ -233,6 +268,7 @@ export const buildSortedSourceCandidates = (params: {
         sourceId,
         balanceInFiat: sourceFiatByKeyMap.get(fiatKey) ?? 0,
         priorityRank: priorityRankMap.get(priorityKey) ?? MAX_PRIORITY_RANK,
+        verified: sourceVerifiedByKeyMap.get(fiatKey) ?? true,
       };
     })
     .filter((item): item is NonNullable<typeof item> => {
@@ -243,6 +279,24 @@ export const buildSortedSourceCandidates = (params: {
       return item.balanceInFiat >= minimumBalanceUsd;
     })
     .sort((a, b) => {
+      const aTier =
+        a.verified && a.balanceInFiat > 0
+          ? 0
+          : !a.verified && a.balanceInFiat > 0
+            ? 1
+            : a.verified
+              ? 2
+              : 3;
+      const bTier =
+        b.verified && b.balanceInFiat > 0
+          ? 0
+          : !b.verified && b.balanceInFiat > 0
+            ? 1
+            : b.verified
+              ? 2
+              : 3;
+      if (aTier !== bTier) return aTier - bTier;
+
       if (a.priorityRank !== b.priorityRank) {
         return a.priorityRank - b.priorityRank;
       }

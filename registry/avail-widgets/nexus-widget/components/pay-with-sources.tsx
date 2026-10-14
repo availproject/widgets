@@ -5,7 +5,7 @@ import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { parseAmount as parseDecimal } from "../utils/amount";
-import { type SwapTokenOption } from "./swap-asset-selector";
+import { type SwapTokenOption, UnverifiedBadge } from "./swap-asset-selector";
 
 const uiFont = '"Geist", system-ui, sans-serif';
 const primary = "var(--nexus-widget-text-strong, #161615)";
@@ -29,7 +29,30 @@ const getDisplayedUsdValue = (token: SwapTokenOption) =>
 
 const sortSourceTokensByDisplayedUsdDesc = (tokens: SwapTokenOption[]) =>
   [...tokens].sort((a, b) => {
-    const usdDiff = getDisplayedUsdValue(b).cmp(getDisplayedUsdValue(a));
+    const aVerified = a.verified !== false;
+    const bVerified = b.verified !== false;
+    const aUsd = getDisplayedUsdValue(a);
+    const bUsd = getDisplayedUsdValue(b);
+
+    const aTier =
+      aVerified && aUsd.gt(0)
+        ? 0
+        : !aVerified && aUsd.gt(0)
+          ? 1
+          : aVerified
+            ? 2
+            : 3;
+    const bTier =
+      bVerified && bUsd.gt(0)
+        ? 0
+        : !bVerified && bUsd.gt(0)
+          ? 1
+          : bVerified
+            ? 2
+            : 3;
+    if (aTier !== bTier) return aTier - bTier;
+
+    const usdDiff = bUsd.cmp(aUsd);
     if (usdDiff !== 0) return usdDiff;
     return `${a.symbol ?? ""} ${a.chainName ?? ""}`.localeCompare(
       `${b.symbol ?? ""} ${b.chainName ?? ""}`,
@@ -372,16 +395,25 @@ export function PayWithSources({
                         minWidth: 0,
                       }}
                     >
-                      <span
+                      <div
                         style={{
-                          color: primary,
-                          fontFamily: uiFont,
-                          fontSize: "14px",
-                          fontWeight: 600,
+                          alignItems: "center",
+                          display: "flex",
+                          gap: "6px",
                         }}
                       >
-                        {token.symbol}
-                      </span>
+                        <span
+                          style={{
+                            color: primary,
+                            fontFamily: uiFont,
+                            fontSize: "14px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {token.symbol}
+                        </span>
+                        {token.verified === false && <UnverifiedBadge />}
+                      </div>
                       <span
                         style={{
                           color: muted,

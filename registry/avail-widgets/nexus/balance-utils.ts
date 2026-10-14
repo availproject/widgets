@@ -147,6 +147,13 @@ export function normalizeUserAssets(
     });
 
     const sums = sumTokenOptionBalances(breakdown);
+    const isVerified =
+      (asset as any).verified !== undefined
+        ? (asset as any).verified !== false
+        : breakdown.length > 0
+          ? breakdown.every((b: any) => (b as any).verified !== false)
+          : true;
+
     return [
       {
         ...asset,
@@ -158,6 +165,7 @@ export function normalizeUserAssets(
         totalBalanceInFiat: parseFormatted(sums.totalBalanceInFiat).toNumber(),
         breakdown,
         chainBalances: breakdown,
+        verified: isVerified,
       },
     ];
   });
