@@ -142,6 +142,7 @@ export interface LegacyIntent {
     bridge: {
       caGas: string;
       caGasUsd?: string;
+      depositUsd?: string;
       fulfillmentUsd?: string;
       protocol: string;
       protocolUsd?: string;
@@ -154,6 +155,7 @@ export interface LegacyIntent {
   fees?: {
     caGas: string;
     caGasUsd?: string;
+    depositUsd?: string;
     fulfillmentUsd?: string;
     protocol: string;
     protocolUsd?: string;
@@ -615,27 +617,39 @@ export const normalizeIntentQuote = (
           )
           .toString()
       : undefined;
-  const displayedFeeTotalRaw =
-    quote.fees.depositRaw + quote.fees.protocolRaw + quote.fees.solverRaw;
-  const displayedFeeTotalUsd = new Decimal(quote.fees.depositUsd)
-    .plus(quote.fees.protocolUsd)
-    .plus(quote.fees.solverUsd)
+  const depositUsdDecimal = new Decimal(quote.fees.depositUsd || 0);
+  const fulfillmentUsdDecimal = new Decimal(quote.fees.fulfillmentUsd || 0);
+  const protocolUsdDecimal = new Decimal(quote.fees.protocolUsd || 0);
+  const solverUsdDecimal = new Decimal(quote.fees.solverUsd || 0);
+
+  // Execution gas fee combines deposit fee and fulfillment fee
+  const caGasUsdDecimal = depositUsdDecimal.plus(fulfillmentUsdDecimal);
+  const displayedFeeTotalUsd = caGasUsdDecimal
+    .plus(protocolUsdDecimal)
+    .plus(solverUsdDecimal)
     .toString();
 
+  const caGasRaw =
+    (quote.fees.depositRaw ?? BigInt(0)) +
+    (quote.fees.fulfillmentRaw ?? BigInt(0));
+  const displayedFeeTotalRaw =
+    caGasRaw +
+    (quote.fees.protocolRaw ?? BigInt(0)) +
+    (quote.fees.solverRaw ?? BigInt(0));
+
   const bridgeFees = {
-      // The legacy UI reads `caGas` as its network-fee slot. Better Intent's
-      // source-side network fee is `depositRaw`; `caGasRaw` is not shown
-      // separately because it can overlap other fee components.
-      caGas: formatUnits(quote.fees.depositRaw, outputDecimals),
-      caGasUsd: quote.fees.depositUsd,
-      fulfillmentUsd: quote.fees.fulfillmentUsd,
-      protocol: formatUnits(quote.fees.protocolRaw, outputDecimals),
-      protocolUsd: quote.fees.protocolUsd,
-      solver: formatUnits(quote.fees.solverRaw, outputDecimals),
-      solverUsd: quote.fees.solverUsd,
-      total: formatUnits(displayedFeeTotalRaw, outputDecimals),
-      totalUsd: displayedFeeTotalUsd,
-    };
+    // The legacy UI reads `caGas` as its execution gas fee slot (depositFee + fulfilmentFee).
+    caGas: formatUnits(caGasRaw, outputDecimals),
+    caGasUsd: caGasUsdDecimal.toString(),
+    depositUsd: quote.fees.depositUsd,
+    fulfillmentUsd: quote.fees.fulfillmentUsd,
+    protocol: formatUnits(quote.fees.protocolRaw, outputDecimals),
+    protocolUsd: quote.fees.protocolUsd,
+    solver: formatUnits(quote.fees.solverRaw, outputDecimals),
+    solverUsd: quote.fees.solverUsd,
+    total: formatUnits(displayedFeeTotalRaw, outputDecimals),
+    totalUsd: displayedFeeTotalUsd,
+  };
 
     return {
       bridgeProvider: quote.provider ?? null,
@@ -743,6 +757,7 @@ export const normalizeSwapAndExecuteIntent = (
   const zeroFees = {
     caGas: "0",
     caGasUsd: "0",
+    depositUsd: "0",
     fulfillmentUsd: "0",
     protocol: "0",
     protocolUsd: "0",

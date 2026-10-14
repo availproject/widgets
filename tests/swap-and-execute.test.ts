@@ -139,8 +139,8 @@ test("adaptIntentHook normalizes SwapAndExecuteHookData when swap is required", 
   assert.equal(adapted.intent.destination.gas.value, "0.06");
   assert.equal(adapted.intent.sources.length, 1);
   assert.equal(adapted.intent.sources[0]?.chain.id, 10);
-  assert.equal(adapted.intent.sources[0]?.token.symbol, "USDC");
-  assert.equal(adapted.intent.feesAndBuffer.bridge.totalUsd, "0.1");
+  assert.equal(adapted.intent.feesAndBuffer.bridge.caGasUsd, "0.15");
+  assert.equal(adapted.intent.feesAndBuffer.bridge.totalUsd, "0.2");
 
   await adapted.refresh([10]);
   assert.deepEqual(refreshedSources, [

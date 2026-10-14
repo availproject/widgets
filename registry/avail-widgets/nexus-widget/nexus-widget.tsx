@@ -7015,18 +7015,38 @@ function NexusWidgetInner({
       }
 
       try {
-        const bridgeFees = enrichedIntent.feesAndBuffer?.bridge;
+        const bridgeFees =
+          enrichedIntent.feesAndBuffer?.bridge ?? (enrichedIntent as any)?.fees;
         const bridgeFeeData =
           bridgeFees && typeof bridgeFees === "object" ? bridgeFees : undefined;
         const collectionFee = parseFiatNumber(bridgeFeeData?.collection);
         const fulfilmentFee = parseFiatNumber(bridgeFeeData?.fulfilment);
-        const executionGasFee =
-          parseFiatNumber(bridgeFeeData?.caGas) ??
-          (collectionFee !== undefined || fulfilmentFee !== undefined
-            ? (collectionFee ?? new Decimal(0)).plus(
-                fulfilmentFee ?? new Decimal(0),
-              )
-            : undefined);
+
+        // Execution gas fee: caGas = depositFee + fulfilmentFee using Decimal.js
+        const executionGasFee = (() => {
+          const caGasUsd = parseFiatNumber(bridgeFeeData?.caGasUsd);
+          if (caGasUsd !== undefined) return caGasUsd;
+
+          const depositUsd = parseFiatNumber(bridgeFeeData?.depositUsd);
+          const fulfillmentUsd = parseFiatNumber(bridgeFeeData?.fulfillmentUsd);
+          if (depositUsd !== undefined || fulfillmentUsd !== undefined) {
+            return (depositUsd ?? new Decimal(0)).plus(
+              fulfillmentUsd ?? new Decimal(0),
+            );
+          }
+
+          const rawCaGas = parseFiatNumber(bridgeFeeData?.caGas);
+          if (rawCaGas !== undefined) return rawCaGas;
+
+          if (collectionFee !== undefined || fulfilmentFee !== undefined) {
+            return (collectionFee ?? new Decimal(0)).plus(
+              fulfilmentFee ?? new Decimal(0),
+            );
+          }
+
+          return undefined;
+        })();
+
         const bridgeGasSuppliedFee = parseFiatNumber(
           bridgeFeeData?.gasSupplied,
         );
@@ -7034,11 +7054,17 @@ function NexusWidgetInner({
           getIntentDestinationGasUsdValue(enrichedIntent);
         const gasSuppliedFee =
           bridgeGasSuppliedFee ?? destinationGasSuppliedFee;
+        const protocolFee =
+          parseFiatNumber(bridgeFeeData?.protocolUsd) ??
+          parseFiatNumber(bridgeFeeData?.protocol);
+        const solverFee =
+          parseFiatNumber(bridgeFeeData?.solverUsd) ??
+          parseFiatNumber(bridgeFeeData?.solver);
         const bridgeComponentsTotal = bridgeFeeData
           ? [
               executionGasFee,
-              parseFiatNumber(bridgeFeeData.protocol),
-              parseFiatNumber(bridgeFeeData.solver),
+              protocolFee,
+              solverFee,
               gasSuppliedFee,
             ].reduce<Decimal>(
               (sum, value) => sum.plus(value ?? new Decimal(0)),
@@ -7048,7 +7074,8 @@ function NexusWidgetInner({
         const rawBridgeTotal =
           typeof bridgeFees === "string"
             ? parseFiatNumber(bridgeFees)
-            : parseFiatNumber(bridgeFeeData?.total);
+            : (parseFiatNumber(bridgeFeeData?.totalUsd) ??
+              parseFiatNumber(bridgeFeeData?.total));
         const bridgeTotal =
           rawBridgeTotal &&
           !bridgeGasSuppliedFee &&

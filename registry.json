@@ -611,6 +611,7 @@
       "dependencies": [
         "@avail-project/nexus-core@2.5.0",
         "clsx",
+        "decimal.js",
         "lucide-react",
         "tailwind-merge",
         "viem",
@@ -1440,6 +1441,7 @@
       ],
       "dependencies": [
         "@avail-project/nexus-core@2.5.0",
+        "decimal.js",
         "lucide-react",
         "viem"
       ],
