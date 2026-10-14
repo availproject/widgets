@@ -172,12 +172,24 @@ const isStablecoin = (symbol?: string): boolean =>
     (symbol ?? "").toUpperCase() as (typeof STABLECOIN_SYMBOLS)[number],
   );
 
-const isNative = (symbol?: string): boolean => {
+const isNative = (
+  symbol?: string,
+  tokenAddress?: string,
+  chainId?: number,
+): boolean => {
+  if (isNativeAddress(tokenAddress)) return true;
   const normalized = (symbol ?? "").toUpperCase();
   if (!normalized) return false;
-  return Object.values(CHAIN_METADATA).some(
-    (chain) => chain.nativeCurrency.symbol.toUpperCase() === normalized,
-  );
+  if (isSdkExactOutStablecoin(normalized) || isStablecoin(normalized)) {
+    return false;
+  }
+  if (chainId && CHAIN_METADATA[chainId]) {
+    return (
+      CHAIN_METADATA[chainId].nativeCurrency.symbol.toUpperCase() ===
+        normalized && isNativeAddress(tokenAddress)
+    );
+  }
+  return false;
 };
 
 const getFiatLookupKey = (tokenAddress: string, chainId: number): string =>
@@ -336,8 +348,11 @@ export const buildDepositSourcePoolIds = (params: {
       const tokenAddress = breakdown.contractAddress;
       if (!chainId || !tokenAddress) return;
 
-      const stable = isStablecoin(breakdown.symbol ?? asset.symbol);
-      const native = isNative(breakdown.symbol ?? asset.symbol);
+      const stable =
+        isSdkExactOutStablecoin(breakdown.symbol ?? asset.symbol) ||
+        isStablecoin(breakdown.symbol ?? asset.symbol);
+      const native =
+        isNative(breakdown.symbol ?? asset.symbol, tokenAddress, chainId);
       const sourceId = getDepositSourceId(tokenAddress, chainId);
       const include =
         filter === "all" ||

@@ -6081,7 +6081,10 @@ function NexusWidgetInner({
     mode: "all" | "selected" = exactOutQuoteSourceModeRef.current,
     targetAmountUsd?: Decimal,
   ) => {
-    if (activeMode === "deposit") {
+    if (
+      activeMode === "deposit" ||
+      (activeMode === "send" && depositSourceFilter !== "all")
+    ) {
       const selection = getResolvedDepositSourceSelection({ targetAmountUsd });
       return getDepositSourceTokensForIds(
         mode === "all" ? selection.sourcePoolIds : selection.selectedSourceIds,
@@ -6161,13 +6164,10 @@ function NexusWidgetInner({
   };
 
   const shouldSendExactOutSourceAllowlist = () => {
-    if (activeMode === "deposit") {
-      return sourceSelectionTouched || depositSourceFilter !== "all";
-    }
-
-    if (activeMode === "send") {
+    if (activeMode === "deposit" || activeMode === "send") {
       return (
         sourceSelectionTouched ||
+        depositSourceFilter !== "all" ||
         exactOutQuoteSourceModeRef.current === "selected"
       );
     }
@@ -6185,12 +6185,7 @@ function NexusWidgetInner({
     }
 
     const explicitSources = buildExplicitSourcesPayload(tokens).sources;
-    const sources = dedupeSdkSources([
-      ...explicitSources,
-      getHeldDestinationTokenSource(),
-    ]);
-
-    return sources.length > 0 ? { sources } : {};
+    return explicitSources.length > 0 ? { sources: explicitSources } : {};
   };
 
   const buildPredictiveExactOutSourcesSync = (
@@ -8411,8 +8406,6 @@ function NexusWidgetInner({
         return;
       }
 
-      if (activeMode !== "deposit") return;
-
       const selection = getResolvedDepositSourceSelection({
         filter: nextFilter,
         isManualSelection: false,
@@ -8481,7 +8474,7 @@ function NexusWidgetInner({
   useEffect(() => {
     if (activeMode !== "deposit" && activeMode !== "send") return;
     if (lockedDestinationSourceTokens.length === 0) return;
-    if (activeMode === "deposit" && !sourceSelectionTouched) return;
+    if (sourceSelectionTouched || depositSourceFilter !== "all") return;
 
     setFromTokens((current) => {
       const missing = lockedDestinationSourceTokens.filter(
@@ -12645,7 +12638,9 @@ function NexusWidgetInner({
                 }
                 editingAssetIndex={editingAssetIndex}
                 filterTabBehavior={
-                  activeMode === "deposit" ? "source-pool" : "select-all"
+                  activeMode === "deposit" || activeMode === "send"
+                    ? "source-pool"
+                    : "select-all"
                 }
                 hideCustomTab={activeMode === "swap"}
                 initialFilterTab={

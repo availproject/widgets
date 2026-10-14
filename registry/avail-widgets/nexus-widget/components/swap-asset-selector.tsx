@@ -1120,8 +1120,8 @@ export function SwapAssetSelector({
   const skipNextSelectionScrollResetRef = useRef(false);
   const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const lockedSelectedTokens = useMemo(
-    () => dedupeTokenOptions(lockedTokens),
-    [lockedTokens],
+    () => (autoSelectFilterTabs ? [] : dedupeTokenOptions(lockedTokens)),
+    [autoSelectFilterTabs, lockedTokens],
   );
   const isLockedToken = useCallback(
     (token: SwapTokenOption) =>
@@ -1723,7 +1723,7 @@ export function SwapAssetSelector({
   };
 
   const getEditedSelectionTab = (): FilterTab =>
-    activeTab === "native" || activeTab === "stables" ? activeTab : "custom";
+    autoSelectFilterTabs ? "custom" : activeTab;
 
   const handleClearSelection = () => {
     if (isMulti && onSelectionChange) {
