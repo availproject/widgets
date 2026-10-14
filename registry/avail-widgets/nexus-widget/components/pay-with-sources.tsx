@@ -159,6 +159,7 @@ export function PayWithSources({
   showAutoBadge = true,
   isSourcePickerDisabled = false,
   reserveSourceRows = false,
+  isPredictive = false,
 }: {
   fromTokens: SwapTokenOption[];
   onOpenSourcePicker: () => void;
@@ -167,6 +168,7 @@ export function PayWithSources({
   showAutoBadge?: boolean;
   isSourcePickerDisabled?: boolean;
   reserveSourceRows?: boolean;
+  isPredictive?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const isRouteLoading = routeStatus === "loading";
@@ -239,23 +241,28 @@ export function PayWithSources({
         </div>
         {shouldShowSourceSummary && (
           <button
-            disabled={isSourcePickerDisabled}
+            disabled={isSourcePickerDisabled || isPredictive}
             onClick={onOpenSourcePicker}
             style={{
-              backgroundColor: isSourcePickerDisabled
-                ? "var(--nexus-widget-surface-raised, #F4F4F3)"
-                : "var(--nexus-widget-primary-soft, #E8F0FF)",
+              backgroundColor:
+                isSourcePickerDisabled || isPredictive
+                  ? "var(--nexus-widget-surface-raised, #F4F4F3)"
+                  : "var(--nexus-widget-primary-soft, #E8F0FF)",
               border: "none",
               borderRadius: "4px",
-              color: isSourcePickerDisabled
-                ? "var(--nexus-widget-text-secondary, #A8A8A6)"
-                : "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
-              cursor: isSourcePickerDisabled ? "not-allowed" : "pointer",
+              color:
+                isSourcePickerDisabled || isPredictive
+                  ? "var(--nexus-widget-text-secondary, #A8A8A6)"
+                  : "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
+              cursor:
+                isSourcePickerDisabled || isPredictive
+                  ? "not-allowed"
+                  : "pointer",
               fontFamily: uiFont,
               fontSize: "12px",
               fontWeight: 500,
               lineHeight: "20px",
-              opacity: isSourcePickerDisabled ? 0.75 : 1,
+              opacity: isSourcePickerDisabled || isPredictive ? 0.75 : 1,
               padding: "8px 12px",
             }}
             type="button"
@@ -264,6 +271,19 @@ export function PayWithSources({
           </button>
         )}
       </div>
+
+      {isPredictive && (
+        <style>
+          {`@keyframes nexusSourcesSkeletonShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+          @keyframes nexusShimmerText {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }`}
+        </style>
+      )}
 
       {isRouteLoading ? (
         <>
@@ -314,6 +334,15 @@ export function PayWithSources({
                   gap: "14px",
                   justifyContent: "space-between",
                   minHeight: "44px",
+                  borderRadius: "8px",
+                  padding: isPredictive ? "6px 8px" : undefined,
+                  background: isPredictive
+                    ? "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #E6EEFF) 50%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)"
+                    : undefined,
+                  backgroundSize: isPredictive ? "200% 100%" : undefined,
+                  animation: isPredictive
+                    ? "nexusSourcesSkeletonShimmer 1.5s ease-in-out infinite"
+                    : undefined,
                 }}
               >
                 <div
@@ -323,6 +352,7 @@ export function PayWithSources({
                     display: "flex",
                     gap: "14px",
                     minWidth: 0,
+                    opacity: isPredictive ? 0.75 : 1,
                   }}
                 >
                   <div
@@ -384,6 +414,17 @@ export function PayWithSources({
                       fontSize: "14px",
                       fontWeight: 500,
                       lineHeight: "18px",
+                      background: isPredictive
+                        ? "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--nexus-widget-text-strong, #161615) 50%, var(--nexus-widget-text-secondary, #848483) 100%)"
+                        : undefined,
+                      backgroundSize: isPredictive ? "200% 100%" : undefined,
+                      WebkitBackgroundClip: isPredictive ? "text" : undefined,
+                      WebkitTextFillColor: isPredictive
+                        ? "transparent"
+                        : primary,
+                      animation: isPredictive
+                        ? "nexusShimmerText 1.5s ease-in-out infinite"
+                        : undefined,
                     }}
                   >
                     {formatToken(token.userAmount || token.balance)}{" "}
@@ -395,6 +436,17 @@ export function PayWithSources({
                       fontFamily: uiFont,
                       fontSize: "12px",
                       lineHeight: "18px",
+                      background: isPredictive
+                        ? "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--nexus-widget-text-strong, #161615) 50%, var(--nexus-widget-text-secondary, #848483) 100%)"
+                        : undefined,
+                      backgroundSize: isPredictive ? "200% 100%" : undefined,
+                      WebkitBackgroundClip: isPredictive ? "text" : undefined,
+                      WebkitTextFillColor: isPredictive
+                        ? "transparent"
+                        : muted,
+                      animation: isPredictive
+                        ? "nexusShimmerText 1.5s ease-in-out infinite"
+                        : undefined,
                     }}
                   >
                     {formatUsd(token.userAmountUsd || token.balanceInFiat)}
@@ -403,6 +455,42 @@ export function PayWithSources({
               </div>
             ))}
           </div>
+
+          {isPredictive && !isRouteLoading && (
+            <div
+              style={{
+                alignItems: "center",
+                color: brand,
+                display: "flex",
+                fontFamily: uiFont,
+                fontSize: "13px",
+                gap: "6px",
+                lineHeight: "18px",
+                marginTop: "10px",
+              }}
+            >
+              <Loader2
+                className="animate-spin"
+                style={{
+                  ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+                  height: 13,
+                  width: 13,
+                }}
+              />
+              <span
+                style={{
+                  background:
+                    "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--foreground-brand) 50%, var(--nexus-widget-text-secondary, #848483) 100%)",
+                  backgroundSize: "200% 100%",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  animation: "nexusShimmerText 1.5s ease-in-out infinite",
+                }}
+              >
+                Calculating best route…
+              </span>
+            </div>
+          )}
           {shouldScroll && (
             <button
               aria-label="Scroll payment sources"

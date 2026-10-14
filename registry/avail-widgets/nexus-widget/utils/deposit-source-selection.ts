@@ -205,7 +205,7 @@ const buildPriorityRankMap = (
   return map;
 };
 
-const buildSortedSourceCandidates = (params: {
+export const buildSortedSourceCandidates = (params: {
   sourceIds: Iterable<string>;
   swapBalance: UserAsset[] | null;
   destination: DepositSourceDestination;
@@ -237,7 +237,9 @@ const buildSortedSourceCandidates = (params: {
     })
     .filter((item): item is NonNullable<typeof item> => {
       if (!item) return false;
-      if (minimumBalanceUsd == null) return true;
+      if (minimumBalanceUsd == null || minimumBalanceUsd <= 0) {
+        return item.balanceInFiat > 0;
+      }
       return item.balanceInFiat >= minimumBalanceUsd;
     })
     .sort((a, b) => {

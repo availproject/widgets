@@ -27,6 +27,7 @@ interface SwapIdleFormProps {
   isDestinationPickerDisabled?: boolean;
   hideDestinationTokenDropdownIcon?: boolean;
   isReceiveAmountLoading?: boolean;
+  isReceivePredictive?: boolean;
   isReceiveUsdLoading?: boolean;
   isSourcePickerDisabled?: boolean;
   onAmountChange: (val: string, panel: "send" | "receive") => void;
@@ -642,6 +643,7 @@ export function SwapIdleForm({
   receiveQuoteAmount,
   receiveQuoteUsd,
   isReceiveAmountLoading = false,
+  isReceivePredictive = false,
   isReceiveUsdLoading = false,
   sourceRouteStatus,
   sourceRouteMessage,
@@ -1005,12 +1007,19 @@ export function SwapIdleForm({
         width: "100%",
       }}
     >
-      {(isReceiveAmountLoading || isReceiveUsdLoading || sourceRouteStatus) && (
+      {(isReceiveAmountLoading ||
+        isReceiveUsdLoading ||
+        sourceRouteStatus ||
+        isReceivePredictive) && (
         <style>
           {`@keyframes nexusSwapSkeletonShimmer {
             0% { background-position: 100% 0; opacity: 0.72; }
             50% { opacity: 1; }
             100% { background-position: -100% 0; opacity: 0.72; }
+          }
+          @keyframes nexusShimmerText {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
           }`}
         </style>
       )}
@@ -1824,7 +1833,7 @@ export function SwapIdleForm({
               width: "100%",
             }}
           >
-            {isReceiveAmountLoading ? (
+            {isReceiveAmountLoading && !isReceivePredictive ? (
               <div
                 style={{
                   alignItems: "center",
@@ -1850,13 +1859,22 @@ export function SwapIdleForm({
                   fontSize: "29px",
                   fontWeight: 500,
                   lineHeight: "34px",
-                  background: "transparent",
+                  background: isReceivePredictive
+                    ? "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--nexus-widget-text-strong, #161615) 50%, var(--nexus-widget-text-secondary, #848483) 100%)"
+                    : "transparent",
+                  backgroundSize: isReceivePredictive ? "200% 100%" : undefined,
+                  WebkitBackgroundClip: isReceivePredictive ? "text" : undefined,
+                  WebkitTextFillColor: isReceivePredictive
+                    ? "transparent"
+                    : receiveAmountTextColor,
+                  animation: isReceivePredictive
+                    ? "nexusShimmerText 1.6s ease-in-out infinite"
+                    : undefined,
                   border: "none",
                   cursor: "default",
                   outline: "none",
                   opacity: 1,
                   padding: 0,
-                  WebkitTextFillColor: receiveAmountTextColor,
                   width: "100%",
                   minWidth: 0,
                 }}
@@ -1967,7 +1985,7 @@ export function SwapIdleForm({
               minHeight: "22px",
             }}
           >
-            {isReceiveUsdLoading ? (
+            {isReceiveUsdLoading && !isReceivePredictive ? (
               <SkeletonBar borderRadius="6px" height="16px" width="74px" />
             ) : (
               <div
@@ -1978,6 +1996,17 @@ export function SwapIdleForm({
                   fontSize: "11px",
                   lineHeight: "16px",
                   whiteSpace: "nowrap",
+                  background: isReceivePredictive
+                    ? "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--nexus-widget-text-strong, #161615) 50%, var(--nexus-widget-text-secondary, #848483) 100%)"
+                    : undefined,
+                  backgroundSize: isReceivePredictive ? "200% 100%" : undefined,
+                  WebkitBackgroundClip: isReceivePredictive ? "text" : undefined,
+                  WebkitTextFillColor: isReceivePredictive
+                    ? "transparent"
+                    : undefined,
+                  animation: isReceivePredictive
+                    ? "nexusShimmerText 1.6s ease-in-out infinite"
+                    : undefined,
                 }}
               >
                 {receiveAltValue}

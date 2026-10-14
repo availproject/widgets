@@ -1661,9 +1661,16 @@ export function SwapAssetSelector({
     const allTargetsSelected = unlockedTargets.every((target) =>
       current.some((item) => sameTokenOption(item, target)),
     );
+    const selectableTargets = allTargetsSelected
+      ? unlockedTargets
+      : unlockedTargets.filter(
+          (target) => getTokenFiatValue(target) >= MIN_FIAT_THRESHOLD,
+        );
+    if (!allTargetsSelected && selectableTargets.length === 0) return;
+
     const next = allTargetsSelected
       ? removeTokenOptions(current, unlockedTargets)
-      : mergeTokenOptions(current, unlockedTargets);
+      : mergeTokenOptions(current, selectableTargets);
     emitSelectionChange(next, tab);
   };
 
@@ -1678,7 +1685,9 @@ export function SwapAssetSelector({
 
     const selectedInCurrent = isTokenSelectedInCurrentSlot(token);
     const locked = isLockedToken(token);
-    const disabled = isDisabledByUnified || locked;
+    const isBelowMin = getTokenFiatValue(token) < MIN_FIAT_THRESHOLD;
+    const disabled =
+      isDisabledByUnified || locked || (!selectedInCurrent && isBelowMin);
     return (
       <button
         disabled={disabled}
@@ -1707,7 +1716,7 @@ export function SwapAssetSelector({
           cursor: disabled ? "not-allowed" : "pointer",
           borderBottom: "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
           boxSizing: "border-box",
-          opacity: isDisabledByUnified ? 0.5 : 1,
+          opacity: disabled ? 0.5 : 1,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1866,6 +1875,12 @@ export function SwapAssetSelector({
       unifiedSymbol: group.symbol as "USDC" | "USDT" | "ETH",
     };
 
+    const isGroupSelected = isMulti
+      ? areAllChildrenSelected || isPartiallySelected
+      : unifiedSelectedInCurrent;
+    const isGroupBelowMin = group.totalFiat < MIN_FIAT_THRESHOLD;
+    const isGroupSelectDisabled = !isGroupSelected && isGroupBelowMin;
+
     return (
       <div
         key={group.symbol}
@@ -1878,6 +1893,7 @@ export function SwapAssetSelector({
                 toggleGroup(group.symbol, e);
                 return;
               }
+              if (isGroupSelectDisabled) return;
               onSelect(unifiedToken);
             }}
             style={{
@@ -1888,7 +1904,7 @@ export function SwapAssetSelector({
               padding: "10px 14px",
               backgroundColor: "transparent",
               border: "none",
-              cursor: "pointer",
+              cursor: isGroupSelectDisabled ? "not-allowed" : "pointer",
               borderBottom:
                 "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
               boxSizing: "border-box",
@@ -1898,10 +1914,14 @@ export function SwapAssetSelector({
               <div
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (isGroupSelectDisabled) return;
                   if (isMulti) handleMultiTokenToggle(unifiedToken);
                   else onSelect(unifiedToken);
                 }}
-                style={{ cursor: "pointer" }}
+                style={{
+                  cursor: isGroupSelectDisabled ? "not-allowed" : "pointer",
+                  opacity: isGroupSelectDisabled ? 0.5 : 1,
+                }}
               >
                 <SelectionControl
                   indeterminate={isMulti ? isPartiallySelected : false}

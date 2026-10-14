@@ -20,6 +20,7 @@ interface SendIdleFormProps {
   isAssetPickerDisabled?: boolean;
   isBalanceLoading?: boolean;
   isCalculatingMax?: boolean;
+  isPredictive?: boolean;
   isQuoteRefreshing?: boolean;
   isRecipientLocked?: boolean;
   hideDestinationTokenDropdownIcon?: boolean;
@@ -598,6 +599,7 @@ export function SendIdleForm({
   isBalanceLoading = false,
   isCalculatingMax,
   calculatingPercent,
+  isPredictive = false,
   isQuoteRefreshing,
   isRecipientLocked = false,
   hideDestinationTokenDropdownIcon = false,
@@ -1052,6 +1054,7 @@ export function SendIdleForm({
 
       <SharedPayWithSources
         fromTokens={fromTokens}
+        isPredictive={isPredictive}
         isSourcePickerDisabled={isSourcePickerDisabled}
         onOpenSourcePicker={onOpenSourcePicker}
         reserveSourceRows={reserveSourceRows}

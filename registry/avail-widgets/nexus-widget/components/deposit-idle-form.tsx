@@ -21,6 +21,7 @@ interface DepositIdleFormProps {
   isAmountReadOnly?: boolean;
   isBalanceLoading?: boolean;
   isCalculatingMax?: boolean;
+  isPredictive?: boolean;
   isQuoteRefreshing?: boolean;
   isSourcePickerDisabled?: boolean;
   isTokenPickerDisabled?: boolean;
@@ -597,6 +598,7 @@ export function DepositIdleForm({
   isBalanceLoading = false,
   isCalculatingMax,
   calculatingPercent,
+  isPredictive = false,
   isQuoteRefreshing,
   hideDestinationTokenDropdownIcon = false,
   showAutoBadge = true,
@@ -991,6 +993,7 @@ export function DepositIdleForm({
 
       <SharedPayWithSources
         fromTokens={fromTokens}
+        isPredictive={isPredictive}
         isSourcePickerDisabled={isSourcePickerDisabled}
         onOpenSourcePicker={onOpenSourcePicker}
         reserveSourceRows={reserveSourceRows}
