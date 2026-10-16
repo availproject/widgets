@@ -44,7 +44,7 @@ test("confirmed plan can add approvals without freezing the preview count", () =
   const second = { ...allowance, id: "allowance:destination:42161:usdt", typeID: "allowance:destination:42161:usdt", token: { contractAddress: "0xusdt", symbol: "USDT" }, method: "approval" };
   const events = [plan([allowance, destination]), plan([allowance, second, destination])];
   assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (1 of 2)");
-  assert.equal(row(events, "approveTokens")?.description, "Approve USDC, USDT in wallet");
+  assert.equal(row(events, "approveTokens")?.description, "Sign permit for USDC in wallet");
   events.push(progress(destination, "started"), progress(destination, "submitted"), progress(destination, "confirmed"), progress(destination, "confirmed"));
   assert.equal(row(events, "approveTokens")?.label, "Tokens approved for swap (2 of 2)");
 });
@@ -110,25 +110,36 @@ test("destination approval waits for cross-chain funds without blocking bridge p
   assert.equal(row(events, "approveTokens")?.state, "preapproval");
 });
 
-test("initial execution with empty events shows milestone rows and prompts intent signature", () => {
+test("initial execution with empty events shows milestone rows and omits intent verification when absent", () => {
   const emptyEventsRows = rows([]);
-  assert.equal(emptyEventsRows.length, 4);
-  assert.equal(emptyEventsRows[0]?.id, "intentVerified");
-  assert.equal(emptyEventsRows[0]?.state, "preapproval");
-  assert.equal(emptyEventsRows[0]?.description, "Sign intent in wallet");
-  assert.equal(emptyEventsRows[0]?.label, "Intent verified");
+  assert.equal(emptyEventsRows.length, 3);
 
-  assert.equal(emptyEventsRows[1]?.id, "swapTokens");
+  assert.equal(emptyEventsRows[0]?.id, "swapTokens");
+  assert.equal(emptyEventsRows[0]?.state, "inProgress");
+  assert.equal(emptyEventsRows[0]?.label, "Collected on sources");
+
+  assert.equal(emptyEventsRows[1]?.id, "receiveToken");
   assert.equal(emptyEventsRows[1]?.state, "default");
-  assert.equal(emptyEventsRows[1]?.label, "Collected on sources");
+  assert.equal(emptyEventsRows[1]?.label, "Filled on destination");
 
-  assert.equal(emptyEventsRows[2]?.id, "receiveToken");
+  assert.equal(emptyEventsRows[2]?.id, "action");
   assert.equal(emptyEventsRows[2]?.state, "default");
-  assert.equal(emptyEventsRows[2]?.label, "Filled on destination");
+  assert.equal(emptyEventsRows[2]?.label, "Deposit USDT to Aave");
+});
 
-  assert.equal(emptyEventsRows[3]?.id, "action");
-  assert.equal(emptyEventsRows[3]?.state, "default");
-  assert.equal(emptyEventsRows[3]?.label, "Deposit USDT to Aave");
+test("intent signature step prompts Approve intent -> Intent approved", () => {
+  const intentSignature = { id: "intent_signature", typeID: "intent_signature", type: "INTENT_SIGNATURE", chain };
+  const events = [plan([intentSignature])];
+  const pendingRow = row(events, "intentVerified");
+  assert.equal(pendingRow?.state, "preapproval");
+  assert.equal(pendingRow?.label, "Approve intent");
+  assert.equal(pendingRow?.description, "Approve in wallet");
+
+  events.push(progress(intentSignature, "confirmed"));
+  const confirmedRow = row(events, "intentVerified");
+  assert.equal(confirmedRow?.state, "completed");
+  assert.equal(confirmedRow?.label, "Intent approved");
+  assert.equal(confirmedRow?.description, undefined);
 });
 
 test("SDK v2 Better Intent events progress through milestones", () => {
@@ -138,6 +149,7 @@ test("SDK v2 Better Intent events progress through milestones", () => {
 
   const events: NexusWidgetProgressEvent[] = [progress(intentSignature, "confirmed")];
   assert.equal(row(events, "intentVerified")?.state, "completed");
+  assert.equal(row(events, "intentVerified")?.label, "Intent approved");
   assert.equal(row(events, "swapTokens")?.state, "inProgress");
 
   events.push(progress(intentSubmission, "confirmed"));
@@ -146,5 +158,60 @@ test("SDK v2 Better Intent events progress through milestones", () => {
   events.push(progress(intentFulfillment, "confirmed"));
   assert.equal(row(events, "receiveToken")?.state, "completed");
   assert.equal(row(events, "action")?.state, "preapproval");
+});
+
+test("multi-token approval progresses from token 1 to token 2 then marks completed", () => {
+  const approval1 = { id: "app1", typeID: "app1", type: "erc20_approval", chainId: 42161, tokenAddress: "0xusdc", token: { symbol: "USDC" } };
+  const approval2 = { id: "app2", typeID: "app2", type: "erc20_approval", chainId: 42161, tokenAddress: "0xdai", token: { symbol: "DAI" } };
+  const events: NexusWidgetProgressEvent[] = [plan([approval1, approval2])];
+
+  // Token 1 in progress
+  assert.equal(row(events, "approveTokens")?.state, "preapproval");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (1 of 2)");
+  assert.equal(row(events, "approveTokens")?.description, "Approve USDC in wallet");
+
+  // Token 1 completed
+  events.push(progress(approval1, "confirmed"));
+  assert.equal(row(events, "approveTokens")?.state, "preapproval");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.description, "Approve DAI in wallet");
+
+  // Token 2 completed -> success state
+  events.push(progress(approval2, "confirmed"));
+  assert.equal(row(events, "approveTokens")?.state, "completed");
+  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for swap (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.description, undefined);
+});
+
+test("resolves token symbol from context when step.token is absent", () => {
+  const bareApproval = { id: "bare_app", typeID: "bare_app", type: "erc20_approval", chainId: 42161, tokenAddress: "0xcontext_usdc" };
+  const events: NexusWidgetProgressEvent[] = [plan([bareApproval])];
+  const resultRows = buildStatusRows({
+    events,
+    mode: "deposit",
+    steps: [],
+    context: {
+      destinationChain: "Arbitrum",
+      destinationSymbol: "USDT",
+      fromTokens: [{ chainId: 42161, contractAddress: "0xcontext_usdc", symbol: "USDC" }],
+    },
+  });
+  const approveRow = resultRows.find((r) => r.id === "approveTokens");
+  assert.equal(approveRow?.description, "Approve USDC in wallet");
+});
+
+test("cancelling deposit approval marks action step as error and shows wallet refund message", () => {
+  const intentFulfillment = { id: "intent_fulfillment", typeID: "intent_fulfillment", type: "INTENT_FULFILLMENT", chain };
+  const depositAction = { id: "deposit_action", typeID: "action_failed", type: "APPROVAL", chain };
+  const events: NexusWidgetProgressEvent[] = [progress(intentFulfillment, "confirmed")];
+
+  const resultRows = rows(events, depositAction);
+  const actionRow = resultRows.find((r) => r.id === "action");
+  assert.equal(actionRow?.state, "error");
+  assert.equal(actionRow?.label, "Deposit failed. Funds are in your wallet.");
+  assert.equal(actionRow?.description, undefined);
+
+  const receiveRow = resultRows.find((r) => r.id === "receiveToken");
+  assert.equal(receiveRow?.state, "completed");
 });
 

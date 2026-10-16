@@ -9803,19 +9803,24 @@ function NexusWidgetInner({
         error: string,
         patch: Partial<SwapHistoryEntry> = {},
       ) => {
-        const failedProgressEvent = progressEventsRef.current.at(-1);
+        const lastProgressEvent = progressEventsRef.current.at(-1);
         const isTransferExecution =
           activeMode === "send" || hasCustomSwapRecipient;
         const fallbackFailedStep =
           activeMode === "deposit" || isTransferExecution
-            ? ({ type: "APPROVAL", typeID: "AP" } as BridgeStepType)
+            ? ({ type: "APPROVAL", typeID: "action_failed" } as BridgeStepType)
             : ({
                 type: "DETERMINING_SWAP",
                 typeID: "DETERMINING_SWAP",
               } as unknown as SwapStepType);
-        const failedStep = failedProgressEvent?.step ?? fallbackFailedStep;
+        const isActionFailure =
+          (activeMode === "deposit" || isTransferExecution) &&
+          (fundsMovedRef.current || lastProgressEvent?.completed === true);
+        const failedStep = isActionFailure
+          ? fallbackFailedStep
+          : (lastProgressEvent?.step ?? fallbackFailedStep);
         const autoRefundAvailable =
-          isAutoRefundAvailableProgressEvent(failedProgressEvent);
+          isAutoRefundAvailableProgressEvent(lastProgressEvent);
         setFailedProgressStep(failedStep);
         finishCurrentSwapHistoryEntry("failed", {
           error,
@@ -9861,9 +9866,18 @@ function NexusWidgetInner({
           }
         }, 700);
       };
-      if (err?.code === "USER_DENIED_INTENT") {
+      if (isUserRejected) {
         if (hasActiveExecution) {
-          showFailedProgressThenReceipt("Transaction cancelled by user");
+          const failureMsg =
+            activeMode === "deposit" && fundsMovedRef.current
+              ? "Deposit cancelled by user. Funds are in your wallet."
+              : "Transaction cancelled by user";
+          showFailedProgressThenReceipt(failureMsg, {
+            failureDescription:
+              activeMode === "deposit" && fundsMovedRef.current
+                ? "Deposit approval was cancelled. The swapped tokens have been received and are in your wallet."
+                : "Transaction was rejected in your wallet.",
+          });
         } else if (!background || swapStepRef.current === "preview-intent") {
           swapStepRef.current = "idle";
           setSwapStep("idle");
@@ -11684,6 +11698,7 @@ function NexusWidgetInner({
                     toAmount={previewDestinationAmount}
                     toAmountUsd={previewToAmountUsd}
                     toToken={toTokenWithFetchedBalance}
+                    totalFeeUsd={intentFeeUsd}
                   />
                 )}
 
