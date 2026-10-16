@@ -611,7 +611,7 @@ export const buildStatusRows = ({
     events.some((event) => !event.steps && event.completed && isSameStep(event.step, step)),
   );
   const swapTokensComplete = hasReceiveTokenStep
-    ? receiveTokenStarted || receiveTokenComplete
+    ? receiveTokenStarted || receiveTokenComplete || swapExecutionComplete
     : swapComplete || swapExecutionComplete;
   const transactionSent = hasCompletedType(events, steps, ["TRANSACTION_SENT"]) ||
     events.some((event) => !event.steps && getStepType(event.step) === "TRANSACTION_SENT" &&
@@ -745,11 +745,15 @@ export const buildStatusRows = ({
       id: "swapTokens",
       state,
       label:
-        state === "error"
-          ? refundEligibleFailure
-            ? "Swap failed. Refund initiated"
-            : "Swap failed"
-          : "Collected on sources",
+        state === "completed"
+          ? "Swaps completed"
+          : state === "error"
+            ? refundEligibleFailure
+              ? "Swap failed. Refund initiated"
+              : "Swap failed"
+            : state === "inProgress"
+              ? "Swaps in progress"
+              : "Swap tokens",
     });
 
     if (hasReceiveTokenStep) {
@@ -768,7 +772,11 @@ export const buildStatusRows = ({
             ? refundEligibleFailure
               ? "Destination swap failed. Refund initiated."
               : "Destination swap failed."
-            : "Filled on destination",
+            : receiveTokenComplete
+              ? `Received ${destinationSymbol} on ${destinationChain}`
+              : receiveTokenStarted || (swapTokensComplete && !receiveTokenComplete)
+                ? `Receiving ${destinationSymbol} on ${destinationChain}`
+                : `Receive ${destinationSymbol} on ${destinationChain}`,
       });
     }
   }
@@ -852,9 +860,9 @@ export const buildStatusRows = ({
         row.id === "intentVerified" && nextState === "preapproval"
           ? "Approve intent"
           : row.id === "swapTokens"
-            ? "Collected on sources"
+            ? "Swaps in progress"
             : row.id === "receiveToken"
-              ? "Filled on destination"
+              ? `Receiving ${destinationSymbol} on ${destinationChain}`
               : row.label,
       state: nextState,
     };
@@ -1374,7 +1382,6 @@ export function NexusWidgetProgressScreen({
                         style={{
                           color: isLoading ? brand : muted,
                           fontSize: "10px",
-                          fontStyle: "italic",
                           fontWeight: 400,
                           lineHeight: "13px",
                         }}
