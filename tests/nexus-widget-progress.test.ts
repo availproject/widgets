@@ -300,3 +300,78 @@ test("replicates exact V1 deposit progress screen from screenshot", () => {
   assert.equal(step6[3].label, "USDC deposited to Aave");
 });
 
+test("user rejection at token approval marks approveTokens as rejected and failed", () => {
+  const approval = { id: "app1", typeID: "app1", type: "erc20_approval", chainId: 10, token: { symbol: "USDC" } };
+  const sourceSwap = { id: "source1", typeID: "source1", type: "SOURCE_SWAP", chain: { id: 10, name: "Optimism" } };
+  const events = [plan([approval, sourceSwap])];
+
+  const failedStep = { type: "ALLOWANCE_APPROVAL", typeID: "approve_tokens_failed", isRejected: true };
+  const result = buildStatusRows({
+    events,
+    mode: "swap",
+    steps: [],
+    failedStep: failedStep as any,
+    isRejected: true,
+    context: {
+      destinationChain: "Optimism",
+      destinationSymbol: "USDC",
+    },
+  });
+
+  const approveRow = result.find((r) => r.id === "approveTokens");
+  assert.ok(approveRow);
+  assert.equal(approveRow.state, "error");
+  assert.equal(approveRow.label, "Token approval rejected");
+  assert.equal(approveRow.description, "Rejected in wallet");
+});
+
+test("user rejection at intent signature marks intentVerified as rejected and failed", () => {
+  const intentSignature = { id: "intent_signature", typeID: "intent_signature", type: "INTENT_SIGNATURE", chain };
+  const events = [plan([intentSignature])];
+
+  const failedStep = { type: "INTENT_SIGNATURE", typeID: "intent_signature_failed", isRejected: true };
+  const result = buildStatusRows({
+    events,
+    mode: "swap",
+    steps: [],
+    failedStep: failedStep as any,
+    isRejected: true,
+    context: {
+      destinationChain: "Arbitrum",
+      destinationSymbol: "USDT",
+    },
+  });
+
+  const intentRow = result.find((r) => r.id === "intentVerified");
+  assert.ok(intentRow);
+  assert.equal(intentRow.state, "error");
+  assert.equal(intentRow.label, "Intent approval rejected");
+  assert.equal(intentRow.description, "Rejected in wallet");
+});
+
+test("user rejection at deposit action marks action as cancelled by user", () => {
+  const intentFulfillment = { id: "intent_fulfillment", typeID: "intent_fulfillment", type: "INTENT_FULFILLMENT", chain };
+  const events: NexusWidgetProgressEvent[] = [progress(intentFulfillment, "confirmed")];
+
+  const failedStep = { type: "APPROVAL", typeID: "action_failed", isRejected: true };
+  const result = buildStatusRows({
+    events,
+    mode: "deposit",
+    steps: [],
+    failedStep: failedStep as any,
+    isRejected: true,
+    context: {
+      destinationChain: "Arbitrum",
+      destinationSymbol: "USDT",
+      opportunityName: "Aave",
+    },
+  });
+
+  const actionRow = result.find((r) => r.id === "action");
+  assert.ok(actionRow);
+  assert.equal(actionRow.state, "error");
+  assert.equal(actionRow.label, "Deposit cancelled by user");
+  assert.equal(actionRow.description, "Rejected in wallet");
+});
+
+

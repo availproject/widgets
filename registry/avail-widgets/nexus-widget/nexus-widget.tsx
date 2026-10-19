@@ -66,7 +66,9 @@ import {
   readOnrampWalletAddress,
   withOnrampWalletTimeout,
 } from "./utils/use-onramp-wallet";
+import { classifyWidgetError } from "./error-classification";
 import {
+  buildStatusRows,
   type NexusWidgetProgressEvent,
   NexusWidgetProgressScreen,
 } from "./components/nexus-widget-progress-screen";
@@ -4238,6 +4240,8 @@ function NexusWidgetInner({
   const [failedProgressStep, setFailedProgressStep] = useState<
     SwapStepType | BridgeStepType | null
   >(null);
+  const [failedProgressIsRejected, setFailedProgressIsRejected] =
+    useState(false);
   const [explorerUrls, setExplorerUrls] = useState<{
     sourceExplorerUrl: string | null;
     destinationExplorerUrl: string | null;
@@ -6776,6 +6780,7 @@ function NexusWidgetInner({
     progressEventsRef.current = [];
     setProgressEvents((current) => (current.length === 0 ? current : []));
     setFailedProgressStep((current) => (current === null ? current : null));
+    setFailedProgressIsRejected(false);
   };
 
   const appendProgressEvent = (
@@ -8660,6 +8665,8 @@ function NexusWidgetInner({
     resetSourceSelectionAfterFailure();
     setTxError(null);
     void refreshSelectedSourceBalances();
+    setFailedProgressStep(null);
+    setFailedProgressIsRejected(false);
     setSwapStep("idle");
     setCurrentSwapId(null);
     currentSwapIdRef.current = null;
@@ -9760,18 +9767,34 @@ function NexusWidgetInner({
       const errMessage =
         (typeof err?.message === "string" ? err.message : "") ||
         (typeof err === "string" ? err : "");
+      const errCauseMessage =
+        typeof err?.cause?.message === "string" ? err.cause.message : "";
       const errName = typeof err?.name === "string" ? err.name : "";
+      const errCauseName =
+        typeof err?.cause?.name === "string" ? err.cause.name : "";
       const isTimeout = isTimeoutLikeError(err);
       const isUserRejected =
         err?.code === 4001 ||
+        err?.cause?.code === 4001 ||
         err?.code === "ACTION_REJECTED" ||
+        err?.cause?.code === "ACTION_REJECTED" ||
         err?.code === "USER_INTENT_HOOK_DENIED" ||
         err?.code === "USER_DENIED_INTENT" ||
+        (typeof err?.code === "string" && err.code.startsWith("user_action/")) ||
+        (typeof err?.cause?.code === "string" &&
+          err.cause.code.startsWith("user_action/")) ||
+        classifyWidgetError(err).reason === "wallet_rejected" ||
         errName === "UserRejectedRequestError" ||
+        errCauseName === "UserRejectedRequestError" ||
         errName === "UserActionError" ||
-        /user rejected|user denied/i.test(errMessage);
+        errCauseName === "UserActionError" ||
+        /user rejected|user denied|rejected the request|rejected the transaction|denied transaction/i.test(errMessage) ||
+        /user rejected|user denied|rejected the request|rejected the transaction|denied transaction/i.test(errCauseMessage);
 
-      if (swapRunIdRef.current !== runId || !isCurrentQuoteInput()) {
+      if (
+        !hasActiveExecution &&
+        (swapRunIdRef.current !== runId || !isCurrentQuoteInput())
+      ) {
         return;
       }
       if (
@@ -9802,38 +9825,145 @@ function NexusWidgetInner({
       const showFailedProgressThenReceipt = (
         error: string,
         patch: Partial<SwapHistoryEntry> = {},
+        isRejected = false,
       ) => {
         const lastProgressEvent = progressEventsRef.current.at(-1);
         const isTransferExecution =
           activeMode === "send" || hasCustomSwapRecipient;
-        const fallbackFailedStep =
-          activeMode === "deposit" || isTransferExecution
-            ? ({ type: "APPROVAL", typeID: "action_failed" } as BridgeStepType)
-            : ({
-                type: "DETERMINING_SWAP",
-                typeID: "DETERMINING_SWAP",
-              } as unknown as SwapStepType);
-        const isActionFailure =
-          (activeMode === "deposit" || isTransferExecution) &&
-          (fundsMovedRef.current || lastProgressEvent?.completed === true);
-        const failedStep = isActionFailure
-          ? fallbackFailedStep
-          : (lastProgressEvent?.step ?? fallbackFailedStep);
+
+        let failedStep: SwapStepType | BridgeStepType | null = null;
+        try {
+          const intentDest = intentData?.destination;
+          const destChainName = getShortChainName(
+            intentDest?.chain.id ?? toToken?.chainId,
+            intentDest?.chain.name || toToken?.chainName || "",
+          );
+          const previewDestinationChain =
+            activeMode === "deposit"
+              ? selectedOpportunity?.title ||
+                selectedOpportunity?.protocol ||
+                destChainName
+              : destChainName;
+          const previewRows = buildStatusRows({
+            events: progressEventsRef.current,
+            mode: activeMode,
+            steps: steps ?? [],
+            context: {
+              destinationChain: previewDestinationChain,
+              destinationSymbol:
+                intentDest?.token?.symbol ||
+                toToken?.symbol ||
+                selectedOpportunity?.tokenSymbol ||
+                "",
+              fromTokens,
+              intentSources: intentData?.sources ?? [],
+              opportunity: selectedOpportunity
+                ? {
+                    chainId: selectedOpportunity.chainId,
+                    tokenAddress: selectedOpportunity.tokenAddress,
+                    tokenSymbol: selectedOpportunity.tokenSymbol,
+                  }
+                : undefined,
+              opportunityName:
+                selectedOpportunity?.title || selectedOpportunity?.protocol,
+              recipientAddress: transferRecipientAddress,
+              toToken: toToken
+                ? {
+                    chainId: toToken.chainId,
+                    contractAddress: toToken.contractAddress,
+                    symbol: toToken.symbol,
+                  }
+                : undefined,
+            },
+            isRejected,
+          });
+
+          const activeRow =
+            previewRows.find(
+              (r: { state: string }) =>
+                r.state === "preapproval" || r.state === "inProgress",
+            ) ??
+            previewRows.find((r: { state: string }) => r.state === "default") ??
+            previewRows.at(-1);
+
+          if (activeRow) {
+            if (activeRow.id === "approveTokens") {
+              failedStep = {
+                type: "ALLOWANCE_APPROVAL",
+                typeID: "approve_tokens_failed",
+                isRejected,
+              } as unknown as SwapStepType;
+            } else if (activeRow.id === "intentVerified") {
+              failedStep = {
+                type: "INTENT_SIGNATURE",
+                typeID: "intent_signature_failed",
+                isRejected,
+              } as unknown as SwapStepType;
+            } else if (activeRow.id === "swapTokens") {
+              failedStep = {
+                type: "SOURCE_SWAP",
+                typeID: "swap_tokens_failed",
+                isRejected,
+              } as unknown as SwapStepType;
+            } else if (activeRow.id === "receiveToken") {
+              failedStep = {
+                type: "DESTINATION_SWAP",
+                typeID: "receive_token_failed",
+                isRejected,
+              } as unknown as SwapStepType;
+            } else if (activeRow.id === "action") {
+              failedStep = {
+                type: "APPROVAL",
+                typeID: "action_failed",
+                isRejected,
+              } as BridgeStepType;
+            }
+          }
+        } catch {
+          // fallback below
+        }
+
+        if (!failedStep) {
+          const fallbackFailedStep =
+            activeMode === "deposit" || isTransferExecution
+              ? ({
+                  type: "APPROVAL",
+                  typeID: "action_failed",
+                  isRejected,
+                } as BridgeStepType)
+              : ({
+                  type: "DETERMINING_SWAP",
+                  typeID: "DETERMINING_SWAP",
+                  isRejected,
+                } as unknown as SwapStepType);
+          const isActionFailure =
+            (activeMode === "deposit" || isTransferExecution) &&
+            (fundsMovedRef.current || lastProgressEvent?.completed === true);
+          failedStep = isActionFailure
+            ? fallbackFailedStep
+            : (lastProgressEvent?.step ?? fallbackFailedStep);
+        }
+
         const autoRefundAvailable =
           isAutoRefundAvailableProgressEvent(lastProgressEvent);
         setFailedProgressStep(failedStep);
+        setFailedProgressIsRejected(isRejected);
         finishCurrentSwapHistoryEntry("failed", {
           error,
           autoRefundAvailable,
-          failureDescription: getFailureDescriptionForProgressStep(
-            failedStep,
-            autoRefundAvailable,
-          ),
-          failureMessage: getFailureMessageForProgressStep(
-            failedStep,
-            hasCustomSwapRecipient ? "send" : activeMode,
-            autoRefundAvailable,
-          ),
+          failureDescription:
+            patch.failureDescription ||
+            getFailureDescriptionForProgressStep(
+              failedStep,
+              autoRefundAvailable,
+            ),
+          failureMessage:
+            patch.failureMessage ||
+            getFailureMessageForProgressStep(
+              failedStep,
+              hasCustomSwapRecipient ? "send" : activeMode,
+              autoRefundAvailable,
+            ),
           failedStepType: getProgressStepType(failedStep),
           ...patch,
         });
@@ -9868,16 +9998,18 @@ function NexusWidgetInner({
       };
       if (isUserRejected) {
         if (hasActiveExecution) {
-          const failureMsg =
-            activeMode === "deposit" && fundsMovedRef.current
-              ? "Deposit cancelled by user. Funds are in your wallet."
-              : "Transaction cancelled by user";
-          showFailedProgressThenReceipt(failureMsg, {
-            failureDescription:
-              activeMode === "deposit" && fundsMovedRef.current
-                ? "Deposit approval was cancelled. The swapped tokens have been received and are in your wallet."
-                : "Transaction was rejected in your wallet.",
-          });
+          const failureMsg = "Transaction failed";
+          showFailedProgressThenReceipt(
+            failureMsg,
+            {
+              failureMessage: "Transaction failed",
+              failureDescription:
+                activeMode === "deposit" && fundsMovedRef.current
+                  ? "Deposit approval was cancelled. The swapped tokens have been received and are in your wallet."
+                  : "Transaction was rejected in your wallet.",
+            },
+            true,
+          );
         } else if (!background || swapStepRef.current === "preview-intent") {
           swapStepRef.current = "idle";
           setSwapStep("idle");
@@ -10404,6 +10536,7 @@ function NexusWidgetInner({
       }
       onStart?.();
       startSwapHistoryEntry();
+      swapStepRef.current = "progress";
       setSwapStep("progress");
       setQuoteRefreshing(false);
       resetProgressEvents();
@@ -11687,6 +11820,7 @@ function NexusWidgetInner({
                 {swapStep === "progress" && (
                   <NexusWidgetProgressScreen
                     failedStep={failedProgressStep}
+                    isRejected={failedProgressIsRejected}
                     fromAmountUsd={previewFromAmountUsd}
                     fromTokens={fromTokens}
                     intentData={intentData}

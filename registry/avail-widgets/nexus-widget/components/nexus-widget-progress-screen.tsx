@@ -41,6 +41,7 @@ interface NexusWidgetProgressScreenProps {
   fromAmountUsd?: string;
   fromTokens?: SwapTokenOption[];
   intentData?: SwapIntentData | null;
+  isRejected?: boolean;
   mode: NexusWidgetMode;
   opportunity?: NexusWidgetDepositOpportunityMetadata;
   progressEvents?: NexusWidgetProgressEvent[];
@@ -529,13 +530,16 @@ export const buildStatusRows = ({
   mode,
   steps,
   context,
+  isRejected: isRejectedProp,
 }: {
   events: NexusWidgetProgressEvent[];
   failedStep?: ProgressSdkStep | null;
   mode: NexusWidgetMode;
   steps: ProgressStep[];
   context: BuildStatusRowsContext;
+  isRejected?: boolean;
 }): ProgressStatusRow[] => {
+  const isRejected = Boolean(isRejectedProp || (failedStep as any)?.isRejected);
   const hasTransferAction =
     mode === "send" || (mode === "swap" && Boolean(context.recipientAddress));
   let failedStatus = failedStep
@@ -686,12 +690,19 @@ export const buildStatusRows = ({
     pushRow({
       id: "approveTokens",
       state,
-      description: state === "preapproval" ? approvalDescription : undefined,
+      description:
+        state === "error" && isRejected
+          ? "Rejected in wallet"
+          : state === "preapproval"
+            ? approvalDescription
+            : undefined,
       label:
         state === "completed"
           ? `Tokens approved for swap (${approvalTotal} of ${approvalTotal})`
           : state === "error"
-            ? "Token approval failed"
+            ? isRejected
+              ? "Token approval rejected"
+              : "Token approval failed"
             : `Approve tokens for swap (${approvalCurrent} of ${approvalTotal})`,
     });
   }
@@ -708,12 +719,18 @@ export const buildStatusRows = ({
         id: "intentVerified",
         state: intentVerifiedState,
         description:
-          intentVerifiedState === "preapproval" ? "Approve in wallet" : undefined,
+          intentVerifiedState === "error" && isRejected
+            ? "Rejected in wallet"
+            : intentVerifiedState === "preapproval"
+              ? "Approve in wallet"
+              : undefined,
         label:
           intentVerifiedState === "completed"
             ? "Intent approved"
             : intentVerifiedState === "error"
-              ? "Intent approval failed"
+              ? isRejected
+                ? "Intent approval rejected"
+                : "Intent approval failed"
               : "Approve intent",
       });
     }
@@ -744,13 +761,17 @@ export const buildStatusRows = ({
     pushRow({
       id: "swapTokens",
       state,
+      description:
+        state === "error" && isRejected ? "Rejected in wallet" : undefined,
       label:
         state === "completed"
           ? "Swaps completed"
           : state === "error"
-            ? refundEligibleFailure
-              ? "Swap failed. Refund initiated"
-              : "Swap failed"
+            ? isRejected
+              ? "Swap rejected"
+              : refundEligibleFailure
+                ? "Swap failed. Refund initiated"
+                : "Swap failed"
             : state === "inProgress"
               ? "Swaps in progress"
               : "Swap tokens",
@@ -767,11 +788,17 @@ export const buildStatusRows = ({
               : receiveTokenStarted || (swapTokensComplete && !receiveTokenComplete)
                 ? "inProgress"
                 : "default",
+        description:
+          failedStatus === "receiveToken" && isRejected
+            ? "Rejected in wallet"
+            : undefined,
         label:
           failedStatus === "receiveToken"
-            ? refundEligibleFailure
-              ? "Destination swap failed. Refund initiated."
-              : "Destination swap failed."
+            ? isRejected
+              ? "Destination swap rejected"
+              : refundEligibleFailure
+                ? "Destination swap failed. Refund initiated."
+                : "Destination swap failed."
             : receiveTokenComplete
               ? `Received ${destinationSymbol} on ${destinationChain}`
               : receiveTokenStarted || (swapTokensComplete && !receiveTokenComplete)
@@ -801,14 +828,21 @@ export const buildStatusRows = ({
     pushRow({
       id: "action",
       state,
-      description: state === "preapproval" ? "Approve in wallet" : undefined,
+      description:
+        state === "error" && isRejected
+          ? "Rejected in wallet"
+          : state === "preapproval"
+            ? "Approve in wallet"
+            : undefined,
       label: isDeposit
         ? state === "completed"
           ? `${destinationSymbol} deposited to ${opportunityName}`
           : state === "inProgress"
             ? `Depositing ${destinationSymbol} to ${opportunityName}`
             : state === "error"
-              ? "Deposit failed. Funds are in your wallet."
+              ? isRejected
+                ? "Deposit cancelled by user"
+                : "Deposit failed. Funds are in your wallet."
               : state === "preapproval"
                 ? `Approve Deposit of ${destinationSymbol} to ${opportunityName}`
                 : `Deposit ${destinationSymbol} to ${opportunityName}`
@@ -817,7 +851,9 @@ export const buildStatusRows = ({
           : state === "inProgress"
             ? `Sending ${destinationSymbol}`
             : state === "error"
-              ? "Send failed. Funds are in your wallet."
+              ? isRejected
+                ? "Send cancelled by user"
+                : "Send failed. Funds are in your wallet."
               : state === "preapproval"
                 ? `Approve ${destinationSymbol} transfer`
                 : `Send ${destinationSymbol}`,
@@ -973,6 +1009,7 @@ export function NexusWidgetProgressScreen({
   toAmountUsd,
   totalFeeUsd,
   intentData,
+  isRejected = false,
   mode,
   opportunity,
   steps,
@@ -1097,6 +1134,7 @@ export function NexusWidgetProgressScreen({
   const statusRows = buildStatusRows({
     events: progressEvents,
     failedStep,
+    isRejected,
     mode,
     steps: steps ?? [],
     context: {
