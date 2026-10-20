@@ -22,7 +22,7 @@ export interface NexusObservabilityConfig {
   /** Auto requires a production browser; on permits intentional browser verification. */
   mode?: "auto" | "on" | "off";
   environment?: "production" | "staging" | "development" | "test";
-  network?: "mainnet" | "testnet";
+  network?: "mainnet" | "testnet" | "canary";
   includeWalletHint?: boolean;
   /** Include optional estimated USD supplied by a trusted final-outcome publisher. */
   includeAmounts?: boolean;
@@ -86,8 +86,8 @@ export interface WidgetAttemptContext {
   readonly "surface.version"?: string;
   readonly mode: "deposit" | "swap" | "send";
   readonly environment: string;
-  readonly network?: "mainnet" | "testnet";
-  readonly "nexus.network"?: "mainnet" | "testnet";
+  readonly network?: "mainnet" | "testnet" | "canary";
+  readonly "nexus.network"?: "mainnet" | "testnet" | "canary";
 }
 
 /** Trusted publisher input, not an SDK 2.4.1 API. Never pass raw progress as this evidence. */

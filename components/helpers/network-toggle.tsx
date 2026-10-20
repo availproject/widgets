@@ -18,21 +18,21 @@ interface NetworkToggleProps {
 
 const NetworkToggle = ({ disableTestnet = false }: NetworkToggleProps) => {
   const { nexusSDK, deinitializeNexus } = useNexus();
-  const [currentNetwork, setCurrentNetwork] = useState<NexusNetwork>("mainnet");
+  const [currentNetwork, setCurrentNetwork] = useState<NexusNetwork>("canary");
 
   useEffect(() => {
     // Read from localStorage on client side only
     const storedNetwork = getItem(NETWORK_KEY) as NexusNetwork | null;
     if (disableTestnet && storedNetwork === "testnet") {
-      setItem(NETWORK_KEY, "mainnet");
-      setCurrentNetwork("mainnet");
+      setItem(NETWORK_KEY, "canary");
+      setCurrentNetwork("canary");
     } else if (
       storedNetwork &&
-      (storedNetwork === "mainnet" || storedNetwork === "testnet")
+      (storedNetwork === "canary" || storedNetwork === "mainnet" || storedNetwork === "testnet")
     ) {
       setCurrentNetwork(storedNetwork);
     } else {
-      setCurrentNetwork("mainnet");
+      setCurrentNetwork("canary");
     }
   }, [disableTestnet]);
 
@@ -58,10 +58,11 @@ const NetworkToggle = ({ disableTestnet = false }: NetworkToggleProps) => {
           <SelectValue placeholder="Select a network" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="canary">Canary</SelectItem>
+          <SelectItem value="mainnet">Mainnet</SelectItem>
           <SelectItem value="testnet" disabled={disableTestnet}>
             Testnet{disableTestnet ? " (not supported)" : ""}
           </SelectItem>
-          <SelectItem value="mainnet">Mainnet</SelectItem>
         </SelectContent>
       </Select>
     </div>

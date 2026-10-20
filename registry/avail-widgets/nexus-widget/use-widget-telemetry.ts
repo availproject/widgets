@@ -10,7 +10,7 @@ export function useWidgetTelemetry({ identity, config, mode, walletAddress, hub,
   mode: "deposit" | "swap" | "send";
   walletAddress?: string;
   hub: ReturnType<typeof createWidgetObservationHub>;
-  network?: "mainnet" | "testnet";
+  network?: "mainnet" | "testnet" | "canary";
 }) {
   const [telemetry] = useState(() => createWidgetTelemetry({ identity, config, mode, walletAddress, network }));
   useBrowserLayoutEffect(() => {

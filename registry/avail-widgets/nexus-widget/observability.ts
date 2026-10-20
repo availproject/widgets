@@ -28,7 +28,7 @@ const CANCELLATIONS = new Set([
 ]);
 const noop: WidgetCallFinish = () => {};
 type Mode = "deposit" | "swap" | "send";
-type Settings = { identity?: NexusIdentity; config?: NexusObservabilityConfig; mode: Mode; walletAddress?: string; network?: "mainnet" | "testnet" };
+type Settings = { identity?: NexusIdentity; config?: NexusObservabilityConfig; mode: Mode; walletAddress?: string; network?: "mainnet" | "testnet" | "canary" };
 type Runtime = {
   browser: () => boolean;
   hostname: () => string;
@@ -83,7 +83,7 @@ export function sanitizeWidgetFields(input: Record<string, unknown>, config: Nex
     output["error.code"] = errCode;
   }
   const net = input["nexus.network"] ?? input.network;
-  if (typeof net === "string" && (net === "mainnet" || net === "testnet")) {
+  if (typeof net === "string" && (net === "mainnet" || net === "testnet" || net === "canary")) {
     output["nexus.network"] = net;
   }
   if (typeof output.reason === "string" && input.errorSummary === WIDGET_ERROR_SUMMARIES[output.reason]) output.errorSummary = input.errorSummary as string;
@@ -292,7 +292,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       const { sdkCode, "error.code": rawErrorCode, transactionHash, intentHash, ...summary } = sanitized;
       const errorCode = (rawErrorCode ?? sdkCode) as string | undefined;
       const includeLookupKeys = event === "widget_attempt_committed" || event === "widget_attempt_outcome";
-      const net = settings.network ?? settings.config?.network ?? "mainnet";
+      const net = settings.network ?? settings.config?.network ?? "canary";
       const properties = Object.freeze({
         ...summary,
         ...(errorCode ? { "error.code": errorCode } : {}),
@@ -337,7 +337,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
         sessionId ??= runtime.uuid();
         const id = attemptId;
         const generation = epoch;
-        const net = settings.network ?? settings.config?.network ?? "mainnet";
+        const net = settings.network ?? settings.config?.network ?? "canary";
         emit("widget_attempt_started", {
           operation,
           ...(previousAttemptId ? { "attempt.previous_id": previousAttemptId } : {}),
