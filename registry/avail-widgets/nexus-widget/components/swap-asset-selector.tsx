@@ -2142,11 +2142,15 @@ export function SwapAssetSelector({
   };
 
   const isLoading = !staticOptions && swapBalance === null;
+  const candidateTokens =
+    autoSelectFilterTabs && activeTab !== "custom"
+      ? getFilterTabTokens(activeTab, selectedChainFilter)
+      : activeSelectedTokens;
   const selectedAssetCount = activeSelectedTokens.length;
   const requiredUsdAmount = parseTokenAmount(requiredUsd);
   const shouldCountSelectedUsd = (token: SwapTokenOption, value: Decimal) =>
     value.gt(0) && (isLockedToken(token) || value.gte(MIN_FIAT_THRESHOLD));
-  const selectedUsdAmount = activeSelectedTokens.reduce((sum, token) => {
+  const selectedUsdAmount = candidateTokens.reduce((sum, token) => {
     if (token.isUnified && token.sourceTokens?.length) {
       return sum.plus(
         token.sourceTokens.reduce((sourceSum, source) => {
@@ -2179,7 +2183,9 @@ export function SwapAssetSelector({
         ).toNumber()
       : 0;
   const subtitle = isMulti
-    ? `${selectedAssetCount} asset${selectedAssetCount === 1 ? "" : "s"} selected`
+    ? autoSelectFilterTabs && activeTab !== "custom"
+      ? "Auto selection"
+      : `${selectedAssetCount} asset${selectedAssetCount === 1 ? "" : "s"} selected`
     : "";
 
   useEffect(() => {

@@ -6058,7 +6058,6 @@ function NexusWidgetInner({
     const selectedSourceIds = getDepositSourceIdsFromTokens(
       selectedTokensForResolution,
     );
-    const destinationSourceId = getDestinationSourceIdForDeposit();
     const targetAmountUsd =
       options?.targetAmountUsd ??
       (activeMode === "deposit"
@@ -6077,7 +6076,7 @@ function NexusWidgetInner({
       isManualSelection: manualSelection,
       minimumBalanceUsd: manualSelection ? minimumSourceUsd.toNumber() : 0,
       targetAmountUsd: targetAmountUsd?.toNumber(),
-      excludedSourceIds: destinationSourceId ? [destinationSourceId] : [],
+      excludedSourceIds: [],
     });
   };
 
@@ -9763,12 +9762,17 @@ function NexusWidgetInner({
 
       const caughtTimeout = isTimeoutLikeError(err);
       const hasActiveExecution =
-        swapStepRef.current === "progress" && Boolean(currentSwapIdRef.current);
+        swapStepRef.current === "progress" ||
+        Boolean(currentSwapIdRef.current && swapStepRef.current !== "idle");
       const errMessage =
         (typeof err?.message === "string" ? err.message : "") ||
         (typeof err === "string" ? err : "");
       const errCauseMessage =
         typeof err?.cause?.message === "string" ? err.cause.message : "";
+      const errShortMessage =
+        typeof err?.shortMessage === "string" ? err.shortMessage : "";
+      const errDetails =
+        typeof err?.details === "string" ? err.details : "";
       const errName = typeof err?.name === "string" ? err.name : "";
       const errCauseName =
         typeof err?.cause?.name === "string" ? err.cause.name : "";
@@ -9788,8 +9792,9 @@ function NexusWidgetInner({
         errCauseName === "UserRejectedRequestError" ||
         errName === "UserActionError" ||
         errCauseName === "UserActionError" ||
-        /user rejected|user denied|rejected the request|rejected the transaction|denied transaction/i.test(errMessage) ||
-        /user rejected|user denied|rejected the request|rejected the transaction|denied transaction/i.test(errCauseMessage);
+        /user rejected|user denied|rejected the request|rejected the transaction|denied transaction|cancelled/i.test(
+          `${errMessage} ${errCauseMessage} ${errShortMessage} ${errDetails}`,
+        );
 
       if (
         !hasActiveExecution &&
@@ -9799,7 +9804,8 @@ function NexusWidgetInner({
       }
       if (
         isUserRejected &&
-        (!hasActiveExecution || background || swapStepRef.current === "idle")
+        !hasActiveExecution &&
+        (background || swapStepRef.current === "idle" || swapStepRef.current === "preview-intent")
       ) {
         if (!background && swapStepRef.current === "preview-intent") {
           swapStepRef.current = "idle";
@@ -9968,10 +9974,7 @@ function NexusWidgetInner({
           ...patch,
         });
         window.setTimeout(() => {
-          if (
-            swapRunIdRef.current === runId &&
-            swapStepRef.current === "progress"
-          ) {
+          if (swapStepRef.current === "progress") {
             setSwapStep("failed");
           }
         }, 700);
@@ -9988,10 +9991,7 @@ function NexusWidgetInner({
           ...patch,
         });
         window.setTimeout(() => {
-          if (
-            swapRunIdRef.current === runId &&
-            swapStepRef.current === "progress"
-          ) {
+          if (swapStepRef.current === "progress") {
             setSwapStep("failed");
           }
         }, 700);
@@ -10993,8 +10993,7 @@ function NexusWidgetInner({
       toToken && (receiveMaxCalculating || (amount && Number(amount) > 0)),
     ) &&
     !blockingQuoteIssue &&
-    !hasCurrentExactOutPaymentIntent &&
-    (quoteRefreshing || intentLoading || receiveMaxCalculating);
+    !hasCurrentExactOutPaymentIntent;
   const isQuoteUnavailableForAutoSourceFlow = Boolean(quoteErrorIssue);
   const hasPositiveRootAmount = hasPositiveDecimalInput(amount);
   const hasReadySwapQuoteInput = hasReadyExactInSwapInput(fromTokens, toToken);
@@ -11196,19 +11195,12 @@ function NexusWidgetInner({
     exactOutDestinationCoverage,
     toTokenWithFetchedBalance,
   );
-  const shouldShowPredictiveExactOutDisplay =
-    (activeMode === "deposit" || activeMode === "send") &&
-    !hasIntentSources &&
-    Boolean(
-      predictiveExactOutQuote &&
-      ((predictiveExactOutQuote.sources?.length ?? 0) > 0 ||
-        destinationBalanceDisplayToken),
-    );
+  const shouldShowPredictiveExactOutDisplay = false;
   const baseDisplayFromTokens = shouldUseCurrentExactOutIntentSources
     ? currentExactOutIntentSourceTokens
-    : shouldShowPredictiveExactOutDisplay
-      ? (predictiveExactOutQuote?.sources ?? fromTokens)
-      : fromTokens;
+    : hasCurrentExactOutPaymentIntent
+      ? fromTokens
+      : [];
   const displayFromTokens = (() => {
     if (activeMode !== "deposit" && activeMode !== "send") {
       return baseDisplayFromTokens;
@@ -11241,22 +11233,13 @@ function NexusWidgetInner({
       sortDisplaySourcesByBalanceUsdDesc(displayTokens),
     );
   })();
-  const displayExactOutRouteLoading =
-    isExactOutRouteLoading && !shouldShowPredictiveExactOutDisplay;
+  const displayExactOutRouteLoading = isExactOutRouteLoading;
   const isExactInPredictiveQuote =
     activeMode === "swap" &&
     swapType === "exactIn" &&
     !hasCurrentQuoteIntent &&
     Boolean(idleReceiveQuoteAmount || predictiveExactInQuote?.toAmount);
-  const isExactOutPredictiveQuote =
-    (activeMode === "deposit" || activeMode === "send") &&
-    !hasCurrentExactOutPaymentIntent &&
-    Boolean(
-      shouldShowPredictiveExactOutDisplay ||
-        predictiveExactOutQuote ||
-        quoteRefreshing ||
-        intentLoading,
-    );
+  const isExactOutPredictiveQuote = false;
   const isSourcePickerRefreshDisabled =
     quoteRefreshing || intentLoading || previewQuoteRefreshing;
   const isIntentSourceUiActionable =
@@ -11464,6 +11447,7 @@ function NexusWidgetInner({
         backgroundPositionY: "center",
         backgroundSize: "cover",
         borderRadius: "20px",
+        border: "1px solid var(--nexus-widget-border, #E8E8E7)",
         boxShadow: "var(--nexus-widget-root-shadow, none)",
         boxSizing: "border-box",
         display: "flex",

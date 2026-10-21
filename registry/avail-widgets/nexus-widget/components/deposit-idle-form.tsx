@@ -240,37 +240,114 @@ function ExactOutPercentButtons({
   );
 }
 
-function SkeletonRow() {
+function SkeletonAssetRow() {
   return (
     <div
       style={{
         alignItems: "center",
         display: "flex",
         justifyContent: "space-between",
+        minHeight: "52px",
+        padding: "6px 0",
       }}
     >
       <div
-        className="animate-pulse"
         style={{
-          background:
-            "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
-          backgroundSize: "200% 100%",
-          borderRadius: "6px",
-          height: "32px",
-          width: "128px",
+          alignItems: "center",
+          display: "flex",
+          gap: "10px",
+          minWidth: 0,
         }}
-      />
+      >
+        <div
+          className="animate-pulse"
+          style={{
+            background:
+              "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+            backgroundSize: "200% 100%",
+            borderRadius: "50%",
+            flexShrink: 0,
+            height: "36px",
+            width: "36px",
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "5px",
+          }}
+        >
+          <div
+            className="animate-pulse"
+            style={{
+              background:
+                "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+              backgroundSize: "200% 100%",
+              borderRadius: "4px",
+              height: "14px",
+              width: "60px",
+            }}
+          />
+          <div
+            className="animate-pulse"
+            style={{
+              background:
+                "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+              backgroundSize: "200% 100%",
+              borderRadius: "4px",
+              height: "11px",
+              width: "76px",
+            }}
+          />
+        </div>
+      </div>
       <div
-        className="animate-pulse"
         style={{
-          background:
-            "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
-          backgroundSize: "200% 100%",
-          borderRadius: "999px",
-          height: "32px",
-          width: "108px",
+          alignItems: "flex-end",
+          display: "flex",
+          flexDirection: "column",
+          gap: "5px",
+        }}
+      >
+        <div
+          className="animate-pulse"
+          style={{
+            background:
+              "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+            backgroundSize: "200% 100%",
+            borderRadius: "4px",
+            height: "14px",
+            width: "80px",
+          }}
+        />
+        <div
+          className="animate-pulse"
+          style={{
+            background:
+              "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+            backgroundSize: "200% 100%",
+            borderRadius: "4px",
+            height: "11px",
+            width: "40px",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <SkeletonAssetRow />
+      <div
+        style={{
+          borderTop:
+            "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
         }}
       />
+      <SkeletonAssetRow />
     </div>
   );
 }

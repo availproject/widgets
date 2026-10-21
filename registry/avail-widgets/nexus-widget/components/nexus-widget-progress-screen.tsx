@@ -258,8 +258,37 @@ const countListedSteps = (steps: ProgressSdkStep[], tokens: string[]) =>
 
 const getStepId = (step?: ProgressSdkStep) => step?.id ?? step?.typeID;
 const getStepChainId = (step?: ProgressSdkStep) => step?.chain?.id ?? step?.chainId;
-const isSameStep = (left?: ProgressSdkStep, right?: ProgressSdkStep) =>
-  Boolean(left && right && getStepId(left) && getStepId(left) === getStepId(right));
+const isSameStep = (left?: ProgressSdkStep, right?: ProgressSdkStep) => {
+  if (!left || !right) return false;
+  const leftType = getStepType(left);
+  const rightType = getStepType(right);
+  if (leftType !== rightType) return false;
+
+  const leftId = left.id ? String(left.id) : "";
+  const rightId = right.id ? String(right.id) : "";
+  const isGenericLeftId = leftId === "" || SWAP_APPROVAL_TYPES.includes(leftId);
+  const isGenericRightId = rightId === "" || SWAP_APPROVAL_TYPES.includes(rightId);
+
+  if (!isGenericLeftId && !isGenericRightId && leftId === rightId) {
+    return true;
+  }
+
+  const leftChain = getStepChainId(left);
+  const rightChain = getStepChainId(right);
+  if (leftChain !== undefined && rightChain !== undefined && leftChain !== rightChain) {
+    return false;
+  }
+
+  const leftToken = getStepTokenAddress(left);
+  const rightToken = getStepTokenAddress(right);
+  if (leftToken !== "" && rightToken !== "" && leftToken !== rightToken) {
+    return false;
+  }
+
+  const leftKey = getStepId(left);
+  const rightKey = getStepId(right);
+  return Boolean(leftKey && leftKey === rightKey);
+};
 const getEventState = (event: NexusWidgetProgressEvent) =>
   String((event.event as { state?: string } | undefined)?.state ?? "").toLowerCase();
 
@@ -368,10 +397,11 @@ const getApprovalProgress = (
   const seen = new Set<string>();
   const approvals = plan.flatMap((step, index) => {
     if (!stepMatches(step, SWAP_APPROVAL_TYPES)) return [];
-    const key = String(
-      getStepId(step) ||
-      `${getStepType(step)}:${getStepChainId(step)}:${getStepTokenAddress(step)}:${index}`
-    );
+    const stepId = step.id ? String(step.id) : "";
+    const isGenericId = stepId === "" || SWAP_APPROVAL_TYPES.includes(stepId);
+    const key = isGenericId
+      ? `${getStepType(step)}:${getStepChainId(step) ?? ""}:${getStepTokenAddress(step)}:${index}`
+      : stepId;
     if (seen.has(key)) return [];
     seen.add(key);
     const tokenAddress = getStepTokenAddress(step);
@@ -459,14 +489,13 @@ const getApprovalProgress = (
 
   const allSourceApprovalsCompleted =
     hasCompletedType(events, steps, [
-      "INTENT_SUBMISSION",
       "INTENT_FULFILLMENT",
       "TRANSACTION_SENT",
       "TRANSACTION_CONFIRMED",
     ]) ||
     events.some((event) =>
       !event.steps &&
-      stepMatches(event.step, ["INTENT_SUBMISSION", "INTENT_FULFILLMENT", "TRANSACTION_SENT", "TRANSACTION_CONFIRMED"]) &&
+      stepMatches(event.step, ["INTENT_FULFILLMENT", "TRANSACTION_SENT", "TRANSACTION_CONFIRMED"]) &&
       (event.completed || ["confirmed", "completed"].includes(getEventState(event)))
     );
 
@@ -698,12 +727,12 @@ export const buildStatusRows = ({
             : undefined,
       label:
         state === "completed"
-          ? `Tokens approved for swap (${approvalTotal} of ${approvalTotal})`
+          ? `${mode === "deposit" ? "Tokens approved for deposit" : "Tokens approved for swap"} (${approvalTotal} of ${approvalTotal})`
           : state === "error"
             ? isRejected
               ? "Token approval rejected"
               : "Token approval failed"
-            : `Approve tokens for swap (${approvalCurrent} of ${approvalTotal})`,
+            : `${mode === "deposit" ? "Approve tokens for deposit" : "Approve tokens for swap"} (${approvalCurrent} of ${approvalTotal})`,
     });
   }
 

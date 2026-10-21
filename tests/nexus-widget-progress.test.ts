@@ -29,7 +29,7 @@ test("destination wallet prompt remains an approval until authorization finishes
   assert.equal(row(events, "approveTokens")?.state, "completed");
   assert.equal(row(events, "receiveToken")?.state, "inProgress");
   events.push(progress(destination, "submitted"), progress(destination, "confirmed"));
-  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for swap (1 of 1)");
+  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for deposit (1 of 1)");
   assert.equal(row(events, "receiveToken")?.state, "completed");
   assert.equal(row(events, "action")?.state, "preapproval");
 });
@@ -43,10 +43,10 @@ test("confirmed plan removes provisional approvals and does not invent one from 
 test("confirmed plan can add approvals without freezing the preview count", () => {
   const second = { ...allowance, id: "allowance:destination:42161:usdt", typeID: "allowance:destination:42161:usdt", token: { contractAddress: "0xusdt", symbol: "USDT" }, method: "approval" };
   const events = [plan([allowance, destination]), plan([allowance, second, destination])];
-  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (1 of 2)");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (1 of 2)");
   assert.equal(row(events, "approveTokens")?.description, "Sign permit for USDC in wallet");
   events.push(progress(destination, "started"), progress(destination, "submitted"), progress(destination, "confirmed"), progress(destination, "confirmed"));
-  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for swap (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for deposit (2 of 2)");
 });
 
 test("approval completion matches step identity and chain, not repeated symbols", () => {
@@ -54,7 +54,7 @@ test("approval completion matches step identity and chain, not repeated symbols"
   const otherAllowance = { ...allowance, id: "allowance:destination:8453:usdc", typeID: "allowance:destination:8453:usdc", chain: otherChain };
   const otherSource = { ...source, id: "source_swap:8453", typeID: "source_swap:8453", chain: otherChain };
   const events = [plan([allowance, source, otherAllowance, otherSource]), progress(source, "confirmed"), progress(source, "confirmed")];
-  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (2 of 2)");
   assert.equal(row(events, "approveTokens")?.state, "preapproval");
   events.push(progress(otherSource, "started"));
   assert.equal(row(events, "approveTokens")?.state, "completed");
@@ -84,7 +84,7 @@ test("bridge approval remains pending until its own receipt and is separate from
   const executeApproval = { ...allowance, id: "execute_approval", typeID: "execute_approval", type: "APPROVAL" };
   const events = [plan([bridgeAllowance, source, executeApproval]), progress(bridgeAllowance, "submitted")];
   assert.equal(row(events, "approveTokens")?.state, "preapproval");
-  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (1 of 1)");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (1 of 1)");
   events.push(progress(bridgeAllowance, "confirmed"));
   assert.equal(row(events, "approveTokens")?.state, "completed");
 });
@@ -171,19 +171,19 @@ test("multi-token approval progresses from token 1 to token 2 then marks complet
 
   // Token 1 in progress
   assert.equal(row(events, "approveTokens")?.state, "preapproval");
-  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (1 of 2)");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (1 of 2)");
   assert.equal(row(events, "approveTokens")?.description, "Approve USDC in wallet");
 
   // Token 1 completed
   events.push(progress(approval1, "confirmed"));
   assert.equal(row(events, "approveTokens")?.state, "preapproval");
-  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (2 of 2)");
   assert.equal(row(events, "approveTokens")?.description, "Approve DAI in wallet");
 
   // Token 2 completed -> success state
   events.push(progress(approval2, "confirmed"));
   assert.equal(row(events, "approveTokens")?.state, "completed");
-  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for swap (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for deposit (2 of 2)");
   assert.equal(row(events, "approveTokens")?.description, undefined);
 });
 
@@ -240,7 +240,7 @@ test("replicates exact V1 deposit progress screen from screenshot", () => {
 
   // Step 1: Active approval in wallet
   assert.equal(result[0].id, "approveTokens");
-  assert.equal(result[0].label, "Approve tokens for swap (1 of 1)");
+  assert.equal(result[0].label, "Approve tokens for deposit (1 of 1)");
   assert.equal(result[0].description, "Approve USDC in wallet");
   assert.equal(result[0].state, "preapproval");
 
@@ -264,7 +264,7 @@ test("replicates exact V1 deposit progress screen from screenshot", () => {
   events.push(progress(approval, "confirmed"));
   const step2 = buildStatusRows({ events, mode: "deposit", steps: [], context: { destinationChain: "Optimism", destinationSymbol: "USDC", opportunityName: "Aave" } });
   assert.equal(step2[0].state, "completed");
-  assert.equal(step2[0].label, "Tokens approved for swap (1 of 1)");
+  assert.equal(step2[0].label, "Tokens approved for deposit (1 of 1)");
   assert.equal(step2[1].state, "inProgress");
   assert.equal(step2[1].label, "Swaps in progress");
   assert.equal(step2[2].state, "default");
