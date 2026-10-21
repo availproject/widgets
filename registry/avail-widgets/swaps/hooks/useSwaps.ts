@@ -11,15 +11,20 @@ import {
   type NexusClient,
   type SwapExactInParams,
   type SwapExactOutParams,
-  type OnSwapIntentHookData,
   type Source as SwapSource,
-  type TokenBalance,
-  type ChainBalance,
 } from "@avail-project/nexus-core";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { parseUnits } from "viem";
 import { type SwapStepType } from "../../common/types/transaction-flow";
 import { padHex, type Hex } from "viem";
+import {
+  adaptIntentEvent,
+  adaptIntentHook,
+  type LegacyIntentHookData,
+  type SupportedChainsAndTokensResult,
+  type TokenBalance,
+  type ChainBalance,
+} from "../../nexus/better-intent-compat";
 import {
   useTransactionSteps,
   SWAP_EXPECTED_STEPS,
@@ -196,8 +201,9 @@ function reducer(state: SwapState, action: Action): SwapState {
 
 interface UseSwapsProps {
   nexusSDK: NexusClient | null;
-  swapIntent: RefObject<OnSwapIntentHookData | null>;
+  swapIntent: RefObject<LegacyIntentHookData | null>;
   swapBalance: TokenBalance[] | null;
+  supportedChainsAndTokens?: SupportedChainsAndTokensResult | null;
   fetchBalance: () => Promise<void>;
   onComplete?: (amount?: string) => void;
   onStart?: () => void;
@@ -208,6 +214,7 @@ const useSwaps = ({
   nexusSDK,
   swapIntent,
   swapBalance: rawSwapBalance,
+  supportedChainsAndTokens,
   fetchBalance,
   onComplete,
   onStart,
@@ -474,7 +481,7 @@ const useSwaps = ({
 
   const syncExactOutSelectionFromIntent = useCallback(
     (
-      intentSources: NonNullable<OnSwapIntentHookData["intent"]>["sources"],
+      intentSources: LegacyIntentHookData["intent"]["sources"],
       force = false,
     ) => {
       if (intentSources.length === 0 || exactOutSourceOptions.length === 0) {
@@ -602,15 +609,16 @@ const useSwaps = ({
         {
           chainId: fromChainID,
           amountRaw: amountBigInt,
-          tokenAddress: fromToken.contractAddress,
+          tokenAddress: fromToken.contractAddress as Hex,
         },
       ],
       toChainId: toChainID,
-      toTokenAddress: toToken.tokenAddress,
+      toTokenAddress: toToken.tokenAddress as Hex,
     };
 
     await nexusSDK.swapWithExactIn(swapInput, {
-      onEvent: (event) => {
+      onEvent: (rawEvent) => {
+        const event = adaptIntentEvent(rawEvent);
         if (swapRunIdRef.current !== runId) return;
         if (event.type === "plan_preview" || event.type === "plan_confirmed") {
           const list = event.plan.steps.map((step) => {
@@ -655,7 +663,10 @@ const useSwaps = ({
       },
       hooks: {
         onIntent: (data) => {
-          swapIntent.current = data;
+          swapIntent.current = adaptIntentHook(
+            data,
+            supportedChainsAndTokens ?? []
+          );
         },
       },
     });
@@ -687,12 +698,16 @@ const useSwaps = ({
     const swapInput: SwapExactOutParams = {
       toAmountRaw: amountBigInt,
       toChainId: toChainID,
-      toTokenAddress: toToken.tokenAddress,
-      sources: exactOutFromSources,
+      toTokenAddress: toToken.tokenAddress as Hex,
+      sources: exactOutFromSources.map((s) => ({
+        ...s,
+        tokenAddress: s.tokenAddress as Hex,
+      })),
     };
 
     await nexusSDK.swapWithExactOut(swapInput, {
-      onEvent: (event) => {
+      onEvent: (rawEvent) => {
+        const event = adaptIntentEvent(rawEvent);
         if (swapRunIdRef.current !== runId) return;
         if (event.type === "plan_preview" || event.type === "plan_confirmed") {
           const list = event.plan.steps.map((step) => {
@@ -737,7 +752,10 @@ const useSwaps = ({
       },
       hooks: {
         onIntent: (data) => {
-          swapIntent.current = data;
+          swapIntent.current = adaptIntentHook(
+            data,
+            supportedChainsAndTokens ?? []
+          );
         },
       },
     });

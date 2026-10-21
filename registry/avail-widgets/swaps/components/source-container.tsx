@@ -12,7 +12,7 @@ import {
   CHAIN_METADATA,
 } from "../../common";
 import { type UserAsset } from "../../nexus/NexusProvider";
-import { type OnSwapIntentHookData } from "@avail-project/nexus-core";
+import { type LegacyIntentHookData } from "../../nexus/better-intent-compat";
 import AmountInput from "./amount-input";
 import {
   Dialog,
@@ -53,7 +53,7 @@ interface SourceContainerProps {
   availableBalance?: UserAsset["breakdown"][0];
   swapBalance: UserAsset[] | null;
   swapMode: SwapMode;
-  swapIntent: RefObject<OnSwapIntentHookData | null>;
+  swapIntent: RefObject<LegacyIntentHookData | null>;
   setInputs: (inputs: Partial<SwapInputs>) => void;
   setSwapMode: (mode: SwapMode) => void;
   setTxError: (error: string | null) => void;

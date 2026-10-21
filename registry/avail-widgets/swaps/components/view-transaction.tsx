@@ -1,4 +1,5 @@
 import React, { FC, type RefObject, useMemo, useState } from "react";
+import Decimal from "decimal.js";
 import {
   Dialog,
   DialogClose,
@@ -8,9 +9,7 @@ import {
 import {
   type SwapStepType,
 } from "../../common";
-import {
-  type OnSwapIntentHookData,
-} from "@avail-project/nexus-core";
+import type { LegacyIntentHookData } from "../../nexus/better-intent-compat";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { ChevronDown, ChevronUp, Info, MoveDown, XIcon } from "lucide-react";
 import { TokenIcon } from "./token-icon";
@@ -76,7 +75,7 @@ interface ViewTransactionProps {
   steps: GenericStep<SwapStepType>[];
   status: TransactionStatus;
   swapMode: SwapMode;
-  swapIntent: RefObject<OnSwapIntentHookData | null>;
+  swapIntent: RefObject<LegacyIntentHookData | null>;
   getFiatValue: (amount: number, token: string) => number;
   continueSwap: () => void | Promise<void>;
   exactOutSourceOptions: ExactOutSourceOption[];
@@ -150,7 +149,7 @@ const TokenBreakdown = ({
 
 interface MultiSourceBreakdownProps {
   getFiatValue: (amount: number, token: string) => number;
-  sources: NonNullable<OnSwapIntentHookData["intent"]>["sources"];
+  sources: LegacyIntentHookData["intent"]["sources"];
 }
 
 const MultiSourceBreakdown = ({
@@ -275,24 +274,36 @@ const ViewTransaction: FC<ViewTransactionProps> = ({
 
   const feeBreakdown = useMemo(() => {
     const feesAndBuffer = transactionIntent?.feesAndBuffer;
-    const bridgeRaw = feesAndBuffer?.bridge;
-    const caGasUsd = parseNonNegativeNumber(bridgeRaw?.caGas);
-    const collectionUsd = parseNonNegativeNumber(
-      (bridgeRaw as Record<string, string | undefined> | undefined)?.collection,
-    );
-    const fulfilmentUsd = parseNonNegativeNumber(
-      (bridgeRaw as Record<string, string | undefined> | undefined)?.fulfilment,
-    );
-    const gasSuppliedUsd = parseNonNegativeNumber(
-      (bridgeRaw as Record<string, string | undefined> | undefined)
-        ?.gasSupplied,
-    );
-    const protocolFeeUsd = parseNonNegativeNumber(bridgeRaw?.protocol);
-    const solverFeeUsd = parseNonNegativeNumber(bridgeRaw?.solver);
+    const bridgeRaw = (feesAndBuffer?.bridge ??
+      (transactionIntent as any)?.fees) as
+      | Record<string, string | undefined>
+      | undefined;
 
-    const hasBridgeBreakdown = Boolean(bridgeRaw);
-    const executionBridgeUsd = collectionUsd + fulfilmentUsd + gasSuppliedUsd;
-    const gasSponsorshipUsd = hasBridgeBreakdown ? caGasUsd : 0;
+    const depositUsdDecimal = bridgeRaw?.depositUsd
+      ? new Decimal(bridgeRaw.depositUsd)
+      : undefined;
+    const fulfillmentUsdDecimal = bridgeRaw?.fulfillmentUsd
+      ? new Decimal(bridgeRaw.fulfillmentUsd)
+      : undefined;
+    const caGasUsdDecimal = bridgeRaw?.caGasUsd
+      ? new Decimal(bridgeRaw.caGasUsd)
+      : undefined;
+
+    // Execution fee / Execution gas fee: caGas = depositFee + fulfilmentFee using Decimal.js (NOT gas sponsorship)
+    const executionGasFeeDecimal =
+      caGasUsdDecimal ??
+      (depositUsdDecimal !== undefined || fulfillmentUsdDecimal !== undefined
+        ? (depositUsdDecimal ?? new Decimal(0)).plus(
+            fulfillmentUsdDecimal ?? new Decimal(0),
+          )
+        : bridgeRaw?.caGas !== undefined
+          ? new Decimal(bridgeRaw.caGas || 0)
+          : (bridgeRaw?.collection !== undefined ||
+              bridgeRaw?.fulfilment !== undefined
+            ? new Decimal(bridgeRaw.collection || 0).plus(
+                bridgeRaw.fulfilment || 0,
+              )
+            : undefined));
 
     const gasAmount = parseNonNegativeNumber(
       transactionIntent?.destination?.gas?.amount,
@@ -302,21 +313,41 @@ const ViewTransaction: FC<ViewTransactionProps> = ({
       gasAmount > 0 && gasSymbol
         ? parseNonNegativeNumber(getFiatValue(gasAmount, gasSymbol))
         : 0;
+
+    const gasSuppliedUsd = parseNonNegativeNumber(bridgeRaw?.gasSupplied);
+    const hasBridgeBreakdown = Boolean(bridgeRaw);
+
+    // Gas sponsorship is gasSupplied (or destinationGasUsd if gas is sponsored on destination)
+    const gasSponsorshipUsd = hasBridgeBreakdown
+      ? (gasSuppliedUsd > 0 ? gasSuppliedUsd : destinationGasUsd)
+      : destinationGasUsd;
+
+    const executionBridgeUsd = executionGasFeeDecimal
+      ? executionGasFeeDecimal.toNumber()
+      : 0;
     const executionGasFeeUsd = hasBridgeBreakdown
       ? executionBridgeUsd
       : destinationGasUsd;
 
-    const bridgeComponentTotal = Object.entries(bridgeRaw ?? {})
-      .filter(([key]) => key !== "total")
-      .reduce((sum, [, value]) => sum + parseNonNegativeNumber(value), 0);
-    const bridgeExplicitTotal = parseNonNegativeNumber(bridgeRaw?.total);
-    const bridgeUsd =
-      bridgeExplicitTotal > 0 ? bridgeExplicitTotal : bridgeComponentTotal;
+    const protocolFeeDecimal = new Decimal(
+      bridgeRaw?.protocolUsd ?? bridgeRaw?.protocol ?? 0,
+    );
+    const solverFeeDecimal = new Decimal(
+      bridgeRaw?.solverUsd ?? bridgeRaw?.solver ?? 0,
+    );
+    const protocolFeeUsd = protocolFeeDecimal.toNumber();
+    const solverFeeUsd = solverFeeDecimal.toNumber();
+
+    const bridgeExplicitTotal = parseNonNegativeNumber(
+      bridgeRaw?.totalUsd ?? bridgeRaw?.total,
+    );
     const knownBridgeRowsUsd =
       gasSponsorshipUsd +
       executionGasFeeUsd +
       protocolFeeUsd +
       solverFeeUsd;
+    const bridgeUsd =
+      bridgeExplicitTotal > 0 ? bridgeExplicitTotal : knownBridgeRowsUsd;
     const otherBridgeFeeUsd = Math.max(0, bridgeUsd - knownBridgeRowsUsd);
 
     const bufferUsd = parseNonNegativeNumber(feesAndBuffer?.buffer);

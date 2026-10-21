@@ -28,7 +28,7 @@ const NetworkToggle = ({ disableTestnet = false }: NetworkToggleProps) => {
       setCurrentNetwork("mainnet");
     } else if (
       storedNetwork &&
-      (storedNetwork === "mainnet" || storedNetwork === "testnet")
+      (storedNetwork === "canary" || storedNetwork === "mainnet" || storedNetwork === "testnet")
     ) {
       setCurrentNetwork(storedNetwork);
     } else {
@@ -58,10 +58,11 @@ const NetworkToggle = ({ disableTestnet = false }: NetworkToggleProps) => {
           <SelectValue placeholder="Select a network" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="mainnet">Mainnet</SelectItem>
+          <SelectItem value="canary">Canary</SelectItem>
           <SelectItem value="testnet" disabled={disableTestnet}>
             Testnet{disableTestnet ? " (not supported)" : ""}
           </SelectItem>
-          <SelectItem value="mainnet">Mainnet</SelectItem>
         </SelectContent>
       </Select>
     </div>

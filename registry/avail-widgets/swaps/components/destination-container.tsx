@@ -5,7 +5,7 @@ import {
   CHAIN_METADATA,
 } from "../../common";
 import { type UserAsset } from "../../nexus/NexusProvider";
-import { type OnSwapIntentHookData } from "@avail-project/nexus-core";
+import { type LegacyIntentHookData } from "../../nexus/better-intent-compat";
 import {
   type SwapInputs,
   type SwapMode,
@@ -29,7 +29,7 @@ import { TOKEN_IMAGES } from "../config/destination";
 interface DestinationContainerProps {
   destinationHovered: boolean;
   inputs: SwapInputs;
-  swapIntent: RefObject<OnSwapIntentHookData | null>;
+  swapIntent: RefObject<LegacyIntentHookData | null>;
   destinationBalance?: UserAsset["breakdown"][0];
   swapBalance: UserAsset[] | null;
   availableStables: UserAsset[];
@@ -127,7 +127,7 @@ const DestinationContainer: React.FC<DestinationContainerProps> = ({
                   setInputs({
                     ...inputs,
                     toToken: {
-                      tokenAddress: breakdown.contractAddress,
+                      tokenAddress: breakdown.contractAddress as `0x${string}`,
                       decimals: breakdown.decimals ?? token.decimals,
                       logo: tokenLogo,
                       name: breakdown.symbol,

@@ -1,12 +1,38 @@
-import { type IntentRecord } from "@avail-project/nexus-core";
+import { type IntentHistoryRecord } from "@avail-project/nexus-core";
 import { useNexus } from "../../nexus/NexusProvider";
 import { useCallback, useEffect, useState } from "react";
 import { INTENT_HISTORY_REFRESH_EVENT } from "../history-events";
 
 const ITEMS_PER_PAGE = 10;
 
+export interface IntentHistoryItem {
+  destinationChain?: { id: number; name: string; logo: string };
+  destinations: Array<{ token: { symbol: string } }>;
+  expiry: number;
+  explorerUrl?: string;
+  id: string;
+  provider?: string;
+  requestHash: string;
+  sources: Array<{ chain: { id: number; name: string; logo: string } }>;
+  status: string;
+}
+
+const normalizeIntentRecord = (
+  intent: IntentHistoryRecord
+): IntentHistoryItem => ({
+  destinations: [],
+  expiry: intent.updatedAt ?? intent.createdAt ?? 0,
+  explorerUrl: intent.explorerUrl,
+  id: intent.id,
+  provider: intent.provider,
+  requestHash: intent.id,
+  sources: [],
+  status: intent.status,
+});
+
 function formatExpiryDate(timestamp: number) {
-  const date = new Date(timestamp * 1000);
+  if (!timestamp) return "—";
+  const date = new Date(timestamp * (timestamp < 1e12 ? 1000 : 1));
   const formatted = date.toLocaleString("en-US", {
     month: "short",
     day: "2-digit",
@@ -17,9 +43,9 @@ function formatExpiryDate(timestamp: number) {
 
 const useViewHistory = () => {
   const { nexusSDK } = useNexus();
-  const [history, setHistory] = useState<IntentRecord[] | null>(null);
+  const [history, setHistory] = useState<IntentHistoryItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [displayedHistory, setDisplayedHistory] = useState<IntentRecord[]>([]);
+  const [displayedHistory, setDisplayedHistory] = useState<IntentHistoryItem[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -32,7 +58,9 @@ const useViewHistory = () => {
   const fetchIntentHistory = useCallback(async () => {
     if (!nexusSDK) return;
     try {
-      const { intents: nextHistory } = (await nexusSDK.listIntents()) ?? { intents: [] };
+      const result = await nexusSDK.listIntents();
+      const rawIntents = result?.intents ?? [];
+      const nextHistory = rawIntents.map(normalizeIntentRecord);
       setLoadError(null);
       setHistory(nextHistory);
       const firstPage = nextHistory.slice(0, ITEMS_PER_PAGE);
@@ -111,8 +139,8 @@ const useViewHistory = () => {
     };
   }, [sentinelNode, loadMore, hasMore, isLoadingMore, displayedHistory.length]);
 
-  const getStatus = (pastIntent: IntentRecord) => {
-    switch (pastIntent?.status) {
+  const getStatus = (pastIntent: IntentHistoryItem) => {
+    switch (pastIntent?.status?.toLowerCase()) {
       case "fulfilled":
         return "Fulfilled";
       case "deposited":
@@ -121,8 +149,12 @@ const useViewHistory = () => {
         return "Created";
       case "expired":
         return "Expired";
+      case "refunded":
+        return "Refunded";
       default:
-        return "Failed";
+        return pastIntent?.status
+          ? pastIntent.status.charAt(0).toUpperCase() + pastIntent.status.slice(1)
+          : "Failed";
     }
   };
 

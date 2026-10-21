@@ -248,7 +248,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
+        "@avail-project/nexus-core@3.1.0",
         "lucide-react",
         "viem"
       ],
@@ -609,8 +609,9 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
+        "@avail-project/nexus-core@3.1.0",
         "clsx",
+        "decimal.js",
         "lucide-react",
         "tailwind-merge",
         "viem",
@@ -807,7 +808,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
+        "@avail-project/nexus-core@3.1.0",
         "lucide-react",
         "viem"
       ],
@@ -873,6 +874,11 @@
       "title": "Nexus Widget",
       "description": "The unified Avail Nexus widget for swap, send, and deposit flows. One component for all cross-chain operations powered by Nexus intents.",
       "files": [
+        {
+          "path": "registry/avail-widgets/nexus-widget/attempt-publisher.ts",
+          "target": "components/nexus/attempt-publisher.ts",
+          "type": "registry:component"
+        },
         {
           "path": "registry/avail-widgets/nexus-widget/components/address-identicon.tsx",
           "target": "components/nexus/components/address-identicon.tsx",
@@ -954,8 +960,18 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/error-classification.ts",
+          "target": "components/nexus/error-classification.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/nexus-widget.tsx",
           "target": "components/nexus/nexus.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/observability.ts",
+          "target": "components/nexus/observability.ts",
           "type": "registry:component"
         },
         {
@@ -976,6 +992,11 @@
         {
           "path": "registry/avail-widgets/nexus-widget/types.ts",
           "target": "components/nexus/types.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/use-widget-telemetry.ts",
+          "target": "components/nexus/use-widget-telemetry.ts",
           "type": "registry:component"
         },
         {
@@ -1110,7 +1131,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
+        "@avail-project/nexus-core@3.1.0",
         "decimal.js",
         "lucide-react",
         "viem",
@@ -1137,10 +1158,36 @@
           "path": "registry/avail-widgets/nexus/NexusProvider.tsx",
           "target": "components/nexus/NexusProvider.tsx",
           "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus/balance-utils.ts",
+          "target": "components/nexus/balance-utils.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus/better-intent-compat.ts",
+          "target": "components/nexus/better-intent-compat.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus/intent-error-classifier.ts",
+          "target": "components/nexus/intent-error-classifier.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus/request-lifecycle.ts",
+          "target": "components/nexus/request-lifecycle.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus/widget-observability.ts",
+          "target": "components/nexus/widget-observability.ts",
+          "type": "registry:component"
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
+        "@avail-project/nexus-core@3.1.0",
+        "decimal.js",
         "wagmi"
       ]
     },
@@ -1393,7 +1440,8 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
+        "@avail-project/nexus-core@3.1.0",
+        "decimal.js",
         "lucide-react",
         "viem"
       ],
@@ -1606,7 +1654,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
+        "@avail-project/nexus-core@3.1.0",
         "lucide-react",
         "viem"
       ],
@@ -1644,7 +1692,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
+        "@avail-project/nexus-core@3.1.0",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1797,7 +1845,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@2.5.0",
+        "@avail-project/nexus-core@3.1.0",
         "lucide-react"
       ],
       "registryDependencies": [

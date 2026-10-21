@@ -1,9 +1,12 @@
 import {
   type NexusNetwork,
   type NexusClient,
+} from "@avail-project/nexus-core";
+import {
   type OnAllowanceHookData,
   type OnIntentHookData,
-} from "@avail-project/nexus-core";
+  type NexusClientWithCompat,
+} from "../../nexus/better-intent-compat";
 import { type UserAsset } from "../../nexus/NexusProvider";
 import { useCallback, type RefObject } from "react";
 import { type Address } from "viem";
@@ -63,7 +66,7 @@ const useBridge = ({
       onEvent,
     }: TransactionFlowExecuteParams) => {
       if (!nexusSDK) return null;
-      const res = await nexusSDK.bridge(
+      const res = await (nexusSDK as NexusClientWithCompat).bridge!(
         {
           toTokenSymbol: token,
           toAmountRaw: amount,

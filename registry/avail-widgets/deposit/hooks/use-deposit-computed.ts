@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
+import Decimal from "decimal.js";
 import type { DestinationConfig, AssetSelectionState } from "../types";
-import type {
-  OnSwapIntentHookData,
-  NexusClient as NexusSDK,
-} from "@avail-project/nexus-core";
+import type { NexusClient as NexusSDK } from "@avail-project/nexus-core";
+import type { OnSwapIntentHookData } from "../../nexus/better-intent-compat";
 import type { UserAsset } from "../../nexus/NexusProvider";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { CHAIN_METADATA } from "../../common/utils/constant";
@@ -439,38 +438,95 @@ export function useDepositComputed(props: UseDepositComputedProps) {
       gasUsd = parseNonNegativeNumber(gas.value);
     }
 
-    const bridgeRaw = activeIntent?.intent?.feesAndBuffer?.bridge;
-    const caGasUsd = parseNonNegativeNumber(bridgeRaw?.caGas);
-    const gasSuppliedUsd = parseNonNegativeNumber(
-      (bridgeRaw as Record<string, string | undefined> | undefined)
-        ?.gasSupplied,
+    const bridgeRaw = (activeIntent?.intent?.feesAndBuffer?.bridge ??
+      (activeIntent?.intent as any)?.fees) as
+      | Record<string, string | undefined>
+      | undefined;
+
+    const depositUsdDecimal = bridgeRaw?.depositUsd
+      ? new Decimal(bridgeRaw.depositUsd)
+      : undefined;
+    const fulfillmentUsdDecimal = bridgeRaw?.fulfillmentUsd
+      ? new Decimal(bridgeRaw.fulfillmentUsd)
+      : undefined;
+    const caGasUsdDecimal = bridgeRaw?.caGasUsd
+      ? new Decimal(bridgeRaw.caGasUsd)
+      : undefined;
+
+    // Execution gas fee: caGas = depositFee + fulfilmentFee using Decimal.js (not gas sponsorship)
+    const executionGasFeeDecimal =
+      caGasUsdDecimal ??
+      (depositUsdDecimal !== undefined || fulfillmentUsdDecimal !== undefined
+        ? (depositUsdDecimal ?? new Decimal(0)).plus(
+            fulfillmentUsdDecimal ?? new Decimal(0),
+          )
+        : bridgeRaw?.caGas !== undefined
+          ? new Decimal(bridgeRaw.caGas || 0)
+          : undefined);
+
+    const gasSuppliedUsd = parseNonNegativeNumber(bridgeRaw?.gasSupplied);
+    const protocolFeeDecimal = new Decimal(
+      bridgeRaw?.protocolUsd ?? bridgeRaw?.protocol ?? 0,
     );
-    const protocolFeeUsd = parseNonNegativeNumber(bridgeRaw?.protocol);
-    const solverFeeUsd = parseNonNegativeNumber(bridgeRaw?.solver);
+    const solverFeeDecimal = new Decimal(
+      bridgeRaw?.solverUsd ?? bridgeRaw?.solver ?? 0,
+    );
 
     const hasBridgeBreakdown = Boolean(bridgeRaw);
-    const executionBridgeUsd = caGasUsd;
+    const executionBridgeUsd = executionGasFeeDecimal
+      ? executionGasFeeDecimal.toNumber()
+      : 0;
     const gasSponsorshipUsd = hasBridgeBreakdown ? gasSuppliedUsd : 0;
     const executionGasFeeUsd = hasBridgeBreakdown ? executionBridgeUsd : gasUsd;
+    const protocolFeeUsd = protocolFeeDecimal.toNumber();
+    const solverFeeUsd = solverFeeDecimal.toNumber();
 
-    const bridgeComponents = Object.entries(bridgeRaw ?? {})
-      .filter(([key]) => key !== "total")
-      .map(([key, value]) => ({
-        key,
-        label: formatFeeKeyLabel(key),
-        amountUsd: parseNonNegativeNumber(value),
-      }))
-      .filter((component) => component.amountUsd > 0);
+    const bridgeComponents = [
+      ...(gasSponsorshipUsd > 0
+        ? [
+            {
+              key: "gasSponsorship",
+              label: "Gas sponsorship",
+              amountUsd: gasSponsorshipUsd,
+            },
+          ]
+        : []),
+      ...(executionGasFeeUsd > 0
+        ? [
+            {
+              key: "executionGasFee",
+              label: "Execution Gas fee",
+              amountUsd: executionGasFeeUsd,
+            },
+          ]
+        : []),
+      ...(protocolFeeUsd > 0
+        ? [
+            {
+              key: "protocol",
+              label: "Protocol fee",
+              amountUsd: protocolFeeUsd,
+            },
+          ]
+        : []),
+      ...(solverFeeUsd > 0
+        ? [
+            {
+              key: "solver",
+              label: "Solver fee",
+              amountUsd: solverFeeUsd,
+            },
+          ]
+        : []),
+    ];
 
-    const bridgeComponentsTotal = bridgeComponents.reduce(
-      (sum, component) => sum + component.amountUsd,
-      0,
+    const bridgeExplicitTotal = parseNonNegativeNumber(
+      bridgeRaw?.totalUsd ?? bridgeRaw?.total,
     );
-    const bridgeExplicitTotal = parseNonNegativeNumber(bridgeRaw?.total);
-    const bridgeUsd =
-      bridgeExplicitTotal > 0 ? bridgeExplicitTotal : bridgeComponentsTotal;
     const knownBridgeRowsUsd =
       gasSponsorshipUsd + executionGasFeeUsd + protocolFeeUsd + solverFeeUsd;
+    const bridgeUsd =
+      bridgeExplicitTotal > 0 ? bridgeExplicitTotal : knownBridgeRowsUsd;
     const otherBridgeFeeUsd = Math.max(0, bridgeUsd - knownBridgeRowsUsd);
 
     // Intent buffer can be displayed for transparency but is not added to total fee.

@@ -1,7 +1,7 @@
 // biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
 "use client";
-import type { SupportedChainsAndTokensResult } from "@avail-project/nexus-core";
+import type { SupportedChainsAndTokensResult } from "../../nexus/better-intent-compat";
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import Decimal from "decimal.js";
 import {
@@ -61,6 +61,7 @@ export interface SwapTokenOption {
   userAmount?: string;
   userAmountMode?: "token" | "usd";
   userAmountUsd?: string;
+  verified?: boolean;
 }
 
 interface SwapAssetSelectorProps {
@@ -122,6 +123,12 @@ export function deriveTokenOptions(
           chainMeta?.name ?? bd.chain?.name,
         ),
         chainLogo: chainMeta?.logo ?? bd.chain?.logo,
+        verified:
+          (bd as any).verified !== undefined
+            ? (bd as any).verified !== false
+            : (asset as any).verified !== undefined
+              ? (asset as any).verified !== false
+              : true,
       });
     }
   }
@@ -130,6 +137,43 @@ export function deriveTokenOptions(
     seen.set(`${t.contractAddress.toLowerCase()}-${t.chainId}`, t);
   }
   return Array.from(seen.values());
+}
+
+export function UnverifiedBadge({
+  style,
+  className,
+}: {
+  style?: React.CSSProperties;
+  className?: string;
+}) {
+  return (
+    <span
+      className={className}
+      data-testid="unverified-badge"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1px 6px",
+        borderRadius: "999px",
+        border: "1px solid var(--nexus-widget-warning-border, #D98A1C)",
+        color: "var(--nexus-widget-warning-text, #D98A1C)",
+        backgroundColor:
+          "var(--nexus-widget-warning-soft-background, rgba(217, 138, 28, 0.08))",
+        fontSize: "10px",
+        fontWeight: 500,
+        fontFamily: '"Geist", system-ui, sans-serif',
+        lineHeight: "14px",
+        letterSpacing: "0.02em",
+        whiteSpace: "nowrap",
+        flexShrink: 0,
+        boxSizing: "border-box",
+        ...style,
+      }}
+    >
+      Unverified
+    </span>
+  );
 }
 
 /* ── Radio dot (circular) ── */
@@ -689,7 +733,22 @@ const formatBalanceWithSymbol = (
   return symbol ? `${formatted} ${symbol}` : formatted;
 };
 
+export const getSwapTokenSortTier = (
+  token: Pick<SwapTokenOption, "balanceInFiat"> & { verified?: boolean },
+) => {
+  const isVerified = token.verified !== false;
+  const fiat = getTokenFiatValue(token);
+  if (isVerified && fiat > 0) return 0;
+  if (!isVerified && fiat > 0) return 1;
+  if (isVerified) return 2;
+  return 3;
+};
+
 const compareTokensByUsdBalance = (a: SwapTokenOption, b: SwapTokenOption) => {
+  const aTier = getSwapTokenSortTier(a);
+  const bTier = getSwapTokenSortTier(b);
+  if (aTier !== bTier) return aTier - bTier;
+
   const fiatDelta = getTokenFiatValue(b) - getTokenFiatValue(a);
   if (fiatDelta !== 0) return fiatDelta;
 
@@ -1061,8 +1120,8 @@ export function SwapAssetSelector({
   const skipNextSelectionScrollResetRef = useRef(false);
   const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const lockedSelectedTokens = useMemo(
-    () => dedupeTokenOptions(lockedTokens),
-    [lockedTokens],
+    () => (autoSelectFilterTabs ? [] : dedupeTokenOptions(lockedTokens)),
+    [autoSelectFilterTabs, lockedTokens],
   );
   const isLockedToken = useCallback(
     (token: SwapTokenOption) =>
@@ -1364,6 +1423,25 @@ export function SwapAssetSelector({
           );
           if (aScore !== bScore) return aScore - bScore;
         }
+        const aVerified = !a.tokens.some((token) => token.verified === false);
+        const bVerified = !b.tokens.some((token) => token.verified === false);
+        const aTier =
+          aVerified && a.totalFiat > 0
+            ? 0
+            : !aVerified && a.totalFiat > 0
+              ? 1
+              : aVerified
+                ? 2
+                : 3;
+        const bTier =
+          bVerified && b.totalFiat > 0
+            ? 0
+            : !bVerified && b.totalFiat > 0
+              ? 1
+              : bVerified
+                ? 2
+                : 3;
+        if (aTier !== bTier) return aTier - bTier;
         return b.totalFiat - a.totalFiat;
       });
   }, [
@@ -1572,10 +1650,30 @@ export function SwapAssetSelector({
       }
     }
 
+    const getRowSortTier = (row: (typeof rows)[number]) => {
+      if (row.kind === "token") {
+        const isVerified = row.token.verified !== false;
+        const hasFiat = (row.fiat ?? 0) > 0;
+        if (isVerified && hasFiat) return 0;
+        if (!isVerified && hasFiat) return 1;
+        if (isVerified) return 2;
+        return 3;
+      }
+      const isVerified = !row.group.tokens.some((t) => t.verified === false);
+      const hasFiat = (row.fiat ?? 0) > 0;
+      if (isVerified && hasFiat) return 0;
+      if (!isVerified && hasFiat) return 1;
+      if (isVerified) return 2;
+      return 3;
+    };
+
     return rows.sort((a, b) => {
       if (hasQuery && a.searchScore !== b.searchScore) {
         return a.searchScore - b.searchScore;
       }
+      const aTier = getRowSortTier(a);
+      const bTier = getRowSortTier(b);
+      if (aTier !== bTier) return aTier - bTier;
       if (a.fiat !== b.fiat) return b.fiat - a.fiat;
       if (a.kind !== b.kind) return a.kind === "group" ? -1 : 1;
       return a.label.localeCompare(b.label);
@@ -1625,7 +1723,7 @@ export function SwapAssetSelector({
   };
 
   const getEditedSelectionTab = (): FilterTab =>
-    activeTab === "native" || activeTab === "stables" ? activeTab : "custom";
+    autoSelectFilterTabs ? "custom" : activeTab;
 
   const handleClearSelection = () => {
     if (isMulti && onSelectionChange) {
@@ -1661,9 +1759,16 @@ export function SwapAssetSelector({
     const allTargetsSelected = unlockedTargets.every((target) =>
       current.some((item) => sameTokenOption(item, target)),
     );
+    const selectableTargets = allTargetsSelected
+      ? unlockedTargets
+      : unlockedTargets.filter(
+          (target) => getTokenFiatValue(target) >= MIN_FIAT_THRESHOLD,
+        );
+    if (!allTargetsSelected && selectableTargets.length === 0) return;
+
     const next = allTargetsSelected
       ? removeTokenOptions(current, unlockedTargets)
-      : mergeTokenOptions(current, unlockedTargets);
+      : mergeTokenOptions(current, selectableTargets);
     emitSelectionChange(next, tab);
   };
 
@@ -1678,7 +1783,9 @@ export function SwapAssetSelector({
 
     const selectedInCurrent = isTokenSelectedInCurrentSlot(token);
     const locked = isLockedToken(token);
-    const disabled = isDisabledByUnified || locked;
+    const isBelowMin = getTokenFiatValue(token) < MIN_FIAT_THRESHOLD;
+    const disabled =
+      isDisabledByUnified || locked || (!selectedInCurrent && isBelowMin);
     return (
       <button
         disabled={disabled}
@@ -1707,7 +1814,7 @@ export function SwapAssetSelector({
           cursor: disabled ? "not-allowed" : "pointer",
           borderBottom: "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
           boxSizing: "border-box",
-          opacity: isDisabledByUnified ? 0.5 : 1,
+          opacity: disabled ? 0.5 : 1,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1730,16 +1837,19 @@ export function SwapAssetSelector({
               alignItems: "flex-start",
             }}
           >
-            <span
-              style={{
-                fontFamily: '"Geist", system-ui, sans-serif',
-                fontWeight: 500,
-                fontSize: 15,
-                color: "var(--nexus-widget-text-strong, #161615)",
-              }}
-            >
-              {token.symbol}
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  fontFamily: '"Geist", system-ui, sans-serif',
+                  fontWeight: 500,
+                  fontSize: 15,
+                  color: "var(--nexus-widget-text-strong, #161615)",
+                }}
+              >
+                {token.symbol}
+              </span>
+              {token.verified === false && <UnverifiedBadge />}
+            </div>
             {token.chainName && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <TokenLogo
@@ -1866,6 +1976,12 @@ export function SwapAssetSelector({
       unifiedSymbol: group.symbol as "USDC" | "USDT" | "ETH",
     };
 
+    const isGroupSelected = isMulti
+      ? areAllChildrenSelected || isPartiallySelected
+      : unifiedSelectedInCurrent;
+    const isGroupBelowMin = group.totalFiat < MIN_FIAT_THRESHOLD;
+    const isGroupSelectDisabled = !isGroupSelected && isGroupBelowMin;
+
     return (
       <div
         key={group.symbol}
@@ -1878,6 +1994,7 @@ export function SwapAssetSelector({
                 toggleGroup(group.symbol, e);
                 return;
               }
+              if (isGroupSelectDisabled) return;
               onSelect(unifiedToken);
             }}
             style={{
@@ -1888,7 +2005,7 @@ export function SwapAssetSelector({
               padding: "10px 14px",
               backgroundColor: "transparent",
               border: "none",
-              cursor: "pointer",
+              cursor: isGroupSelectDisabled ? "not-allowed" : "pointer",
               borderBottom:
                 "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
               boxSizing: "border-box",
@@ -1898,10 +2015,14 @@ export function SwapAssetSelector({
               <div
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (isGroupSelectDisabled) return;
                   if (isMulti) handleMultiTokenToggle(unifiedToken);
                   else onSelect(unifiedToken);
                 }}
-                style={{ cursor: "pointer" }}
+                style={{
+                  cursor: isGroupSelectDisabled ? "not-allowed" : "pointer",
+                  opacity: isGroupSelectDisabled ? 0.5 : 1,
+                }}
               >
                 <SelectionControl
                   indeterminate={isMulti ? isPartiallySelected : false}
@@ -1960,6 +2081,9 @@ export function SwapAssetSelector({
                   >
                     UNIFIED
                   </span>
+                  {group.tokens.some((token) => token.verified === false) && (
+                    <UnverifiedBadge />
+                  )}
                 </div>
                 <ChainLogos tokens={group.tokens} />
               </div>
@@ -2018,11 +2142,15 @@ export function SwapAssetSelector({
   };
 
   const isLoading = !staticOptions && swapBalance === null;
+  const candidateTokens =
+    autoSelectFilterTabs && activeTab !== "custom"
+      ? getFilterTabTokens(activeTab, selectedChainFilter)
+      : activeSelectedTokens;
   const selectedAssetCount = activeSelectedTokens.length;
   const requiredUsdAmount = parseTokenAmount(requiredUsd);
   const shouldCountSelectedUsd = (token: SwapTokenOption, value: Decimal) =>
     value.gt(0) && (isLockedToken(token) || value.gte(MIN_FIAT_THRESHOLD));
-  const selectedUsdAmount = activeSelectedTokens.reduce((sum, token) => {
+  const selectedUsdAmount = candidateTokens.reduce((sum, token) => {
     if (token.isUnified && token.sourceTokens?.length) {
       return sum.plus(
         token.sourceTokens.reduce((sourceSum, source) => {
@@ -2055,7 +2183,9 @@ export function SwapAssetSelector({
         ).toNumber()
       : 0;
   const subtitle = isMulti
-    ? `${selectedAssetCount} asset${selectedAssetCount === 1 ? "" : "s"} selected`
+    ? autoSelectFilterTabs && activeTab !== "custom"
+      ? "Auto selection"
+      : `${selectedAssetCount} asset${selectedAssetCount === 1 ? "" : "s"} selected`
     : "";
 
   useEffect(() => {
@@ -2767,6 +2897,7 @@ export function SwapAssetSelector({
                             {token.symbol} on{" "}
                             {token.chainName || "Unknown chain"}
                           </span>
+                          {token.verified === false && <UnverifiedBadge />}
                         </div>
                         <span
                           style={{

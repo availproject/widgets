@@ -1,10 +1,13 @@
 import {
   type NexusNetwork,
   type NexusClient,
+} from "@avail-project/nexus-core";
+import {
   type OnAllowanceHookData,
   type OnIntentHookData,
   type TokenBalance,
-} from "@avail-project/nexus-core";
+  type NexusClientWithCompat,
+} from "../../nexus/better-intent-compat";
 import { useCallback, type RefObject } from "react";
 import { type Address } from "viem";
 import {
@@ -61,7 +64,7 @@ const useTransfer = ({
       onEvent,
     }: TransactionFlowExecuteParams) => {
       if (!nexusSDK) return null;
-      const result = await nexusSDK.bridgeAndTransfer(
+      const result = await (nexusSDK as NexusClientWithCompat).bridgeAndTransfer!(
         {
           toTokenSymbol: token,
           toAmountRaw: amount,
@@ -72,10 +75,10 @@ const useTransfer = ({
         {
           onEvent,
           hooks: {
-            onIntent: (data) => {
+            onIntent: (data: any) => {
               intent.current = data;
             },
-            onAllowance: (data) => {
+            onAllowance: (data: any) => {
               allowance.current = data;
             },
           },

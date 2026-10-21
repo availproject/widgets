@@ -21,6 +21,7 @@ interface DepositIdleFormProps {
   isAmountReadOnly?: boolean;
   isBalanceLoading?: boolean;
   isCalculatingMax?: boolean;
+  isPredictive?: boolean;
   isQuoteRefreshing?: boolean;
   isSourcePickerDisabled?: boolean;
   isTokenPickerDisabled?: boolean;
@@ -32,7 +33,7 @@ interface DepositIdleFormProps {
   onSetPercent: (pct: number) => void;
   reserveSourceRows?: boolean;
   routeMessage?: string;
-  routeStatus?: "loading" | "insufficient";
+  routeStatus?: "loading" | "insufficient" | "error";
   showAutoBadge?: boolean;
   tokenValue: string;
   toToken?: SwapTokenOption;
@@ -239,37 +240,114 @@ function ExactOutPercentButtons({
   );
 }
 
-function SkeletonRow() {
+function SkeletonAssetRow() {
   return (
     <div
       style={{
         alignItems: "center",
         display: "flex",
         justifyContent: "space-between",
+        minHeight: "52px",
+        padding: "6px 0",
       }}
     >
       <div
-        className="animate-pulse"
         style={{
-          background:
-            "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
-          backgroundSize: "200% 100%",
-          borderRadius: "6px",
-          height: "32px",
-          width: "128px",
+          alignItems: "center",
+          display: "flex",
+          gap: "10px",
+          minWidth: 0,
         }}
-      />
+      >
+        <div
+          className="animate-pulse"
+          style={{
+            background:
+              "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+            backgroundSize: "200% 100%",
+            borderRadius: "50%",
+            flexShrink: 0,
+            height: "36px",
+            width: "36px",
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "5px",
+          }}
+        >
+          <div
+            className="animate-pulse"
+            style={{
+              background:
+                "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+              backgroundSize: "200% 100%",
+              borderRadius: "4px",
+              height: "14px",
+              width: "60px",
+            }}
+          />
+          <div
+            className="animate-pulse"
+            style={{
+              background:
+                "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+              backgroundSize: "200% 100%",
+              borderRadius: "4px",
+              height: "11px",
+              width: "76px",
+            }}
+          />
+        </div>
+      </div>
       <div
-        className="animate-pulse"
         style={{
-          background:
-            "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
-          backgroundSize: "200% 100%",
-          borderRadius: "999px",
-          height: "32px",
-          width: "108px",
+          alignItems: "flex-end",
+          display: "flex",
+          flexDirection: "column",
+          gap: "5px",
+        }}
+      >
+        <div
+          className="animate-pulse"
+          style={{
+            background:
+              "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+            backgroundSize: "200% 100%",
+            borderRadius: "4px",
+            height: "14px",
+            width: "80px",
+          }}
+        />
+        <div
+          className="animate-pulse"
+          style={{
+            background:
+              "linear-gradient(90deg, var(--nexus-widget-surface-raised, #F0F0EF) 0%, var(--nexus-widget-skeleton-highlight, #F7F7F6) 48%, var(--nexus-widget-surface-raised, #F0F0EF) 100%)",
+            backgroundSize: "200% 100%",
+            borderRadius: "4px",
+            height: "11px",
+            width: "40px",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <SkeletonAssetRow />
+      <div
+        style={{
+          borderTop:
+            "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
         }}
       />
+      <SkeletonAssetRow />
     </div>
   );
 }
@@ -282,7 +360,7 @@ function PayWithSources({
 }: {
   fromTokens: SwapTokenOption[];
   onOpenSourcePicker: () => void;
-  routeStatus?: "loading" | "insufficient";
+  routeStatus?: "loading" | "insufficient" | "error";
   routeMessage?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -370,29 +448,7 @@ function PayWithSources({
       </div>
 
       {isRouteLoading ? (
-        <>
-          <SkeletonRow />
-          <div
-            style={{
-              alignItems: "center",
-              color: brand,
-              display: "flex",
-              fontFamily: uiFont,
-              fontSize: "15px",
-              gap: "6px",
-            }}
-          >
-            <Loader2
-              className="animate-spin"
-              style={{
-                ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
-                height: 13,
-                width: 13,
-              }}
-            />
-            Calculating best route...
-          </div>
-        </>
+        <SkeletonRow />
       ) : shouldShowSourceSummary ? (
         <div style={{ position: "relative" }}>
           <div
@@ -533,16 +589,16 @@ function PayWithSources({
         </div>
       )}
 
-      {routeStatus === "insufficient" && routeMessage && (
+      {(routeStatus === "insufficient" || routeStatus === "error") && routeMessage && (
         <div
           style={{
             alignItems: "center",
             color: "var(--nexus-widget-error-text, #D32F2F)",
             display: "flex",
             fontFamily: uiFont,
-            fontSize: "15px",
+            fontSize: "14px",
             gap: "8px",
-            lineHeight: "20px",
+            lineHeight: "18px",
           }}
         >
           <AlertCircle style={{ flexShrink: 0, height: 15, width: 15 }} />
@@ -597,6 +653,7 @@ export function DepositIdleForm({
   isBalanceLoading = false,
   isCalculatingMax,
   calculatingPercent,
+  isPredictive = false,
   isQuoteRefreshing,
   hideDestinationTokenDropdownIcon = false,
   showAutoBadge = true,
@@ -991,6 +1048,7 @@ export function DepositIdleForm({
 
       <SharedPayWithSources
         fromTokens={fromTokens}
+        isPredictive={isPredictive}
         isSourcePickerDisabled={isSourcePickerDisabled}
         onOpenSourcePicker={onOpenSourcePicker}
         reserveSourceRows={reserveSourceRows}

@@ -1,4 +1,5 @@
 import { ERROR_CODES, NexusError } from "@avail-project/nexus-core";
+import { classifyIntentError } from "../../nexus/intent-error-classifier";
 
 const DEFAULT_ERROR_MESSAGE = "Oops! Something went wrong. Please try again.";
 const USER_REJECTED_MESSAGE = "Transaction was rejected in your wallet.";
@@ -6,8 +7,6 @@ const EMPTY_ERROR_MESSAGE =
   "Unable to determine transaction state. Please refresh and try again.";
 
 const ERROR_MESSAGE_BY_CODE: Partial<Record<string, string>> = {
-  [ERROR_CODES.INVALID_VALUES_ALLOWANCE_HOOK]:
-    "Invalid allowance selection. Please review allowance values and try again.",
   [ERROR_CODES.SDK_NOT_INITIALIZED]:
     "Nexus SDK is not initialized. Reconnect your wallet and try again.",
   [ERROR_CODES.SDK_INIT_STATE_NOT_EXPECTED]:
@@ -41,6 +40,32 @@ const ERROR_MESSAGE_BY_CODE: Partial<Record<string, string>> = {
     "Simulation failed. Please review your inputs and try again.",
   [ERROR_CODES.BACKEND_GET_QUOTE_FAILED]:
     "Unable to fetch a quote right now. Please retry.",
+  [ERROR_CODES.BACKEND_QUOTE_UNAVAILABLE]:
+    "A quote is not available for this route. Try another amount, asset, or network.",
+  [ERROR_CODES.BACKEND_INTENT_REFUSED]:
+    "No provider can complete this route with the selected assets and amount. Try another amount, asset, or network.",
+  [ERROR_CODES.BACKEND_NO_ROUTABLE_SOURCE]:
+    "None of the selected assets can be used for this route. Try another source asset.",
+  [ERROR_CODES.BACKEND_NO_ROUTE_TO_DESTINATION]:
+    "No allowed provider supports this destination. Choose another destination.",
+  [ERROR_CODES.BACKEND_VALUE_ABOVE_CEILING]:
+    "The swap value exceeds the supported provider limit. Reduce the swap value.",
+  [ERROR_CODES.BACKEND_PROVIDER_UNAVAILABLE]:
+    "Quote providers are temporarily unavailable. Please try again.",
+  [ERROR_CODES.BACKEND_NO_PROVIDERS_ENABLED]:
+    "No quote provider is enabled for this route.",
+  [ERROR_CODES.BACKEND_INSUFFICIENT_APPROVAL_GAS]:
+    "You need more native gas on the source chain to approve this token.",
+  [ERROR_CODES.BACKEND_INSUFFICIENT_BALANCE]:
+    "You do not have enough balance to complete this transaction.",
+  [ERROR_CODES.BACKEND_INPUT_BELOW_DEPOSIT_FEE]:
+    "The source amount is too small to cover the deposit fee. Increase the source amount.",
+  [ERROR_CODES.BACKEND_QUOTE_PRICE_OUTLIER]:
+    "This quote was rejected because the price was outside the safe range.",
+  [ERROR_CODES.BACKEND_PRICE_UNAVAILABLE]:
+    "A reliable price is not available for this route. Try another asset or network.",
+  [ERROR_CODES.BACKEND_SAME_CHAIN_GAS_DROP_UNSUPPORTED]:
+    "This route cannot provide the requested destination gas.",
   [ERROR_CODES.VAULT_CONTRACT_NOT_FOUND]:
     "Required vault contract is unavailable on this chain.",
   [ERROR_CODES.EXEC_SLIPPAGE_EXCEEDED]:
@@ -135,13 +160,26 @@ function handler(err: unknown) {
   }
 
   if (err instanceof NexusError) {
+    const classified = classifyIntentError(err);
     const mappedMessage =
-      ERROR_MESSAGE_BY_CODE[err.code] ?? sanitizeMessage(err.message);
+      (classified.bucket !== "unknown" ? classified.message : undefined) ??
+      ERROR_MESSAGE_BY_CODE[err.code] ??
+      sanitizeMessage(err.message);
     return {
       code: err.code,
       message: mappedMessage,
       context: err.context,
       details: err.details,
+    };
+  }
+
+  const classified = classifyIntentError(err);
+  if (classified.bucket !== "unknown") {
+    return {
+      code: String(getErrorCode(err) ?? classified.bucket),
+      message: classified.message,
+      context: undefined,
+      details: undefined,
     };
   }
 

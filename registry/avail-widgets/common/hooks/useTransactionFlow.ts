@@ -1,10 +1,13 @@
 import {
   type NexusNetwork,
   type NexusClient,
-  type OnAllowanceHookData,
-  type OnIntentHookData,
-  type TokenBalance,
 } from "@avail-project/nexus-core";
+import {
+  convertTokenReadableAmountToBigInt,
+  type LegacyAllowanceHookData as OnAllowanceHookData,
+  type LegacyIntentHookData as OnIntentHookData,
+  type TokenBalance,
+} from "../../nexus/better-intent-compat";
 import {
   useEffect,
   useMemo,
@@ -358,7 +361,7 @@ export function useTransactionFlow(props: UseTransactionFlowProps) {
     }
 
     try {
-      const requiredRaw = nexusSDK.convertTokenReadableAmountToBigInt(
+      const requiredRaw = convertTokenReadableAmountToBigInt(
         amount,
         inputs.token,
         inputs.chain,

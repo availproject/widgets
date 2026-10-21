@@ -9,6 +9,7 @@ import {
   formatSelectedTokenBalanceLabel,
   formatUsdBalanceLabel,
   type SwapTokenOption,
+  UnverifiedBadge,
 } from "./swap-asset-selector";
 
 const tabularNums: React.CSSProperties = {
@@ -27,6 +28,7 @@ interface SwapIdleFormProps {
   isDestinationPickerDisabled?: boolean;
   hideDestinationTokenDropdownIcon?: boolean;
   isReceiveAmountLoading?: boolean;
+  isReceivePredictive?: boolean;
   isReceiveUsdLoading?: boolean;
   isSourcePickerDisabled?: boolean;
   onAmountChange: (val: string, panel: "send" | "receive") => void;
@@ -38,7 +40,7 @@ interface SwapIdleFormProps {
   receiveQuoteUsd?: string;
   recipientAddress?: string;
   sourceRouteMessage?: string;
-  sourceRouteStatus?: "loading" | "insufficient";
+  sourceRouteStatus?: "loading" | "insufficient" | "error";
   swapType: "exactIn" | "exactOut";
   toToken?: SwapTokenOption;
   totalBalance: string;
@@ -642,6 +644,7 @@ export function SwapIdleForm({
   receiveQuoteAmount,
   receiveQuoteUsd,
   isReceiveAmountLoading = false,
+  isReceivePredictive = false,
   isReceiveUsdLoading = false,
   sourceRouteStatus,
   sourceRouteMessage,
@@ -876,7 +879,9 @@ export function SwapIdleForm({
   const isExactIn = swapType === "exactIn";
   const showSourceRouteSkeleton = !isExactIn && sourceRouteStatus === "loading";
   const sourceRouteHelper =
-    sourceRouteStatus === "insufficient" ? sourceRouteMessage : undefined;
+    sourceRouteStatus === "insufficient" || sourceRouteStatus === "error"
+      ? sourceRouteMessage
+      : undefined;
   const receiveBalanceLabel = formatTokenBalanceLabel(toToken);
   const getReceiveUsdRate = () => {
     const quoteTokenAmount = parseDecimal(receiveQuoteAmount);
@@ -1003,12 +1008,19 @@ export function SwapIdleForm({
         width: "100%",
       }}
     >
-      {(isReceiveAmountLoading || isReceiveUsdLoading || sourceRouteStatus) && (
+      {(isReceiveAmountLoading ||
+        isReceiveUsdLoading ||
+        sourceRouteStatus ||
+        isReceivePredictive) && (
         <style>
           {`@keyframes nexusSwapSkeletonShimmer {
             0% { background-position: 100% 0; opacity: 0.72; }
             50% { opacity: 1; }
             100% { background-position: -100% 0; opacity: 0.72; }
+          }
+          @keyframes nexusShimmerText {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
           }`}
         </style>
       )}
@@ -1361,9 +1373,13 @@ export function SwapIdleForm({
                             fontSize: "16px",
                             fontWeight: 500,
                             lineHeight: "24px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
                           }}
                         >
                           {token ? token.symbol : "Assets"}
+                          {token?.verified === false && <UnverifiedBadge />}
                         </div>
                         <ChevronDownIcon />
                       </button>
@@ -1714,7 +1730,7 @@ export function SwapIdleForm({
             style={{
               alignSelf: "stretch",
               color:
-                sourceRouteStatus === "insufficient"
+                sourceRouteStatus === "insufficient" || sourceRouteStatus === "error"
                   ? "var(--nexus-widget-error-text, #D32F2F)"
                   : brand,
               fontFamily: '"Geist", system-ui, sans-serif',
@@ -1822,7 +1838,7 @@ export function SwapIdleForm({
               width: "100%",
             }}
           >
-            {isReceiveAmountLoading ? (
+            {isReceiveAmountLoading && !isReceivePredictive ? (
               <div
                 style={{
                   alignItems: "center",
@@ -1848,13 +1864,22 @@ export function SwapIdleForm({
                   fontSize: "29px",
                   fontWeight: 500,
                   lineHeight: "34px",
-                  background: "transparent",
+                  background: isReceivePredictive
+                    ? "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--nexus-widget-text-strong, #161615) 50%, var(--nexus-widget-text-secondary, #848483) 100%)"
+                    : "transparent",
+                  backgroundSize: isReceivePredictive ? "200% 100%" : undefined,
+                  WebkitBackgroundClip: isReceivePredictive ? "text" : undefined,
+                  WebkitTextFillColor: isReceivePredictive
+                    ? "transparent"
+                    : receiveAmountTextColor,
+                  animation: isReceivePredictive
+                    ? "nexusShimmerText 1.6s ease-in-out infinite"
+                    : undefined,
                   border: "none",
                   cursor: "default",
                   outline: "none",
                   opacity: 1,
                   padding: 0,
-                  WebkitTextFillColor: receiveAmountTextColor,
                   width: "100%",
                   minWidth: 0,
                 }}
@@ -1945,9 +1970,13 @@ export function SwapIdleForm({
                   fontSize: "16px",
                   fontWeight: 500,
                   lineHeight: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
                 {toToken ? toToken.symbol : "Assets"}
+                {toToken?.verified === false && <UnverifiedBadge />}
               </div>
               {!hideDestinationTokenDropdownIcon && <ChevronDownIcon />}
             </button>
@@ -1965,7 +1994,7 @@ export function SwapIdleForm({
               minHeight: "22px",
             }}
           >
-            {isReceiveUsdLoading ? (
+            {isReceiveUsdLoading && !isReceivePredictive ? (
               <SkeletonBar borderRadius="6px" height="16px" width="74px" />
             ) : (
               <div
@@ -1976,6 +2005,17 @@ export function SwapIdleForm({
                   fontSize: "11px",
                   lineHeight: "16px",
                   whiteSpace: "nowrap",
+                  background: isReceivePredictive
+                    ? "linear-gradient(90deg, var(--nexus-widget-text-secondary, #848483) 0%, var(--nexus-widget-text-strong, #161615) 50%, var(--nexus-widget-text-secondary, #848483) 100%)"
+                    : undefined,
+                  backgroundSize: isReceivePredictive ? "200% 100%" : undefined,
+                  WebkitBackgroundClip: isReceivePredictive ? "text" : undefined,
+                  WebkitTextFillColor: isReceivePredictive
+                    ? "transparent"
+                    : undefined,
+                  animation: isReceivePredictive
+                    ? "nexusShimmerText 1.6s ease-in-out infinite"
+                    : undefined,
                 }}
               >
                 {receiveAltValue}

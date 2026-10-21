@@ -15,7 +15,7 @@ import {
   type NexusWidgetMode,
 } from "../types";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
-import { type SwapTokenOption } from "./swap-asset-selector";
+import { type SwapTokenOption, UnverifiedBadge } from "./swap-asset-selector";
 
 export interface SwapIntentSource {
   amount: string;
@@ -51,7 +51,7 @@ export interface SwapIntentDestination {
   value?: string;
 }
 
-export type BridgeProvider = "nexus" | "mayan" | null;
+export type BridgeProvider = "nexus" | "nexus-v2" | "mayan" | "relay" | null;
 
 export interface SwapIntentData {
   bridgeProvider?: BridgeProvider;
@@ -61,15 +61,33 @@ export interface SwapIntentData {
     bridge?:
       | {
           caGas?: string;
+          caGasUsd?: string;
           collection?: string;
+          depositUsd?: string;
+          fulfillmentUsd?: string;
           fulfilment?: string;
           gasSupplied?: string;
           protocol?: string;
+          protocolUsd?: string;
           solver?: string;
+          solverUsd?: string;
           total?: string;
+          totalUsd?: string;
         }
       | string
       | null;
+  };
+  fees?: {
+    caGas?: string;
+    caGasUsd?: string;
+    depositUsd?: string;
+    fulfillmentUsd?: string;
+    protocol?: string;
+    protocolUsd?: string;
+    solver?: string;
+    solverUsd?: string;
+    total?: string;
+    totalUsd?: string;
   };
   sources: SwapIntentSource[];
 }
@@ -236,12 +254,34 @@ const formatSymbolSummary = (symbols: string[]) => {
 };
 
 const sortSourceDetailRowsByUsdDesc = <
-  T extends { symbol?: string; usdAmount?: string },
+  T extends { symbol?: string; usdAmount?: string; verified?: boolean },
 >(
   rows: T[],
 ) =>
   [...rows].sort((a, b) => {
-    const usdDelta = toDecimal(b.usdAmount).cmp(toDecimal(a.usdAmount));
+    const aVerified = a.verified !== false;
+    const bVerified = b.verified !== false;
+    const aUsd = toDecimal(a.usdAmount);
+    const bUsd = toDecimal(b.usdAmount);
+    const aTier =
+      aVerified && aUsd.gt(0)
+        ? 0
+        : !aVerified && aUsd.gt(0)
+          ? 1
+          : aVerified
+            ? 2
+            : 3;
+    const bTier =
+      bVerified && bUsd.gt(0)
+        ? 0
+        : !bVerified && bUsd.gt(0)
+          ? 1
+          : bVerified
+            ? 2
+            : 3;
+    if (aTier !== bTier) return aTier - bTier;
+
+    const usdDelta = bUsd.cmp(aUsd);
     if (usdDelta !== 0) return usdDelta;
     return (a.symbol ?? "").localeCompare(b.symbol ?? "");
   });
@@ -497,42 +537,6 @@ function InlineInfoTooltip({ message }: { message: string }) {
         </span>
       )}
     </span>
-  );
-}
-
-function MayanPoweredBadge() {
-  return (
-    <div
-      style={{
-        alignItems: "center",
-        background: "var(--nexus-widget-primary-soft, #F3F6FF)",
-        border: "1px solid var(--nexus-widget-border, #E8EEFF)",
-        borderRadius: "8px",
-        color: brand,
-        display: "flex",
-        fontFamily,
-        fontSize: "12px",
-        fontWeight: 500,
-        gap: "4px",
-        lineHeight: "16px",
-        minHeight: "36px",
-        padding: "9px 12px",
-        width: "100%",
-      }}
-    >
-      <Info style={{ flexShrink: 0, height: 13, width: 13 }} />
-      <span style={{ flexShrink: 0 }}>This transaction is powered by</span>
-      <img
-        alt="Mayan"
-        src="https://files.availproject.org/widgets/assets/mayan_logo.svg"
-        style={{
-          display: "block",
-          height: "20px",
-          objectFit: "contain",
-          width: "auto",
-        }}
-      />
-    </div>
   );
 }
 
@@ -874,24 +878,49 @@ export function SwapIntentPreview({
     effectiveSourceUsdNumber.gt(0) &&
     destinationUsdNumber.gt(0);
 
-  const bridgeFees = intentData?.feesAndBuffer?.bridge;
+  const bridgeFees =
+    intentData?.feesAndBuffer?.bridge ?? (intentData as any)?.fees;
   const bridgeFeeData =
     bridgeFees && typeof bridgeFees === "object" ? bridgeFees : undefined;
   const bridgeTotalNumber =
     typeof bridgeFees === "string"
       ? parseDecimal(bridgeFees)
-      : parseDecimal(bridgeFeeData?.total);
+      : (parseDecimal(bridgeFeeData?.totalUsd) ??
+        parseDecimal(bridgeFeeData?.total));
   const collectionFeeNumber = parseDecimal(bridgeFeeData?.collection);
   const fulfilmentFeeNumber = parseDecimal(bridgeFeeData?.fulfilment);
-  const executionGasFeeNumber =
-    parseDecimal(bridgeFeeData?.caGas) ??
-    (collectionFeeNumber !== undefined || fulfilmentFeeNumber !== undefined
-      ? (collectionFeeNumber ?? new Decimal(0)).plus(
-          fulfilmentFeeNumber ?? new Decimal(0),
-        )
-      : undefined);
-  const protocolFeeNumber = parseDecimal(bridgeFeeData?.protocol);
-  const solverFeeNumber = parseDecimal(bridgeFeeData?.solver);
+
+  // Execution gas fee: caGas = depositFee + fulfilmentFee using Decimal.js
+  const executionGasFeeNumber = (() => {
+    const caGasUsd = parseDecimal(bridgeFeeData?.caGasUsd);
+    if (caGasUsd !== undefined) return caGasUsd;
+
+    const depositUsd = parseDecimal(bridgeFeeData?.depositUsd);
+    const fulfillmentUsd = parseDecimal(bridgeFeeData?.fulfillmentUsd);
+    if (depositUsd !== undefined || fulfillmentUsd !== undefined) {
+      return (depositUsd ?? new Decimal(0)).plus(
+        fulfillmentUsd ?? new Decimal(0),
+      );
+    }
+
+    const rawCaGas = parseDecimal(bridgeFeeData?.caGas);
+    if (rawCaGas !== undefined) return rawCaGas;
+
+    if (collectionFeeNumber !== undefined || fulfilmentFeeNumber !== undefined) {
+      return (collectionFeeNumber ?? new Decimal(0)).plus(
+        fulfilmentFeeNumber ?? new Decimal(0),
+      );
+    }
+
+    return undefined;
+  })();
+
+  const protocolFeeNumber =
+    parseDecimal(bridgeFeeData?.protocolUsd) ??
+    parseDecimal(bridgeFeeData?.protocol);
+  const solverFeeNumber =
+    parseDecimal(bridgeFeeData?.solverUsd) ??
+    parseDecimal(bridgeFeeData?.solver);
   const bridgeGasSuppliedNumber = parseDecimal(bridgeFeeData?.gasSupplied);
   const destinationGasValueNumber =
     parseDecimal(normalizedIntentDest?.gas?.value) ??
@@ -923,6 +952,7 @@ export function SwapIntentPreview({
       ? bridgeComponentsTotalNumber
       : undefined) ??
     parseDecimal(totalFeeUsd) ??
+    parseDecimal((intentData as any)?.fees?.totalUsd) ??
     parseDecimal((intentData as any)?.fees?.total) ??
     destinationGasSuppliedNumber;
   const feeNumber =
@@ -1139,6 +1169,14 @@ export function SwapIntentPreview({
               displaySourceUsd !== undefined
                 ? formatUsdValue(displaySourceUsd)
                 : pendingValue,
+            verified:
+              (source as any).verified !== undefined
+                ? (source as any).verified !== false
+                : (source as any).token?.verified !== undefined
+                  ? (source as any).token.verified !== false
+                  : fallbackSource?.verified !== undefined
+                    ? fallbackSource.verified !== false
+                    : true,
             index,
           };
         })
@@ -1194,6 +1232,7 @@ export function SwapIntentPreview({
               displaySourceUsd !== undefined
                 ? formatUsdValue(displaySourceUsd)
                 : pendingValue,
+            verified: source.verified !== false,
             index,
           };
         });
@@ -1219,6 +1258,7 @@ export function SwapIntentPreview({
             displayOnlyDestinationSourceUsd !== undefined
               ? formatUsdValue(displayOnlyDestinationSourceUsd)
               : pendingValue,
+          verified: (toToken as any)?.verified !== false,
           index: baseSourceDetailRows.length,
         }
       : undefined;
@@ -1329,8 +1369,6 @@ export function SwapIntentPreview({
         : "Swap now";
   const shouldPulseCta =
     !isLoading && !isRefreshing && !isExecuting && !quoteUnavailable;
-  const shouldShowMayanBadge =
-    !isDepositMode && intentData?.bridgeProvider === "mayan";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1579,17 +1617,26 @@ export function SwapIntentPreview({
                             minWidth: 0,
                           }}
                         >
-                          <span
+                          <div
                             style={{
-                              color: primary,
-                              fontFamily,
-                              fontSize: "13px",
-                              fontWeight: 600,
-                              lineHeight: "16px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
                             }}
                           >
-                            {source.symbol}
-                          </span>
+                            <span
+                              style={{
+                                color: primary,
+                                fontFamily,
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                lineHeight: "16px",
+                              }}
+                            >
+                              {source.symbol}
+                            </span>
+                            {source.verified === false && <UnverifiedBadge />}
+                          </div>
                           <span
                             style={{
                               color: muted,
@@ -1870,8 +1917,6 @@ export function SwapIntentPreview({
           />
         </div>
       )}
-
-      {shouldShowMayanBadge && <MayanPoweredBadge />}
 
       <Button
         disabled={isLoading || isRefreshing || isExecuting || quoteUnavailable}

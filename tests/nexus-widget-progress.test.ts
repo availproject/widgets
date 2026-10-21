@@ -29,7 +29,7 @@ test("destination wallet prompt remains an approval until authorization finishes
   assert.equal(row(events, "approveTokens")?.state, "completed");
   assert.equal(row(events, "receiveToken")?.state, "inProgress");
   events.push(progress(destination, "submitted"), progress(destination, "confirmed"));
-  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for swap (1 of 1)");
+  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for deposit (1 of 1)");
   assert.equal(row(events, "receiveToken")?.state, "completed");
   assert.equal(row(events, "action")?.state, "preapproval");
 });
@@ -43,10 +43,10 @@ test("confirmed plan removes provisional approvals and does not invent one from 
 test("confirmed plan can add approvals without freezing the preview count", () => {
   const second = { ...allowance, id: "allowance:destination:42161:usdt", typeID: "allowance:destination:42161:usdt", token: { contractAddress: "0xusdt", symbol: "USDT" }, method: "approval" };
   const events = [plan([allowance, destination]), plan([allowance, second, destination])];
-  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (1 of 2)");
-  assert.equal(row(events, "approveTokens")?.description, "Approve USDC, USDT in wallet");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (1 of 2)");
+  assert.equal(row(events, "approveTokens")?.description, "Sign permit for USDC in wallet");
   events.push(progress(destination, "started"), progress(destination, "submitted"), progress(destination, "confirmed"), progress(destination, "confirmed"));
-  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for swap (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for deposit (2 of 2)");
 });
 
 test("approval completion matches step identity and chain, not repeated symbols", () => {
@@ -54,7 +54,7 @@ test("approval completion matches step identity and chain, not repeated symbols"
   const otherAllowance = { ...allowance, id: "allowance:destination:8453:usdc", typeID: "allowance:destination:8453:usdc", chain: otherChain };
   const otherSource = { ...source, id: "source_swap:8453", typeID: "source_swap:8453", chain: otherChain };
   const events = [plan([allowance, source, otherAllowance, otherSource]), progress(source, "confirmed"), progress(source, "confirmed")];
-  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (2 of 2)");
   assert.equal(row(events, "approveTokens")?.state, "preapproval");
   events.push(progress(otherSource, "started"));
   assert.equal(row(events, "approveTokens")?.state, "completed");
@@ -84,7 +84,7 @@ test("bridge approval remains pending until its own receipt and is separate from
   const executeApproval = { ...allowance, id: "execute_approval", typeID: "execute_approval", type: "APPROVAL" };
   const events = [plan([bridgeAllowance, source, executeApproval]), progress(bridgeAllowance, "submitted")];
   assert.equal(row(events, "approveTokens")?.state, "preapproval");
-  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for swap (1 of 1)");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (1 of 1)");
   events.push(progress(bridgeAllowance, "confirmed"));
   assert.equal(row(events, "approveTokens")?.state, "completed");
 });
@@ -109,3 +109,269 @@ test("destination approval waits for cross-chain funds without blocking bridge p
   events.push(progress(fill, "completed"));
   assert.equal(row(events, "approveTokens")?.state, "preapproval");
 });
+
+test("initial execution with empty events shows milestone rows and omits intent verification when absent", () => {
+  const emptyEventsRows = rows([]);
+  assert.equal(emptyEventsRows.length, 3);
+
+  assert.equal(emptyEventsRows[0]?.id, "swapTokens");
+  assert.equal(emptyEventsRows[0]?.state, "inProgress");
+  assert.equal(emptyEventsRows[0]?.label, "Swaps in progress");
+
+  assert.equal(emptyEventsRows[1]?.id, "receiveToken");
+  assert.equal(emptyEventsRows[1]?.state, "default");
+  assert.equal(emptyEventsRows[1]?.label, "Receive USDT on Arbitrum");
+
+  assert.equal(emptyEventsRows[2]?.id, "action");
+  assert.equal(emptyEventsRows[2]?.state, "default");
+  assert.equal(emptyEventsRows[2]?.label, "Deposit USDT to Aave");
+});
+
+test("intent signature step prompts Approve intent -> Intent approved", () => {
+  const intentSignature = { id: "intent_signature", typeID: "intent_signature", type: "INTENT_SIGNATURE", chain };
+  const events = [plan([intentSignature])];
+  const pendingRow = row(events, "intentVerified");
+  assert.equal(pendingRow?.state, "preapproval");
+  assert.equal(pendingRow?.label, "Approve intent");
+  assert.equal(pendingRow?.description, "Approve in wallet");
+
+  events.push(progress(intentSignature, "confirmed"));
+  const confirmedRow = row(events, "intentVerified");
+  assert.equal(confirmedRow?.state, "completed");
+  assert.equal(confirmedRow?.label, "Intent approved");
+  assert.equal(confirmedRow?.description, undefined);
+});
+
+test("SDK v2 Better Intent events progress through milestones", () => {
+  const intentSignature = { id: "intent_signature", typeID: "intent_signature", type: "INTENT_SIGNATURE", chain };
+  const intentSubmission = { id: "intent_submission", typeID: "intent_submission", type: "INTENT_SUBMISSION", chain };
+  const intentFulfillment = { id: "intent_fulfillment", typeID: "intent_fulfillment", type: "INTENT_FULFILLMENT", chain };
+
+  const events: NexusWidgetProgressEvent[] = [progress(intentSignature, "confirmed")];
+  assert.equal(row(events, "intentVerified")?.state, "completed");
+  assert.equal(row(events, "intentVerified")?.label, "Intent approved");
+  assert.equal(row(events, "swapTokens")?.state, "inProgress");
+  assert.equal(row(events, "swapTokens")?.label, "Swaps in progress");
+
+  events.push(progress(intentSubmission, "confirmed"));
+  assert.equal(row(events, "swapTokens")?.state, "inProgress");
+
+  events.push(progress(intentFulfillment, "confirmed"));
+  assert.equal(row(events, "swapTokens")?.state, "completed");
+  assert.equal(row(events, "swapTokens")?.label, "Swaps completed");
+  assert.equal(row(events, "receiveToken")?.state, "completed");
+  assert.equal(row(events, "receiveToken")?.label, "Received USDT on Arbitrum");
+  assert.equal(row(events, "action")?.state, "preapproval");
+});
+
+test("multi-token approval progresses from token 1 to token 2 then marks completed", () => {
+  const approval1 = { id: "app1", typeID: "app1", type: "erc20_approval", chainId: 42161, tokenAddress: "0xusdc", token: { symbol: "USDC" } };
+  const approval2 = { id: "app2", typeID: "app2", type: "erc20_approval", chainId: 42161, tokenAddress: "0xdai", token: { symbol: "DAI" } };
+  const events: NexusWidgetProgressEvent[] = [plan([approval1, approval2])];
+
+  // Token 1 in progress
+  assert.equal(row(events, "approveTokens")?.state, "preapproval");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (1 of 2)");
+  assert.equal(row(events, "approveTokens")?.description, "Approve USDC in wallet");
+
+  // Token 1 completed
+  events.push(progress(approval1, "confirmed"));
+  assert.equal(row(events, "approveTokens")?.state, "preapproval");
+  assert.equal(row(events, "approveTokens")?.label, "Approve tokens for deposit (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.description, "Approve DAI in wallet");
+
+  // Token 2 completed -> success state
+  events.push(progress(approval2, "confirmed"));
+  assert.equal(row(events, "approveTokens")?.state, "completed");
+  assert.equal(row(events, "approveTokens")?.label, "Tokens approved for deposit (2 of 2)");
+  assert.equal(row(events, "approveTokens")?.description, undefined);
+});
+
+test("resolves token symbol from context when step.token is absent", () => {
+  const bareApproval = { id: "bare_app", typeID: "bare_app", type: "erc20_approval", chainId: 42161, tokenAddress: "0xcontext_usdc" };
+  const events: NexusWidgetProgressEvent[] = [plan([bareApproval])];
+  const resultRows = buildStatusRows({
+    events,
+    mode: "deposit",
+    steps: [],
+    context: {
+      destinationChain: "Arbitrum",
+      destinationSymbol: "USDT",
+      fromTokens: [{ chainId: 42161, contractAddress: "0xcontext_usdc", symbol: "USDC" }],
+    },
+  });
+  const approveRow = resultRows.find((r) => r.id === "approveTokens");
+  assert.equal(approveRow?.description, "Approve USDC in wallet");
+});
+
+test("cancelling deposit approval marks action step as error and shows wallet refund message", () => {
+  const intentFulfillment = { id: "intent_fulfillment", typeID: "intent_fulfillment", type: "INTENT_FULFILLMENT", chain };
+  const depositAction = { id: "deposit_action", typeID: "action_failed", type: "APPROVAL", chain };
+  const events: NexusWidgetProgressEvent[] = [progress(intentFulfillment, "confirmed")];
+
+  const resultRows = rows(events, depositAction);
+  const actionRow = resultRows.find((r) => r.id === "action");
+  assert.equal(actionRow?.state, "error");
+  assert.equal(actionRow?.label, "Deposit failed. Funds are in your wallet.");
+  assert.equal(actionRow?.description, undefined);
+
+  const receiveRow = resultRows.find((r) => r.id === "receiveToken");
+  assert.equal(receiveRow?.state, "completed");
+});
+
+test("replicates exact V1 deposit progress screen from screenshot", () => {
+  const approval = { id: "app1", typeID: "app1", type: "erc20_approval", chainId: 10, token: { symbol: "USDC" } };
+  const sourceSwap = { id: "source1", typeID: "source1", type: "SOURCE_SWAP", chain: { id: 10, name: "Optimism" } };
+  const destinationSwap = { id: "dest1", typeID: "dest1", type: "DESTINATION_SWAP", chain: { id: 10, name: "Optimism" } };
+  const depositAction = { id: "deposit1", typeID: "deposit1", type: "TRANSACTION_SENT", chain: { id: 10, name: "Optimism" } };
+  const events = [plan([approval, sourceSwap, destinationSwap, depositAction])];
+  const result = buildStatusRows({
+    events,
+    mode: "deposit",
+    steps: [],
+    context: {
+      destinationChain: "Optimism",
+      destinationSymbol: "USDC",
+      opportunityName: "Aave",
+    },
+  });
+
+  assert.equal(result.length, 4);
+
+  // Step 1: Active approval in wallet
+  assert.equal(result[0].id, "approveTokens");
+  assert.equal(result[0].label, "Approve tokens for deposit (1 of 1)");
+  assert.equal(result[0].description, "Approve USDC in wallet");
+  assert.equal(result[0].state, "preapproval");
+
+  // Step 2: Swap tokens (pending)
+  assert.equal(result[1].id, "swapTokens");
+  assert.equal(result[1].label, "Swap tokens");
+  assert.equal(result[1].state, "default");
+
+  // Step 3: Receive USDC on Optimism (pending)
+  assert.equal(result[2].id, "receiveToken");
+  assert.equal(result[2].label, "Receive USDC on Optimism");
+  assert.equal(result[2].state, "default");
+
+  // Step 4: Deposit USDC to Aave (pending)
+  assert.equal(result[3].id, "action");
+  assert.equal(result[3].label, "Deposit USDC to Aave");
+  assert.equal(result[3].state, "default");
+
+  // Lifecycle progression:
+  // 1. Approval confirmed -> Swaps begin
+  events.push(progress(approval, "confirmed"));
+  const step2 = buildStatusRows({ events, mode: "deposit", steps: [], context: { destinationChain: "Optimism", destinationSymbol: "USDC", opportunityName: "Aave" } });
+  assert.equal(step2[0].state, "completed");
+  assert.equal(step2[0].label, "Tokens approved for deposit (1 of 1)");
+  assert.equal(step2[1].state, "inProgress");
+  assert.equal(step2[1].label, "Swaps in progress");
+  assert.equal(step2[2].state, "default");
+  assert.equal(step2[2].label, "Receive USDC on Optimism");
+
+  // 2. Source swaps complete -> Receiving on Optimism in progress
+  events.push(progress(sourceSwap, "confirmed"));
+  const step3 = buildStatusRows({ events, mode: "deposit", steps: [], context: { destinationChain: "Optimism", destinationSymbol: "USDC", opportunityName: "Aave" } });
+  assert.equal(step3[1].state, "completed");
+  assert.equal(step3[1].label, "Swaps completed");
+  assert.equal(step3[2].state, "inProgress");
+  assert.equal(step3[2].label, "Receiving USDC on Optimism");
+
+  // 3. Destination fill complete -> Deposit preapproval in wallet
+  events.push(progress(destinationSwap, "confirmed"));
+  const step4 = buildStatusRows({ events, mode: "deposit", steps: [], context: { destinationChain: "Optimism", destinationSymbol: "USDC", opportunityName: "Aave" } });
+  assert.equal(step4[2].state, "completed");
+  assert.equal(step4[2].label, "Received USDC on Optimism");
+  assert.equal(step4[3].state, "preapproval");
+  assert.equal(step4[3].label, "Approve Deposit of USDC to Aave");
+  assert.equal(step4[3].description, "Approve in wallet");
+
+  // 4. Deposit submitted -> Depositing in progress
+  events.push(progress(depositAction, "submitted"));
+  const step5 = buildStatusRows({ events, mode: "deposit", steps: [], context: { destinationChain: "Optimism", destinationSymbol: "USDC", opportunityName: "Aave" } });
+  assert.equal(step5[3].state, "inProgress");
+  assert.equal(step5[3].label, "Depositing USDC to Aave");
+
+  // 5. Deposit confirmed -> Success
+  events.push(progress({ ...depositAction, type: "TRANSACTION_CONFIRMED" }, "confirmed"));
+  const step6 = buildStatusRows({ events, mode: "deposit", steps: [], context: { destinationChain: "Optimism", destinationSymbol: "USDC", opportunityName: "Aave" } });
+  assert.equal(step6[3].state, "completed");
+  assert.equal(step6[3].label, "USDC deposited to Aave");
+});
+
+test("user rejection at token approval marks approveTokens as rejected and failed", () => {
+  const approval = { id: "app1", typeID: "app1", type: "erc20_approval", chainId: 10, token: { symbol: "USDC" } };
+  const sourceSwap = { id: "source1", typeID: "source1", type: "SOURCE_SWAP", chain: { id: 10, name: "Optimism" } };
+  const events = [plan([approval, sourceSwap])];
+
+  const failedStep = { type: "ALLOWANCE_APPROVAL", typeID: "approve_tokens_failed", isRejected: true };
+  const result = buildStatusRows({
+    events,
+    mode: "swap",
+    steps: [],
+    failedStep: failedStep as any,
+    isRejected: true,
+    context: {
+      destinationChain: "Optimism",
+      destinationSymbol: "USDC",
+    },
+  });
+
+  const approveRow = result.find((r) => r.id === "approveTokens");
+  assert.ok(approveRow);
+  assert.equal(approveRow.state, "error");
+  assert.equal(approveRow.label, "Token approval rejected");
+  assert.equal(approveRow.description, "Rejected in wallet");
+});
+
+test("user rejection at intent signature marks intentVerified as rejected and failed", () => {
+  const intentSignature = { id: "intent_signature", typeID: "intent_signature", type: "INTENT_SIGNATURE", chain };
+  const events = [plan([intentSignature])];
+
+  const failedStep = { type: "INTENT_SIGNATURE", typeID: "intent_signature_failed", isRejected: true };
+  const result = buildStatusRows({
+    events,
+    mode: "swap",
+    steps: [],
+    failedStep: failedStep as any,
+    isRejected: true,
+    context: {
+      destinationChain: "Arbitrum",
+      destinationSymbol: "USDT",
+    },
+  });
+
+  const intentRow = result.find((r) => r.id === "intentVerified");
+  assert.ok(intentRow);
+  assert.equal(intentRow.state, "error");
+  assert.equal(intentRow.label, "Intent approval rejected");
+  assert.equal(intentRow.description, "Rejected in wallet");
+});
+
+test("user rejection at deposit action marks action as cancelled by user", () => {
+  const intentFulfillment = { id: "intent_fulfillment", typeID: "intent_fulfillment", type: "INTENT_FULFILLMENT", chain };
+  const events: NexusWidgetProgressEvent[] = [progress(intentFulfillment, "confirmed")];
+
+  const failedStep = { type: "APPROVAL", typeID: "action_failed", isRejected: true };
+  const result = buildStatusRows({
+    events,
+    mode: "deposit",
+    steps: [],
+    failedStep: failedStep as any,
+    isRejected: true,
+    context: {
+      destinationChain: "Arbitrum",
+      destinationSymbol: "USDT",
+      opportunityName: "Aave",
+    },
+  });
+
+  const actionRow = result.find((r) => r.id === "action");
+  assert.ok(actionRow);
+  assert.equal(actionRow.state, "error");
+  assert.equal(actionRow.label, "Deposit cancelled by user");
+  assert.equal(actionRow.description, "Rejected in wallet");
+});
+
+

@@ -1,5 +1,5 @@
 import { formatTokenBalance } from "@avail-project/nexus-core/utils";
-import { type BridgeIntent } from "@avail-project/nexus-core";
+import { type BridgeIntent } from "../../nexus/better-intent-compat";
 import { type UserAsset } from "../../nexus/NexusProvider";
 import {
   Accordion,
@@ -139,7 +139,7 @@ const SourceBreakdown = ({
 
                 <div className="flex flex-col items-end gap-y-1 min-w-fit">
                   <p className="text-base font-light">
-                    {formatTokenBalance(intent?.sourcesTotal, {
+                    {formatTokenBalance(intent?.sourcesTotal ?? "0", {
                       symbol: displayTokenSymbol,
                       decimals: intent?.destination?.token?.decimals,
                     })}
@@ -271,8 +271,13 @@ const SourceBreakdown = ({
                   const isLastSelected = isSelected
                     ? selectedSourceChains.length === 1
                     : false;
-                  const willUseAmount = intent?.selectedSources?.find(
-                    (s) => s.chain.id === chainId,
+                  const willUseAmount = (
+                    (intent as any)?.selectedSources?.find(
+                      (s: any) => s.chain.id === chainId,
+                    ) ??
+                    intent?.sources?.find(
+                      (s) => s.chain.id === chainId,
+                    )
                   )?.amount;
 
                   return (

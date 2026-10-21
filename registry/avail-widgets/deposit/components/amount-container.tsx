@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import type { SwapMaxParams } from "@avail-project/nexus-core";
+import type { SwapMaxParams } from "../../nexus/better-intent-compat";
 import WidgetHeader from "./widget-header";
 import type { DepositWidgetContextValue } from "../types";
 import AmountCard from "./amount-card";

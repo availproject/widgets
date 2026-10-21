@@ -1,8 +1,6 @@
-import {
-  type NexusClient,
-  type BridgeEvent,
-} from "@avail-project/nexus-core";
+import { type NexusClient } from "@avail-project/nexus-core";
 import { type Address } from "viem";
+import { type BridgeEvent, type LegacyPlanEvent } from "../../nexus/better-intent-compat";
 
 export type TransactionFlowType = "bridge" | "transfer";
 
@@ -34,9 +32,9 @@ export interface TransactionFlowPrefill {
   recipient?: Address;
 }
 
-export type TransactionFlowEvent = BridgeEvent;
+export type TransactionFlowEvent = LegacyPlanEvent;
 
-export type TransactionFlowOnEvent = (event: BridgeEvent) => void;
+export type TransactionFlowOnEvent = (event: LegacyPlanEvent) => void;
 
 export interface TransactionFlowExecuteParams {
   token: string;

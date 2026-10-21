@@ -85,7 +85,7 @@ const getSdkExactOutPriority = (
   return 7;
 };
 
-const sortSourcesByPriority = (
+export const sortSourcesByPriority = (
   swapBalance: UserAsset[],
   destination: DepositSourceDestination,
 ) =>
@@ -96,8 +96,27 @@ const sortSourcesByPriority = (
       balanceInFiat: parseNonNegativeNumber(breakdown.balanceInFiat),
       symbol: breakdown.symbol,
       tokenAddress: breakdown.contractAddress,
+      verified: breakdown.verified !== false,
     }))
     .sort((a, b) => {
+      const aTier =
+        a.verified && a.balanceInFiat > 0
+          ? 0
+          : !a.verified && a.balanceInFiat > 0
+            ? 1
+            : a.verified
+              ? 2
+              : 3;
+      const bTier =
+        b.verified && b.balanceInFiat > 0
+          ? 0
+          : !b.verified && b.balanceInFiat > 0
+            ? 1
+            : b.verified
+              ? 2
+              : 3;
+      if (aTier !== bTier) return aTier - bTier;
+
       const priorityDiff =
         getSdkExactOutPriority(a, destination) -
         getSdkExactOutPriority(b, destination);
@@ -153,12 +172,24 @@ const isStablecoin = (symbol?: string): boolean =>
     (symbol ?? "").toUpperCase() as (typeof STABLECOIN_SYMBOLS)[number],
   );
 
-const isNative = (symbol?: string): boolean => {
+const isNative = (
+  symbol?: string,
+  tokenAddress?: string,
+  chainId?: number,
+): boolean => {
+  if (isNativeAddress(tokenAddress)) return true;
   const normalized = (symbol ?? "").toUpperCase();
   if (!normalized) return false;
-  return Object.values(CHAIN_METADATA).some(
-    (chain) => chain.nativeCurrency.symbol.toUpperCase() === normalized,
-  );
+  if (isSdkExactOutStablecoin(normalized) || isStablecoin(normalized)) {
+    return false;
+  }
+  if (chainId && CHAIN_METADATA[chainId]) {
+    return (
+      CHAIN_METADATA[chainId].nativeCurrency.symbol.toUpperCase() ===
+        normalized && isNativeAddress(tokenAddress)
+    );
+  }
+  return false;
 };
 
 const getFiatLookupKey = (tokenAddress: string, chainId: number): string =>
@@ -205,7 +236,7 @@ const buildPriorityRankMap = (
   return map;
 };
 
-const buildSortedSourceCandidates = (params: {
+export const buildSortedSourceCandidates = (params: {
   sourceIds: Iterable<string>;
   swapBalance: UserAsset[] | null;
   destination: DepositSourceDestination;
@@ -217,6 +248,22 @@ const buildSortedSourceCandidates = (params: {
 
   const sourceFiatByKeyMap = buildSourceFiatByKeyMap(swapBalance);
   const priorityRankMap = buildPriorityRankMap(swapBalance, destination);
+  const sourceVerifiedByKeyMap = (() => {
+    const map = new Map<string, boolean>();
+    if (!swapBalance) return map;
+    for (const asset of swapBalance) {
+      for (const breakdown of asset.breakdown ?? []) {
+        const chainId = breakdown.chain?.id;
+        const tokenAddress = breakdown.contractAddress;
+        if (!chainId || !tokenAddress) continue;
+        map.set(
+          getFiatLookupKey(tokenAddress, chainId),
+          breakdown.verified !== false,
+        );
+      }
+    }
+    return map;
+  })();
 
   return uniqueIds
     .map((sourceId) => {
@@ -233,14 +280,35 @@ const buildSortedSourceCandidates = (params: {
         sourceId,
         balanceInFiat: sourceFiatByKeyMap.get(fiatKey) ?? 0,
         priorityRank: priorityRankMap.get(priorityKey) ?? MAX_PRIORITY_RANK,
+        verified: sourceVerifiedByKeyMap.get(fiatKey) ?? true,
       };
     })
     .filter((item): item is NonNullable<typeof item> => {
       if (!item) return false;
-      if (minimumBalanceUsd == null) return true;
+      if (minimumBalanceUsd == null || minimumBalanceUsd <= 0) {
+        return item.balanceInFiat > 0;
+      }
       return item.balanceInFiat >= minimumBalanceUsd;
     })
     .sort((a, b) => {
+      const aTier =
+        a.verified && a.balanceInFiat > 0
+          ? 0
+          : !a.verified && a.balanceInFiat > 0
+            ? 1
+            : a.verified
+              ? 2
+              : 3;
+      const bTier =
+        b.verified && b.balanceInFiat > 0
+          ? 0
+          : !b.verified && b.balanceInFiat > 0
+            ? 1
+            : b.verified
+              ? 2
+              : 3;
+      if (aTier !== bTier) return aTier - bTier;
+
       if (a.priorityRank !== b.priorityRank) {
         return a.priorityRank - b.priorityRank;
       }
@@ -280,8 +348,11 @@ export const buildDepositSourcePoolIds = (params: {
       const tokenAddress = breakdown.contractAddress;
       if (!chainId || !tokenAddress) return;
 
-      const stable = isStablecoin(breakdown.symbol ?? asset.symbol);
-      const native = isNative(breakdown.symbol ?? asset.symbol);
+      const stable =
+        isSdkExactOutStablecoin(breakdown.symbol ?? asset.symbol) ||
+        isStablecoin(breakdown.symbol ?? asset.symbol);
+      const native =
+        isNative(breakdown.symbol ?? asset.symbol, tokenAddress, chainId);
       const sourceId = getDepositSourceId(tokenAddress, chainId);
       const include =
         filter === "all" ||

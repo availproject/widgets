@@ -5,7 +5,7 @@ import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { parseAmount as parseDecimal } from "../utils/amount";
-import { type SwapTokenOption } from "./swap-asset-selector";
+import { type SwapTokenOption, UnverifiedBadge } from "./swap-asset-selector";
 
 const uiFont = '"Geist", system-ui, sans-serif';
 const primary = "var(--nexus-widget-text-strong, #161615)";
@@ -29,7 +29,30 @@ const getDisplayedUsdValue = (token: SwapTokenOption) =>
 
 const sortSourceTokensByDisplayedUsdDesc = (tokens: SwapTokenOption[]) =>
   [...tokens].sort((a, b) => {
-    const usdDiff = getDisplayedUsdValue(b).cmp(getDisplayedUsdValue(a));
+    const aVerified = a.verified !== false;
+    const bVerified = b.verified !== false;
+    const aUsd = getDisplayedUsdValue(a);
+    const bUsd = getDisplayedUsdValue(b);
+
+    const aTier =
+      aVerified && aUsd.gt(0)
+        ? 0
+        : !aVerified && aUsd.gt(0)
+          ? 1
+          : aVerified
+            ? 2
+            : 3;
+    const bTier =
+      bVerified && bUsd.gt(0)
+        ? 0
+        : !bVerified && bUsd.gt(0)
+          ? 1
+          : bVerified
+            ? 2
+            : 3;
+    if (aTier !== bTier) return aTier - bTier;
+
+    const usdDiff = bUsd.cmp(aUsd);
     if (usdDiff !== 0) return usdDiff;
     return `${a.symbol ?? ""} ${a.chainName ?? ""}`.localeCompare(
       `${b.symbol ?? ""} ${b.chainName ?? ""}`,
@@ -159,14 +182,16 @@ export function PayWithSources({
   showAutoBadge = true,
   isSourcePickerDisabled = false,
   reserveSourceRows = false,
+  isPredictive = false,
 }: {
   fromTokens: SwapTokenOption[];
   onOpenSourcePicker: () => void;
-  routeStatus?: "loading" | "insufficient";
+  routeStatus?: "loading" | "insufficient" | "error";
   routeMessage?: string;
   showAutoBadge?: boolean;
   isSourcePickerDisabled?: boolean;
   reserveSourceRows?: boolean;
+  isPredictive?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const isRouteLoading = routeStatus === "loading";
@@ -208,6 +233,8 @@ export function PayWithSources({
         flexDirection: "column",
         gap: "14px",
         padding: "16px",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
       <div
@@ -239,23 +266,28 @@ export function PayWithSources({
         </div>
         {shouldShowSourceSummary && (
           <button
-            disabled={isSourcePickerDisabled}
+            disabled={isSourcePickerDisabled || isPredictive}
             onClick={onOpenSourcePicker}
             style={{
-              backgroundColor: isSourcePickerDisabled
-                ? "var(--nexus-widget-surface-raised, #F4F4F3)"
-                : "var(--nexus-widget-primary-soft, #E8F0FF)",
+              backgroundColor:
+                isSourcePickerDisabled || isPredictive
+                  ? "var(--nexus-widget-surface-raised, #F4F4F3)"
+                  : "var(--nexus-widget-primary-soft, #E8F0FF)",
               border: "none",
               borderRadius: "4px",
-              color: isSourcePickerDisabled
-                ? "var(--nexus-widget-text-secondary, #A8A8A6)"
-                : "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
-              cursor: isSourcePickerDisabled ? "not-allowed" : "pointer",
+              color:
+                isSourcePickerDisabled || isPredictive
+                  ? "var(--nexus-widget-text-secondary, #A8A8A6)"
+                  : "var(--nexus-widget-primary-soft-text, var(--foreground-brand))",
+              cursor:
+                isSourcePickerDisabled || isPredictive
+                  ? "not-allowed"
+                  : "pointer",
               fontFamily: uiFont,
               fontSize: "12px",
               fontWeight: 500,
               lineHeight: "20px",
-              opacity: isSourcePickerDisabled ? 0.75 : 1,
+              opacity: isSourcePickerDisabled || isPredictive ? 0.75 : 1,
               padding: "8px 12px",
             }}
             type="button"
@@ -265,31 +297,49 @@ export function PayWithSources({
         )}
       </div>
 
-      {isRouteLoading ? (
+      {isPredictive && (
         <>
-          <SkeletonRow />
-          <div
-            style={{
-              alignItems: "center",
-              color: brand,
-              display: "flex",
-              fontFamily: uiFont,
-              fontSize: "14px",
-              gap: "6px",
-              lineHeight: "20px",
-            }}
-          >
-            <Loader2
-              className="animate-spin"
-              style={{
-                ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
-                height: 14,
-                width: 14,
-              }}
-            />
-            Calculating best route...
-          </div>
+          <style>
+            {`@keyframes nexusSectionSubtleShimmer {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+            @keyframes nexusSectionSubtlePulse {
+              0%, 100% { opacity: 0.78; }
+              50% { opacity: 0.98; }
+            }
+            .nexus-predictive-sheen {
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              pointer-events: none;
+              border-radius: inherit;
+              z-index: 2;
+              background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.45) 50%,
+                transparent 100%
+              );
+              animation: nexusSectionSubtleShimmer 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            }
+            [data-nexus-widget-theme="dark"] .nexus-predictive-sheen {
+              background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.08) 50%,
+                transparent 100%
+              );
+            }`}
+          </style>
+          <div className="nexus-predictive-sheen" aria-hidden="true" />
         </>
+      )}
+
+      {isRouteLoading ? (
+        <SkeletonRow />
       ) : shouldShowSourceSummary ? (
         <div style={{ position: "relative" }}>
           <div
@@ -303,6 +353,9 @@ export function PayWithSources({
                 reserveSourceRows && !shouldScroll ? "162px" : undefined,
               overflowY: shouldScroll ? "auto" : undefined,
               paddingRight: shouldScroll ? "8px" : 0,
+              animation: isPredictive
+                ? "nexusSectionSubtlePulse 2.2s ease-in-out infinite"
+                : undefined,
             }}
           >
             {displayTokens.map((token, index) => (
@@ -342,16 +395,25 @@ export function PayWithSources({
                         minWidth: 0,
                       }}
                     >
-                      <span
+                      <div
                         style={{
-                          color: primary,
-                          fontFamily: uiFont,
-                          fontSize: "14px",
-                          fontWeight: 600,
+                          alignItems: "center",
+                          display: "flex",
+                          gap: "6px",
                         }}
                       >
-                        {token.symbol}
-                      </span>
+                        <span
+                          style={{
+                            color: primary,
+                            fontFamily: uiFont,
+                            fontSize: "14px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {token.symbol}
+                        </span>
+                        {token.verified === false && <UnverifiedBadge />}
+                      </div>
                       <span
                         style={{
                           color: muted,
@@ -446,7 +508,7 @@ export function PayWithSources({
         </div>
       )}
 
-      {routeStatus === "insufficient" && routeMessage && (
+      {(routeStatus === "insufficient" || routeStatus === "error") && routeMessage && (
         <div
           style={{
             alignItems: "center",
@@ -455,7 +517,7 @@ export function PayWithSources({
             fontFamily: uiFont,
             fontSize: "14px",
             gap: "8px",
-            lineHeight: "20px",
+            lineHeight: "18px",
           }}
         >
           <AlertCircle style={{ flexShrink: 0, height: 15, width: 15 }} />

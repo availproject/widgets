@@ -71,7 +71,8 @@ writeFileSync(
     'export { NexusWidget, default } from "./nexus-widget/nexus-widget";',
     'export type { NexusWidgetConfig, NexusWidgetProps, NexusWidgetTheme } from "./nexus-widget/types";',
     'export { default as NexusProvider, NexusContext, useNexus } from "./nexus/NexusProvider";',
-    'export type { UserAsset } from "./nexus/NexusProvider";',
+    'export type { UserAsset, NexusProviderConfig, NexusProviderProps } from "./nexus/NexusProvider";',
+    'export type { NexusIdentity, NexusObservabilityConfig, WidgetTelemetryRecord, WidgetTelemetryEventName, WidgetAttemptContext, WidgetAttemptEvidence, WidgetAttemptEvidenceSubscriber } from "./nexus/widget-observability";',
     "",
   ].join("\n")
 );

@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useRef, useEffect, useState, useMemo } from "react";
-import type { SwapMaxParams } from "@avail-project/nexus-core";
+import type {
+  SwapMaxParams,
+  NexusClientWithCompat,
+} from "../../nexus/better-intent-compat";
 import { TokenIcon } from "./token-icon";
 import { ErrorBanner } from "./error-banner";
 import { PercentageSelector } from "./percentage-selector";
@@ -169,9 +172,9 @@ function AmountCard({
       if (percentage === 1 && nexusSDK && maxSwapInput) {
         setIsCalculatingMax(true);
         try {
-          const maxAmountResult = await nexusSDK.calculateMaxForSwap(
-            maxSwapInput,
-          );
+          const maxAmountResult = await (
+            nexusSDK as NexusClientWithCompat
+          ).calculateMaxForSwap!(maxSwapInput);
           const maxTokenAmount = Number.parseFloat(maxAmountResult.maxAmount);
 
           if (Number.isFinite(maxTokenAmount) && maxTokenAmount > 0) {
