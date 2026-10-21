@@ -135,7 +135,7 @@ export type NexusProviderProps = {
 };
 
 const defaultConfig: NexusProviderProps["config"] = {
-  network: "canary",
+  network: "mainnet",
   debug: true,
   mode: "swap",
 };

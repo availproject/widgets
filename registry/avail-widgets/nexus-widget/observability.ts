@@ -292,7 +292,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
       const { sdkCode, "error.code": rawErrorCode, transactionHash, intentHash, ...summary } = sanitized;
       const errorCode = (rawErrorCode ?? sdkCode) as string | undefined;
       const includeLookupKeys = event === "widget_attempt_committed" || event === "widget_attempt_outcome";
-      const net = settings.network ?? settings.config?.network ?? "canary";
+      const net = settings.network ?? settings.config?.network ?? "mainnet";
       const properties = Object.freeze({
         ...summary,
         ...(errorCode ? { "error.code": errorCode } : {}),
@@ -337,7 +337,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
         sessionId ??= runtime.uuid();
         const id = attemptId;
         const generation = epoch;
-        const net = settings.network ?? settings.config?.network ?? "canary";
+        const net = settings.network ?? settings.config?.network ?? "mainnet";
         emit("widget_attempt_started", {
           operation,
           ...(previousAttemptId ? { "attempt.previous_id": previousAttemptId } : {}),

@@ -3837,7 +3837,7 @@ function NexusWidgetInner({
   } = useNexus();
   const appConfig = useMemo(
     () => ({
-      nexusNetwork: network ?? "canary",
+      nexusNetwork: network ?? "mainnet",
     }),
     [network],
   );
@@ -3953,7 +3953,7 @@ function NexusWidgetInner({
     mode: activeMode,
     walletAddress: ownerAddress,
     hub: widgetObservationHub,
-    network: (network ?? "canary") as "mainnet" | "testnet" | "canary",
+    network: (network ?? "mainnet") as "mainnet" | "testnet" | "canary",
   });
   const getEffectiveWalletProvider = useCallback(
     async (activeConnector = connector) => {

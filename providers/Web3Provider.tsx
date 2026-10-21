@@ -186,7 +186,7 @@ const createWagmiConfig = () =>
 export const NETWORK_KEY = "nexus-elements-network-key";
 
 function NexusContainer({ children }: Readonly<{ children: React.ReactNode }>) {
-  const [network, setNetwork] = useState<NexusNetwork>("canary");
+  const [network, setNetwork] = useState<NexusNetwork>("mainnet");
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -195,13 +195,13 @@ function NexusContainer({ children }: Readonly<{ children: React.ReactNode }>) {
 
     if (
       storedNetwork &&
-      (storedNetwork === "canary" || storedNetwork === "testnet")
+      (storedNetwork === "mainnet" || storedNetwork === "testnet" || storedNetwork === "canary")
     ) {
       setNetwork(storedNetwork);
     } else {
-      // Set default to canary for demo docs
-      setNetwork("canary");
-      setItem(NETWORK_KEY, "canary");
+      // Set default to mainnet
+      setNetwork("mainnet");
+      setItem(NETWORK_KEY, "mainnet");
     }
 
     setIsInitialized(true);

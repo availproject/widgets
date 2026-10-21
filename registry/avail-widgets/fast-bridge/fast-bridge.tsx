@@ -94,7 +94,7 @@ const FastBridge: FC<FastBridgeProps> = ({
     isInputsValid,
   } = useBridge({
     prefill,
-    network: network ?? "canary",
+    network: network ?? "mainnet",
     connectedAddress,
     nexusSDK,
     intent,

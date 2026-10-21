@@ -88,7 +88,7 @@ const FastTransfer: FC<FastTransferProps> = ({
     isInputsValid,
   } = useTransfer({
     prefill,
-    network: network ?? "canary",
+    network: network ?? "mainnet",
     nexusSDK,
     intent,
     bridgableBalance,
