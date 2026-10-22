@@ -120,8 +120,42 @@ const SWAP_APPROVAL_TYPES = [
   "ALLOWANCE",
   "ALLOWANCE_APPROVAL",
   "ERC20_APPROVAL",
+  "TOKEN_APPROVAL",
   "SOURCE_APPROVAL_SIGNATURE",
 ];
+
+const isActionApprovalStep = (step?: ProgressSdkStep) => {
+  const stepId = String((step as any)?.id ?? (step as any)?.typeID ?? "").toLowerCase();
+  return (
+    stepId.includes("execute") ||
+    stepId.includes("action") ||
+    stepId === "execute_approval"
+  );
+};
+
+const isSwapApprovalStep = (step?: ProgressSdkStep) => {
+  if (!step) return false;
+  if (isActionApprovalStep(step)) return false;
+  const type = getStepType(step);
+  return (
+    SWAP_APPROVAL_TYPES.some((token) => type.includes(token)) ||
+    type === "APPROVAL"
+  );
+};
+
+const isGenericApprovalId = (id: string) => {
+  const upper = String(id || "").trim().toUpperCase();
+  return (
+    upper === "" ||
+    upper === "APPROVAL" ||
+    upper === "ALLOWANCE" ||
+    upper === "ALLOWANCE_APPROVAL" ||
+    upper === "ERC20_APPROVAL" ||
+    upper === "TOKEN_APPROVAL" ||
+    upper === "SOURCE_APPROVAL_SIGNATURE" ||
+    SWAP_APPROVAL_TYPES.includes(upper)
+  );
+};
 
 const REFUND_ELIGIBLE_SWAP_TYPES = [
   "BRIDGE_INTENT_SUBMISSION",
@@ -145,14 +179,14 @@ const getStatusForStep = (
   const type = getStepType(step);
 
   if (
-    type === "APPROVAL" ||
     type === "TRANSACTION_SENT" ||
-    type === "TRANSACTION_CONFIRMED"
+    type === "TRANSACTION_CONFIRMED" ||
+    (type === "APPROVAL" && isActionApprovalStep(step))
   ) {
     return mode === "swap" && !hasTransferAction ? null : "action";
   }
 
-  if (SWAP_APPROVAL_TYPES.some((token) => type.includes(token))) {
+  if (isSwapApprovalStep(step)) {
     return "approveTokens";
   }
 
@@ -264,15 +298,6 @@ const isSameStep = (left?: ProgressSdkStep, right?: ProgressSdkStep) => {
   const rightType = getStepType(right);
   if (leftType !== rightType) return false;
 
-  const leftId = left.id ? String(left.id) : "";
-  const rightId = right.id ? String(right.id) : "";
-  const isGenericLeftId = leftId === "" || SWAP_APPROVAL_TYPES.includes(leftId);
-  const isGenericRightId = rightId === "" || SWAP_APPROVAL_TYPES.includes(rightId);
-
-  if (!isGenericLeftId && !isGenericRightId && leftId === rightId) {
-    return true;
-  }
-
   const leftChain = getStepChainId(left);
   const rightChain = getStepChainId(right);
   if (leftChain !== undefined && rightChain !== undefined && leftChain !== rightChain) {
@@ -283,6 +308,15 @@ const isSameStep = (left?: ProgressSdkStep, right?: ProgressSdkStep) => {
   const rightToken = getStepTokenAddress(right);
   if (leftToken !== "" && rightToken !== "" && leftToken !== rightToken) {
     return false;
+  }
+
+  const leftId = left.id ? String(left.id) : "";
+  const rightId = right.id ? String(right.id) : "";
+  const isGenericLeftId = isGenericApprovalId(leftId);
+  const isGenericRightId = isGenericApprovalId(rightId);
+
+  if (!isGenericLeftId && !isGenericRightId && leftId === rightId) {
+    return true;
   }
 
   const leftKey = getStepId(left);
@@ -396,12 +430,12 @@ const getApprovalProgress = (
 ) => {
   const seen = new Set<string>();
   const approvals = plan.flatMap((step, index) => {
-    if (!stepMatches(step, SWAP_APPROVAL_TYPES)) return [];
+    if (!isSwapApprovalStep(step)) return [];
     const stepId = step.id ? String(step.id) : "";
-    const isGenericId = stepId === "" || SWAP_APPROVAL_TYPES.includes(stepId);
+    const isGenericId = isGenericApprovalId(stepId);
     const key = isGenericId
       ? `${getStepType(step)}:${getStepChainId(step) ?? ""}:${getStepTokenAddress(step)}:${index}`
-      : stepId;
+      : `${stepId}:${getStepChainId(step) ?? ""}:${getStepTokenAddress(step)}`;
     if (seen.has(key)) return [];
     seen.add(key);
     const tokenAddress = getStepTokenAddress(step);
@@ -427,7 +461,7 @@ const getApprovalProgress = (
         (tokenAddress !== "" && chainId !== undefined &&
          getStepChainId(event.step) === chainId &&
          getStepTokenAddress(event.step) === tokenAddress &&
-         stepMatches(event.step, SWAP_APPROVAL_TYPES))
+         isSwapApprovalStep(event.step))
       ),
     );
     const directCompleted =
@@ -436,7 +470,7 @@ const getApprovalProgress = (
         (tokenAddress !== "" && chainId !== undefined &&
          getStepChainId(item.step) === chainId &&
          getStepTokenAddress(item.step) === tokenAddress &&
-         stepMatches(item.step, SWAP_APPROVAL_TYPES))
+         isSwapApprovalStep(item.step))
       )) ||
       directEvents.some((event) =>
         event.completed ||
@@ -574,14 +608,27 @@ export const buildStatusRows = ({
   let failedStatus = failedStep
     ? getStatusForStep(failedStep, mode, hasTransferAction)
     : null;
+  const bridgeListSteps = getListedSteps(
+    events,
+    PROGRESS_EVENT_NAMES.BRIDGE_PLAN_LIST,
+  );
   const swapListSteps = getListedSteps(
     events,
     PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST,
   );
+  const planListSteps = swapListSteps.length > 0 ? swapListSteps : bridgeListSteps;
   const fallbackSteps = steps.map((item) => item.step);
-  const currentPlan = events.some((event) =>
-    event.name === PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST && event.steps !== undefined,
-  ) ? swapListSteps : fallbackSteps;
+  const currentPlan =
+    planListSteps.length > 0
+      ? planListSteps
+      : events.some(
+            (event) =>
+              (event.name === PROGRESS_EVENT_NAMES.SWAP_PLAN_LIST ||
+                event.name === PROGRESS_EVENT_NAMES.BRIDGE_PLAN_LIST) &&
+              event.steps !== undefined,
+          )
+        ? planListSteps
+        : fallbackSteps;
   const destinationSymbol = context.destinationSymbol || "token";
   const destinationChain = context.destinationChain || "destination";
   const opportunityName = context.opportunityName || "app";

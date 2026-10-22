@@ -6074,7 +6074,12 @@ function NexusWidgetInner({
         : (options?.filter ?? depositSourceFilter),
       selectedSourceIds,
       isManualSelection: manualSelection,
-      minimumBalanceUsd: manualSelection ? minimumSourceUsd.toNumber() : 0,
+      minimumBalanceUsd:
+        activeMode === "deposit"
+          ? 0
+          : manualSelection
+            ? minimumSourceUsd.toNumber()
+            : 0,
       targetAmountUsd: targetAmountUsd?.toNumber(),
       excludedSourceIds: [],
     });
@@ -6988,6 +6993,22 @@ function NexusWidgetInner({
         (enrichedIntent.sources ?? []).map(buildIntentSourceToken),
       );
 
+      const resolvedAutoSourceTokens =
+        activeMode === "deposit" && lockedDestinationSourceTokens.length > 0
+          ? [
+              ...lockedDestinationSourceTokens.map((t) => ({
+                ...t,
+                userAmount: "",
+              })),
+              ...sortedIntentSourceTokens.filter(
+                (intentToken) =>
+                  !lockedDestinationSourceTokens.some((locked) =>
+                    isSameTokenSelection(locked, intentToken),
+                  ),
+              ),
+            ]
+          : sortedIntentSourceTokens;
+
       lastSwapIntentRefreshAtRef.current = Date.now();
       lastIntentSourceTokensRef.current = sortedIntentSourceTokens;
       if (
@@ -6995,7 +7016,7 @@ function NexusWidgetInner({
         (activeMode === "send" ||
           (activeMode === "deposit" && swapType === "exactOut"))
       ) {
-        lastAutoIntentSourceTokensRef.current = sortedIntentSourceTokens;
+        lastAutoIntentSourceTokensRef.current = resolvedAutoSourceTokens;
       }
       cacheDestinationUsdRateFromIntent(enrichedIntent);
       cachePredictiveBaselineFromIntent(enrichedIntent);
@@ -7010,7 +7031,7 @@ function NexusWidgetInner({
           (activeMode === "deposit" && swapType === "exactOut"))
       ) {
         syncingIntentSourcesRef.current = true;
-        setFromTokens(sortedIntentSourceTokens);
+        setFromTokens(resolvedAutoSourceTokens);
       }
 
       try {
@@ -8272,9 +8293,13 @@ function NexusWidgetInner({
   const lockedDestinationSourceTokens = useMemo<SwapTokenOption[]>(() => {
     if (
       (activeMode !== "deposit" && activeMode !== "send") ||
-      !toToken?.chainId ||
-      !requiredDestinationTokenAmount ||
-      requiredDestinationTokenAmount.lte(0)
+      !toToken?.chainId
+    ) {
+      return [];
+    }
+    if (
+      activeMode === "send" &&
+      (!requiredDestinationTokenAmount || requiredDestinationTokenAmount.lte(0))
     ) {
       return [];
     }
@@ -8296,14 +8321,29 @@ function NexusWidgetInner({
 
   const setSourcePickerDraftSelection = useCallback(
     (tokens: SwapTokenOption[]) => {
-      const nextTokens = tokens.map((token) => ({
+      const merged =
+        activeMode === "deposit" && lockedDestinationSourceTokens.length > 0
+          ? [
+              ...lockedDestinationSourceTokens.map((t) => ({
+                ...t,
+                userAmount: "",
+              })),
+              ...tokens.filter(
+                (t) =>
+                  !lockedDestinationSourceTokens.some((locked) =>
+                    isSameTokenSelection(locked, t),
+                  ),
+              ),
+            ]
+          : tokens;
+      const nextTokens = merged.map((token) => ({
         ...token,
         userAmount: "",
       }));
       sourcePickerDraftTokensRef.current = nextTokens;
       setSourcePickerDraftTokens(nextTokens);
     },
-    [],
+    [activeMode, lockedDestinationSourceTokens],
   );
 
   const getAutoExactOutSourceTokensForPicker = useCallback(() => {

@@ -299,3 +299,45 @@ test("predictive quote logic: shimmer is strictly active during predictive quote
   // Background quote refresh (hasExactOutPaymentIntent remains true, isLoading is true)
   assert.equal(computeExactOutShimmer(true, true, true), false);
 });
+
+test("SwapAssetSelector locks destination token and prevents deselection", () => {
+  const destToken: SwapTokenOption = {
+    chainId: 10,
+    contractAddress: "0xdest1",
+    symbol: "USDC",
+    name: "USDC on Optimism",
+    decimals: 6,
+    balance: "50",
+    balanceInFiat: "$50.00",
+  };
+  const otherToken: SwapTokenOption = {
+    chainId: 42161,
+    contractAddress: "0xother1",
+    symbol: "USDT",
+    name: "USDT on Arbitrum",
+    decimals: 6,
+    balance: "100",
+    balanceInFiat: "$100.00",
+  };
+
+  const html = renderToStaticMarkup(
+    <SwapAssetSelector
+      autoSelectFilterTabs
+      isMulti
+      lockedTokens={[destToken]}
+      onBack={() => {}}
+      onSelect={() => {}}
+      requiredUsd="100.00"
+      selectedTokens={[destToken, otherToken]}
+      staticOptions={[destToken, otherToken]}
+      swapBalance={[]}
+      title="Choose Assets to Pay with"
+    />,
+  );
+
+  // Destination token row is disabled (locked)
+  assert.ok(html.includes("disabled=\"\""));
+  // Both tokens are selected
+  assert.ok(html.includes("2 assets selected") || html.includes("Auto selection"));
+});
+

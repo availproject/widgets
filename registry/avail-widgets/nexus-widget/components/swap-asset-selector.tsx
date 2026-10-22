@@ -1120,8 +1120,8 @@ export function SwapAssetSelector({
   const skipNextSelectionScrollResetRef = useRef(false);
   const [stableListHeight, setStableListHeight] = useState<number | null>(null);
   const lockedSelectedTokens = useMemo(
-    () => (autoSelectFilterTabs ? [] : dedupeTokenOptions(lockedTokens)),
-    [autoSelectFilterTabs, lockedTokens],
+    () => dedupeTokenOptions(lockedTokens),
+    [lockedTokens],
   );
   const isLockedToken = useCallback(
     (token: SwapTokenOption) =>
@@ -1811,10 +1811,10 @@ export function SwapAssetSelector({
           paddingLeft: indent ? "36px" : "14px",
           backgroundColor: "transparent",
           border: "none",
-          cursor: disabled ? "not-allowed" : "pointer",
+          cursor: locked ? "default" : disabled ? "not-allowed" : "pointer",
           borderBottom: "1px solid var(--nexus-widget-surface-raised, #F0F0EF)",
           boxSizing: "border-box",
-          opacity: disabled ? 0.5 : 1,
+          opacity: locked ? 1 : disabled ? 0.5 : 1,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -2142,15 +2142,11 @@ export function SwapAssetSelector({
   };
 
   const isLoading = !staticOptions && swapBalance === null;
-  const candidateTokens =
-    autoSelectFilterTabs && activeTab !== "custom"
-      ? getFilterTabTokens(activeTab, selectedChainFilter)
-      : activeSelectedTokens;
   const selectedAssetCount = activeSelectedTokens.length;
   const requiredUsdAmount = parseTokenAmount(requiredUsd);
-  const shouldCountSelectedUsd = (token: SwapTokenOption, value: Decimal) =>
-    value.gt(0) && (isLockedToken(token) || value.gte(MIN_FIAT_THRESHOLD));
-  const selectedUsdAmount = candidateTokens.reduce((sum, token) => {
+  const shouldCountSelectedUsd = (_token: SwapTokenOption, value: Decimal) =>
+    value.gt(0);
+  const selectedUsdAmount = activeSelectedTokens.reduce((sum, token) => {
     if (token.isUnified && token.sourceTokens?.length) {
       return sum.plus(
         token.sourceTokens.reduce((sourceSum, source) => {
