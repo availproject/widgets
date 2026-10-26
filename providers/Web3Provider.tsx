@@ -195,7 +195,9 @@ function NexusContainer({ children }: Readonly<{ children: React.ReactNode }>) {
 
     if (
       storedNetwork &&
-      (storedNetwork === "mainnet" || storedNetwork === "testnet" || storedNetwork === "canary")
+      (storedNetwork === "mainnet" ||
+        storedNetwork === "testnet" ||
+        storedNetwork === "canary")
     ) {
       setNetwork(storedNetwork);
     } else {
@@ -211,11 +213,12 @@ function NexusContainer({ children }: Readonly<{ children: React.ReactNode }>) {
     () => ({
       network,
       debug: true,
-      identity: {
-        clientId: process.env.NEXT_PUBLIC_NEXUS_CLIENT_ID || "avail-widgets",
-      },
+      // identity: {
+      //   clientId: process.env.NEXT_PUBLIC_NEXUS_CLIENT_ID || "avail-widgets",
+      // },
       observability: {
-        disableLogging: process.env.NEXT_PUBLIC_NEXUS_WIDGET_DISABLE_LOGGING === "true",
+        disableLogging:
+          process.env.NEXT_PUBLIC_NEXUS_WIDGET_DISABLE_LOGGING === "true",
       },
     }),
     [network],
