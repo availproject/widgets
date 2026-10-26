@@ -817,7 +817,7 @@ test("records carry nexus.network, surface.version, session.id, attempt.id, and 
     await h.telemetry.flush();
     const startRecord = h.records[0];
     assert.equal(startRecord.properties["nexus.network"], "testnet");
-    assert.equal(startRecord.properties["surface.version"], "2.2.0");
+    assert.equal(startRecord.properties["surface.version"], "2.2.1");
     assert.equal(startRecord.properties["surface.name"], "nexus-widget");
     assert.ok(startRecord.properties["session.id"]);
     assert.equal(startRecord.properties.session_id, undefined);

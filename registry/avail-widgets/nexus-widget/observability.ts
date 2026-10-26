@@ -300,7 +300,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
         ...(includeLookupKeys && intentHash ? { intentHash } : {}),
         "nexus.client.id": settings.identity!.clientId,
         "surface.name": "nexus-widget",
-        "surface.version": "2.2.0",
+        "surface.version": "2.2.1",
         "nexus.network": net,
         environment: settings.config?.environment ?? (runtime.production() ? "production" : "development"),
         mode: settings.mode,
@@ -316,7 +316,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
         ...(transactionHash ? { transactionHash } : {}),
         ...(intentHash ? { intentHash } : {}),
         sdkVersion: "2.4.1",
-        surfaceVersion: "2.2.0",
+        surfaceVersion: "2.2.1",
       });
       if (queue.length >= MAX_QUEUE) queue.shift();
       queue.push({ record, diagnostic, timestamp, posthog: true, signoz: true, retries: 0 });
@@ -353,7 +353,7 @@ export function createWidgetTelemetry(initial: Settings, overrides: Partial<Runt
             "nexus.client.id": settings.identity!.clientId,
             surface: "nexus-widget",
             "surface.name": "nexus-widget",
-            "surface.version": "2.2.0",
+            "surface.version": "2.2.1",
             mode: settings.mode,
             environment: settings.config?.environment ?? (runtime.production() ? "production" : "development"),
             network: net,
