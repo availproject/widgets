@@ -374,4 +374,54 @@ test("user rejection at deposit action marks action as cancelled by user", () =>
   assert.equal(actionRow.description, "Rejected in wallet");
 });
 
+test("two tokens with generic ID (erc20_approval) both tracked and does not show swaps in progress prematurely", () => {
+  // Both steps have identical generic ID: "erc20_approval"
+  const approval1 = { id: "erc20_approval", typeID: "erc20_approval", type: "erc20_approval", chainId: 42161, tokenAddress: "0xusdc", token: { symbol: "USDC" } };
+  const approval2 = { id: "erc20_approval", typeID: "erc20_approval", type: "erc20_approval", chainId: 10, tokenAddress: "0xusdt", token: { symbol: "USDT" } };
+  const source1 = { id: "source_swap:42161", typeID: "source_swap:42161", type: "SOURCE_SWAP", chain: { id: 42161, name: "Arbitrum" }, swaps: [{ input: { contractAddress: "0xusdc" } }] };
+  const source2 = { id: "source_swap:10", typeID: "source_swap:10", type: "SOURCE_SWAP", chain: { id: 10, name: "Optimism" }, swaps: [{ input: { contractAddress: "0xusdt" } }] };
+  const executeStep = { id: "execute_approval", typeID: "execute_approval", type: "APPROVAL", chain: { id: 42161, name: "Arbitrum" } };
+
+  const events: NexusWidgetProgressEvent[] = [plan([approval1, approval2, source1, source2, executeStep])];
+
+  // Both tokens detected: "(1 of 2)"
+  let res = rows(events);
+  let approveRow = res.find((r) => r.id === "approveTokens");
+  let swapRow = res.find((r) => r.id === "swapTokens");
+  assert.equal(approveRow?.state, "preapproval");
+  assert.equal(approveRow?.label, "Approve tokens for deposit (1 of 2)");
+  assert.equal(swapRow?.state, "default"); // NOT in progress!
+
+  // Token 1 completed: moves to "(2 of 2)", swap tokens still default!
+  events.push(progress(approval1, "confirmed"));
+  res = rows(events);
+  approveRow = res.find((r) => r.id === "approveTokens");
+  swapRow = res.find((r) => r.id === "swapTokens");
+  assert.equal(approveRow?.state, "preapproval");
+  assert.equal(approveRow?.label, "Approve tokens for deposit (2 of 2)");
+  assert.equal(swapRow?.state, "default"); // MUST NOT show swaps in progress!
+
+  // Token 2 wallet prompt: still on approveTokens
+  events.push(progress(approval2, "wallet_prompted"));
+  res = rows(events);
+  approveRow = res.find((r) => r.id === "approveTokens");
+  swapRow = res.find((r) => r.id === "swapTokens");
+  assert.equal(approveRow?.state, "preapproval");
+  assert.equal(swapRow?.state, "default");
+
+  // Token 2 completed: now approvals complete
+  events.push(progress(approval2, "confirmed"));
+  res = rows(events);
+  approveRow = res.find((r) => r.id === "approveTokens");
+  swapRow = res.find((r) => r.id === "swapTokens");
+  assert.equal(approveRow?.state, "completed");
+  assert.equal(approveRow?.label, "Tokens approved for deposit (2 of 2)");
+
+  // Once swap step starts, swaps become in progress
+  events.push(progress(source1, "started"));
+  res = rows(events);
+  swapRow = res.find((r) => r.id === "swapTokens");
+  assert.equal(swapRow?.state, "inProgress");
+});
+
 

@@ -92,7 +92,9 @@ interface NexusContextType {
   deinitializeNexus: () => Promise<void>;
   exchangeRate: Record<string, number> | null;
   fetchBridgableBalance: () => Promise<void>;
-  fetchSwapBalance: (options?: { onlyIfMissing?: boolean }) => Promise<UserAsset[] | null>;
+  fetchSwapBalance: (options?: {
+    onlyIfMissing?: boolean;
+  }) => Promise<UserAsset[] | null>;
   getFiatValue: (amount: number, token: string) => number;
   getRouteSupportedChains?: GetRouteSupportedChains;
   handleInit: (
@@ -204,20 +206,20 @@ const filterUnsupportedSwapSources = (
 
 const attachSdkCompat = (
   client: NexusClient,
-  chainsRef: { current: SupportedChainsAndTokensResult | null }
+  chainsRef: { current: SupportedChainsAndTokensResult | null },
 ) => {
   const c = client as any;
   if (!c.convertTokenReadableAmountToBigInt) {
     c.convertTokenReadableAmountToBigInt = (
       amount: string,
       tokenSymbol: string,
-      chainId: number
+      chainId: number,
     ) => {
       return convertTokenReadableAmountToBigInt(
         amount,
         tokenSymbol,
         chainId,
-        chainsRef.current
+        chainsRef.current,
       );
     };
   }
@@ -226,7 +228,7 @@ const attachSdkCompat = (
       const toTokenAddress = resolveTokenContractAddress(
         params.toChainId,
         params.toTokenSymbol,
-        chainsRef.current
+        chainsRef.current,
       );
       return client.swapWithExactOut(
         {
@@ -234,10 +236,10 @@ const attachSdkCompat = (
           toChainId: params.toChainId,
           toTokenAddress,
           sources: params.sources?.map((s: any) =>
-            typeof s === "number" ? { chainId: s } : s
+            typeof s === "number" ? { chainId: s } : s,
           ),
         },
-        options
+        options,
       );
     };
   }
@@ -246,7 +248,7 @@ const attachSdkCompat = (
       const toTokenAddress = resolveTokenContractAddress(
         params.toChainId,
         params.toTokenSymbol,
-        chainsRef.current
+        chainsRef.current,
       );
       const res = await client.swapWithExactOut(
         {
@@ -254,10 +256,10 @@ const attachSdkCompat = (
           toChainId: params.toChainId,
           toTokenAddress,
           sources: params.sources?.map((s: any) =>
-            typeof s === "number" ? { chainId: s } : s
+            typeof s === "number" ? { chainId: s } : s,
           ),
         },
-        options
+        options,
       );
       return {
         ...res,
@@ -274,7 +276,7 @@ const attachSdkCompat = (
       const toTokenAddress = resolveTokenContractAddress(
         params.toChainId,
         params.toTokenSymbol,
-        chainsRef.current
+        chainsRef.current,
       );
       const resolvedOptions = {
         ...options,
@@ -289,11 +291,11 @@ const attachSdkCompat = (
           toTokenAddress,
           toAmountRaw: params.toAmountRaw,
           sources: params.sources?.map((s: any) =>
-            typeof s === "number" ? { chainId: s } : s
+            typeof s === "number" ? { chainId: s } : s,
           ),
           execute: params.execute,
         },
-        resolvedOptions
+        resolvedOptions,
       );
     };
   }
@@ -304,21 +306,151 @@ const attachSdkCompat = (
   }
 };
 
+/**
+ * Checks whether a given hostname or IP string represents localhost or a local/private network address.
+ */
+export const isLocalHostname = (hostname: string): boolean => {
+  let clean = hostname.trim().toLowerCase();
+  if (clean.startsWith("[")) {
+    const closingIdx = clean.indexOf("]");
+    if (closingIdx !== -1) {
+      clean = clean.slice(1, closingIdx);
+    }
+  } else if (!clean.includes("::")) {
+    clean = clean.replace(/:\d+$/, "");
+  }
+
+  if (
+    !clean ||
+    clean === "localhost" ||
+    clean.endsWith(".localhost") ||
+    clean.endsWith(".local") ||
+    clean === "0.0.0.0" ||
+    clean === "::1"
+  ) {
+    return true;
+  }
+
+  // IPv4 check: loopback (127.0.0.0/8), private (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), link-local (169.254.0.0/16), 0.0.0.0/8
+  const ipv4Parts = clean.split(".");
+  if (ipv4Parts.length === 4) {
+    const [b0, b1, b2, b3] = ipv4Parts.map(Number);
+    if (
+      !isNaN(b0) &&
+      !isNaN(b1) &&
+      !isNaN(b2) &&
+      !isNaN(b3) &&
+      b0 >= 0 &&
+      b0 <= 255 &&
+      b1 >= 0 &&
+      b1 <= 255 &&
+      b2 >= 0 &&
+      b2 <= 255 &&
+      b3 >= 0 &&
+      b3 <= 255
+    ) {
+      if (
+        b0 === 127 || // loopback (127.0.0.0/8)
+        b0 === 10 || // private (10.0.0.0/8)
+        (b0 === 172 && b1 >= 16 && b1 <= 31) || // private (172.16.0.0/12)
+        (b0 === 192 && b1 === 168) || // private (192.168.0.0/16)
+        (b0 === 169 && b1 === 254) || // link-local (169.254.0.0/16)
+        b0 === 0 // 0.0.0.0/8
+      ) {
+        return true;
+      }
+    }
+  }
+
+  // IPv6 check: link-local (fe80::/10), unique local (fc00::/7)
+  if (
+    clean.startsWith("fe80:") ||
+    clean.startsWith("fc") ||
+    clean.startsWith("fd")
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Resolves the default clientId from the current window location when none is explicitly provided.
+ * Returns domain/origin hostname (e.g., "example.com", "availproject.org", "arcana.network"),
+ * or "localhost" if the origin is localhost, local IP, or in a non-browser environment.
+ */
+export const getDefaultClientId = (rawHost?: string): string => {
+  try {
+    let host =
+      rawHost !== undefined
+        ? rawHost
+        : typeof window !== "undefined" && window.location
+          ? window.location.hostname || window.location.host || ""
+          : "";
+
+    let clean = host.trim().toLowerCase();
+    if (clean.includes("://")) {
+      try {
+        clean = new URL(clean).hostname;
+      } catch {
+        // ignore
+      }
+    }
+
+    clean = clean.split("/")[0].split("?")[0].split("#")[0].trim();
+
+    if (clean.startsWith("[")) {
+      const closingIdx = clean.indexOf("]");
+      if (closingIdx !== -1) {
+        clean = clean.slice(1, closingIdx);
+      }
+    } else if (!clean.includes("::")) {
+      clean = clean.replace(/:\d+$/, "");
+    }
+
+    if (!clean || isLocalHostname(clean)) {
+      return "localhost";
+    }
+
+    return clean;
+  } catch {
+    return "localhost";
+  }
+};
+
 const NexusProvider = ({
   children,
   config = defaultConfig,
 }: NexusProviderProps) => {
   const configNetwork = config?.network;
   const configDebug = config?.debug;
+  const rawClientId = config?.identity?.clientId;
+  const isClientIdExplicitlySet =
+    typeof rawClientId === "string" && rawClientId.trim().length > 0;
+  const resolvedClientId = useMemo(() => {
+    if (isClientIdExplicitlySet) {
+      return rawClientId.trim();
+    }
+    return getDefaultClientId();
+  }, [rawClientId, isClientIdExplicitlySet]);
+
+  const resolvedIdentity = useMemo(
+    () => ({
+      ...config?.identity,
+      clientId: resolvedClientId,
+    }),
+    [config?.identity, resolvedClientId],
+  );
+
   // Telemetry changes must not destroy/reinitialize an in-flight wallet SDK.
   const stableConfig = useMemo(
     () => ({
       ...defaultConfig,
-      clientId: config?.identity?.clientId ?? "nexus-elements",
+      clientId: resolvedClientId,
       network: configNetwork ?? defaultConfig?.network,
       debug: configDebug ?? defaultConfig?.debug,
     }),
-    [config?.identity?.clientId, configNetwork, configDebug],
+    [resolvedClientId, configNetwork, configDebug],
   );
   const [widgetObservationHub] = useState(createWidgetObservationHub);
 
@@ -343,8 +475,7 @@ const NexusProvider = ({
   const [bridgableBalance, setBridgableBalance] = useState<UserAsset[] | null>(
     null,
   );
-  const [bridgableBalanceLoading, setBridgableBalanceLoading] =
-    useState(false);
+  const [bridgableBalanceLoading, setBridgableBalanceLoading] = useState(false);
   const [swapBalance, setSwapBalance] = useState<UserAsset[] | null>(null);
   const [swapBalanceLoading, setSwapBalanceLoading] = useState(false);
   const swapBalanceCache = useRef<{
@@ -401,7 +532,10 @@ const NexusProvider = ({
   }, []);
 
   const finishBalanceFetchTiming = useCallback(
-    (timing: BalanceFetchTiming, status: "resolved" | "failed" = "resolved") => {
+    (
+      timing: BalanceFetchTiming,
+      status: "resolved" | "failed" = "resolved",
+    ) => {
       if (latestBalanceFetchRunId.current !== timing.runId) {
         return;
       }
@@ -460,7 +594,9 @@ const NexusProvider = ({
           try {
             const tokens = await (client as any).getTokens?.({ limit: 1000 });
             if (!cancelled && tokens?.tokens && sdkRef.current === client) {
-              const list = normalizeSupportedChains(client.getSupportedChains());
+              const list = normalizeSupportedChains(
+                client.getSupportedChains(),
+              );
               if (list) {
                 const enriched = populateChainsWithTokens(list, tokens.tokens);
                 supportedChainsAndTokens.current = enriched;
@@ -916,7 +1052,9 @@ const NexusProvider = ({
     try {
       const [tokensResult, bridgeAbleBalanceResult, swapBalanceResult, rates] =
         await Promise.allSettled([
-          (activeSdk as any).getTokens?.({ limit: 1000 })?.catch?.(() => null) ?? Promise.resolve(null),
+          (activeSdk as any)
+            .getTokens?.({ limit: 1000 })
+            ?.catch?.(() => null) ?? Promise.resolve(null),
           readBridgeBalance(activeSdk, activeAccountAddress),
           readSwapBalance(activeSdk, activeAccountAddress),
           getCoinbaseRates(),
@@ -932,7 +1070,7 @@ const NexusProvider = ({
       ) {
         currentList = populateChainsWithTokens(
           currentList,
-          tokensResult.value.tokens
+          tokensResult.value.tokens,
         );
         supportedChainsAndTokens.current = currentList;
         swapSupportedChainsAndTokens.current = currentList;
@@ -980,11 +1118,11 @@ const NexusProvider = ({
         balanceUpdatesRef.current.swap++;
         const rawSwapBalance = normalizeIntentBalances(
           swapBalanceResult.value,
-          currentList ?? list ?? []
+          currentList ?? list ?? [],
         );
         const filteredSwapBalance = filterUnsupportedSwapSources(
           rawSwapBalance,
-          currentList ?? swapList
+          currentList ?? swapList,
         );
         const normalizedSwapBalance =
           normalizeUserAssetFiatValues(filteredSwapBalance);
@@ -1025,28 +1163,46 @@ const NexusProvider = ({
       const account = normalizeAccountAddress(accountAddress);
       const nextSdk = await getOrCreateSdk();
       while (walletAttachRequest.current) await walletAttachRequest.current;
-      if (sdkRef.current !== nextSdk) throw new Error("Nexus initialization superseded");
-      if (initializedRef.current && (!account || initializedAccountAddress.current === account)) return;
-      const request = inFlightRequests.run(nextSdk, `wallet:${account}`, async () => {
-        if (sdkRef.current !== nextSdk) throw new Error("Nexus initialization superseded");
-        setLoading(true);
-        try {
-          await widgetObservationHub.observe("setEVMProvider", "initialization", () => nextSdk.setEVMProvider(provider));
-          if (sdkRef.current !== nextSdk) {
-            nextSdk.destroy();
+      if (sdkRef.current !== nextSdk)
+        throw new Error("Nexus initialization superseded");
+      if (
+        initializedRef.current &&
+        (!account || initializedAccountAddress.current === account)
+      )
+        return;
+      const request = inFlightRequests.run(
+        nextSdk,
+        `wallet:${account}`,
+        async () => {
+          if (sdkRef.current !== nextSdk)
             throw new Error("Nexus initialization superseded");
+          setLoading(true);
+          try {
+            await widgetObservationHub.observe(
+              "setEVMProvider",
+              "initialization",
+              () => nextSdk.setEVMProvider(provider),
+            );
+            if (sdkRef.current !== nextSdk) {
+              nextSdk.destroy();
+              throw new Error("Nexus initialization superseded");
+            }
+            initializedRef.current = true;
+            initializedAccountAddress.current = account;
+            setSdk(nextSdk);
+            setNexusSDK(nextSdk);
+          } finally {
+            if (sdkRef.current === nextSdk) setLoading(false);
           }
-          initializedRef.current = true;
-          initializedAccountAddress.current = account;
-          setSdk(nextSdk);
-          setNexusSDK(nextSdk);
-        } finally {
-          if (sdkRef.current === nextSdk) setLoading(false);
-        }
-      });
+        },
+      );
       walletAttachRequest.current = request;
-      try { await request; }
-      finally { if (walletAttachRequest.current === request) walletAttachRequest.current = null; }
+      try {
+        await request;
+      } finally {
+        if (walletAttachRequest.current === request)
+          walletAttachRequest.current = null;
+      }
     },
     [getOrCreateSdk, inFlightRequests, sdkRef, widgetObservationHub],
   );
@@ -1109,12 +1265,15 @@ const NexusProvider = ({
       const nextInitRequest = (async () => {
         if (initializedRef.current) {
           if (isAccountChange) {
-            console.log("[NexusProvider] wallet address changed; reinitializing Nexus", {
-              previousWalletAddress: currentAccountAddress,
-              nextWalletAddress: nextAccountAddress,
-              dateNow: Date.now(),
-              date: new Date(),
-            });
+            console.log(
+              "[NexusProvider] wallet address changed; reinitializing Nexus",
+              {
+                previousWalletAddress: currentAccountAddress,
+                nextWalletAddress: nextAccountAddress,
+                dateNow: Date.now(),
+                date: new Date(),
+              },
+            );
           }
           await deinitializeNexus();
         }
@@ -1135,12 +1294,7 @@ const NexusProvider = ({
         }
       }
     },
-    [
-      initializeNexus,
-      deinitializeNexus,
-      setupNexus,
-      attachEventHooks,
-    ],
+    [initializeNexus, deinitializeNexus, setupNexus, attachEventHooks],
   );
 
   const fetchBridgableBalance = useCallback(async () => {
@@ -1313,7 +1467,7 @@ const NexusProvider = ({
 
   const value = useMemo(
     () => ({
-      identity: config?.identity,
+      identity: resolvedIdentity,
       observability: config?.observability,
       widgetObservationHub,
       nexusSDK,
@@ -1342,7 +1496,7 @@ const NexusProvider = ({
       resolveTokenUsdRate,
     }),
     [
-      config?.identity,
+      resolvedIdentity,
       config?.observability,
       widgetObservationHub,
       nexusSDK,

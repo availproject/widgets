@@ -1,4 +1,4 @@
-# Onramp + Deposit diagnostics (2.2.0)
+# Onramp + Deposit diagnostics (2.2.1)
 
 Both package manifests and the shadcn registry pin `@avail-project/nexus-core` to `3.1.0`.
 
