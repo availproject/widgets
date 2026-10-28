@@ -31,6 +31,7 @@ export interface SwapIntentSource {
 
 export interface SwapIntentDestination {
   amount: string;
+  minAmount?: string;
   chain: { id: number; logo: string; name: string };
   gas: {
     amount: string;

@@ -287,6 +287,8 @@ interface DepositOnrampFlowProps {
   primaryButtonForeground: string;
   toToken?: SwapTokenOption;
   walletClient?: WalletClient | null;
+  onBack?: () => void;
+  onClose?: () => void;
 }
 
 const ONRAMP_RETURN_PATH = "/onramp/complete";
@@ -321,10 +323,10 @@ const theme = nexusWidgetTheme;
 const brand = "var(--foreground-brand)";
 
 const panelStyle: React.CSSProperties = {
-  backgroundColor: theme.colors.surface,
-  border: `1px solid ${theme.colors.border}`,
-  borderRadius: "12px",
-  boxShadow: theme.shadows.card,
+  backgroundColor: "var(--nx-card, #FFFFFF)",
+  border: "none",
+  borderRadius: "24px",
+  boxShadow: "var(--nx-sh-card, #16161508 0 1px 2px, #1616150A 0 6px 18px)",
   boxSizing: "border-box",
   overflow: "hidden",
   width: "100%",
@@ -3828,6 +3830,8 @@ export function DepositOnrampFlow({
   primaryButtonForeground,
   toToken,
   walletClient,
+  onBack,
+  onClose,
 }: DepositOnrampFlowProps) {
   const {
     address: ownerAddress,
@@ -6006,9 +6010,60 @@ export function DepositOnrampFlow({
     walletActionPending ||
     (!hasConnectedWallet && walletChecking);
 
+  const cashHeader = (
+    <div className="nx-head" style={{ paddingLeft: 0, paddingRight: 0 }}>
+      <button
+        aria-label="Back"
+        onClick={onBack}
+        style={{
+          alignItems: "center",
+          background: "var(--nx-fill, #F3F3F3)",
+          border: "none",
+          borderRadius: "999px",
+          cursor: "pointer",
+          display: "grid",
+          height: 32,
+          placeItems: "center",
+          width: 32,
+        }}
+        type="button"
+      >
+        <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
+          <path d="M8.5 3L4.5 7L8.5 11" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
+        </svg>
+      </button>
+      <div style={{ color: "var(--nx-ink, #161615)", flex: 1, font: '500 18px/22px "Delight","Geist",system-ui,sans-serif' }}>
+        Deposit with cash
+      </div>
+      {onClose ? (
+        <button
+          aria-label="Close"
+          onClick={onClose}
+          style={{
+            alignItems: "center",
+            background: "var(--nx-fill, #F3F3F3)",
+            border: "none",
+            borderRadius: "999px",
+            cursor: "pointer",
+            display: "grid",
+            height: 32,
+            placeItems: "center",
+            width: 32,
+          }}
+          type="button"
+        >
+          <svg fill="none" height="13" viewBox="0 0 13 13" width="13">
+            <path d="M3 3L10 10M10 3L3 10" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeWidth="1.5" />
+          </svg>
+        </button>
+      ) : null}
+    </div>
+  );
+
   if (session?.sessionId) {
     return (
       <>
+        {cashHeader}
         {error && (
           <div
             role="status"
@@ -6061,6 +6116,7 @@ export function DepositOnrampFlow({
         width: "100%",
       }}
     >
+      {cashHeader}
       <div
         style={{
           alignItems: "center",
@@ -6068,7 +6124,7 @@ export function DepositOnrampFlow({
           display: "flex",
           gap: "8px",
           height: "32px",
-          marginTop: "-48px",
+          marginTop: "0px",
           marginBottom: "4px",
           position: "relative",
           zIndex: 20,
@@ -6538,18 +6594,18 @@ export function DepositOnrampFlow({
         onClick={() => void handlePrimaryAction()}
         style={{
           alignItems: "center",
-          backgroundColor: ctaDisabled ? theme.colors.surfaceCool : brand,
+          backgroundColor: ctaDisabled ? "var(--nx-cta-off, #EDEDED)" : "var(--nx-blue, #006BF4)",
           border: "none",
-          borderRadius: theme.radius.primaryButton,
-          boxShadow: ctaDisabled ? "none" : theme.shadows.primaryButton,
-          color: ctaDisabled ? theme.colors.muted : primaryButtonForeground,
+          borderRadius: "999px",
+          boxShadow: ctaDisabled ? "none" : "var(--nx-sh-cta)",
+          color: ctaDisabled ? "var(--nx-mute-2, #8C8C8B)" : "#FFFFFF",
           cursor: ctaDisabled ? "default" : "pointer",
           display: "flex",
           fontFamily: theme.fonts.sans,
-          fontSize: "14px",
+          fontSize: "16px",
           fontWeight: 500,
           gap: "8px",
-          height: "44px",
+          height: "56px",
           justifyContent: "center",
           lineHeight: "18px",
           width: "100%",

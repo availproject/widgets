@@ -15,16 +15,16 @@ export function StatusAlert({
 }>) {
   const styles = {
     error: {
-      backgroundColor: "var(--nexus-widget-error-background, #FCEEED)",
-      color: "var(--nexus-widget-error-text, #D32F2F)",
+      backgroundColor: "var(--nx-red-band, #FEF6F6)",
+      color: "var(--nx-red, #D93636)",
     },
     info: {
       backgroundColor: "var(--nexus-widget-surface-raised, #F5F5F5)",
       color: "var(--nexus-widget-text-secondary, #424242)",
     },
     warning: {
-      backgroundColor: "var(--nexus-widget-warning-background, #FFF8E1)",
-      color: "var(--nexus-widget-warning-text, #F57F17)",
+      backgroundColor: "transparent",
+      color: "var(--nx-amber, #B26B00)",
     },
   };
 

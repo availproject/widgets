@@ -111,6 +111,98 @@ export const NEXUS_WIDGET_FAST_SPINNER_STYLE = {
 export const NEXUS_WIDGET_FAST_SPINNER_ANIMATION =
   "nexusWidgetSpin 700ms linear infinite" as const;
 
+/** Visual system extracted from the Nexus deposit prototype. */
+export const NEXUS_DEPOSIT_MOTION_CSS = `
+[data-nexus-widget-root] {
+  --nx-ink:#161615; --nx-ink-2:#3A3A39; --nx-mute:#737372; --nx-mute-2:#8C8C8B; --nx-faint:#A3A3A2; --nx-ghost:#C4C4C2;
+  --nx-shell:#F7F7F7; --nx-card:#FFFFFF; --nx-line:#F0F0F0; --nx-line-2:#EDEDED; --nx-fill:#F3F3F3; --nx-fill-2:#EDEDEC;
+  --nx-hover:#F7F7F7; --nx-press:#F2F2F1; --nx-pop:#FFFFFF; --nx-shim:#EFEFEE; --nx-shim-hi:#F7F7F6; --nx-blue:#006BF4;
+  --nx-blue-soft:#E5F0FE; --nx-red:#D93636; --nx-red-band:#FEF6F6; --nx-amber:#B26B00; --nx-tile-mm:#FFF4EA;
+  --nx-pop-ring:#1616150A; --nx-input:#F7F7F6; --nx-band:#F8F8F8; --nx-cta-off:#EDEDED;
+  --nx-sh-shell:#FFFFFFB3 0 1px 0 inset, #1616150A 0 12px 40px;
+  --nx-sh-edge:0 0 0 1px #1616150D, #1616151A 0 0 3px, #16161512 0 6px 20px;
+  --nx-sh-card:#16161508 0 1px 2px, #1616150A 0 6px 18px;
+  --nx-sh-cta:#FFFFFF40 0 1px 0 inset, #006BF41A 0 3px 8px;
+}
+[data-nexus-widget-theme="dark"] {
+  --nx-ink:#EDEDEC; --nx-ink-2:#CFCFCD; --nx-mute:#9C9C9A; --nx-mute-2:#878785; --nx-faint:#6E6E6C; --nx-ghost:#4A4A48;
+  --nx-shell:#141413; --nx-card:#1A1A18; --nx-line:#262625; --nx-line-2:#2B2B29; --nx-fill:#292928; --nx-fill-2:#2E2E2C;
+  --nx-hover:#20201F; --nx-press:#242423; --nx-pop:#292928; --nx-shim:#262624; --nx-shim-hi:#30302E; --nx-blue:#2F86FF;
+  --nx-blue-soft:#132A4A; --nx-red:#F05A5A; --nx-red-band:#2A1616; --nx-amber:#E8A23B; --nx-tile-mm:#2E2418;
+  --nx-pop-ring:#FFFFFF14; --nx-input:#21211F; --nx-band:#212120; --nx-cta-off:#262624;
+  --nx-sh-shell:#FFFFFF14 0 1px 0 inset, #FFFFFF0A 0 0 0 1px inset;
+  --nx-sh-edge:0 0 0 1px #FFFFFF1C;
+  --nx-sh-card:#00000040 0 1px 2px, #00000033 0 6px 18px;
+  --nx-sh-cta:#FFFFFF26 0 1px 0 inset, #2F86FF14 0 4px 10px;
+}
+@keyframes nx-scr-in { from { opacity:0; transform:translateX(16px) } to { opacity:1; transform:none } }
+@keyframes nx-scr-in-back { from { opacity:0; transform:translateX(-16px) } to { opacity:1; transform:none } }
+@keyframes nx-shimmer { to { transform:translateX(100%) } }
+@keyframes nx-arrive { from { opacity:0; filter:blur(3px); transform:translateY(4px) } to { opacity:1; filter:none; transform:none } }
+@keyframes nx-tip-in { from { opacity:0; transform:translateX(-50%) translateY(4px) scale(.98) } to { opacity:1; transform:translateX(-50%) } }
+@keyframes nx-blink { 50% { opacity:0 } }
+@keyframes nx-slide-in { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:none } }
+@keyframes nx-row-in { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+@keyframes nx-spin { to { transform:rotate(360deg) } }
+.nx-deposit-screen { animation: nx-scr-in 250ms cubic-bezier(.23,1,.32,1) 60ms both; }
+.nx-deposit-screen.nx-back { animation-name: nx-scr-in-back; }
+.nx-card { background:var(--nx-card); border-radius:24px; box-shadow:var(--nx-sh-card); padding:8px; display:flex; flex-direction:column; }
+.nx-head { display:flex; align-items:center; gap:12px; padding:12px; border-bottom:1px solid var(--nx-line-2); }
+.nx-title { font:500 20px/24px "Delight","Geist",system-ui,sans-serif; letter-spacing:-.01em; color:var(--nx-ink); }
+.nx-sub { display:flex; gap:8px; margin-top:4px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
+.nx-sub b { font-weight:500; color:var(--nx-ink); }
+.nx-skel-row { display:flex; align-items:center; gap:12px; padding:12px; animation: nx-row-in 200ms cubic-bezier(.23,1,.32,1) both; }
+.nx-shim { position:relative; overflow:hidden; border-radius:10px; background:var(--nx-shim); }
+.nx-shim::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,var(--nx-shim-hi),transparent); transform:translateX(-100%); animation:nx-shimmer 1.4s linear infinite; }
+.nx-hero { display:flex; flex-direction:column; align-items:center; gap:6px; padding:20px 12px 18px; }
+.nx-who { font:400 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-ink); }
+.nx-amt-line { display:flex; align-items:center; gap:8px; min-height:56px; }
+.nx-big { font:300 48px/56px "Geist",system-ui,sans-serif; letter-spacing:-.03em; font-variant-numeric:tabular-nums; color:var(--nx-ink); }
+.nx-arrive { animation: nx-arrive 200ms cubic-bezier(.23,1,.32,1) both; }
+.nx-usd { font:400 18px/22px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); font-variant-numeric:tabular-nums; }
+.nx-meta { display:flex; align-items:center; gap:6px; font:400 15px/20px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
+.nx-warn { display:flex; align-items:center; gap:6px; font:400 13px/16px "Geist",system-ui,sans-serif; color:var(--nx-amber); animation:nx-slide-in 200ms cubic-bezier(.23,1,.32,1) both; }
+.nx-swap-div { height:1px; background:var(--nx-line-2); margin:0 14px; }
+.nx-spend { display:flex; align-items:center; padding:12px; font:400 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-ink); }
+.nx-spend .nx-tnum { margin-left:auto; font-weight:500; font-variant-numeric:tabular-nums; }
+.nx-spend-label { margin-left:6px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
+.nx-plist { background:var(--nx-card); border-radius:18px; box-shadow:var(--nx-sh-list, #1616150D 0 0 2px 1px, #16161517 0 0 10px); overflow:hidden; }
+.nx-prow { display:flex; flex-direction:column; padding:12px; transition:background-color 150ms cubic-bezier(.23,1,.32,1), opacity 200ms cubic-bezier(.23,1,.32,1); }
+.nx-prow.open { background:var(--nx-input); }
+.nx-prow.err { background:var(--nx-red-band); }
+.nx-focus .nx-focusable, .nx-focus .nx-prow:not(.open) { opacity:.15; }
+.nx-pr-top { display:flex; align-items:center; gap:10px; cursor:pointer; }
+.nx-pr-tok { display:flex; gap:12px; width:126px; flex-shrink:0; align-items:center; }
+.nx-nm { display:flex; align-items:center; gap:4px; font:500 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-ink); }
+.nx-ch { display:block; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
+.nx-pr-amt { flex:1; display:flex; flex-direction:column; align-items:flex-end; min-width:0; }
+.nx-pr-val { display:flex; align-items:center; justify-content:flex-end; width:100%; }
+.nx-caret { width:2px; height:32px; border-radius:1px; background:var(--nx-blue); animation:nx-blink 1.06s steps(1) infinite; flex-shrink:0; }
+.nx-pr-sub { display:flex; align-items:center; gap:4px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); font-variant-numeric:tabular-nums; }
+.nx-collapse { display:grid; grid-template-rows:0fr; transition:grid-template-rows 200ms cubic-bezier(.2,0,0,1); }
+.nx-collapse > div { overflow:hidden; min-height:0; }
+.nx-collapse.on { grid-template-rows:1fr; }
+.nx-pr-bal { display:flex; align-items:center; gap:8px; padding-top:10px; font:400 14px/16px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
+.nx-pr-bal > span { flex:1; }
+.nx-pr-err { display:flex; gap:6px; padding-top:10px; font:400 13px/16px "Geist",system-ui,sans-serif; color:var(--nx-red); }
+.nx-add { display:flex; align-items:center; justify-content:flex-end; gap:12px; width:100%; padding:12px; border:none; background:transparent; font:500 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-blue); cursor:pointer; }
+.nx-focus .nx-add { opacity: .15; }
+.nx-add:disabled { color:var(--nx-mute); cursor:default; }
+.nx-plus { width:40px; height:40px; border-radius:999px; border:1.5px dashed var(--nx-blue, #9DBFF5); display:grid; place-items:center; font-size:20px; transition:transform 150ms cubic-bezier(.23,1,.32,1); }
+.nx-add:active:not(:disabled) .nx-plus { transform:rotate(90deg) scale(.92); }
+.nx-cap { display:flex; justify-content:center; padding:0 12px 12px; font:400 13px/16px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); }
+.nx-fees { display:flex; justify-content:space-between; align-items:center; padding:8px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); }
+.nx-fees > div { display:flex; align-items:center; gap:6px; }
+.nx-fees b { font-weight:500; color:var(--nx-ink); font-variant-numeric:tabular-nums; }
+.nx-auto { background:var(--nx-blue-soft); color:var(--nx-blue); border-radius:999px; padding:3px 9px; font:500 12px/16px "Geist",system-ui,sans-serif; }
+.nx-deposit-cta { height:56px; border-radius:999px; background:var(--nx-blue); box-shadow:var(--nx-sh-cta); color:#fff; font:500 16px/20px "Geist",system-ui,sans-serif; }
+.nx-deposit-cta:active:not(:disabled) { transform:scale(.97); }
+.nx-deposit-cta:disabled { background:var(--nx-cta-off); color:var(--nx-mute-2); box-shadow:none; }
+@media (prefers-reduced-motion: reduce) {
+  .nx-deposit-screen, .nx-arrive, .nx-shim::after, .nx-caret, .nx-warn { animation:none !important; }
+}
+`;
+
 const blue = {
   700: "var(--foreground-brand)",
   500: "var(--foreground-brand)",

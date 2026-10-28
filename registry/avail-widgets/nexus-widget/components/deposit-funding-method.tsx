@@ -3,8 +3,6 @@
 import React from "react";
 import { nexusWidgetTheme } from "../theme";
 
-type FundingMethod = "wallet" | "local-currency";
-
 interface DepositFundingMethodProps {
   enableOnRamp?: boolean;
   isBalanceLoading?: boolean;
@@ -12,324 +10,149 @@ interface DepositFundingMethodProps {
   onSelectWallet: () => void;
   primaryButtonForeground: string;
   totalBalance: string;
+  title?: string;
+  slideFromLeft?: boolean;
+  onClose?: () => void;
 }
-
-interface LogoItem {
-  alt: string;
-  height?: string;
-  invertDark?: boolean;
-  url: string;
-  width?: string;
-}
-
-const WALLET_LOGOS: LogoItem[] = [
-  {
-    alt: "MetaMask",
-    height: "22px",
-    url: "https://files.availproject.org/widgets/assets/metamask.png",
-    width: "22px",
-  },
-  {
-    alt: "Rabby",
-    height: "22px",
-    url: "https://files.availproject.org/widgets/assets/rabby.png",
-    width: "22px",
-  },
-  {
-    alt: "Zerion",
-    height: "20px",
-    url: "https://files.availproject.org/widgets/assets/zerion.png",
-    width: "20px",
-  },
-];
-
-const CASH_LOGOS: LogoItem[] = [
-  {
-    alt: "Mastercard",
-    height: "15px",
-    url: "https://files.availproject.org/widgets/assets/mastercard.png",
-    width: "24px",
-  },
-  {
-    alt: "Apple Pay",
-    height: "20px",
-    invertDark: true,
-    url: "https://files.availproject.org/widgets/assets/apple-pay.png",
-    width: "20px",
-  },
-  {
-    alt: "Google Pay",
-    height: "20px",
-    url: "https://files.availproject.org/widgets/assets/google-pay.png",
-    width: "20px",
-  },
-];
 
 const theme = nexusWidgetTheme;
-const brand = "var(--foreground-brand)";
 
-const useIsDarkMode = () => {
-  const [isDark, setIsDark] = React.useState(false);
-
-  React.useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined")
-      return;
-
-    const checkDark = () => {
-      const root =
-        typeof document !== "undefined" ? document.documentElement : undefined;
-      const body = typeof document !== "undefined" ? document.body : undefined;
-      const isDarkClass = Boolean(
-        root?.classList?.contains("dark") || body?.classList?.contains("dark"),
-      );
-      const isDataThemeDark = root?.getAttribute?.("data-theme") === "dark";
-      const prefersDark =
-        typeof window.matchMedia === "function"
-          ? Boolean(window.matchMedia("(prefers-color-scheme: dark)")?.matches)
-          : false;
-      return Boolean(isDarkClass || isDataThemeDark || prefersDark);
-    };
-
-    setIsDark(checkDark());
-
-    const mediaQuery =
-      typeof window.matchMedia === "function"
-        ? window.matchMedia("(prefers-color-scheme: dark)")
-        : undefined;
-    const handleMediaChange = () => setIsDark(checkDark());
-    mediaQuery?.addEventListener?.("change", handleMediaChange);
-
-    const root =
-      typeof document !== "undefined" ? document.documentElement : undefined;
-    let observer: MutationObserver | undefined;
-    if (root && typeof MutationObserver !== "undefined") {
-      observer = new MutationObserver(() => {
-        setIsDark(checkDark());
-      });
-      observer.observe(root, {
-        attributes: true,
-        attributeFilter: ["class", "data-theme"],
-      });
-    }
-
-    return () => {
-      mediaQuery?.removeEventListener?.("change", handleMediaChange);
-      observer?.disconnect();
-    };
-  }, []);
-
-  return isDark;
-};
-
-function RadioMark({ selected }: { selected: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        backgroundColor: theme.colors.surface,
-        borderColor: selected ? brand : theme.colors.border,
-        borderRadius: "999px",
-        borderStyle: "solid",
-        borderWidth: selected ? "5px" : "1.5px",
-        boxSizing: "border-box",
-        display: "inline-block",
-        flexShrink: 0,
-        height: "18px",
-        transition: "border-color 150ms ease, border-width 150ms ease",
-        width: "18px",
-      }}
+const CHEVRON = (
+  <svg
+    aria-hidden="true"
+    fill="none"
+    height="16"
+    viewBox="0 0 16 16"
+    width="16"
+  >
+    <path
+      d="M6 3.5L10.5 8L6 12.5"
+      stroke="var(--nx-faint, #A3A3A2)"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.6"
     />
-  );
+  </svg>
+);
+
+function LabeledButton({
+  label: _label,
+  ...props
+}: { label: string } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  void _label;
+  return <button {...props} />;
 }
 
-function AmountSkeleton({
-  height = "14px",
-  width = "48px",
-}: {
-  height?: string;
-  width?: string;
-}) {
-  return (
-    <span
-      aria-hidden="true"
-      className="animate-pulse"
-      style={{
-        background:
-          "linear-gradient(90deg, #F0F0EF 0%, #E6EEFF 48%, #F0F0EF 100%)",
-        backgroundSize: "200% 100%",
-        borderRadius: "4px",
-        display: "inline-block",
-        flexShrink: 0,
-        height,
-        maxWidth: "100%",
-        width,
-      }}
-    />
-  );
-}
-
-function LogoStack({
-  isDark,
-  items,
-}: {
-  isDark: boolean;
-  items: LogoItem[];
-}) {
-  return (
-    <div
-      style={{
-        alignItems: "center",
-        borderRadius: "999px",
-        boxSizing: "border-box",
-        display: "flex",
-        flexShrink: 0,
-        height: "36px",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          alignItems: "center",
-          boxSizing: "border-box",
-          display: "flex",
-        }}
-      >
-        {items.map((item, index) => (
-          <div
-            key={item.alt}
-            style={{
-              alignItems: "center",
-              backgroundColor: isDark ? "#262626" : "#F2F2F2",
-              borderRadius: "999px",
-              boxSizing: "border-box",
-              display: "flex",
-              flexShrink: 0,
-              height: "32px",
-              justifyContent: "center",
-              marginLeft: index === 0 ? "0px" : "-4px",
-              outline: `1.5px solid ${theme.colors.surface}`,
-              position: "relative",
-              width: "32px",
-              zIndex: index + 1,
-            }}
-          >
-            <img
-              alt={item.alt}
-              src={item.url}
-              style={{
-                filter: item.invertDark && isDark ? "invert(1)" : undefined,
-                height: item.height ?? "20px",
-                objectFit: "contain",
-                width: item.width ?? "20px",
-              }}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FundingOption({
-  active,
-  amount,
-  amountLoading = false,
+function MethodRow({
   description,
-  hasDivider = false,
-  isDark = false,
+  hasDivider,
+  icon,
   label,
-  logos,
   onClick,
+  tileBackground,
 }: {
-  active: boolean;
-  amount?: string;
-  amountLoading?: boolean;
   description: string;
   hasDivider?: boolean;
-  isDark?: boolean;
+  icon: React.ReactNode;
   label: string;
-  logos: LogoItem[];
   onClick: () => void;
+  tileBackground: string;
 }) {
-  const [isHovered, setIsHovered] = React.useState(false);
+  const [hovered, setHovered] = React.useState(false);
+  const [pressed, setPressed] = React.useState(false);
 
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        alignItems: "center",
-        backgroundColor: isHovered
-          ? isDark
-            ? "rgba(255, 255, 255, 0.04)"
-            : "#FBFBFA"
-          : theme.colors.surface,
-        border: "none",
-        borderBottom: hasDivider ? `1px solid ${theme.colors.divider}` : "none",
-        boxSizing: "border-box",
-        cursor: "pointer",
-        display: "flex",
-        gap: "12px",
-        paddingBlock: "14px",
-        paddingInline: "16px",
-        textAlign: "left",
-        transition: "background-color 150ms ease",
-        width: "100%",
-      }}
-      type="button"
-    >
-      <RadioMark selected={active} />
-      <div
-        style={{
-          boxSizing: "border-box",
-          display: "flex",
-          flexBasis: "0%",
-          flexDirection: "column",
-          flexGrow: 1,
-          gap: "2px",
-          minWidth: 0,
+    <>
+      <LabeledButton
+        label={label}
+        onClick={onClick}
+        onMouseDown={() => setPressed(true)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => {
+          setHovered(false);
+          setPressed(false);
         }}
+        onMouseUp={() => setPressed(false)}
+        style={{
+          alignItems: "center",
+          background: pressed
+            ? "var(--nx-press, #F2F2F1)"
+            : hovered
+              ? "var(--nx-hover, #F7F7F7)"
+              : "transparent",
+          border: "none",
+          borderRadius: "18px",
+          boxSizing: "border-box",
+          cursor: "pointer",
+          display: "flex",
+          gap: "12px",
+          padding: "12px",
+          textAlign: "left",
+          transform: pressed ? "scale(0.98)" : "none",
+          transition:
+            "background-color 150ms cubic-bezier(.23,1,.32,1), transform 100ms cubic-bezier(.23,1,.32,1)",
+          width: "100%",
+        }}
+        type="button"
       >
-        <div
-          style={{
-            boxSizing: "border-box",
-            color: theme.colors.textStrong,
-            fontFamily: theme.fonts.sans,
-            fontSize: "16px",
-            fontWeight: 500,
-            lineHeight: "20px",
-          }}
-        >
-          {label}
-        </div>
-        <div
+        <span
           style={{
             alignItems: "center",
-            boxSizing: "border-box",
-            color: theme.colors.textSubtle,
-            display: "flex",
-            fontFamily: theme.fonts.sans,
-            fontSize: amount !== undefined || amountLoading ? "13px" : "14px",
-            gap: "4px",
-            lineHeight: amount !== undefined || amountLoading ? "16px" : "18px",
+            background: tileBackground,
+            borderRadius: "14px",
+            display: "grid",
+            flexShrink: 0,
+            height: "44px",
+            justifyItems: "center",
+            width: "44px",
           }}
         >
-          {amountLoading ? (
-            <>
-              <span>Wallet balance: </span>
-              <AmountSkeleton />
-            </>
-          ) : amount !== undefined ? (
-            `Wallet balance: $${amount || "0.00"}`
-          ) : (
-            description
-          )}
-        </div>
-      </div>
-      <LogoStack isDark={isDark} items={logos} />
-    </button>
+          {icon}
+        </span>
+        <span
+          style={{
+            display: "flex",
+            flex: 1,
+            flexDirection: "column",
+            gap: "2px",
+            minWidth: 0,
+          }}
+        >
+          <span
+            style={{
+              color: "var(--nx-ink, #161615)",
+              fontFamily: theme.fonts.sans,
+              fontSize: "16px",
+              fontWeight: 500,
+              lineHeight: "20px",
+            }}
+          >
+            {label}
+          </span>
+          <span
+            style={{
+              color: "var(--nx-mute-2, #8C8C8B)",
+              fontFamily: theme.fonts.sans,
+              fontSize: "14px",
+              fontWeight: 400,
+              lineHeight: "18px",
+            }}
+          >
+            {description}
+          </span>
+        </span>
+        {CHEVRON}
+      </LabeledButton>
+      {hasDivider ? (
+        <div
+          style={{
+            background: "var(--nx-line, #F0F0F0)",
+            height: "1px",
+            margin: "0 14px",
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -338,136 +161,130 @@ export function DepositFundingMethod({
   isBalanceLoading = false,
   onSelectLocalCurrency,
   onSelectWallet,
-  primaryButtonForeground,
-  totalBalance,
+  primaryButtonForeground: _primaryButtonForeground,
+  totalBalance: _totalBalance,
+  title = "Deposit",
+  slideFromLeft = false,
+  onClose,
 }: DepositFundingMethodProps) {
-  const [selectedMethod, setSelectedMethod] =
-    React.useState<FundingMethod | null>(null);
-  const isDark = useIsDarkMode();
-
-  React.useEffect(() => {
-    if (!enableOnRamp) {
-      setSelectedMethod((current) =>
-        current === "local-currency" ? null : current,
-      );
-    }
-  }, [enableOnRamp]);
-
-  const handleContinue = () => {
-    if (!selectedMethod) return;
-    if (selectedMethod === "wallet") {
-      onSelectWallet();
-      return;
-    }
-    if (enableOnRamp) onSelectLocalCurrency();
-  };
+  void _primaryButtonForeground;
+  void _totalBalance;
+  void isBalanceLoading;
 
   return (
     <div
+      className={`nx-deposit-screen${slideFromLeft ? " nx-back" : ""}`}
       style={{
-        boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        gap: "12px",
         width: "100%",
       }}
     >
       <div
         style={{
-          alignSelf: "stretch",
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.border,
-          borderRadius: "14px",
-          borderStyle: "solid",
-          borderWidth: "1px",
-          boxShadow: "#5B5B5B0D 0px 1px 12px",
-          boxSizing: "border-box",
-          display: "flex",
-          flex: 1,
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        <FundingOption
-          active={selectedMethod === "wallet"}
-          amount={totalBalance}
-          amountLoading={isBalanceLoading}
-          description="Wallet balance"
-          hasDivider={enableOnRamp}
-          isDark={isDark}
-          label="Deposit with Wallet"
-          logos={WALLET_LOGOS}
-          onClick={() => {
-            setSelectedMethod("wallet");
-          }}
-        />
-        {enableOnRamp && (
-          <FundingOption
-            active={selectedMethod === "local-currency"}
-            description="Card, Apple Pay, Bank Transfer"
-            hasDivider={false}
-            isDark={isDark}
-            label="Deposit with Cash"
-            logos={CASH_LOGOS}
-            onClick={() => {
-              setSelectedMethod("local-currency");
-            }}
-          />
-        )}
-      </div>
-
-      <div
-        style={{
-          alignSelf: "stretch",
+          background: "var(--nx-card, #FFFFFF)",
+          borderRadius: "30px",
+          boxShadow: "none",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
-          gap: "12px",
+          padding: "8px",
         }}
       >
         <div
           style={{
-            boxSizing: "border-box",
+            alignItems: "center",
+            borderBottom: "1px solid var(--nx-line, #F0F0F0)",
             display: "flex",
-            flexDirection: "column",
-            marginTop: "4px",
-            width: "100%",
+            justifyContent: "space-between",
+            gap: "12px",
+            padding: "12px",
           }}
         >
-          <button
-            disabled={!selectedMethod}
-            onClick={handleContinue}
+          <div
             style={{
-              alignItems: "center",
-              backgroundColor: selectedMethod
-                ? brand
-                : isDark
-                  ? "#262626"
-                  : theme.colors.surfaceCool,
-              border: "none",
-              borderRadius: "12px",
-              boxShadow: selectedMethod ? theme.shadows.primaryButton : "none",
-              boxSizing: "border-box",
-              color: selectedMethod
-                ? primaryButtonForeground
-                : theme.colors.muted,
-              cursor: selectedMethod ? "pointer" : "default",
-              display: "flex",
-              flexShrink: 0,
-              fontFamily: theme.fonts.sans,
-              fontSize: "16px",
+              color: "var(--nx-ink, #161615)",
+              fontFamily: theme.fonts.display,
+              fontSize: "20px",
               fontWeight: 500,
-              height: "52px",
-              justifyContent: "center",
-              letterSpacing: "-0.005em",
-              lineHeight: "20px",
-              transition: "background-color 150ms ease, box-shadow 150ms ease",
-              width: "100%",
+              letterSpacing: "-0.01em",
+              lineHeight: "24px",
             }}
-            type="button"
           >
-            Continue
-          </button>
+            Deposit to {title}
+          </div>
+          {onClose ? (
+            <button
+              aria-label="Close"
+              onClick={onClose}
+              style={{
+                alignItems: "center",
+                background: "var(--nx-fill, #F3F3F3)",
+                border: "none",
+                borderRadius: "999px",
+                cursor: "pointer",
+                display: "grid",
+                height: 32,
+                placeItems: "center",
+                width: 32,
+              }}
+              type="button"
+            >
+              <svg fill="none" height="13" viewBox="0 0 13 13" width="13">
+                <path d="M3 3L10 10M10 3L3 10" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeWidth="1.5" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", paddingTop: "4px" }}>
+          <MethodRow
+            description="Pay using your crypto wallet"
+            hasDivider={enableOnRamp}
+            icon={
+              <img
+                alt=""
+                height={26}
+                src="https://files.availproject.org/widgets/assets/metamask.png"
+                width={26}
+              />
+            }
+            label="Pay from your wallet"
+            onClick={onSelectWallet}
+            tileBackground="var(--nx-tile-mm, #FFF4EA)"
+          />
+          {enableOnRamp ? (
+            <MethodRow
+              description="Card, Apple Pay or bank transfer"
+              icon={
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  width="20"
+                >
+                  <rect
+                    height="10.5"
+                    rx="2"
+                    stroke="var(--nx-ink-2, #3A3A39)"
+                    strokeWidth="1.5"
+                    width="15"
+                    x="2.5"
+                    y="5"
+                  />
+                  <path
+                    d="M2.5 8.5H17.5M5.5 12.5H8.5"
+                    stroke="var(--nx-ink-2, #3A3A39)"
+                    strokeLinecap="round"
+                    strokeWidth="1.5"
+                  />
+                </svg>
+              }
+              label="Cash"
+              onClick={onSelectLocalCurrency}
+              tileBackground="var(--nx-fill, #F3F3F3)"
+            />
+          ) : null}
         </div>
       </div>
     </div>

@@ -1246,7 +1246,14 @@ export function NexusWidgetProgressScreen({
     statusRows[statusRows.length - 1];
   const visibleRows = stepsExpanded ? statusRows : activeRow ? [activeRow] : [];
   const canExpand = statusRows.length > 1;
-  const getRowHeight = (row: ProgressStatusRow) => (row.description ? 47 : 40);
+  const getRowHeight = (row: ProgressStatusRow) =>
+    mode === "deposit"
+      ? row.description
+        ? 64
+        : 52
+      : row.description
+        ? 47
+        : 40;
   const collapsedStatusHeight = activeRow ? getRowHeight(activeRow) : 40;
   const expandedStatusHeight = statusRows.reduce(
     (sum, row) => sum + getRowHeight(row),
@@ -1264,15 +1271,165 @@ export function NexusWidgetProgressScreen({
     >
       <div
         style={{
-          background: "var(--nexus-widget-surface, #FFFFFE)",
-          border: `1px solid ${border}`,
-          borderRadius: "8px",
-          boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
+          background: "var(--nx-card, var(--nexus-widget-surface, #FFFFFE))",
+          border: mode === "deposit" ? "none" : `1px solid ${border}`,
+          borderRadius: mode === "deposit" ? "24px" : "8px",
+          boxShadow:
+            mode === "deposit"
+              ? "var(--nx-sh-card, #16161508 0 1px 2px, #1616150A 0 6px 18px)"
+              : "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           boxSizing: "border-box",
-          padding: "12px 13px 9px",
+          padding: mode === "deposit" ? "14px 12px 12px" : "12px 13px 9px",
           width: "100%",
         }}
       >
+        {mode === "deposit" ? (
+          <>
+            <div
+              style={{
+                color: "var(--nx-mute-2, #8C8C8B)",
+                fontFamily,
+                fontSize: "14px",
+                lineHeight: "18px",
+                textAlign: "center",
+              }}
+            >
+              {destinationChain || "Deposit"} Receives
+            </div>
+            <div
+              style={{
+                alignItems: "baseline",
+                color: primary,
+                display: "flex",
+                fontFamily,
+                fontSize: "48px",
+                fontWeight: 300,
+                gap: "8px",
+                justifyContent: "center",
+                letterSpacing: "-0.03em",
+                lineHeight: "56px",
+                marginTop: "2px",
+              }}
+            >
+              <span>~{formatDecimal(destinationAmount, 2)}</span>
+              <span
+                style={{
+                  color: "var(--nx-mute, #737372)",
+                  fontSize: "18px",
+                  fontWeight: 500,
+                  letterSpacing: "0",
+                  lineHeight: "22px",
+                }}
+              >
+                {destinationSymbol}
+              </span>
+            </div>
+            <div
+              style={{
+                color: "var(--nx-mute-2, #8C8C8B)",
+                fontFamily,
+                fontSize: "14px",
+                lineHeight: "18px",
+                textAlign: "center",
+              }}
+            >
+              ≈ {formatUsd(toAmountUsd ?? sourceUsd)}
+            </div>
+            <div
+              style={{
+                alignItems: "center",
+                color: "var(--nx-faint, #A3A3A2)",
+                display: "flex",
+                fontFamily,
+                fontSize: "12px",
+                gap: "4px",
+                justifyContent: "center",
+                lineHeight: "16px",
+                marginTop: "4px",
+              }}
+            >
+              on
+              {toToken?.chainLogo ? (
+                <img
+                  alt=""
+                  src={toToken.chainLogo}
+                  style={{ borderRadius: "999px", height: 12, width: 12 }}
+                />
+              ) : null}
+              {destinationChainName || destinationChain}
+            </div>
+            <div
+              style={{
+                background: "var(--nx-band, #F8F8F8)",
+                borderRadius: "18px",
+                marginTop: "8px",
+                padding: "12px 16px",
+              }}
+            >
+              <img
+                alt=""
+                aria-hidden="true"
+                src="https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif"
+                style={{
+                  display: "block",
+                  height: "167px",
+                  objectFit: "cover",
+                  width: "100%",
+                }}
+              />
+            </div>
+            <div
+              style={{
+                color: "var(--nx-mute-2, #8C8C8B)",
+                fontFamily,
+                fontSize: "14px",
+                lineHeight: "18px",
+                marginTop: "14px",
+                textAlign: "center",
+              }}
+            >
+              You Spend
+            </div>
+            <div
+              style={{
+                color: primary,
+                fontFamily,
+                fontSize: "36px",
+                fontWeight: 300,
+                letterSpacing: "-0.03em",
+                lineHeight: "42px",
+                textAlign: "center",
+              }}
+            >
+              {formatUsd(sourceUsd)}
+            </div>
+            <div
+              style={{
+                alignItems: "center",
+                display: "flex",
+                justifyContent: "center",
+                marginTop: "6px",
+              }}
+            >
+              {fromTokens.slice(0, 4).map((token, index) => (
+                <img
+                  alt={token.symbol}
+                  key={`${token.contractAddress}-${token.chainId}-${index}`}
+                  src={token.logo}
+                  style={{
+                    background: "var(--nx-card, #FFFFFF)",
+                    borderRadius: "999px",
+                    height: 22,
+                    marginLeft: index === 0 ? 0 : -6,
+                    outline: "2px solid var(--nx-card, #FFFFFF)",
+                    width: 22,
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
         <div
           style={{
             color: muted,
@@ -1358,18 +1515,26 @@ export function NexusWidgetProgressScreen({
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
 
       <div
         aria-live="polite"
         style={{
-          background: "var(--nexus-widget-surface, #FFFFFE)",
-          border: `1px solid ${border}`,
-          borderRadius: "8px",
-          boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
+          background: "var(--nx-card, var(--nexus-widget-surface, #FFFFFE))",
+          border: mode === "deposit" ? "none" : `1px solid ${border}`,
+          borderRadius: mode === "deposit" ? "24px" : "8px",
+          boxShadow:
+            mode === "deposit"
+              ? "var(--nx-sh-card, #16161508 0 1px 2px, #1616150A 0 6px 18px)"
+              : "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           boxSizing: "border-box",
           overflow: "hidden",
-          transition: "box-shadow 220ms ease, border-color 220ms ease",
+          transition:
+            mode === "deposit"
+              ? "grid-template-rows 250ms cubic-bezier(.2,0,0,1)"
+              : "box-shadow 220ms ease, border-color 220ms ease",
           width: "100%",
         }}
       >
@@ -1418,8 +1583,8 @@ export function NexusWidgetProgressScreen({
                     cursor: canExpand ? "pointer" : "default",
                     display: "flex",
                     fontFamily,
-                    fontSize: "11px",
-                    fontWeight: 400,
+                    fontSize: mode === "deposit" ? "16px" : "11px",
+                    fontWeight: mode === "deposit" ? 500 : 400,
                     gap: "7px",
                     minHeight: `${getRowHeight(row)}px`,
                     padding: "8px 11px",
