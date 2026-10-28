@@ -302,6 +302,7 @@ const mountFlow = async ({
           } as any
         }
         onConnectWallet={() => { connectCalls++; }}
+        onClose={() => {}}
         onSessionStateChange={(state) => states.push(state)}
         onSessionUpdate={(update) => historyUpdates.push(update)}
         primaryButtonForeground="#fff"
@@ -866,7 +867,7 @@ test("options response in dark mode renders dark short logo", async () => {
   assert.ok(darkProviderImg, "Expected provider dark short logo img to be rendered in dark mode");
 });
 
-test("country picker pre-fills with country.is resolved country and displays top country button", async () => {
+test("country picker pre-fills and sits in the cash header immediately before Close", async () => {
   const optionsData = (path: string) => {
     if (path.includes("countryCode=IN")) {
       return {
@@ -897,7 +898,16 @@ test("country picker pre-fills with country.is resolved country and displays top
   await mountFlow({ resume: false, mockCountry: "IN", optionsData });
 
   const countryButton = renderer!.root.findByProps({ "aria-label": "Select country" });
-  assert.ok(countryButton, "Expected country picker button in top section");
+  const closeButton = renderer!.root.findByProps({ "aria-label": "Close" });
+  assert.equal(countryButton.parent?.props.className, "nx-head");
+  assert.equal(countryButton.parent, closeButton.parent);
+  const headerButtons = countryButton.parent!.findAllByType("button");
+  assert.deepEqual(headerButtons.map((button) => button.props["aria-label"]), [
+    "Back", "Select country", "Close",
+  ]);
+  assert.equal(countryButton.props["aria-expanded"], false);
+  await act(async () => { countryButton.props.onClick(); });
+  assert.equal(renderer!.root.findByProps({ "aria-label": "Select country" }).props["aria-expanded"], true);
 
   const inrPill = renderer!.root.findAll((node) => node.children?.includes("INR"));
   assert.ok(inrPill.length > 0, "Expected mapped fiat currency INR to be prefilled");

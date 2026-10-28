@@ -247,7 +247,7 @@ test("all widget execution calls are wrapped and legacy analytics forwarding is 
     ts.forEachChild(node, walk);
   };
   walk(source);
-  assert.equal(count, 7);
+  assert.equal(count, 8);
 });
 
 test("failed sinks retry independently with identical IDs and stop at the retry limit", async () => {

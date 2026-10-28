@@ -339,6 +339,7 @@ const getStepTokenAddress = (step?: ProgressSdkStep): string => {
 };
 
 export type BuildStatusRowsContext = {
+  swapRequired?: boolean;
   destinationChain?: string;
   destinationSymbol?: string;
   opportunityName?: string;
@@ -699,6 +700,29 @@ export const buildStatusRows = ({
   const transactionConfirmed = hasCompletedType(events, steps, [
     "TRANSACTION_CONFIRMED",
   ]);
+
+  // Composite intent review already knows whether funding needs a swap.
+  // Do not wait for the final swapSkipped result to hide nonexistent stages.
+  if (mode === "deposit" && (context.swapRequired === false || swapSkipped)) {
+    return [{
+      id: "action",
+      state: failedStep
+        ? "error"
+        : transactionConfirmed
+          ? "completed"
+          : transactionSent ? "inProgress" : "preapproval",
+      label: failedStep
+        ? isRejected
+          ? "Deposit cancelled by user"
+          : "Deposit failed. Funds are in your wallet."
+        : transactionConfirmed
+          ? `${destinationSymbol} deposited to ${opportunityName}`
+          : "Deposit in progress",
+      description: failedStep
+        ? isRejected ? "Rejected in wallet" : undefined
+        : !transactionSent && !transactionConfirmed ? "Approve in wallet" : undefined,
+    }];
+  }
 
   const intentVerifiedComplete =
     hasCompletedType(events, steps, [
@@ -1214,6 +1238,7 @@ export function NexusWidgetProgressScreen({
     mode,
     steps: steps ?? [],
     context: {
+      swapRequired: intentData?.swapRequired,
       destinationChain: destinationChainName || destinationChain,
       destinationSymbol,
       fromTokens,

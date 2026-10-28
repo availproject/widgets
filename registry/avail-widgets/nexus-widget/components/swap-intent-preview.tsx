@@ -55,6 +55,7 @@ export interface SwapIntentDestination {
 export type BridgeProvider = "nexus" | "nexus-v2" | "mayan" | "relay" | null;
 
 export interface SwapIntentData {
+  swapRequired?: boolean;
   bridgeProvider?: BridgeProvider;
   destination: SwapIntentDestination;
   feesAndBuffer?: {

@@ -248,7 +248,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
         "lucide-react",
         "viem"
       ],
@@ -609,7 +609,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
         "clsx",
         "decimal.js",
         "lucide-react",
@@ -808,7 +808,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
         "lucide-react",
         "viem"
       ],
@@ -1010,6 +1010,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/utils/deposit-execution.ts",
+          "target": "components/nexus/utils/deposit-execution.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/utils/deposit-source-selection.ts",
           "target": "components/nexus/utils/deposit-source-selection.ts",
           "type": "registry:component"
@@ -1131,7 +1136,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
         "decimal.js",
         "lucide-react",
         "viem",
@@ -1186,7 +1191,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
         "decimal.js",
         "wagmi"
       ]
@@ -1440,7 +1445,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
         "decimal.js",
         "lucide-react",
         "viem"
@@ -1654,7 +1659,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
         "lucide-react",
         "viem"
       ],
@@ -1692,7 +1697,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1845,7 +1850,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
         "lucide-react"
       ],
       "registryDependencies": [

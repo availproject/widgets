@@ -6022,6 +6022,7 @@ export function DepositOnrampFlow({
           borderRadius: "999px",
           cursor: "pointer",
           display: "grid",
+          flexShrink: 0,
           height: 32,
           placeItems: "center",
           width: 32,
@@ -6032,9 +6033,46 @@ export function DepositOnrampFlow({
           <path d="M8.5 3L4.5 7L8.5 11" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
         </svg>
       </button>
-      <div style={{ color: "var(--nx-ink, #161615)", flex: 1, font: '500 18px/22px "Delight","Geist",system-ui,sans-serif' }}>
+      <div style={{ color: "var(--nx-ink, #161615)", flex: 1, minWidth: 0, font: '500 18px/22px "Delight","Geist",system-ui,sans-serif' }}>
         Deposit with cash
       </div>
+      {!session?.sessionId && (
+        <button
+          aria-label="Select country"
+          aria-expanded={activeSheet === "country"}
+          onClick={() =>
+            setActiveSheet((prev) => (prev === "country" ? null : "country"))
+          }
+          style={{
+            alignItems: "center",
+            backgroundColor: theme.colors.surface,
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: "9px",
+            boxShadow: theme.shadows.iconButton,
+            boxSizing: "border-box",
+            cursor: "pointer",
+            display: "flex",
+            flexShrink: 0,
+            gap: "6px",
+            height: "32px",
+            justifyContent: "center",
+            paddingInline: "8px",
+          }}
+          type="button"
+        >
+          <CountryMark
+            countryCode={countryCode}
+            flagUrl={selectedCountryFlagUrl}
+            size={20}
+          />
+          <ChevronDown
+            aria-hidden="true"
+            color={theme.colors.icon}
+            size={15}
+            strokeWidth={1.8}
+          />
+        </button>
+      )}
       {onClose ? (
         <button
           aria-label="Close"
@@ -6046,6 +6084,7 @@ export function DepositOnrampFlow({
             borderRadius: "999px",
             cursor: "pointer",
             display: "grid",
+            flexShrink: 0,
             height: 32,
             placeItems: "center",
             width: 32,
@@ -6117,20 +6156,20 @@ export function DepositOnrampFlow({
       }}
     >
       {cashHeader}
-      <div
-        style={{
-          alignItems: "center",
-          alignSelf: "flex-end",
-          display: "flex",
-          gap: "8px",
-          height: "32px",
-          marginTop: "0px",
-          marginBottom: "4px",
-          position: "relative",
-          zIndex: 20,
-        }}
-      >
-        {shouldShowQuoteTimer && (
+      {shouldShowQuoteTimer && (
+        <div
+          style={{
+            alignItems: "center",
+            alignSelf: "flex-end",
+            display: "flex",
+            gap: "8px",
+            height: "32px",
+            marginTop: "0px",
+            marginBottom: "4px",
+            position: "relative",
+            zIndex: 20,
+          }}
+        >
           <div
             style={{
               alignItems: "center",
@@ -6161,42 +6200,8 @@ export function DepositOnrampFlow({
             )}
             {quotesLoading || routesLoading ? "..." : `${quoteRefreshSeconds}s`}
           </div>
-        )}
-
-        <button
-          aria-label="Select country"
-          onClick={() =>
-            setActiveSheet((prev) => (prev === "country" ? null : "country"))
-          }
-          style={{
-            alignItems: "center",
-            backgroundColor: theme.colors.surface,
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: "9px",
-            boxShadow: theme.shadows.iconButton,
-            boxSizing: "border-box",
-            cursor: "pointer",
-            display: "flex",
-            gap: "6px",
-            height: "32px",
-            justifyContent: "center",
-            paddingInline: "8px",
-          }}
-          type="button"
-        >
-          <CountryMark
-            countryCode={countryCode}
-            flagUrl={selectedCountryFlagUrl}
-            size={20}
-          />
-          <ChevronDown
-            aria-hidden="true"
-            color={theme.colors.icon}
-            size={15}
-            strokeWidth={1.8}
-          />
-        </button>
-      </div>
+        </div>
+      )}
 
       <div style={panelStyle}>
         <div

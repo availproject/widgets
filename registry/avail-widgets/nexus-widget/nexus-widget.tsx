@@ -126,6 +126,7 @@ import {
   parseAmount as parseFiatNumber,
 } from "./utils/amount";
 import { findCitreaReceiveToken } from "./utils/citrea-tokens";
+import { buildExactInputDeposit } from "./utils/deposit-execution";
 import {
   type DepositSourceFilter,
   getDepositSourceId,
@@ -9729,47 +9730,13 @@ function NexusWidgetInner({
             }
             return executeParams;
           };
-          const placeholderExecute = buildDepositExecute(BigInt(0));
-          const destinationRate = getDepositTokenUsdRate();
-          const sourceSpendUsd = getReadyExactInSourceTokens(fromTokens).reduce(
-            (sum, token) => sum.plus(getTokenUsdValue(token)),
-            new Decimal(0),
-          );
-          let estimatedToAmountRaw = BigInt(1);
-          if (destinationRate.gt(0) && sourceSpendUsd.gt(0)) {
-            const estimatedOut = toViemDecimalString(
-              sourceSpendUsd.div(destinationRate),
-              toToken.decimals || 18,
-            );
-            if (estimatedOut !== "0") {
-              estimatedToAmountRaw = parseUnits(
-                estimatedOut,
-                toToken.decimals || 18,
-              );
-            }
-          }
-          const exactInputOperation = {
-            tradeType: "exactInput" as const,
-            sources: fromPayload,
-            toChainId: toToken.chainId!,
-            toTokenAddress: toToken.contractAddress as `0x${string}`,
-            toAmountRaw: estimatedToAmountRaw,
-            execute: {
-              to: placeholderExecute.to,
-              data: placeholderExecute.data,
-              value: placeholderExecute.value,
-              gas: placeholderExecute.gas,
-              tokenApproval: placeholderExecute.tokenApproval
-                ? {
-                    toTokenAddress:
-                      placeholderExecute.tokenApproval.toTokenAddress ||
-                      (toToken.contractAddress as `0x${string}`),
-                    amount: BigInt(0),
-                    spender: placeholderExecute.tokenApproval.spender,
-                  }
-                : undefined,
-            },
-          };
+          const { input: exactInputOperation, beforeExecute } =
+            buildExactInputDeposit({
+              sources: fromPayload,
+              toChainId: toToken.chainId!,
+              toTokenAddress: toToken.contractAddress as `0x${string}`,
+              buildExecute: buildDepositExecute,
+            });
           logSdkIntentInput(
             "swapAndExecute exactInput",
             exactInputOperation,
@@ -9785,29 +9752,16 @@ function NexusWidgetInner({
             "swapAndExecute",
             runId,
             () =>
-              nexusSDK.swapAndExecute(exactInputOperation as any, {
+              nexusSDK.swapAndExecute(exactInputOperation, {
                 onEvent,
                 hooks: {
-                  onIntent: (data: any) => {
-                    const intent =
-                      data?.intent ?? data?.quote?.intent ?? data;
-                    console.log("[nexus-deposit-exact-input-intent]", intent);
+                  onIntent: (data) => {
+                    console.log("[nexus-deposit-exact-input-intent]", data.intent);
                     return handleSwapIntentCallback(data, runId, quoteInputKey);
                   },
                 },
-                beforeExecute: async (context: {
-                  executeAmountRaw?: bigint;
-                }) => {
-                  const nextExecute = buildDepositExecute(
-                    context?.executeAmountRaw ?? BigInt(0),
-                  );
-                  return {
-                    data: nextExecute.data,
-                    value: nextExecute.value,
-                    gas: nextExecute.gas,
-                  };
-                },
-              } as any),
+                beforeExecute,
+              }),
           );
           if ((depositResult as any)?.swapSkipped) {
             appendSkippedSwapProgress();
@@ -10212,6 +10166,7 @@ function NexusWidgetInner({
             mode: activeMode,
             steps: steps ?? [],
             context: {
+              swapRequired: intentData?.swapRequired,
               destinationChain: previewDestinationChain,
               destinationSymbol:
                 intentDest?.token?.symbol ||

@@ -1,6 +1,6 @@
 # Onramp + Deposit diagnostics (2.2.1)
 
-Both package manifests and the shadcn registry pin `@avail-project/nexus-core` to `3.1.0`.
+Both package manifests and the shadcn registry pin `@avail-project/nexus-core` to [Nexus SDK commit `e646e387`](https://github.com/availproject/nexus-sdk/commit/e646e3873e3e722c5cc28bd8c7e7fb1040785117). This revision supplies the execution amount to `beforeExecute` for exact-input deposits; the npm `3.1.0` release does not implement that API.
 
 ## Fixed failure paths
 

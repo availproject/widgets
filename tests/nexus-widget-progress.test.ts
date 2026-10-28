@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildStatusRows, type NexusWidgetProgressEvent } from "../registry/avail-widgets/nexus-widget/components/nexus-widget-progress-screen";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { buildStatusRows, NexusWidgetProgressScreen, type NexusWidgetProgressEvent } from "../registry/avail-widgets/nexus-widget/components/nexus-widget-progress-screen";
 
 const chain = { id: 42161, name: "Arbitrum" };
 const token = { contractAddress: "0xusdc", symbol: "USDC" };
@@ -12,6 +14,65 @@ const plan = (steps: any[]): NexusWidgetProgressEvent => ({ id: "plan", name: "s
 const progress = (step: any, state: string): NexusWidgetProgressEvent => ({ id: `${step.id}:${state}`, name: "swap_plan_progress", step, event: { type: "plan_progress", state }, completed: state === "confirmed" || state === "completed" });
 const rows = (events: NexusWidgetProgressEvent[], failedStep?: any, steps: any[] = []) => buildStatusRows({ events, mode: "deposit", steps, failedStep, context: { destinationChain: "Arbitrum", destinationSymbol: "USDT", opportunityName: "Aave" } });
 const row = (events: NexusWidgetProgressEvent[], id: string) => rows(events).find((item) => item.id === id);
+
+const depositOnlyRows = (events: NexusWidgetProgressEvent[] = [], failedStep?: any, isRejected = false) =>
+  buildStatusRows({
+    events, failedStep, isRejected, mode: "deposit", steps: [],
+    context: { swapRequired: false, destinationSymbol: "USDC", opportunityName: "Aave" },
+  });
+
+test("no-swap deposit has one status from review through approval and submission", () => {
+  const approval = { id: "execute_approval", type: "APPROVAL", chain };
+  for (const events of [
+    [],
+    [plan([approval, execute])],
+    [plan([approval, execute]), progress(approval, "wallet_prompted")],
+    [plan([approval, execute]), progress(execute, "submitted")],
+  ]) {
+    const result = depositOnlyRows(events);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].id, "action");
+    assert.equal(result[0].label, "Deposit in progress");
+  }
+});
+
+test("no-swap deposit keeps completion and failure truthful in the single row", () => {
+  const confirmed = { ...execute, type: "TRANSACTION_CONFIRMED" };
+  assert.equal(depositOnlyRows([progress(confirmed, "confirmed")])[0].state, "completed");
+  assert.equal(depositOnlyRows([progress(confirmed, "confirmed")])[0].label, "USDC deposited to Aave");
+  assert.equal(depositOnlyRows([], execute)[0].state, "error");
+  assert.equal(depositOnlyRows([], execute)[0].label, "Deposit failed. Funds are in your wallet.");
+  assert.equal(depositOnlyRows([], execute, true)[0].label, "Deposit cancelled by user");
+});
+
+test("a skipped-swap event also collapses deposit progress without intent metadata", () => {
+  const result = rows([progress({ id: "skipped", type: "SWAP_SKIPPED" }, "completed")]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].label, "Deposit in progress");
+});
+
+test("missing swapRequired metadata does not hide a required swap", () => {
+  const result = rows([plan([source, destination, execute])]);
+  assert.ok(result.some((item) => item.id === "swapTokens"));
+  assert.ok(result.some((item) => item.id === "receiveToken"));
+});
+
+test("progress screen passes the reviewed no-swap flag to its rendered statuses", () => {
+  const html = renderToStaticMarkup(createElement(NexusWidgetProgressScreen, {
+    mode: "deposit",
+    intentData: {
+      swapRequired: false,
+      sources: [],
+      destination: {
+        chain: { id: 42161, name: "Arbitrum" },
+        token: { symbol: "USDC", decimals: 6 },
+        amount: "5",
+      },
+    } as any,
+  }));
+  assert.equal(html.match(/Deposit in progress/g)?.length, 1);
+  assert.doesNotMatch(html, /Swaps in progress|Swap tokens|Receiving USDC|Receive USDC/);
+});
 
 test("same-chain USDC to USDT deposit shows its destination permit before SDK progress", () => {
   const events = [plan([allowance, destination, execute])];
