@@ -197,3 +197,77 @@ test("deposit quote dims immediately, delays shimmer, holds it, and cancels on e
     }
   }
 });
+
+test("deposit receive amount is truncated to 3 decimal places and timer pill has balanced padding", async () => {
+  const originals = Object.fromEntries(
+    ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+    window: { setTimeout, clearTimeout },
+  });
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    await act(async () => {
+      renderer = create(
+        <DepositIdleForm
+          amount=""
+          amountMode="usd"
+          fromTokens={[{ ...token, userAmount: "10" }]}
+          onUpdateTokens={() => {}}
+          onAmountChange={() => {}}
+          onAmountModeToggle={() => {}}
+          onOpenSourcePicker={() => {}}
+          onSetPercent={() => {}}
+          tokenValue="0"
+          usdValue="10"
+          totalBalance="500"
+          receiveAmount="6.471653"
+          receiveUsd="6.47"
+          quoteLabel="28s"
+          toToken={{
+            chainId: 10,
+            contractAddress: "0xusdc",
+            symbol: "USDC",
+            name: "USD Coin",
+            decimals: 6,
+            balance: "100",
+            balanceInFiat: "100",
+          }}
+        />
+      );
+    });
+    const quoteLine = renderer!.root.findByProps({ className: "nx-amt-line" });
+    // Truncated to 3 decimal places: 6.471653 -> ~6.471
+    assert.ok(
+      quoteLine.findAllByProps({ "aria-label": "~6.471" }).length > 0,
+      "Expected receive amount to be truncated to 3 decimals: ~6.471"
+    );
+
+    // Timer pill has balanced padding (0 8px) and quoteLabel span has no minWidth
+    const timerPill = renderer!.root.find(
+      (node) =>
+        node.props?.style?.borderRadius === 999 &&
+        node.props?.style?.padding === "0 8px"
+    );
+    assert.ok(timerPill, "Timer pill with padding '0 8px' should exist");
+    const labelSpan = timerPill.find(
+      (node) => node.type === "span" && node.children.includes("28s")
+    );
+    assert.ok(labelSpan, "Label span with 28s should exist");
+    assert.equal(labelSpan.props.style?.minWidth, undefined);
+  } finally {
+    await act(async () => {
+      renderer?.unmount();
+    });
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+

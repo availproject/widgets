@@ -56,3 +56,46 @@ test("deposit picker searches and filters individual chains, excludes selected a
     }
   }
 });
+
+test("chain menu renders radio buttons for all chains and each chain option", async () => {
+  const previous = Object.fromEntries(
+    ["document", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+  });
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    await act(async () => {
+      renderer = create(
+        <DepositAssetSelector tokens={tokens} onSelect={() => {}} />
+      );
+    });
+    // Open chain menu
+    await act(async () => {
+      renderer!.root.findByProps({ className: "nx-asset-chain" }).props.onClick();
+    });
+    const menu = renderer!.root.findByProps({ className: "nx-asset-menu" });
+    const radioButtons = menu.findAllByProps({ role: "radio" });
+    assert.equal(radioButtons.length, 3); // "All Chains", Ethereum, Arbitrum
+    // "All Chains" is selected initially
+    assert.equal(radioButtons[0].props["aria-checked"], true);
+    assert.equal(radioButtons[1].props["aria-checked"], false);
+    // Radio indicator is present
+    const radios = menu.findAllByProps({ className: "nx-asset-menu-radio" });
+    assert.equal(radios.length, 3);
+  } finally {
+    await act(async () => {
+      renderer?.unmount();
+    });
+    for (const [key, descriptor] of Object.entries(previous)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+

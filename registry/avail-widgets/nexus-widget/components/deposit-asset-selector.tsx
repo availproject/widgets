@@ -122,9 +122,10 @@ export function DepositAssetSelector({
         .nx-asset-chain { display:flex; align-items:center; gap:8px; max-width:160px; height:40px; padding:0 12px 0 10px; border-radius:14px; background:var(--nx-pop,#FFF); box-shadow:var(--nx-pill-ring,#1616151F) 0 0 3px; white-space:nowrap; }
         .nx-asset-chain-name { overflow:hidden; text-overflow:ellipsis; font-size:14px; font-weight:500; }
         .nx-asset-chain-icons { display:flex; flex-shrink:0; }
-        .nx-asset-menu { position:absolute; z-index:5; top:46px; right:0; padding:6px; min-width:180px; max-height:250px; overflow:auto; border-radius:16px; background:var(--nx-pop,#FFF); box-shadow:#16161514 0 8px 28px, var(--nx-pop-ring,#1616150A) 0 0 0 1px; }
-        .nx-asset-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:9px 10px; border-radius:10px; background:none; text-align:left; font-size:14px; }
-        .nx-asset-menu button[aria-pressed=true] { background:var(--nx-fill,#F3F3F3); }
+        .nx-asset-menu { position:absolute; z-index:5; top:46px; right:0; padding:6px; min-width:190px; max-height:280px; overflow-y:auto; border-radius:16px; background:var(--nx-pop,#FFF); box-shadow:#16161514 0 8px 28px, var(--nx-pop-ring,#1616150A) 0 0 0 1px; }
+        .nx-asset-menu button { display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px; border-radius:10px; background:transparent; text-align:left; font-size:14px; color:var(--nx-ink,#161615); transition:background-color 120ms; }
+        .nx-asset-menu button:hover, .nx-asset-menu button:focus-visible { background:var(--nx-fill,#F3F3F3); }
+        .nx-asset-menu-radio { display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-left:auto; }
         .nx-asset-list { flex:1; min-height:0; overflow:auto; padding:0 8px 12px; overscroll-behavior:contain; }
         .nx-asset-row { display:flex; align-items:center; gap:12px; width:100%; min-height:68px; padding:14px 12px; border-radius:18px; background:transparent; text-align:left; }
         .nx-asset-primary { font-size:16px; line-height:20px; font-weight:500; overflow-wrap:anywhere; }
@@ -161,17 +162,59 @@ export function DepositAssetSelector({
             <span className="nx-asset-chain-name">{selectedChain?.name ?? "All Chains"}</span>
             <ChevronDown aria-hidden size={14} style={{ flexShrink: 0, color: "var(--nx-mute,#737372)" }} />
           </button>
-          {chainMenuOpen && <div className="nx-asset-menu" role="group" aria-label="Filter by chain">
-            {[{ id: "all" as const, name: "All Chains", logo: undefined }, ...chains].map((chain) => (
-              <button key={chain.id} type="button" aria-pressed={chainId === chain.id} onClick={() => {
-                setChainId(chain.id);
-                setChainMenuOpen(false);
-                chainButtonRef.current?.focus();
-              }}>
-                {chain.logo && <TokenLogo label={chain.name} src={chain.logo} size={18} />}
-                {chain.name}
-              </button>
-            ))}
+          {chainMenuOpen && <div className="nx-asset-menu" role="radiogroup" aria-label="Filter by chain">
+            {[{ id: "all" as const, name: "All Chains", logo: undefined }, ...chains].map((chain) => {
+              const isSelected = chainId === chain.id;
+              return (
+                <button
+                  key={chain.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  aria-pressed={isSelected}
+                  style={{ fontWeight: isSelected ? 500 : 400 }}
+                  onClick={() => {
+                    setChainId(chain.id);
+                    setChainMenuOpen(false);
+                    chainButtonRef.current?.focus();
+                  }}
+                >
+                  {chain.id === "all" ? (
+                    <span className="nx-asset-chain-icons" style={{ flexShrink: 0 }}>
+                      {chains.slice(0, 3).map((c, i) => (
+                        <span
+                          key={c.id}
+                          style={{
+                            borderRadius: 999,
+                            marginLeft: i ? -6 : 0,
+                            outline: "1.5px solid var(--nx-pop, #FFF)",
+                          }}
+                        >
+                          <TokenLogo label={c.name} src={c.logo} size={18} />
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span style={{ display: "flex", flexShrink: 0 }}>
+                      <TokenLogo label={chain.name} src={chain.logo} size={18} />
+                    </span>
+                  )}
+                  {chain.name}
+                  <span className="nx-asset-menu-radio">
+                    {isSelected ? (
+                      <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 16 16" width="16">
+                        <circle cx="8" cy="8" fill="var(--nx-pop, #FFF)" r="7" stroke="var(--nx-blue, #006BF4)" strokeWidth="2" />
+                        <circle cx="8" cy="8" fill="var(--nx-blue, #006BF4)" r="3.5" />
+                      </svg>
+                    ) : (
+                      <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 16 16" width="16">
+                        <circle cx="8" cy="8" fill="none" r="7" stroke="var(--nx-ring, #CFCFCD)" strokeWidth="1.5" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
           </div>}
         </div>
       </div>
@@ -195,7 +238,7 @@ export function DepositAssetSelector({
               <span className="nx-asset-primary">{token.symbol}</span>
               <span className="nx-asset-secondary">{token.chainName}</span>
             </span>
-            <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 0, maxWidth: "50%", fontVariantNumeric: "tabular-nums" }}>
+            <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 0, maxWidth: "50%" }}>
               <span className="nx-asset-primary">{parseAmount(token.balance)?.toDecimalPlaces(Math.min(8, token.decimals), Decimal.ROUND_DOWN).toFixed() ?? "0"} {token.symbol}</span>
               <span className="nx-asset-secondary">{formatUsd(token.balanceInFiat)}</span>
             </span>

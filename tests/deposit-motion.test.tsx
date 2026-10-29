@@ -4,6 +4,21 @@ import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { DepositAnimatedAmount } from "../registry/avail-widgets/nexus-widget/components/deposit-animated-amount";
 import { DepositAnimatedLabel, groupDepositInput } from "../registry/avail-widgets/nexus-widget/components/deposit-motion";
+import { sanitizeAmount } from "../registry/avail-widgets/nexus-widget/components/deposit-idle-form";
+
+test("sanitizeAmount normalizes leading dots, strips rogue leading zeros, and caps decimals", () => {
+  assert.equal(sanitizeAmount(".", 2), "0.");
+  assert.equal(sanitizeAmount(".1", 2), "0.1");
+  assert.equal(sanitizeAmount(".123", 2), "0.12");
+  assert.equal(sanitizeAmount("01.", 2), "1.");
+  assert.equal(sanitizeAmount("01.5", 2), "1.5");
+  assert.equal(sanitizeAmount("01", 2), "1");
+  assert.equal(sanitizeAmount("00", 2), "0");
+  assert.equal(sanitizeAmount("00.5", 2), "0.5");
+  assert.equal(sanitizeAmount("0", 2), "0");
+  assert.equal(sanitizeAmount("", 2), "");
+  assert.equal(sanitizeAmount("100", 2), "100");
+});
 
 test("input grouping preserves trailing decimals and fractional zeroes", () => {
   assert.equal(groupDepositInput("1234567.00"), "1,234,567.00");

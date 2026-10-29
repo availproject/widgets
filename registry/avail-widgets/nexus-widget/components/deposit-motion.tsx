@@ -71,9 +71,13 @@ export function DepositAmountInput({ value = "", onChange, style, ...props }: Re
     input.current.setSelectionRange(offset, offset);
     selection.current = null;
   }, [shown, selectionRevision]);
-  return <input {...props} ref={input} value={shown} style={{ ...style, width: `${Math.max(shown.length, 1)}ch` }}
+  return <input {...props} ref={input} value={shown} style={{ fieldSizing: "content", ...style, width: style?.width ?? `${Math.max(shown.length, 1)}ch`, textAlign: style?.textAlign ?? "right" }}
     onChange={event => {
-      selection.current = event.target.value.slice(0, event.target.selectionStart ?? 0).replaceAll(",", "").length;
+      let sel = event.target.value.slice(0, event.target.selectionStart ?? 0).replaceAll(",", "").length;
+      if (event.target.value.trimStart().startsWith(".") && (event.target.selectionStart ?? 0) >= 1) {
+        sel += 1;
+      }
+      selection.current = sel;
       setSelectionRevision(v => v + 1);
       onChange?.(event);
     }} />;

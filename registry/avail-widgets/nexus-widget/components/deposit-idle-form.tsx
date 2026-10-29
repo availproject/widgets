@@ -148,7 +148,6 @@ function TipRow({ label, value }: { label: string; value: string }) {
       <b
         style={{
           color: "var(--nx-ink, #161615)",
-          fontVariantNumeric: "tabular-nums",
           fontWeight: 500,
           textAlign: "right",
         }}
@@ -309,15 +308,18 @@ function Shimmer({ width, height }: { width: number; height: number }) {
   );
 }
 
-const sanitizeAmount = (raw: string, maxDecimals: number) => {
+export const sanitizeAmount = (raw: string, maxDecimals: number) => {
   let next = raw.replaceAll(/[^0-9.]/g, "");
   const parts = next.split(".");
   if (parts.length > 2) next = `${parts[0]}.${parts.slice(1).join("")}`;
+  if (next.startsWith(".")) next = `0${next}`;
   const [whole, fraction] = next.split(".");
+  const normalizedWhole = whole ? whole.replace(/^0+(?=\d)/, "") : "";
   if (fraction !== undefined) {
-    next = `${whole}.${fraction.slice(0, Math.max(0, maxDecimals))}`;
+    next = `${normalizedWhole}.${fraction.slice(0, Math.max(0, maxDecimals))}`;
+  } else {
+    next = normalizedWhole;
   }
-  if (next === ".") next = "0.";
   return next;
 };
 
@@ -555,7 +557,7 @@ export function DepositIdleForm({
               <span className="nx-shim" style={{ borderRadius: 14, height: 48, width: 188 }} />
             ) : (
               <span key={quotePending ? "stale" : receiveAmount} className={`nx-big${showQuote && !quotePending ? " nx-arrive" : ""}`} style={{ color: !showQuote && !openKey ? "var(--nx-ghost, #C4C4C2)" : undefined }}>
-                <DepositAnimatedAmount value={showQuote ? `~${compactAmount(quotedReceive, toToken?.decimals)}` : "~0.00"} />
+                <DepositAnimatedAmount value={showQuote ? `~${compactAmount(quotedReceive, 3)}` : "~0.00"} />
               </span>
             )}
             {showQuoteShimmer ? null : (
@@ -667,7 +669,7 @@ export function DepositIdleForm({
               </svg>
             </button>
           ) : null}
-          <span style={{ alignItems: "center", background: "var(--nx-fill, #F3F3F3)", borderRadius: 999, color: "var(--nx-ink, #161615)", display: "inline-flex", font: `500 13px/16px ${uiFont}`, gap: 5, height: 32, opacity: showQuote ? 1 : 0.45, padding: "0 10px 0 8px" }}>
+          <span style={{ alignItems: "center", background: "var(--nx-fill, #F3F3F3)", borderRadius: 999, color: "var(--nx-ink, #161615)", display: "inline-flex", font: `500 13px/16px ${uiFont}`, gap: 5, height: 32, opacity: showQuote ? 1 : 0.45, padding: "0 8px" }}>
             <svg fill="none" height="14" style={{ transform: "rotate(-90deg)" }} viewBox="0 0 14 14" width="14">
               <circle cx="7" cy="7" r="5.5" stroke="var(--nx-ring, #CFCFCD)" strokeWidth="1.6" />
               <circle
@@ -683,7 +685,7 @@ export function DepositIdleForm({
                 style={{ transition: "stroke-dashoffset 250ms linear" }}
               />
             </svg>
-            <span style={{ fontVariantNumeric: "tabular-nums", minWidth: "2.4em" }}>{quoteLabel}</span>
+            <span style={{ fontVariantNumeric: "tabular-nums" }}>{quoteLabel}</span>
           </span>
           {onClose ? (
             <button
@@ -817,7 +819,8 @@ export function DepositIdleForm({
                             : `500 20px/28px ${uiFont}`,
                           letterSpacing: open ? "-0.03em" : "-0.02em",
                           outline: "none",
-                          textAlign: "left",
+                          textAlign: "right",
+                          fieldSizing: "content",
                           width: `${Math.max((shown || "0").length, 1)}ch`,
                         }}
                         value={shown}
@@ -839,10 +842,15 @@ export function DepositIdleForm({
                           });
                         }}
                         style={{
+                          alignItems: "center",
                           background: "transparent",
                           border: "none",
                           color: "var(--nx-mute, #737372)",
                           cursor: "pointer",
+                          display: "inline-flex",
+                          justifyContent: "center",
+                          lineHeight: 1,
+                          padding: 0,
                           transform: usdMode ? "rotate(180deg)" : "none",
                           transition: `transform 250ms ${easeMove}`,
                         }}
@@ -931,7 +939,11 @@ export function DepositIdleForm({
             }}
             type="button"
           >
-            <span className="nx-plus">+</span>
+            <span className="nx-plus">
+              <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
+                <path d="M7 2.5V11.5M2.5 7H11.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.75" />
+              </svg>
+            </span>
             Add another token
           </button>
           <div className={`nx-collapse${atCap && capNote ? " on" : ""}`} inert={!atCap || !capNote} aria-hidden={!atCap || !capNote}>

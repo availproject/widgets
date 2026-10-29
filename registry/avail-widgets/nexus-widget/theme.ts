@@ -175,14 +175,14 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-hero { display:flex; flex-direction:column; align-items:center; gap:6px; padding:20px 12px 18px; }
 .nx-who { font:400 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-ink); }
 .nx-amt-line { display:flex; align-items:center; gap:8px; min-height:56px; }
-.nx-big { font:300 48px/56px "Geist",system-ui,sans-serif; letter-spacing:-.03em; font-variant-numeric:tabular-nums; color:var(--nx-ink); }
+.nx-big { font:300 48px/56px "Geist",system-ui,sans-serif; letter-spacing:-.03em; color:var(--nx-ink); }
 .nx-arrive { animation: nx-arrive 200ms cubic-bezier(.23,1,.32,1) both; }
-.nx-usd { font:400 18px/22px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); font-variant-numeric:tabular-nums; }
+.nx-usd { font:400 18px/22px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); }
 .nx-meta { display:flex; align-items:center; gap:6px; font:400 15px/20px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
 .nx-warn { display:flex; align-items:center; gap:6px; font:400 13px/16px "Geist",system-ui,sans-serif; color:var(--nx-amber); animation:nx-slide-in 200ms cubic-bezier(.23,1,.32,1) both; }
 .nx-swap-div { height:1px; background:var(--nx-line-2); margin:0 14px; }
 .nx-spend { display:flex; align-items:center; padding:12px; font:400 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-ink); }
-.nx-spend .nx-tnum { margin-left:auto; font-weight:500; font-variant-numeric:tabular-nums; }
+.nx-spend .nx-tnum { margin-left:auto; font-weight:500; }
 .nx-spend-label { margin-left:6px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
 .nx-plist { background:var(--nx-card); border-radius:18px; box-shadow:var(--nx-sh-list, #1616150D 0 0 2px 1px, #16161517 0 0 10px); overflow:hidden; }
 .nx-prow { display:flex; flex-direction:column; padding:12px; transition:background-color 150ms cubic-bezier(.23,1,.32,1), opacity 200ms cubic-bezier(.23,1,.32,1); }
@@ -196,7 +196,7 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-pr-amt { flex:1; display:flex; flex-direction:column; align-items:flex-end; min-width:0; }
 .nx-pr-val { display:flex; align-items:center; justify-content:flex-end; width:100%; }
 .nx-caret { width:2px; height:32px; border-radius:1px; background:var(--nx-blue); animation:nx-blink 1.06s steps(1) infinite; flex-shrink:0; }
-.nx-pr-sub { display:flex; align-items:center; gap:4px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); font-variant-numeric:tabular-nums; }
+.nx-pr-sub { display:flex; align-items:center; gap:4px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
 .nx-collapse { display:grid; grid-template-rows:0fr; transition:grid-template-rows 200ms cubic-bezier(.2,0,0,1); }
 .nx-collapse > div { overflow:hidden; min-height:0; }
 .nx-collapse.on { grid-template-rows:1fr; }
@@ -206,13 +206,13 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-add { display:flex; align-items:center; justify-content:flex-end; gap:12px; width:100%; padding:12px; border:none; background:transparent; font:500 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-blue); cursor:pointer; }
 .nx-focus .nx-add { opacity: .15; }
 .nx-add:disabled { color:var(--nx-mute); cursor:default; }
-.nx-plus { width:40px; height:40px; border-radius:999px; border:1.5px dashed var(--nx-blue, #9DBFF5); display:grid; place-items:center; font-size:20px; transition:transform 150ms cubic-bezier(.23,1,.32,1); }
-.nx-add:disabled .nx-plus { border-color:currentColor; }
-.nx-add:active:not(:disabled) .nx-plus { transform:rotate(90deg) scale(.92); }
+.nx-plus { width:40px; height:40px; border-radius:999px; border:1.5px dashed var(--nx-blue, #9DBFF5); display:grid; place-items:center; color:var(--nx-blue); transition:border-color 150ms cubic-bezier(.23,1,.32,1), background-color 150ms cubic-bezier(.23,1,.32,1); }
+.nx-add:disabled .nx-plus { border-color:currentColor; color:currentColor; }
+.nx-add:active:not(:disabled) .nx-plus { transform:scale(.95); }
 .nx-cap { display:flex; justify-content:center; padding:0 12px 12px; font:400 13px/16px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); }
 .nx-fees { display:flex; justify-content:space-between; align-items:center; padding:8px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); }
 .nx-fees > div { display:flex; align-items:center; gap:6px; }
-.nx-fees b { font-weight:500; color:var(--nx-ink); font-variant-numeric:tabular-nums; }
+.nx-fees b { font-weight:500; color:var(--nx-ink); }
 .nx-auto { background:var(--nx-blue-soft); color:var(--nx-blue); border-radius:999px; padding:3px 9px; font:500 12px/16px "Geist",system-ui,sans-serif; }
 .nx-deposit-cta { height:56px; border-radius:999px; background:var(--nx-blue); box-shadow:var(--nx-sh-cta); color:#fff; font:500 16px/20px "Geist",system-ui,sans-serif; }
 .nx-deposit-cta:active:not(:disabled) { transform:scale(.97); }
@@ -225,9 +225,9 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-token-presence.exiting { animation:nx-token-out 340ms cubic-bezier(.2,0,0,1) forwards; pointer-events:none; }
 button.nx-pr-tok { background:none; border:0; padding:0; text-align:left; color:inherit; font:inherit; cursor:pointer; }
 button.nx-pr-tok:disabled { cursor:default; }
-.nx-animated-amount { font-variant-numeric:tabular-nums; }
+.nx-animated-amount { display:inline-block; }
 .nx-digit-group { display:inline-flex; vertical-align:baseline; }
-.nx-digit-window { display:inline-block; width:1ch; height:1em; overflow:hidden; position:relative; }
+.nx-digit-window { display:inline-block; height:1em; overflow:hidden; position:relative; }
 @keyframes nx-roll-up { from { transform:translateY(100%); opacity:0; } }
 @keyframes nx-roll-down { from { transform:translateY(-100%); opacity:0; } }
 .nx-digit-current { display:block; line-height:1em; }
@@ -247,16 +247,16 @@ button.nx-pr-tok:disabled { cursor:default; }
 .nx-prow button[aria-label="Remove"]:active { transform:scale(.9); }
 .nx-pr-bal button:active { transform:scale(.96); }
 .nx-add.full { color:var(--nx-mute); }
-.nx-add.full .nx-plus { border-color:var(--nx-line-2); background:var(--nx-fill); }
+.nx-add.full .nx-plus { border-color:var(--nx-line-2); background:var(--nx-fill); color:var(--nx-mute); }
 @media (hover:hover) and (pointer:fine) {
-  .nx-add:hover:not(:disabled):not(.full) .nx-plus { transform:rotate(90deg); border-color:var(--nx-blue); }
+  .nx-add:hover:not(:disabled):not(.full) .nx-plus { border-color:var(--nx-blue); background:var(--nx-blue-soft, rgba(0,107,244,0.06)); }
   .nx-method-row:hover, .nx-asset-row:hover { background:var(--nx-hover); }
   .nx-method-row:hover > svg:last-child, .nx-asset-row:hover > svg:last-child { transform:translateX(2px); }
 }
 .nx-method-row > svg:last-child, .nx-asset-row > svg:last-child { transition:transform 150ms; }
 .nx-method-row { background:transparent; }
 .nx-method-row:active, .nx-asset-row:active { transform:scale(.98); background:var(--nx-press); }
-.nx-add:focus-visible:not(.full) .nx-plus { transform:rotate(90deg); }
+.nx-add:focus-visible:not(.full) .nx-plus { border-color:var(--nx-blue); }
 @keyframes nx-highlight { from { background:var(--nx-blue-soft); } }
 @keyframes nx-token-in { from { opacity:0; transform:translateY(-6px); } }
 .nx-token-presence.entering { animation:nx-token-in 250ms cubic-bezier(.23,1,.32,1) both; }
