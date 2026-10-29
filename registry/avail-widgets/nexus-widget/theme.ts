@@ -117,7 +117,7 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
   --nx-ink:#161615; --nx-ink-2:#3A3A39; --nx-mute:#737372; --nx-mute-2:#8C8C8B; --nx-faint:#A3A3A2; --nx-ghost:#C4C4C2;
   --nx-shell:#F7F7F7; --nx-card:#FFFFFF; --nx-line:#F0F0F0; --nx-line-2:#EDEDED; --nx-fill:#F3F3F3; --nx-fill-2:#EDEDEC;
   --nx-hover:#F7F7F7; --nx-press:#F2F2F1; --nx-pop:#FFFFFF; --nx-shim:#EFEFEE; --nx-shim-hi:#F7F7F6; --nx-blue:#006BF4;
-  --nx-blue-soft:#E5F0FE; --nx-red:#D93636; --nx-red-band:#FEF6F6; --nx-amber:#B26B00; --nx-tile-mm:#FFF4EA;
+  --nx-green:#12AD59; --nx-green-soft:#EEF9F2; --nx-blue-soft:#E5F0FE; --nx-red:#D93636; --nx-red-band:#FEF6F6; --nx-amber:#B26B00; --nx-tile-mm:#FFF4EA;
   --nx-pop-ring:#1616150A; --nx-input:#F7F7F6; --nx-band:#F8F8F8; --nx-cta-off:#EDEDED;
   --nx-sh-shell:#FFFFFFB3 0 1px 0 inset, #1616150A 0 12px 40px;
   --nx-sh-edge:0 0 0 1px #1616150D, #1616151A 0 0 3px, #16161512 0 6px 20px;
@@ -128,7 +128,7 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
   --nx-ink:#EDEDEC; --nx-ink-2:#CFCFCD; --nx-mute:#9C9C9A; --nx-mute-2:#878785; --nx-faint:#6E6E6C; --nx-ghost:#4A4A48;
   --nx-shell:#141413; --nx-card:#1A1A18; --nx-line:#262625; --nx-line-2:#2B2B29; --nx-fill:#292928; --nx-fill-2:#2E2E2C;
   --nx-hover:#20201F; --nx-press:#242423; --nx-pop:#292928; --nx-shim:#262624; --nx-shim-hi:#30302E; --nx-blue:#2F86FF;
-  --nx-blue-soft:#132A4A; --nx-red:#F05A5A; --nx-red-band:#2A1616; --nx-amber:#E8A23B; --nx-tile-mm:#2E2418;
+  --nx-green:#24C56C; --nx-green-soft:#142C1E; --nx-blue-soft:#132A4A; --nx-red:#F05A5A; --nx-red-band:#2A1616; --nx-amber:#E8A23B; --nx-tile-mm:#2E2418;
   --nx-pop-ring:#FFFFFF14; --nx-input:#21211F; --nx-band:#212120; --nx-cta-off:#262624;
   --nx-sh-shell:#FFFFFF14 0 1px 0 inset, #FFFFFF0A 0 0 0 1px inset;
   --nx-sh-edge:0 0 0 1px #FFFFFF1C;
@@ -147,6 +147,24 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-deposit-screen { animation: nx-scr-in 250ms cubic-bezier(.23,1,.32,1) 60ms both; }
 .nx-deposit-screen.nx-back { animation-name: nx-scr-in-back; }
 .nx-card { background:var(--nx-card); border-radius:24px; box-shadow:var(--nx-sh-card); padding:8px; display:flex; flex-direction:column; }
+/* History shares the deposit shell, cards and control sizes. */
+.nx-history-header { background:var(--nx-card); border-radius:24px; box-shadow:var(--nx-sh-card); gap:12px; }
+.nx-history-header > div:first-child { min-width:0; }
+.nx-history-card { background:var(--nx-card); border-radius:24px; box-shadow:var(--nx-sh-card); padding:20px; color:var(--nx-ink); font-family:"Geist",system-ui,sans-serif; container-type:inline-size; }
+.nx-history-top { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; }
+.nx-history-asset { display:flex; align-items:center; gap:12px; min-width:0; }
+.nx-history-asset > :first-child { flex-shrink:0; }
+.nx-history-asset > :last-child { min-width:0; }
+.nx-history-meta { display:flex; flex-direction:column; align-items:flex-end; gap:6px; text-align:right; }
+.nx-history-status { display:inline-flex; justify-content:center; border-radius:999px; padding:4px 9px; font:500 12px/16px "Geist",system-ui,sans-serif; text-align:center; }
+.nx-history-cash-icon { width:40px; height:40px; display:grid; place-items:center; border-radius:14px; background:var(--nx-fill); color:var(--nx-ink-2); }
+.nx-history-link { border-radius:8px; min-height:32px; padding:4px 6px; margin:-4px -6px; text-decoration:none; transition:background-color 150ms; }
+.nx-history-link:hover { background:var(--nx-blue-soft); }
+.nx-history-link:focus-visible, .nx-history-header button:focus-visible { outline:2px solid var(--nx-blue); outline-offset:3px; }
+@container (max-width:330px) {
+  .nx-history-top { grid-template-columns:minmax(0,1fr); }
+  .nx-history-meta { flex-direction:row; align-items:center; justify-content:space-between; gap:8px; padding-left:52px; text-align:left; }
+}
 .nx-head { display:flex; align-items:center; gap:12px; padding:12px; border-bottom:1px solid var(--nx-line-2); }
 .nx-title { font:500 20px/24px "Delight","Geist",system-ui,sans-serif; letter-spacing:-.01em; color:var(--nx-ink); }
 .nx-sub { display:flex; gap:8px; margin-top:4px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
@@ -189,6 +207,7 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-focus .nx-add { opacity: .15; }
 .nx-add:disabled { color:var(--nx-mute); cursor:default; }
 .nx-plus { width:40px; height:40px; border-radius:999px; border:1.5px dashed var(--nx-blue, #9DBFF5); display:grid; place-items:center; font-size:20px; transition:transform 150ms cubic-bezier(.23,1,.32,1); }
+.nx-add:disabled .nx-plus { border-color:currentColor; }
 .nx-add:active:not(:disabled) .nx-plus { transform:rotate(90deg) scale(.92); }
 .nx-cap { display:flex; justify-content:center; padding:0 12px 12px; font:400 13px/16px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); }
 .nx-fees { display:flex; justify-content:space-between; align-items:center; padding:8px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); }
@@ -198,8 +217,115 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-deposit-cta { height:56px; border-radius:999px; background:var(--nx-blue); box-shadow:var(--nx-sh-cta); color:#fff; font:500 16px/20px "Geist",system-ui,sans-serif; }
 .nx-deposit-cta:active:not(:disabled) { transform:scale(.97); }
 .nx-deposit-cta:disabled { background:var(--nx-cta-off); color:var(--nx-mute-2); box-shadow:none; }
+@keyframes nx-value-in { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+@keyframes nx-token-out { 0% { grid-template-rows:1fr; opacity:1; } 30% { grid-template-rows:1fr; opacity:0; } 100% { grid-template-rows:0fr; opacity:0; } }
+.nx-mode-change, .nx-progress-change { animation:nx-value-in 220ms cubic-bezier(.23,1,.32,1) both; }
+.nx-token-presence { display:grid; grid-template-rows:1fr; }
+.nx-token-clip { min-height:0; overflow:hidden; }
+.nx-token-presence.exiting { animation:nx-token-out 340ms cubic-bezier(.2,0,0,1) forwards; pointer-events:none; }
+button.nx-pr-tok { background:none; border:0; padding:0; text-align:left; color:inherit; font:inherit; cursor:pointer; }
+button.nx-pr-tok:disabled { cursor:default; }
+.nx-animated-amount { font-variant-numeric:tabular-nums; }
+.nx-digit-group { display:inline-flex; vertical-align:baseline; }
+.nx-digit-window { display:inline-block; width:1ch; height:1em; overflow:hidden; position:relative; }
+@keyframes nx-roll-up { from { transform:translateY(100%); opacity:0; } }
+@keyframes nx-roll-down { from { transform:translateY(-100%); opacity:0; } }
+.nx-digit-current { display:block; line-height:1em; }
+.nx-digit-current.up { animation:nx-roll-up 250ms cubic-bezier(.23,1,.32,1) both; }
+.nx-digit-current.down { animation:nx-roll-down 250ms cubic-bezier(.23,1,.32,1) both; }
+.nx-focusable { transition:opacity 200ms cubic-bezier(.23,1,.32,1); }
+.nx-focus .nx-focusable, .nx-focus .nx-prow:not(.open), .nx-focus .nx-add { pointer-events:none; }
+.nx-collapse > div { opacity:0; transform:translateY(-4px); transition:opacity 100ms,transform 100ms; }
+.nx-collapse.on { transition-duration:250ms; }
+.nx-collapse.on > div { opacity:1; transform:none; transition:opacity 150ms 50ms,transform 150ms 50ms; }
+.nx-pr-val input, .nx-pr-val > span { transition:font-size 250ms cubic-bezier(.2,0,0,1),line-height 250ms cubic-bezier(.2,0,0,1); }
+.nx-prow.keying input { caret-animation:manual; }
+.nx-pr-val input { caret-color:var(--nx-blue); max-width:100%; }
+.nx-prow.err input, .nx-prow.shake input { caret-color:var(--nx-red); }
+.nx-prow button, .nx-head button, .nx-history-header button { transition:transform 100ms,background-color 150ms; }
+.nx-prow button:active:not(:disabled), .nx-head button:active, .nx-history-header button:active { transform:scale(.92); }
+.nx-prow button[aria-label="Remove"]:active { transform:scale(.9); }
+.nx-pr-bal button:active { transform:scale(.96); }
+.nx-add.full { color:var(--nx-mute); }
+.nx-add.full .nx-plus { border-color:var(--nx-line-2); background:var(--nx-fill); }
+@media (hover:hover) and (pointer:fine) {
+  .nx-add:hover:not(:disabled):not(.full) .nx-plus { transform:rotate(90deg); border-color:var(--nx-blue); }
+  .nx-method-row:hover, .nx-asset-row:hover { background:var(--nx-hover); }
+  .nx-method-row:hover > svg:last-child, .nx-asset-row:hover > svg:last-child { transform:translateX(2px); }
+}
+.nx-method-row > svg:last-child, .nx-asset-row > svg:last-child { transition:transform 150ms; }
+.nx-method-row { background:transparent; }
+.nx-method-row:active, .nx-asset-row:active { transform:scale(.98); background:var(--nx-press); }
+.nx-add:focus-visible:not(.full) .nx-plus { transform:rotate(90deg); }
+@keyframes nx-highlight { from { background:var(--nx-blue-soft); } }
+@keyframes nx-token-in { from { opacity:0; transform:translateY(-6px); } }
+.nx-token-presence.entering { animation:nx-token-in 250ms cubic-bezier(.23,1,.32,1) both; }
+.nx-token-presence.entering .nx-prow { animation:nx-highlight 600ms cubic-bezier(.23,1,.32,1) 250ms backwards; }
+@keyframes nx-row-fade { to { opacity:0; transform:scale(.98); } }
+@keyframes nx-row-collapse { to { grid-template-rows:0fr; } }
+.nx-token-presence.exiting { animation:nx-row-collapse 200ms cubic-bezier(.2,0,0,1) 150ms forwards; }
+.nx-token-presence.exiting .nx-prow { animation:nx-row-fade 150ms cubic-bezier(.23,1,.32,1) forwards; }
+@keyframes nx-label-in { from { opacity:0; transform:translateY(6px); filter:blur(2px); } }
+@keyframes nx-label-out { to { opacity:0; transform:translateY(-6px); filter:blur(2px); } }
+.nx-label-stack { display:inline-grid; position:relative; }
+.nx-label-stack > span { grid-area:1/1; }
+.nx-label-in { animation:nx-label-in 200ms cubic-bezier(.23,1,.32,1) both; }
+.nx-label-out { animation:nx-label-out 150ms cubic-bezier(.23,1,.32,1) forwards; pointer-events:none; }
+.nx-deposit-cta { transition:background-color 200ms,box-shadow 200ms,color 200ms,transform 160ms; }
+.nx-deposit-cta[aria-disabled=true] { background:var(--nx-cta-off); color:var(--nx-mute-2); box-shadow:none; }
+@keyframes nx-shake { 20% { transform:translateX(-4px); } 45% { transform:translateX(3px); } 70% { transform:translateX(-2px); } }
+.nx-prow.shake { animation:nx-shake 320ms cubic-bezier(.23,1,.32,1); }
+@keyframes nx-menu-in { from { opacity:0; transform:scale(.96) translateY(-4px); } }
+.nx-asset-menu { transform-origin:top right; animation:nx-menu-in 150ms cubic-bezier(.23,1,.32,1) both; }
+.nx-tip { animation:nx-tooltip-in 150ms cubic-bezier(.23,1,.32,1) both; }
+@keyframes nx-tooltip-in { from { opacity:0; transform:translateY(4px) scale(.98); } }
+.nx-asset-controls[aria-busy=true] { opacity:.5; pointer-events:none; }
+.nx-asset-controls { transition:opacity 200ms; }
+.nx-asset-row { animation:nx-row-in 200ms cubic-bezier(.23,1,.32,1) both; transition:background-color 150ms,transform 100ms; }
+.nx-screen-stage { position:relative; width:100%; }
+.nx-screen-entering { display:flex; flex-direction:column; gap:8px; animation:nx-scr-in 250ms cubic-bezier(.23,1,.32,1) 60ms both; }
+.nx-screen-stage.back > .nx-screen-entering { animation-name:nx-scr-in-back; }
+.nx-screen-entering .nx-deposit-screen { animation:none; }
+.nx-screen-leaving { position:absolute; inset:0 0 auto; display:flex; flex-direction:column; gap:8px; pointer-events:none; animation:nx-screen-out 150ms cubic-bezier(.23,1,.32,1) both; }
+@keyframes nx-screen-out { to { opacity:0; transform:translateX(-16px); } }
+.nx-screen-stage.back > .nx-screen-leaving { animation-name:nx-screen-out-back; }
+@keyframes nx-screen-out-back { to { opacity:0; transform:translateX(16px); } }
+@keyframes nx-sheet-in { from { transform:translateY(105%); } }
+@keyframes nx-scrim-in { from { opacity:0; } }
+.nx-deposit-sheet { animation:nx-sheet-in 400ms cubic-bezier(.32,.72,0,1) backwards; }
+.nx-deposit-scrim { animation:nx-scrim-in 400ms ease-out; }
+.nx-deposit-sheet.closing { animation:none; }
+.nx-sheet-grip { height:26px; width:100%; display:grid; place-items:center; flex-shrink:0; touch-action:none; cursor:grab; }
+.nx-sheet-grip > span { width:36px; height:4px; border-radius:99px; background:var(--nx-line-2); }
+.nx-sheet-grip:focus-visible { outline:2px solid var(--nx-blue); outline-offset:-3px; }
+@keyframes nx-pop { from { opacity:0; transform:scale(.4); } }
+.nx-step-icon { animation:nx-pop 250ms cubic-bezier(.23,1,.32,1) both; }
+.nx-step-text { animation:nx-label-in 200ms cubic-bezier(.23,1,.32,1) both; }
+.nx-step-presence { display:grid; grid-template-rows:0fr; opacity:0; transition:grid-template-rows 250ms cubic-bezier(.2,0,0,1),opacity 150ms; }
+.nx-step-presence.on { grid-template-rows:1fr; opacity:1; transition:grid-template-rows 250ms cubic-bezier(.2,0,0,1),opacity 200ms 60ms; }
+.nx-step-presence > div { min-height:0; overflow:hidden; }
+@keyframes nx-spring { 0% { transform:scale(.5); opacity:0; } 30% { transform:scale(1.08); opacity:1; } 55% { transform:scale(.97); } 75% { transform:scale(1.01); } 100% { transform:scale(1); } }
+@keyframes nx-ring-in { from { opacity:0; transform:scale(.6); } }
+@keyframes nx-check-draw { to { stroke-dashoffset:0; } }
+.nx-receipt-success .nx-receipt-band { animation:nx-scrim-in 250ms both; }
+.nx-receipt-success .nx-ring-outer { animation:nx-ring-in 600ms cubic-bezier(.23,1,.32,1) 160ms both; }
+.nx-receipt-success .nx-ring-middle { animation:nx-ring-in 600ms cubic-bezier(.23,1,.32,1) 80ms both; }
+.nx-receipt-success .nx-ring-center { animation:nx-spring 500ms linear both; }
+.nx-receipt-success .nx-ring-center path { stroke-dasharray:30; stroke-dashoffset:30; animation:nx-check-draw 300ms cubic-bezier(.23,1,.32,1) 320ms forwards; }
+.nx-receipt-success .nx-receipt-details > div { animation:nx-row-in 250ms cubic-bezier(.23,1,.32,1) both; animation-delay:200ms; }
+.nx-receipt-success .nx-receipt-details > div:nth-child(2) { animation-delay:240ms; }
+.nx-receipt-success .nx-receipt-details > div:nth-child(3) { animation-delay:280ms; }
+.nx-receipt-success .nx-receipt-details > div:nth-child(n+4) { animation-delay:320ms; }
+.nx-receipt-success > .nx-deposit-cta { animation:nx-row-in 250ms 400ms both; }
+[data-nexus-widget-root] input::selection { background:var(--nx-blue-soft); color:var(--nx-ink); }
 @media (prefers-reduced-motion: reduce) {
-  .nx-deposit-screen, .nx-arrive, .nx-shim::after, .nx-caret, .nx-warn { animation:none !important; }
+  .nx-deposit-screen, .nx-arrive, .nx-shim::after, .nx-caret, .nx-warn, .nx-mode-change, .nx-progress-change { animation:none !important; }
+  [data-nexus-widget-root] *, .nx-tip { animation-duration:.01ms !important; animation-delay:0ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; transition-delay:0ms !important; }
+  .nx-screen-leaving { display:none; }
+  .nx-ring-center path { stroke-dashoffset:0 !important; }
+  .nx-digit-current { animation:none !important; }
+  .nx-plus { transition:none !important; }
+  .nx-token-presence.exiting { animation:none; display:none; }
 }
 `;
 

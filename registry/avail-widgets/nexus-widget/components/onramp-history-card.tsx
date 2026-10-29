@@ -34,20 +34,16 @@ export function OnrampHistoryCard({
   const symbol = context.tokenSymbol ?? transaction?.destinationCurrencyCode ?? "tokens";
   const fiatAmount = transaction?.sourceAmount ?? context.sourceAmount;
   const fiatCurrency = transaction?.sourceCurrencyCode ?? context.sourceCurrencyCode;
-  const fg = settled ? "#168A47" : pending ? "#B7791F" : "#E92C2C";
-  const bg = settled ? "#E8F6EF" : pending ? "#FFF3DE" : "#FFE6EA";
+  const fg = settled ? "var(--nexus-widget-success-text, #168A47)" : pending ? "var(--nexus-widget-warning-text, #B7791F)" : "var(--nexus-widget-error-text, #E92C2C)";
+  const bg = settled ? "var(--nexus-widget-success-background, #E8F6EF)" : pending ? "var(--nexus-widget-warning-background, #FFF3DE)" : "var(--nexus-widget-error-background, #FFE6EA)";
   return (
-    <article aria-label={`Onramp with ${provider}`} style={{
-      background: theme.colors.surface, border: `1px solid ${theme.colors.border}`,
-      borderRadius: "10px", padding: "12px 14px", fontFamily: theme.fonts.sans,
-      color: theme.colors.textStrong,
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
-        <div style={{ display: "flex", gap: "10px", alignItems: "center", minWidth: 0 }}>
-          <CreditCard size={26} aria-hidden="true" />
+    <article aria-label={`Onramp with ${provider}`} className="nx-history-card">
+      <div className="nx-history-top">
+        <div className="nx-history-asset">
+          <span className="nx-history-cash-icon"><CreditCard size={22} aria-hidden="true" /></span>
           <div>
-            <div style={{ fontWeight: 600, fontSize: "14px" }}>Onramp · {provider}</div>
-            <div style={{ marginTop: "4px", fontSize: "17px", fontWeight: 700 }}>
+            <div style={{ fontWeight: 400, fontSize: "13px", color: theme.colors.textSubtle }}>Onramp · {provider}</div>
+            <div style={{ margin: "4px 0", fontSize: "20px", lineHeight: "24px", fontWeight: 500, overflowWrap: "anywhere" }}>
               {tokenAmount(amount)} {symbol}
             </div>
             <div style={{ fontSize: "12px", color: theme.colors.textSubtle }}>
@@ -56,20 +52,20 @@ export function OnrampHistoryCard({
             </div>
           </div>
         </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <span style={{ color: fg, background: bg, borderRadius: "999px", padding: "3px 8px", fontSize: "12px", fontWeight: 600 }}>
+        <div className="nx-history-meta">
+          <span className="nx-history-status" style={{ color: fg, background: bg }}>
             {status}
           </span>
-          <div style={{ marginTop: "8px", fontSize: "12px", color: theme.colors.textSubtle }}>{relativeTime}</div>
+          <div style={{ fontSize: "12px", color: theme.colors.textSubtle }}>{relativeTime}</div>
         </div>
       </div>
-      <div style={{ borderTop: `1px solid ${theme.colors.border}`, marginTop: "12px", paddingTop: "10px", fontSize: "13px" }}>
+      <div style={{ borderTop: "1px solid var(--nx-line-2)", marginTop: "16px", paddingTop: "12px", fontSize: "13px", lineHeight: "18px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
           <span>
             {settled && transaction?.sourceAmount != null ? "Fiat spent" : "Fiat amount"}: {fiatAmount && fiatCurrency ? `${fiatAmount} ${fiatCurrency}` : "—"}
             {fiatAmount && transaction?.sourceAmount == null ? " (quoted)" : ""}
           </span>
-          {explorerUrl && <a href={explorerUrl} target="_blank" rel="noopener noreferrer" aria-label="View onramp transaction"
+          {explorerUrl && <a className="nx-history-link" href={explorerUrl} target="_blank" rel="noopener noreferrer" aria-label="View onramp transaction"
             style={{ color: "var(--foreground-brand)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
             View transaction <ExternalLink size={12} aria-hidden="true" />
           </a>}

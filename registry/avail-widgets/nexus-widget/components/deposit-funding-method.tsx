@@ -58,28 +58,16 @@ function MethodRow({
   onClick: () => void;
   tileBackground: string;
 }) {
-  const [hovered, setHovered] = React.useState(false);
-  const [pressed, setPressed] = React.useState(false);
 
   return (
     <>
       <LabeledButton
         label={label}
         onClick={onClick}
-        onMouseDown={() => setPressed(true)}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => {
-          setHovered(false);
-          setPressed(false);
-        }}
-        onMouseUp={() => setPressed(false)}
+        className="nx-method-row"
         style={{
           alignItems: "center",
-          background: pressed
-            ? "var(--nx-press, #F2F2F1)"
-            : hovered
-              ? "var(--nx-hover, #F7F7F7)"
-              : "transparent",
+          background: undefined,
           border: "none",
           borderRadius: "18px",
           boxSizing: "border-box",
@@ -88,7 +76,6 @@ function MethodRow({
           gap: "12px",
           padding: "12px",
           textAlign: "left",
-          transform: pressed ? "scale(0.98)" : "none",
           transition:
             "background-color 150ms cubic-bezier(.23,1,.32,1), transform 100ms cubic-bezier(.23,1,.32,1)",
           width: "100%",
@@ -181,14 +168,9 @@ export function DepositFundingMethod({
       }}
     >
       <div
+        className="nx-card"
         style={{
-          background: "var(--nx-card, #FFFFFF)",
-          borderRadius: "30px",
-          boxShadow: "none",
           boxSizing: "border-box",
-          display: "flex",
-          flexDirection: "column",
-          padding: "8px",
         }}
       >
         <div

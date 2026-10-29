@@ -890,6 +890,16 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-animated-amount.tsx",
+          "target": "components/nexus/components/deposit-animated-amount.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-asset-selector.tsx",
+          "target": "components/nexus/components/deposit-asset-selector.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/deposit-funding-method.tsx",
           "target": "components/nexus/components/deposit-funding-method.tsx",
           "type": "registry:component"
@@ -900,8 +910,18 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-motion.tsx",
+          "target": "components/nexus/components/deposit-motion.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/deposit-onramp-flow.tsx",
           "target": "components/nexus/components/deposit-onramp-flow.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-token-logo.tsx",
+          "target": "components/nexus/components/deposit-token-logo.tsx",
           "type": "registry:component"
         },
         {

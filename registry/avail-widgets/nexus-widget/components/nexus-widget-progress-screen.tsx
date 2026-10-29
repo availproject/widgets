@@ -15,6 +15,7 @@ import {
   type NexusWidgetDepositOpportunityMetadata,
   type NexusWidgetMode,
 } from "../types";
+import { DepositCalculatedAmount } from "./deposit-idle-form";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
@@ -1261,7 +1262,7 @@ export function NexusWidgetProgressScreen({
         : undefined,
     },
   });
-  const [stepsExpanded, setStepsExpanded] = useState(true);
+  const [stepsExpanded, setStepsExpanded] = useState(false);
   const activeRow =
     statusRows.find(
       (row) => row.state === "preapproval" || row.state === "inProgress",
@@ -1273,9 +1274,7 @@ export function NexusWidgetProgressScreen({
   const canExpand = statusRows.length > 1;
   const getRowHeight = (row: ProgressStatusRow) =>
     mode === "deposit"
-      ? row.description
-        ? 64
-        : 52
+      ? 56
       : row.description
         ? 47
         : 40;
@@ -1290,7 +1289,7 @@ export function NexusWidgetProgressScreen({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "7px",
+        gap: mode === "deposit" ? "8px" : "7px",
         width: "100%",
       }}
     >
@@ -1304,7 +1303,7 @@ export function NexusWidgetProgressScreen({
               ? "var(--nx-sh-card, #16161508 0 1px 2px, #1616150A 0 6px 18px)"
               : "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           boxSizing: "border-box",
-          padding: mode === "deposit" ? "14px 12px 12px" : "12px 13px 9px",
+          padding: mode === "deposit" ? "14px 12px 24px" : "12px 13px 9px",
           width: "100%",
         }}
       >
@@ -1336,7 +1335,7 @@ export function NexusWidgetProgressScreen({
                 marginTop: "2px",
               }}
             >
-              <span>~{formatDecimal(destinationAmount, 2)}</span>
+              <span><DepositCalculatedAmount value={formatDecimal(destinationAmount, 2)} /></span>
               <span
                 style={{
                   color: "var(--nx-mute, #737372)",
@@ -1546,6 +1545,7 @@ export function NexusWidgetProgressScreen({
 
       <div
         aria-live="polite"
+        data-nexus-progress-card
         style={{
           background: "var(--nx-card, var(--nexus-widget-surface, #FFFFFE))",
           border: mode === "deposit" ? "none" : `1px solid ${border}`,
@@ -1556,6 +1556,7 @@ export function NexusWidgetProgressScreen({
               : "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           boxSizing: "border-box",
           overflow: "hidden",
+          padding: mode === "deposit" ? "12px 8px" : undefined,
           transition:
             mode === "deposit"
               ? "grid-template-rows 250ms cubic-bezier(.2,0,0,1)"
@@ -1567,9 +1568,11 @@ export function NexusWidgetProgressScreen({
           style={{
             display: "grid",
             gridTemplateRows: "1fr",
-            maxHeight: stepsExpanded
-              ? `${Math.max(43, expandedStatusHeight)}px`
-              : `${collapsedStatusHeight}px`,
+            maxHeight: mode === "deposit"
+              ? undefined
+              : stepsExpanded
+                ? `${Math.max(43, expandedStatusHeight)}px`
+                : `${collapsedStatusHeight}px`,
             overflow: "hidden",
             transition: "max-height 220ms ease",
           }}
@@ -1581,38 +1584,48 @@ export function NexusWidgetProgressScreen({
               minHeight: 0,
             }}
           >
-            {visibleRows.map((row, index) => {
+            {(mode === "deposit" ? statusRows : visibleRows).map((row, index) => {
+              const visible = mode !== "deposit" || stepsExpanded || row.id === activeRow?.id;
               const isCompleted = row.state === "completed";
               const isError = row.state === "error";
               const isDefault = row.state === "default";
               const isLoading =
                 row.state === "preapproval" || row.state === "inProgress";
               const hasDescription = Boolean(row.description);
-              const rowColor = isDefault ? muted : isError ? danger : primary;
+              const rowColor = mode === "deposit"
+                ? isDefault ? "var(--nx-faint, #A3A3A2)" : isError ? "var(--nx-red, #D93636)" : "var(--nx-ink, #161615)"
+                : isDefault ? muted : isError ? danger : primary;
+              const statusBrand = mode === "deposit" ? "var(--nx-blue, #006BF4)" : brand;
+              const iconSize = mode === "deposit" ? 24 : 15;
 
               return (
+                <div key={row.id} className={mode === "deposit" ? `nx-step-presence${visible ? " on" : ""}` : undefined}
+                  style={mode !== "deposit" ? { display: "contents" } : undefined} inert={!visible} aria-hidden={!visible}>
+                <div style={mode !== "deposit" ? { display: "contents" } : undefined}>
                 <button
-                  key={row.id}
+                  data-nexus-progress-row={row.state}
+                  aria-expanded={canExpand && visible ? stepsExpanded : undefined}
                   onClick={() => {
                     if (canExpand) setStepsExpanded((current) => !current);
                   }}
                   style={{
-                    alignItems: hasDescription ? "flex-start" : "center",
+                    alignItems: mode === "deposit" ? "center" : hasDescription ? "flex-start" : "center",
                     appearance: "none",
                     background: "transparent",
                     border: "0",
                     borderTop:
-                      index > 0 && stepsExpanded ? `1px solid ${border}` : "0",
+                      mode !== "deposit" && index > 0 && stepsExpanded ? `1px solid ${border}` : "0",
                     boxSizing: "border-box",
                     color: rowColor,
                     cursor: canExpand ? "pointer" : "default",
-                    display: "flex",
+                    display: mode === "deposit" ? "grid" : "flex",
+                    gridTemplateColumns: mode === "deposit" ? `24px minmax(0, 1fr)${canExpand ? " 20px" : ""}` : undefined,
                     fontFamily,
                     fontSize: mode === "deposit" ? "16px" : "11px",
                     fontWeight: mode === "deposit" ? 500 : 400,
-                    gap: "7px",
+                    gap: mode === "deposit" ? "12px" : "7px",
                     minHeight: `${getRowHeight(row)}px`,
-                    padding: "8px 11px",
+                    padding: mode === "deposit" ? "8px 12px" : "8px 11px",
                     textAlign: "left",
                     transition:
                       "color 220ms ease, min-height 220ms ease, opacity 220ms ease",
@@ -1621,18 +1634,19 @@ export function NexusWidgetProgressScreen({
                   type="button"
                 >
                   {isCompleted || isError ? (
-                    <span
+                    <span key={row.state} className={mode === "deposit" ? "nx-step-icon" : undefined}
                       style={{
                         alignItems: "center",
-                        background: isError ? "var(--nexus-widget-error-background, #E92C2C)" : brand,
+                        background: isError ? mode === "deposit" ? "var(--nx-red, #D93636)" : "var(--nexus-widget-error-background, #E92C2C)" : statusBrand,
                         borderRadius: "999px",
                         color: isError
-                          ? "var(--nexus-widget-error-text, #FFFFFE)"
+                          ? mode === "deposit" ? "#FFFFFF" : "var(--nexus-widget-error-text, #FFFFFE)"
                           : "var(--nexus-widget-primary-foreground, #FFFFFE)",
                         display: "inline-flex",
-                        height: "15px",
+                        height: iconSize,
+                        flexShrink: 0,
                         justifyContent: "center",
-                        width: "15px",
+                        width: iconSize,
                       }}
                     >
                       {isError ? (
@@ -1645,14 +1659,25 @@ export function NexusWidgetProgressScreen({
                     <span
                       style={{
                         background: "var(--nexus-widget-surface, #FFFFFE)",
-                        border: "2px solid var(--nexus-widget-text-tertiary, #E8E8E7)",
+                        border: mode === "deposit" ? "1.5px solid var(--nx-ghost, #C4C4C2)" : "2px solid var(--nexus-widget-text-tertiary, #E8E8E7)",
                         borderRadius: "999px",
                         boxSizing: "border-box",
                         display: "inline-flex",
-                        height: "15px",
-                        width: "15px",
+                        height: iconSize,
+                        flexShrink: 0,
+                        width: iconSize,
                       }}
                     />
+                  ) : mode === "deposit" ? (
+                    <span aria-hidden="true" style={{
+                      animation: "nexusWidgetSpin 800ms linear infinite",
+                      border: "2px solid var(--nx-blue-soft, #E5F0FE)",
+                      borderTopColor: statusBrand,
+                      borderRadius: "50%",
+                      boxSizing: "border-box",
+                      width: iconSize,
+                      height: iconSize,
+                    }} />
                   ) : (
 	                    <Loader2
 	                      className="animate-spin"
@@ -1664,53 +1689,58 @@ export function NexusWidgetProgressScreen({
 	                      }}
 	                    />
                   )}
-                  <span
+                  <span key={`${row.state}-${row.label}`} className={mode === "deposit" ? "nx-step-text" : undefined}
                     style={{
                       display: "flex",
                       flexDirection: "column",
-                      gap: "3px",
-                      lineHeight: "18px",
+                      gap: mode === "deposit" ? "2px" : "3px",
+                      lineHeight: mode === "deposit" ? "20px" : "18px",
                       minWidth: 0,
                     }}
                   >
                     <span
                       style={{
                         color: rowColor,
-                        fontWeight: isLoading ? 600 : 400,
+                        fontWeight: mode === "deposit" ? 500 : isLoading ? 600 : 400,
+                        overflowWrap: "anywhere",
                       }}
                     >
                       {row.label}
                     </span>
                     {row.description && (
-                      <span
+                      <span key={row.description} className={mode === "deposit" ? "nx-step-text" : undefined}
                         style={{
-                          color: isLoading ? brand : muted,
-                          fontSize: "10px",
+                          color: isError && mode === "deposit" ? "var(--nx-red)" : isLoading ? statusBrand : mode === "deposit" ? "var(--nx-mute-2, #8C8C8B)" : muted,
+                          fontSize: mode === "deposit" ? "14px" : "10px",
                           fontWeight: 400,
-                          lineHeight: "13px",
+                          lineHeight: mode === "deposit" ? "18px" : "13px",
+                          overflowWrap: "anywhere",
                         }}
                       >
                         {row.description}
                       </span>
                     )}
                   </span>
-                  {canExpand && index === 0 && (
+                  {canExpand && (stepsExpanded ? index === 0 : row.id === activeRow?.id) && (
                     <ChevronDown
                       style={{
-                        color: muted,
+                        color: mode === "deposit" ? "var(--nx-ink-2, #3A3A39)" : muted,
                         flexShrink: 0,
-                        height: 16,
-                        marginLeft: "auto",
-                        marginTop: hasDescription ? 2 : 0,
+                        height: mode === "deposit" ? 12 : 16,
+                        justifySelf: "center",
+                        marginLeft: mode === "deposit" ? undefined : "auto",
+                        marginTop: mode === "deposit" ? 0 : hasDescription ? 2 : 0,
                         transform: stepsExpanded
                           ? "rotate(180deg)"
                           : "rotate(0deg)",
                         transition: "transform 220ms ease",
-                        width: 16,
+                        width: mode === "deposit" ? 12 : 16,
                       }}
                     />
                   )}
                 </button>
+                </div>
+                </div>
               );
             })}
           </div>

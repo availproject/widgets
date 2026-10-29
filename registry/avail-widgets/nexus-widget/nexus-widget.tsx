@@ -3,7 +3,7 @@
 
 import { ERROR_CODES, type EthereumProvider } from "@avail-project/nexus-core";
 import Decimal from "decimal.js";
-import { AlertCircle, ArrowLeft, ChevronDown, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, ChevronDown, ChevronLeft, History, Loader2 } from "lucide-react";
 import React, {
   useCallback,
   useEffect,
@@ -57,7 +57,9 @@ import { classifyIntentError } from "../nexus/intent-error-classifier";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
 import { DepositFundingMethod } from "./components/deposit-funding-method";
-import { DepositIdleForm } from "./components/deposit-idle-form";
+import { DepositAssetSelector } from "./components/deposit-asset-selector";
+import { DepositAnimatedLabel, DepositScreenMotion, DepositSheetGrip } from "./components/deposit-motion";
+import { DepositIdleForm, DepositCalculatedAmount } from "./components/deposit-idle-form";
 import { DepositOnrampFlow } from "./components/deposit-onramp-flow";
 import { OnrampHistoryCard } from "./components/onramp-history-card";
 import { useOnrampHistory } from "./utils/use-onramp-history";
@@ -266,10 +268,10 @@ const DESTINATION_RECEIVE_LIMIT_USD_BY_CHAIN_ID: Record<number, number> = {
 
 const QUOTE_REFRESH_INTERVAL_MS = 30000;
 const EXACT_OUT_INPUT_DEBOUNCE_MS = 1300;
-const DRAWER_CLOSE_MS = 220;
+const DRAWER_CLOSE_MS = 250;
 const BALANCE_REFRESH_AFTER_TERMINAL_MS = 3000;
 const MODAL_HEIGHT_TRANSITION_MS = 220;
-const ROOT_HEIGHT_TRANSITION_MS = 140;
+const ROOT_HEIGHT_TRANSITION_MS = 300;
 const ASSET_SELECTOR_DRAWER_HEIGHT = "90%";
 const TOKEN_SELECTOR_MIN_ROOT_CONTENT_HEIGHT = 620;
 const CONFIGURED_RECEIVE_SELECTOR_BASE_HEIGHT = 170;
@@ -2978,12 +2980,13 @@ function SwapReceiptPanel({
     );
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+      <div className={success ? "nx-receipt-success" : undefined} style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
         <div className="nx-card" style={{ padding: "8px 8px 16px" }}>
           <div style={{ font: `500 20px/26px ${'"Delight","Geist",system-ui,sans-serif'}`, padding: "14px 12px 12px", textAlign: "center" }}>
             {isTimeout ? timeoutHeadline : isFailed ? "Deposit Failed" : "Deposit Complete"}
           </div>
           <div
+            className="nx-receipt-band"
             style={{
               alignItems: "center",
               background: `linear-gradient(180deg, ${soft} 0%, var(--nx-band, #F8F8F8) 100%)`,
@@ -2993,9 +2996,9 @@ function SwapReceiptPanel({
               justifyContent: "center",
             }}
           >
-            <div style={{ alignItems: "center", background: success ? "#12AD5912" : "#D9363612", borderRadius: 999, display: "flex", height: 124, justifyContent: "center", width: 124 }}>
-              <div style={{ alignItems: "center", background: success ? "#12AD591F" : "#D936361F", borderRadius: 999, display: "flex", height: 92, justifyContent: "center", width: 92 }}>
-                <div style={{ alignItems: "center", background: accent, borderRadius: 999, boxShadow: success ? "#12AD5973 0 8px 20px -4px" : "#D9363673 0 8px 20px -4px", color: "#fff", display: "flex", height: 60, justifyContent: "center", width: 60 }}>
+            <div className="nx-ring-outer" style={{ alignItems: "center", background: success ? "#12AD5912" : "#D9363612", borderRadius: 999, display: "flex", height: 124, justifyContent: "center", width: 124 }}>
+              <div className="nx-ring-middle" style={{ alignItems: "center", background: success ? "#12AD591F" : "#D936361F", borderRadius: 999, display: "flex", height: 92, justifyContent: "center", width: 92 }}>
+                <div className="nx-ring-center" style={{ alignItems: "center", background: accent, borderRadius: 999, boxShadow: success ? "#12AD5973 0 8px 20px -4px" : "#D9363673 0 8px 20px -4px", color: "#fff", display: "flex", height: 60, justifyContent: "center", width: 60 }}>
                   {success ? (
                     <svg fill="none" height="28" viewBox="0 0 24 24" width="28">
                       <path d="M5 12.5L10 17.5L19 7.5" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" />
@@ -3019,7 +3022,7 @@ function SwapReceiptPanel({
               </div>
             ) : null}
             <div style={{ alignItems: "baseline", display: "flex", gap: 8 }}>
-              <span style={{ font: `300 48px/56px ${uiFont}`, letterSpacing: "-0.03em" }}>~{displayAmount ? formatTokenDisplay(displayAmount) : "--"}</span>
+              <span style={{ font: `300 48px/56px ${uiFont}`, letterSpacing: "-0.03em" }}><DepositCalculatedAmount value={displayAmount || "0"} entranceDelay={success ? 350 : undefined} /></span>
               <span style={{ color: "var(--nx-mute, #737372)", font: `500 18px/22px ${uiFont}` }}>{tokenSymbol}</span>
             </div>
             <div style={{ color: "var(--nx-mute-2, #8C8C8B)", font: `400 14px/18px ${uiFont}` }}>≈ {formatUsdDisplay(value)}</div>
@@ -3033,7 +3036,7 @@ function SwapReceiptPanel({
             </div>
           </div>
         </div>
-        <div className="nx-card" style={{ padding: "4px 20px" }}>
+        <div className="nx-card nx-receipt-details" style={{ padding: "4px 20px" }}>
           <div style={{ alignItems: "flex-start", borderBottom: "1px solid var(--nx-line, #F0F0F0)", display: "flex", justifyContent: "space-between", padding: "14px 0" }}>
             <span style={{ color: "var(--nx-mute-2, #8C8C8B)", font: `400 14px/18px ${uiFont}` }}>You Deposited</span>
             <span style={{ textAlign: "right" }}>
@@ -3071,14 +3074,6 @@ function SwapReceiptPanel({
               )
             : null}
           {detailRow("Total Fees", formatUsdDisplay(entry.feeUsd), { border: false })}
-          <div style={{ alignItems: "center", borderTop: "1px solid var(--nx-line, #F0F0F0)", display: "flex", gap: 8, padding: "14px 0" }}>
-            <span style={{ alignItems: "center", background: accent, borderRadius: 999, color: "#fff", display: "inline-flex", height: 16, justifyContent: "center", width: 16 }}>
-              {success ? "✓" : "!"}
-            </span>
-            <span style={{ font: `400 14px/18px ${uiFont}` }}>
-              {success ? "Transaction Successful" : isTimeout ? timeoutHeadline : "Transaction failed"}
-            </span>
-          </div>
         </div>
         <button className="nx-deposit-cta" onClick={onDone} style={{ width: "100%" }} type="button">
           Done
@@ -3514,15 +3509,10 @@ function HistoryStatusPill({ status }: { status: SwapHistoryStatus }) {
 
   return (
     <span
+      className="nx-history-status"
       style={{
         background: config.bg,
-        borderRadius: "999px",
         color: config.fg,
-        fontFamily: uiFont,
-        fontSize: "12px",
-        fontWeight: 600,
-        lineHeight: "16px",
-        padding: "3px 8px",
       }}
     >
       {config.label}
@@ -3540,11 +3530,9 @@ function SwapHistoryPanel({
   if (entries.length === 0) {
     return (
       <div
+        className="nx-history-card"
         style={{
           alignItems: "center",
-          backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
-          border: "1px solid var(--nexus-widget-border, #E8E8E7)",
-          borderRadius: "14px",
           display: "flex",
           flexDirection: "column",
           gap: "12px",
@@ -3564,15 +3552,7 @@ function SwapHistoryPanel({
             width: "48px",
           }}
         >
-          <span
-            style={{
-              color: "var(--nexus-widget-text-secondary, #848483)",
-              fontFamily: uiFont,
-              fontSize: "25px",
-            }}
-          >
-            ↻
-          </span>
+          <History size={22} aria-hidden="true" style={{ color: "var(--nx-mute)" }} />
         </div>
         <div
           style={{
@@ -3602,7 +3582,6 @@ function SwapHistoryPanel({
   }
 
   const sortedEntries = sortSwapHistoryEntries(entries);
-  const shouldScroll = sortedEntries.length > 5;
 
   return (
     <div
@@ -3610,9 +3589,6 @@ function SwapHistoryPanel({
         display: "flex",
         flexDirection: "column",
         gap: "8px",
-        maxHeight: shouldScroll ? "660px" : undefined,
-        overflowY: shouldScroll ? "auto" : undefined,
-        paddingRight: shouldScroll ? "4px" : undefined,
         width: "100%",
       }}
     >
@@ -3671,43 +3647,27 @@ function SwapHistoryPanel({
         const historyExplorerUrl = getHistoryExplorerUrl(entry);
 
         return (
-          <div
-            key={entry.id}
-            style={{
-              background: "var(--nexus-widget-surface, #FFFFFE)",
-              border: "1px solid var(--nexus-widget-border, #E8E8E7)",
-              borderRadius: "10px",
-              boxShadow:
-                "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
-              padding: "12px 14px",
-            }}
-          >
-            <div
-              style={{
-                alignItems: "center",
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
-              <div
-                style={{ alignItems: "center", display: "flex", gap: "12px" }}
-              >
+          <article key={entry.id} className="nx-history-card" aria-label={`${destinationSymbol || "Token"} transaction`}>
+            <div className="nx-history-top">
+              <div className="nx-history-asset">
                 <TokenLogoPair
                   chainLogo={destinationChainLogo}
                   chainName={destinationChainName}
-                  size={34}
+                  size={40}
                   tokenLogo={destinationLogo}
                   tokenSymbol={destinationSymbol}
                 />
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{
                       alignItems: "baseline",
                       color: "var(--nexus-widget-text-strong, #161615)",
                       display: "flex",
                       fontFamily: uiFont,
-                      fontSize: "17px",
-                      fontWeight: 700,
+                      fontSize: "20px",
+                      fontWeight: 500,
+                      flexWrap: "wrap",
+                      overflowWrap: "anywhere",
                       gap: "6px",
                       lineHeight: "22px",
                     }}
@@ -3718,8 +3678,8 @@ function SwapHistoryPanel({
                     <span
                       style={{
                         color: "var(--nexus-widget-text-secondary, #848483)",
-                        fontSize: "12px",
-                        fontWeight: 600,
+                        fontSize: "14px",
+                        fontWeight: 400,
                       }}
                     >
                       {destinationSymbol}
@@ -3737,14 +3697,7 @@ function SwapHistoryPanel({
                   </div>
                 </div>
               </div>
-              <div
-                style={{
-                  alignItems: "flex-end",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "6px",
-                }}
-              >
+              <div className="nx-history-meta">
                 <HistoryStatusPill status={status} />
                 <span
                   style={{
@@ -3764,7 +3717,7 @@ function SwapHistoryPanel({
                 style={{
                   alignItems: "center",
                   background: "var(--nexus-widget-surface-inset, #FFF3F3)",
-                  borderRadius: "8px",
+                  borderRadius: "12px",
                   display: "flex",
                   justifyContent: "space-between",
                   marginTop: "12px",
@@ -3786,11 +3739,11 @@ function SwapHistoryPanel({
             <div
               style={{
                 alignItems: "center",
-                borderTop: "1px solid var(--nexus-widget-border, #E8E8E7)",
+                borderTop: "1px solid var(--nx-line-2)",
                 display: "flex",
                 justifyContent: "space-between",
-                marginTop: "12px",
-                paddingTop: "10px",
+                marginTop: "16px",
+                paddingTop: "12px",
               }}
             >
               <div
@@ -3802,7 +3755,7 @@ function SwapHistoryPanel({
                 }}
               >
                 {sourceRows.length > 0 && (
-                  <SourceLogoStack size={21} sources={sourceRows} />
+                  <SourceLogoStack size={24} sources={sourceRows} />
                 )}
                 <span
                   style={{
@@ -3816,13 +3769,14 @@ function SwapHistoryPanel({
                 <TokenLogoPair
                   chainLogo={destinationChainLogo}
                   chainName={destinationChainName}
-                  size={21}
+                  size={24}
                   tokenLogo={destinationLogo}
                   tokenSymbol={destinationSymbol}
                 />
               </div>
               {historyExplorerUrl && (
                 <a
+                  className="nx-history-link"
                   aria-label="View transaction"
                   href={historyExplorerUrl}
                   rel="noopener noreferrer"
@@ -3883,7 +3837,7 @@ function SwapHistoryPanel({
                 </a>
               )}
             </div>
-          </div>
+          </article>
         );
       })}
     </div>
@@ -4256,6 +4210,8 @@ function NexusWidgetInner({
   const [depositOnrampSessionState, setDepositOnrampSessionState] = useState<
     string | null
   >(null);
+  const depositPickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (depositPickTimerRef.current) clearTimeout(depositPickTimerRef.current); }, []);
   const drawerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -4634,8 +4590,8 @@ function NexusWidgetInner({
       immediateQuoteAfterSourceEditRef.current = false;
       return 0;
     }
-    return EXACT_OUT_INPUT_DEBOUNCE_MS;
-  }, []);
+    return activeMode === "deposit" ? 250 : EXACT_OUT_INPUT_DEBOUNCE_MS;
+  }, [activeMode]);
 
   const startRootHeightTransition = useCallback(() => {
     setShouldAnimateRootHeight(true);
@@ -4702,9 +4658,10 @@ function NexusWidgetInner({
     const element = rootContentRef.current;
     if (!element) return;
 
-    const nextHeight = Math.ceil(
-      Math.max(element.getBoundingClientRect().height, element.scrollHeight),
-    );
+    // Outgoing screen snapshots are absolutely positioned and can temporarily
+    // increase scrollHeight. Measure the current layout box so their old height
+    // cannot leave empty space after the exit animation removes them.
+    const nextHeight = Math.ceil(element.getBoundingClientRect().height);
     if (nextHeight <= 0) return;
 
     if (rootContentHeightRef.current === nextHeight) {
@@ -10880,18 +10837,15 @@ function NexusWidgetInner({
     depositFundingStep === "method";
   const isDepositWalletScreen =
     activeMode === "deposit" &&
-    swapStep === "idle" &&
+    (swapStep === "idle" || swapStep === "choose-swap-asset") &&
     depositFundingStep === "wallet";
-  const depositOwnsShell =
-    isDepositMethodScreen ||
-    (isDepositWalletScreen && fromTokens.length === 0);
   const isDepositOnrampScreen =
     activeMode === "deposit" &&
     configuredEnableOnRamp &&
     swapStep === "idle" &&
     depositFundingStep === "onramp";
   const hideDepositHeader =
-    depositOwnsShell ||
+    isDepositMethodScreen ||
     isDepositWalletScreen ||
     isDepositOnrampScreen ||
     (activeMode === "deposit" &&
@@ -11024,7 +10978,7 @@ function NexusWidgetInner({
       depositFundingStep !== "method" &&
       !hasDepositOnrampSession) ||
     (isDepositOnrampScreen && !hasDepositOnrampSession);
-  const showHistoryButton = !isDepositOnrampScreen;
+  const showHistoryButton = !isDepositOnrampScreen && swapStep !== "history";
   const handleBack = () => {
     if (
       activeMode === "deposit" &&
@@ -11820,7 +11774,7 @@ function NexusWidgetInner({
   const tokenAssetDrawerMinRootContentHeight =
     isConfiguredReceiveAssetDrawerActive
       ? getConfiguredReceiveSelectorRootHeight(configuredReceiveTokenCount)
-      : isTokenAssetDrawerActive
+      : isTokenAssetDrawerActive && !(activeMode === "deposit" && swapStep === "choose-swap-asset")
         ? TOKEN_SELECTOR_MIN_ROOT_CONTENT_HEIGHT
         : 0;
   const isDrawerOverlayActive =
@@ -11841,11 +11795,9 @@ function NexusWidgetInner({
       data-nexus-widget-theme={themeStyle.colorScheme}
       style={{
         ...themeStyle,
-        backgroundColor: depositOwnsShell
-          ? "var(--nx-card, #FFFFFF)"
-          : activeMode === "deposit"
-            ? "var(--nx-shell, #F7F7F7)"
-            : "var(--nexus-widget-background, #F9F9F8)",
+        backgroundColor: activeMode === "deposit"
+          ? "var(--nx-shell, #F7F7F7)"
+          : "var(--nexus-widget-background, #F9F9F8)",
         backgroundImage:
           activeMode === "deposit"
             ? "none"
@@ -11870,9 +11822,9 @@ function NexusWidgetInner({
         fontSize: "12px",
         fontSynthesis: "none",
         fontVariantNumeric: "tabular-nums",
-        gap: depositOwnsShell ? "0px" : activeMode === "deposit" ? "8px" : "16px",
+        gap: activeMode === "deposit" ? "8px" : "16px",
         height: displayedRootContentHeight
-          ? `${displayedRootContentHeight + (depositOwnsShell ? 0 : activeMode === "deposit" ? 16 : 32)}px`
+          ? `${displayedRootContentHeight + (activeMode === "deposit" ? 16 : 32)}px`
           : "fit-content",
         maxHeight: "90dvh",
         lineHeight: "17px",
@@ -11882,18 +11834,14 @@ function NexusWidgetInner({
           isDrawerOverlayActive || isPreviewIntentScreen ? "hidden" : "auto",
         overscrollBehavior:
           isDrawerOverlayActive || isPreviewIntentScreen ? "contain" : "auto",
-        padding: depositOwnsShell
-          ? "0px"
-          : activeMode === "deposit"
-            ? "8px"
-            : "16px",
+        padding: activeMode === "deposit" ? "8px" : "16px",
         scrollbarColor: `${theme.colors.textEmpty} transparent`,
         scrollbarWidth: "thin",
         position: "relative",
         transition: (() => {
           const transitions = [];
           if (hasMeasuredRootContent && shouldAnimateRootHeight) {
-            transitions.push(`height ${ROOT_HEIGHT_TRANSITION_MS}ms ease-out`);
+            transitions.push(`height ${ROOT_HEIGHT_TRANSITION_MS}ms cubic-bezier(.2,0,0,1)`);
           }
           return transitions.join(", ");
         })(),
@@ -11929,14 +11877,19 @@ function NexusWidgetInner({
           width: "100%",
         }}
       >
+        <DepositScreenMotion enabled={activeMode === "deposit"} back={depositSlideFromLeft}
+          screenKey={activeMode === "deposit" ? (["idle", "choose-swap-asset", "choose-receive-asset", "enter-recipient"].includes(swapStep)
+            ? `${depositFundingStep}:${fromTokens.length ? "amount" : "select"}` : swapStep) : "static"}>
+
         <div
+          className={swapStep === "history" ? "nx-history-header" : undefined}
           style={{
             alignItems: "center",
             boxSizing: "border-box",
             display: hideDepositHeader ? "none" : "flex",
             flexShrink: 0,
             justifyContent: "space-between",
-            padding: 0,
+            padding: swapStep === "history" ? "20px" : 0,
             width: "100%",
             position: "relative",
             zIndex: 10,
@@ -11961,7 +11914,12 @@ function NexusWidgetInner({
                 onClick={handleBack}
                 style={{
                   alignItems: "center",
-                  backgroundColor: "transparent",
+                  backgroundColor: swapStep === "history" ? "var(--nx-fill)" : "transparent",
+                  borderRadius: "50%",
+                  width: swapStep === "history" ? "32px" : undefined,
+                  height: swapStep === "history" ? "32px" : undefined,
+                  justifyContent: "center",
+                  flexShrink: 0,
                   border: "none",
                   cursor: "pointer",
                   display: "flex",
@@ -11969,10 +11927,10 @@ function NexusWidgetInner({
                   marginRight: "4px",
                 }}
               >
-                <ArrowLeft
+                {swapStep === "history" ? <ChevronLeft size={18} style={{ color: "var(--nx-ink)" }} /> : <ArrowLeft
                   className="w-5 h-5"
                   style={{ color: theme.colors.textStrong }}
-                />
+                />}
               </button>
             )}
             <div
@@ -11988,6 +11946,7 @@ function NexusWidgetInner({
                   boxSizing: "border-box",
                   color: theme.colors.text,
                   ...theme.typography.headingPanel,
+                  ...(swapStep === "history" ? { fontSize: "20px", lineHeight: "24px", color: "var(--nx-ink)" } : {}),
                 }}
               >
                 {getTitle()}
@@ -12090,20 +12049,20 @@ function NexusWidgetInner({
                 onClick={handleClose}
                 style={{
                   alignItems: "center",
-                  backgroundColor: theme.primitives.iconButton.backgroundColor,
+                  backgroundColor: swapStep === "history" ? "var(--nx-fill)" : theme.primitives.iconButton.backgroundColor,
                   borderColor: theme.primitives.iconButton.borderColor,
                   borderRadius: theme.radius.iconButton,
                   borderStyle: "solid",
-                  borderWidth: "1px",
-                  boxShadow: theme.primitives.iconButton.boxShadow,
+                  borderWidth: swapStep === "history" ? 0 : "1px",
+                  boxShadow: swapStep === "history" ? "none" : theme.primitives.iconButton.boxShadow,
                   boxSizing: "border-box",
                   cursor: "pointer",
                   display: "flex",
                   flexShrink: 0,
-                  height: "28px",
+                  height: swapStep === "history" ? "32px" : "28px",
                   justifyContent: "center",
                   padding: 0,
-                  width: "28px",
+                  width: swapStep === "history" ? "32px" : "28px",
                 }}
               >
                 <svg
@@ -12556,13 +12515,12 @@ function NexusWidgetInner({
                       isSourcePickerDisabled={isSourcePickerRefreshDisabled}
                       onAmountChange={handleDepositAmountChange}
                       onAmountModeToggle={handleDepositAmountModeToggle}
-                      onOpenSourcePicker={() => {
+                      onOpenSourcePicker={(index) => {
                         if (needsWalletConnection) {
                           void handleConnectWallet();
                           return;
                         }
-                        captureSourceSelectionRequiredUsd();
-                        beginSourcePickerEdit();
+                        setEditingAssetIndex(index ?? null);
                         openDrawerStep("choose-swap-asset");
                       }}
                       onOpenTokenPicker={() =>
@@ -12583,12 +12541,14 @@ function NexusWidgetInner({
                       }
                       routeMessage={
                         swapQuoteIssue?.message ??
+                        receiveAmountIssue?.message ??
+                        txError ??
                         insufficientSourceIssue?.message
                       }
                       routeStatus={
                         swapQuoteIssue?.type === "insufficientSources"
                           ? "insufficient"
-                          : swapQuoteIssue
+                          : swapQuoteIssue || receiveAmountIssue || txError
                             ? "error"
                             : quoteRefreshing || intentLoading
                               ? "loading"
@@ -12657,8 +12617,20 @@ function NexusWidgetInner({
                       }}
                     >
                       <button
-                        disabled={isDepositCtaDisabled}
+                        aria-disabled={isDepositCtaDisabled}
                         onClick={() => {
+                          if (isDepositCtaDisabled) {
+                            const inputs = Array.from(rootContentRef.current?.querySelectorAll<HTMLInputElement>(".nx-prow input") ?? []);
+                            const input = inputs.find(field => field.closest(".err")) ?? inputs.find(field => !Number(field.value.replaceAll(",", "")));
+                            if (input) {
+                              input.focus();
+                              const row = input.closest<HTMLElement>(".nx-prow");
+                              row?.classList.remove("shake");
+                              if (row) { void row.offsetWidth; row.classList.add("shake"); }
+                              row?.addEventListener("animationend", () => row.classList.remove("shake"), { once: true });
+                            }
+                            return;
+                          }
                           if (needsWalletConnection) {
                             void handleConnectWallet();
                             return;
@@ -12699,7 +12671,7 @@ function NexusWidgetInner({
                           height: "56px",
                           justifyContent: "center",
                           transition:
-                            "background-color 200ms cubic-bezier(.23,1,.32,1), transform 100ms cubic-bezier(.23,1,.32,1)",
+                            "background-color 200ms, box-shadow 200ms, color 200ms, transform 160ms",
                           width: "100%",
                         }}
                       >
@@ -12740,7 +12712,7 @@ function NexusWidgetInner({
                             lineHeight: "20px",
                           }}
                         >
-                          {needsWalletConnection
+                          <DepositAnimatedLabel>{needsWalletConnection
                             ? walletCtaLabel
                             : blockingQuoteIssue
                               ? quoteCtaLabel("Deposit")
@@ -12752,7 +12724,7 @@ function NexusWidgetInner({
                                       intentLoading ||
                                       !hasCurrentQuoteIntent
                                     ? "Getting quote…"
-                                    : "Deposit"}
+                                    : "Deposit"}</DepositAnimatedLabel>
                         </div>
                       </button>
                     </div>
@@ -12943,6 +12915,7 @@ function NexusWidgetInner({
               </>
             )}
         </div>
+        </DepositScreenMotion>
       </div>
 
       {/* ================================================================== */}
@@ -13223,6 +13196,7 @@ function NexusWidgetInner({
             }}
           >
             <div
+              className={activeMode === "deposit" ? "nx-deposit-scrim" : undefined}
               onClick={handleSourcePickerCancel}
               style={{
                 position: "absolute",
@@ -13231,7 +13205,9 @@ function NexusWidgetInner({
                 right: 0,
                 bottom: 0,
                 backgroundColor:
-                  "var(--nexus-widget-overlay, rgba(255,255,255,0.46))",
+                  activeMode === "deposit"
+                    ? "rgba(0,0,0,0.16)"
+                    : "var(--nexus-widget-overlay, rgba(255,255,255,0.46))",
                 pointerEvents: "auto",
                 opacity: isSwapAssetDrawerClosing ? 0 : 1,
                 transition: `opacity ${DRAWER_CLOSE_MS}ms ease`,
@@ -13239,7 +13215,7 @@ function NexusWidgetInner({
             />
             <div
               className={
-                isSwapAssetDrawerClosing
+                activeMode === "deposit" ? `nx-deposit-sheet${isSwapAssetDrawerClosing ? " closing" : ""}` : isSwapAssetDrawerClosing
                   ? undefined
                   : "animate-in slide-in-from-bottom-full duration-300"
               }
@@ -13247,15 +13223,15 @@ function NexusWidgetInner({
               style={{
                 ...modalHeightTransitionStyle,
                 bottom: 0,
-                height: ASSET_SELECTOR_DRAWER_HEIGHT,
+                height: activeMode === "deposit" ? "78%" : ASSET_SELECTOR_DRAWER_HEIGHT,
                 left: 0,
-                maxHeight: ASSET_SELECTOR_DRAWER_HEIGHT,
-                minHeight: ASSET_SELECTOR_DRAWER_HEIGHT,
+                maxHeight: activeMode === "deposit" ? "78%" : ASSET_SELECTOR_DRAWER_HEIGHT,
+                minHeight: activeMode === "deposit" ? "78%" : ASSET_SELECTOR_DRAWER_HEIGHT,
                 position: "absolute",
                 right: 0,
                 width: "100%",
-                backgroundColor: "var(--nexus-widget-surface-inset, #FFFFFE)",
-                borderRadius: "12px 12px 0 0",
+                backgroundColor: activeMode === "deposit" ? "var(--nx-card, #FFFFFF)" : "var(--nexus-widget-surface-inset, #FFFFFE)",
+                borderRadius: activeMode === "deposit" ? "24px 24px 0 0" : "12px 12px 0 0",
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
@@ -13266,44 +13242,76 @@ function NexusWidgetInner({
                 transform: isSwapAssetDrawerClosing
                   ? "translateY(100%)"
                   : "translateY(0)",
-                transition: `${modalHeightTransition}, transform ${DRAWER_CLOSE_MS}ms ease, opacity ${DRAWER_CLOSE_MS}ms ease`,
+                transition: `${modalHeightTransition}, transform ${DRAWER_CLOSE_MS}ms cubic-bezier(.23,1,.32,1), opacity ${DRAWER_CLOSE_MS}ms ease`,
                 willChange: "height, max-height, transform, opacity",
               }}
             >
+              {activeMode === "deposit" ? (
+                <>
+                  <DepositSheetGrip onDismiss={handleSourcePickerCancel} />
+                  <DepositAssetSelector
+                    tokens={getMinimumBalanceSourceTokens()}
+                    selectedTokens={fromTokens}
+                    editingToken={editingAssetIndex === null ? undefined : fromTokens[editingAssetIndex]}
+                    isBalanceLoading={isSwapBalancePending}
+                    onDismiss={handleSourcePickerCancel}
+                    onSelect={(token) => {
+                      if (isSwapAssetDrawerClosing || depositPickTimerRef.current) return;
+                      closeDrawerToIdle();
+                      depositPickTimerRef.current = setTimeout(() => {
+                        depositPickTimerRef.current = null;
+                      if (editingAssetIndex !== null) {
+                        const current = fromTokens[editingAssetIndex];
+                        if (!current) return;
+                        if (!isSameTokenSelection(current, token)) {
+                          if (fromTokens.some((selected, index) => index !== editingAssetIndex && isSameTokenSelection(selected, token))) return;
+                          clearPendingSwapIntent();
+                          handleDepositSourcesUpdate(fromTokens.map((selected, index) => index === editingAssetIndex
+                            ? { ...token, userAmount: "", userAmountMode: "usd" }
+                            : selected));
+                        }
+                      } else {
+                        if (fromTokens.length >= 3 || fromTokens.some((selected) => isSameTokenSelection(selected, token))) return;
+                        handleDepositSourcesUpdate([...fromTokens, { ...token, userAmount: "", userAmountMode: "usd" }]);
+                      }
+                      }, 160);
+                    }}
+                  />
+                </>
+              ) : (
               <SwapAssetSelector
                 allowSelectedTokenRemoval={false}
                 allowUnified={
-                  activeMode === "deposit" ||
                   activeMode === "send" ||
                   activeMode === "swap"
                 }
                 autoSelectFilterTabs={
-                  activeMode === "deposit" || activeMode === "send"
+                  activeMode === "send"
                 }
                 editingAssetIndex={editingAssetIndex}
                 filterTabBehavior={
-                  activeMode === "deposit" || activeMode === "send"
+                  activeMode === "send"
                     ? "source-pool"
                     : "select-all"
                 }
                 hideCustomTab={activeMode === "swap"}
                 initialFilterTab={
-                  activeMode === "deposit" || activeMode === "send"
+                  activeMode === "send"
                     ? depositSourceFilter === "stablecoins"
                       ? "stables"
                       : depositSourceFilter
                     : "all"
                 }
-                isMulti={activeMode === "deposit" || activeMode === "send"}
+                isMulti={activeMode === "send"}
                 lockedTokens={lockedDestinationSourceTokens}
                 onBack={handleSourcePickerCancel}
                 onDone={
-                  activeMode === "deposit" || activeMode === "send"
+                  activeMode === "send"
                     ? commitSourcePickerDraft
                     : closeDrawerToIdle
                 }
                 onFilterTabSelect={
-                  activeMode === "deposit" || activeMode === "send"
+                  activeMode === "send"
                     ? handleSourcePickerFilterTabSelect
                     : undefined
                 }
@@ -13346,7 +13354,6 @@ function NexusWidgetInner({
                     setFromTokens(next);
                     closeDrawerToIdle();
                   } else if (
-                    activeMode === "deposit" ||
                     activeMode === "send"
                   ) {
                     if (!hasMinimumSourceUsdBalance(token)) return;
@@ -13356,13 +13363,13 @@ function NexusWidgetInner({
                   }
                 }}
                 onSelectionChange={
-                  activeMode === "deposit" || activeMode === "send"
+                  activeMode === "send"
                     ? handleSourcePickerDraftSelectionChange
                     : undefined
                 }
                 onToggle={(token) => {
                   const isDepositOrSendSourcePicker =
-                    activeMode === "deposit" || activeMode === "send";
+                    activeMode === "send";
                   const prevTokens = isDepositOrSendSourcePicker
                     ? sourcePickerSelectedTokens
                     : fromTokens;
@@ -13515,11 +13522,12 @@ function NexusWidgetInner({
                 swapBalance={swapBalance}
                 swapSupportedChains={swapSupportedChainsAndTokens}
                 title={
-                  activeMode === "deposit" || activeMode === "send"
+                  activeMode === "send"
                     ? "Choose Assets to Pay with"
                     : "Choose assets to send"
                 }
               />
+              )}
             </div>
           </div>
         )}

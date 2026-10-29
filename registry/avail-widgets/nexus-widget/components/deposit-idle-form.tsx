@@ -3,6 +3,11 @@
 import Decimal from "decimal.js";
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
+import { DepositAmountInput, useDepositQuoteMotion } from "./deposit-motion";
+import { DepositAnimatedAmount } from "./deposit-animated-amount";
+import { CHAIN_METADATA } from "../../common/utils/constant";
+import { DepositAssetSelector } from "./deposit-asset-selector";
+import { LogoPair, TokenLogo } from "./deposit-token-logo";
 import { parseAmount as parseDecimal } from "../utils/amount";
 import type { SwapTokenOption } from "./swap-asset-selector";
 
@@ -21,7 +26,7 @@ interface DepositIdleFormProps {
   hideDestinationTokenDropdownIcon?: boolean;
   onAmountChange: (val: string) => void;
   onAmountModeToggle: () => void;
-  onOpenSourcePicker: () => void;
+  onOpenSourcePicker: (index?: number) => void;
   onOpenTokenPicker?: () => void;
   onSetPercent: (pct: number) => void;
   onUpdateTokens?: (tokens: SwapTokenOption[]) => void;
@@ -103,84 +108,19 @@ const formatUsd = (value: Decimal) => {
 const formatTokenAmount = (value: Decimal, decimals = 6) =>
   value.toDecimalPlaces(Math.min(8, decimals), Decimal.ROUND_DOWN).toFixed();
 
+const compactAmount = (value: Decimal, decimals = 6) => {
+  if (value.gte(1_000_000_000)) return `${value.div(1_000_000_000).toDecimalPlaces(1).toFixed()}B`;
+  if (value.gte(1_000_000)) return `${value.div(1_000_000).toDecimalPlaces(1).toFixed()}M`;
+  return formatTokenAmount(value, decimals);
+};
+const compactUsd = (value: Decimal) => value.gte(1_000_000) ? `$${compactAmount(value)}` : formatUsd(value);
+
 const tokenUsd = (token: SwapTokenOption, units: Decimal) => {
   const balance = readDecimal(token.balance);
   const fiat = readDecimal(token.balanceInFiat);
   const price = balance.gt(0) ? fiat.div(balance) : new Decimal(0);
   return units.mul(price);
 };
-
-function TokenLogo({
-  src,
-  label,
-  size = 40,
-}: {
-  src?: string;
-  label?: string;
-  size?: number;
-}) {
-  const [failed, setFailed] = useState(!src);
-  React.useEffect(() => setFailed(!src), [src]);
-  if (!failed && src) {
-    return (
-      <img
-        alt={label || ""}
-        onError={() => setFailed(true)}
-        src={src}
-        style={{
-          borderRadius: "999px",
-          display: "block",
-          height: size,
-          objectFit: "cover",
-          width: size,
-        }}
-      />
-    );
-  }
-  return (
-    <span
-      style={{
-        alignItems: "center",
-        background: "var(--nx-blue-soft, #E5F0FE)",
-        borderRadius: "999px",
-        color: "var(--nx-blue, #006BF4)",
-        display: "flex",
-        fontFamily: uiFont,
-        fontSize: size > 24 ? 14 : 10,
-        fontWeight: 700,
-        height: size,
-        justifyContent: "center",
-        width: size,
-      }}
-    >
-      {(label || "?").slice(0, 1).toUpperCase()}
-    </span>
-  );
-}
-
-function LogoPair({ token, size = 40 }: { token: SwapTokenOption; size?: number }) {
-  const badge = Math.round(size * 0.42);
-  return (
-    <span style={{ height: size, position: "relative", width: size, flexShrink: 0 }}>
-      <TokenLogo label={token.symbol} size={size} src={token.logo} />
-      {token.chainLogo ? (
-        <img
-          alt=""
-          src={token.chainLogo}
-          style={{
-            borderRadius: "999px",
-            height: badge,
-            left: size - badge + 2,
-            outline: "2px solid var(--nx-card, #FFFFFF)",
-            position: "absolute",
-            top: size - badge + 2,
-            width: badge,
-          }}
-        />
-      ) : null}
-    </span>
-  );
-}
 
 function InfoIcon() {
   return (
@@ -223,7 +163,9 @@ function Tip({
   align = "center",
   children,
   label,
+  trigger,
 }: {
+  trigger?: React.ReactNode;
   align?: "center" | "end" | "start";
   children: React.ReactNode;
   label: string;
@@ -231,6 +173,8 @@ function Tip({
   const buttonRef = React.useRef<HTMLButtonElement>(null);
   const tipRef = React.useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [portalTheme, setPortalTheme] = useState<React.CSSProperties>({});
   const [place, setPlace] = useState<{ left: number; top: number } | null>(
     null,
   );
@@ -239,6 +183,8 @@ function Tip({
     const button = buttonRef.current;
     const tip = tipRef.current;
     if (!button || !tip) return;
+    const colors = window.getComputedStyle(button);
+    setPortalTheme(Object.fromEntries(["--nx-pop", "--nx-mute-2", "--nx-ink", "--nx-pop-ring"].map(name => [name, colors.getPropertyValue(name)])) as React.CSSProperties);
     const rect = button.getBoundingClientRect();
     const width = tip.offsetWidth;
     const height = tip.offsetHeight;
@@ -254,6 +200,22 @@ function Tip({
     });
   }, [align]);
 
+  React.useEffect(() => {
+    if (!open) return;
+    const close = (event: PointerEvent) => {
+      if (!buttonRef.current?.contains(event.target as Node) && !tipRef.current?.contains(event.target as Node)) { setOpen(false); setPinned(false); }
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { setOpen(false); setPinned(false); } };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", escape);
+    window.addEventListener("scroll", position, true);
+    window.addEventListener("resize", position);
+    return () => {
+      document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", escape);
+      window.removeEventListener("scroll", position, true); window.removeEventListener("resize", position);
+    };
+  }, [open, position]);
+
   React.useLayoutEffect(() => {
     if (!open) return;
     position();
@@ -261,40 +223,47 @@ function Tip({
 
   return (
     <span
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={() => { if (window.matchMedia?.("(hover:hover) and (pointer:fine)").matches) setOpen(true); }}
+      onMouseLeave={() => { if (!pinned) setOpen(false); }}
       style={{ display: "inline-flex" }}
     >
       <button
         aria-expanded={open}
         aria-label={label}
+        onFocus={event => { if (event.currentTarget.matches(":focus-visible")) setOpen(true); }}
+        onBlur={() => { setOpen(false); setPinned(false); }}
         onClick={(event) => {
           event.stopPropagation();
-          setOpen((current) => !current);
+          setPinned(!pinned);
+          setOpen(!pinned);
         }}
         ref={buttonRef}
         style={{
           alignItems: "center",
-          background: open ? "var(--nx-shim, #EFEFEE)" : "transparent",
+          background: open && !trigger ? "var(--nx-shim, #EFEFEE)" : "transparent",
           border: "none",
           borderRadius: "999px",
-          color: "var(--nx-faint, #A3A3A2)",
+          color: trigger ? "inherit" : "var(--nx-faint, #A3A3A2)",
+          font: "inherit",
           cursor: "pointer",
           display: "grid",
-          height: "18px",
+          height: trigger ? "auto" : "18px",
           placeItems: "center",
-          width: "18px",
+          padding: 0,
+          width: trigger ? "auto" : "18px",
         }}
         type="button"
       >
-        <InfoIcon />
+        {trigger ?? <InfoIcon />}
       </button>
       {open && typeof document !== "undefined"
         ? createPortal(
             <span
               ref={tipRef}
+              className="nx-tip"
               role="tooltip"
               style={{
+                ...portalTheme,
                 background: "var(--nx-pop, #FFFFFF)",
                 borderRadius: "16px",
                 boxShadow:
@@ -318,6 +287,17 @@ function Tip({
         : null}
     </span>
   );
+}
+
+/** Shared compact display for progress and receipt amounts; exact value stays available. */
+export function DepositCalculatedAmount({ value, entranceDelay }: { value: string; entranceDelay?: number }) {
+  const parsed = readDecimal(value);
+  const abbreviated = parsed.gte(1_000_000);
+  const content = <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+    <DepositAnimatedAmount value={`~${compactAmount(parsed, 8)}`} entranceDelay={entranceDelay} />
+    {abbreviated && <InfoIcon />}
+  </span>;
+  return abbreviated ? <Tip label="Exact amount" trigger={content}><TipRow label="Exact amount" value={value} /></Tip> : content;
 }
 
 function Shimmer({ width, height }: { width: number; height: number }) {
@@ -381,16 +361,38 @@ export function DepositIdleForm({
   void _onSetPercent;
 
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const [tokenQuery, setTokenQuery] = useState("");
-  const [chainFilter, setChainFilter] = useState("all");
-  const [chainMenuOpen, setChainMenuOpen] = useState(false);
-  const previousTokenCount = React.useRef(0);
+
+  const previousTokenKeys = React.useRef<string[]>([]);
   const openRowRef = React.useRef<HTMLDivElement | null>(null);
   const typingTimerRef = React.useRef<number | null>(null);
   const awaitingQuoteSettleRef = React.useRef(false);
   const [typing, setTyping] = useState(false);
-  const tokenKey = (token: SwapTokenOption, index: number) =>
-    `${token.chainId ?? "na"}-${token.contractAddress}-${index}`;
+  const [newTokenKey, setNewTokenKey] = useState<string | null>(null);
+  const [capNote, setCapNote] = useState(false);
+  const capTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => { if (capTimer.current) clearTimeout(capTimer.current); }, []);
+  const tokenKey = (token: SwapTokenOption, _index?: number) =>
+    `${token.chainId ?? "na"}-${token.contractAddress.toLowerCase()}`;
+  const [exitingTokens, setExitingTokens] = useState<Array<{ token: SwapTokenOption; index: number }>>([]);
+  const removalTimers = React.useRef<ReturnType<typeof setTimeout>[]>([]);
+  React.useEffect(() => () => removalTimers.current.forEach(clearTimeout), []);
+  const removeToken = (token: SwapTokenOption, index: number) => {
+    if (!onUpdateTokens || isAmountReadOnly) return;
+    if (fromTokens.length > 1 && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setExitingTokens((current) => [...current, { token, index }]);
+      removalTimers.current.push(setTimeout(() => {
+        setExitingTokens((current) => current.filter((item) => tokenKey(item.token) !== tokenKey(token)));
+      }, 360));
+    }
+    onUpdateTokens(fromTokens.filter((item) => tokenKey(item) !== tokenKey(token)));
+    if (openKey === tokenKey(token)) setOpenKey(null);
+  };
+  const displayedTokens = fromTokens.map((token) => ({ token, exiting: false }));
+  for (const entry of exitingTokens) {
+    if (!fromTokens.some((token) => tokenKey(token) === tokenKey(entry.token))) {
+      displayedTokens.splice(Math.min(entry.index, displayedTokens.length), 0, { token: entry.token, exiting: true });
+    }
+  }
 
   const blurAmountField = () => {
     const active = document.activeElement;
@@ -406,7 +408,7 @@ export function DepositIdleForm({
     awaitingQuoteSettleRef.current = true;
     setTyping(true);
     if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = window.setTimeout(() => setTyping(false), 1200);
+    typingTimerRef.current = window.setTimeout(() => setTyping(false), 500);
   };
 
   React.useEffect(() => {
@@ -414,6 +416,12 @@ export function DepositIdleForm({
       if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current);
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!openKey) return;
+    const input = openRowRef.current?.querySelector("input");
+    input?.focus({ preventScroll: true });
+  }, [openKey]);
 
   React.useEffect(() => {
     if (!openKey) return;
@@ -430,11 +438,12 @@ export function DepositIdleForm({
   }, [openKey]);
 
   React.useEffect(() => {
-    if (fromTokens.length > previousTokenCount.current) {
-      const index = fromTokens.length - 1;
+    const index = fromTokens.findLastIndex((token) => !previousTokenKeys.current.includes(tokenKey(token)));
+    if (index >= 0) {
       const token = fromTokens[index];
       if (token && !token.userAmount) {
         setOpenKey(tokenKey(token, index));
+        setNewTokenKey(tokenKey(token));
         if (token.userAmountMode !== "usd") {
           onUpdateTokens?.(
             fromTokens.map((item, itemIndex) =>
@@ -446,7 +455,7 @@ export function DepositIdleForm({
         }
       }
     }
-    previousTokenCount.current = fromTokens.length;
+    previousTokenKeys.current = fromTokens.map((token) => tokenKey(token));
   }, [fromTokens, onUpdateTokens]);
 
   const updateToken = (index: number, patch: Partial<SwapTokenOption>) => {
@@ -462,26 +471,51 @@ export function DepositIdleForm({
     (sum, token) => sum.plus(tokenUsd(token, tokenUnitAmount(token))),
     new Decimal(0),
   );
-  const quotedReceive = readDecimal(receiveAmount);
-  const quotedMinReceive = readDecimal(minReceiveAmount);
-  const quotedReceiveUsd = readDecimal(receiveUsd);
-  const showQuote = quotedReceive.gt(0) && !isQuoteRefreshing;
-  const quoteLoading = Boolean(
-    (isQuoteRefreshing || routeStatus === "loading") && spendUsd.gt(0),
+  const localError = fromTokens.some((token) => rowError(token));
+  const hasEnteredAmount = fromTokens.some((token) => readDecimal(token.userAmount).gt(0));
+  const hasQuoteError = localError || routeStatus === "error" || routeStatus === "insufficient";
+  const quotePending = Boolean(
+    hasEnteredAmount && !hasQuoteError &&
+    (receiveAmount == null || isQuoteRefreshing || routeStatus === "loading"),
   );
-  const showQuoteShimmer = quoteLoading && !typing;
+  const quoteMotion = useDepositQuoteMotion({
+    enabled: hasEnteredAmount && !hasQuoteError,
+    pending: quotePending,
+    inputKey: fromTokens.map(token => `${tokenKey(token)}:${token.userAmountMode}:${token.userAmount}`).join("|"),
+    destinationKey: `${destinationLabel}:${toToken?.chainId}:${toToken?.contractAddress}`,
+    value: { receiveAmount, minReceiveAmount, receiveUsd, feeUsd },
+  });
+  const showQuoteShimmer = quoteMotion.shimmer;
+  const quotedReceive = readDecimal(quoteMotion.value?.receiveAmount);
+  const quotedMinReceive = readDecimal(quoteMotion.value?.minReceiveAmount);
+  const quotedReceiveUsd = readDecimal(quoteMotion.value?.receiveUsd);
+  const showQuote = hasEnteredAmount && quotedReceive.gt(0) && !showQuoteShimmer && !hasQuoteError;
+  const isEditingEmptyAmount = fromTokens.some(
+    (token, index) =>
+      tokenKey(token, index) === openKey && !token.userAmount?.trim(),
+  );
 
   React.useEffect(() => {
-    if (typing || !awaitingQuoteSettleRef.current || !showQuote) return;
-    awaitingQuoteSettleRef.current = false;
-    setOpenKey(null);
-    blurAmountField();
-  }, [typing, showQuote]);
+    if (!newTokenKey) return;
+    const timer = setTimeout(() => setNewTokenKey(null), 850);
+    return () => clearTimeout(timer);
+  }, [newTokenKey]);
+  React.useEffect(() => {
+    if (!openKey || typing || localError) return;
+    const token = fromTokens.find(item => tokenKey(item) === openKey);
+    if (!token?.userAmount?.trim()) return;
+    const timer = setTimeout(() => {
+      awaitingQuoteSettleRef.current = false;
+      setOpenKey(null);
+      blurAmountField();
+    }, awaitingQuoteSettleRef.current ? 2000 : 2500);
+    return () => clearTimeout(timer);
+  }, [openKey, typing, localError, fromTokens]);
   const impact =
     spendUsd.gt(0) && quotedReceiveUsd.gt(0)
       ? spendUsd.minus(quotedReceiveUsd).div(spendUsd)
       : new Decimal(0);
-  const highImpact = showQuote && impact.gt("0.03");
+  const highImpact = showQuote && !quotePending && impact.gt("0.03");
   const readFee = (key: string) => {
     const value = feeDetails?.[key];
     if (typeof value !== "string" && typeof value !== "number") return undefined;
@@ -502,41 +536,35 @@ export function DepositIdleForm({
   const solverFeeUsd = readFee("solverUsd") ?? readFee("solver");
   const protocolFeeUsd = readFee("protocolUsd") ?? readFee("protocol");
   const formatFeeLine = (value?: Decimal) => {
-    if (!showQuote) return "–";
+    if (!showQuote || quotePending) return "–";
     if (!value || value.lte(0)) return "$0.00";
     if (value.lt(0.01)) return "<$0.01";
     return formatUsd(value);
   };
   const atCap = fromTokens.length >= maxSourceTokens;
-  const localError = fromTokens.some((token) => rowError(token));
-  const chains = Array.from(
-    new Map(
-      availableTokens
-        .filter((token) => token.chainName)
-        .map((token) => [token.chainName as string, token.chainLogo]),
-    ).entries(),
+
+  const quoteLine = (
+          <span className="nx-amt-line" aria-busy={quotePending || showQuoteShimmer} style={{ opacity: quoteMotion.stale ? 0.45 : 1, transition: "opacity 150ms ease-out" }}>
+            {showQuoteShimmer ? (
+              <span className="nx-shim" style={{ borderRadius: 14, height: 48, width: 188 }} />
+            ) : (
+              <span key={quotePending ? "stale" : receiveAmount} className={`nx-big${showQuote && !quotePending ? " nx-arrive" : ""}`} style={{ color: !showQuote && !openKey ? "var(--nx-ghost, #C4C4C2)" : undefined }}>
+                <DepositAnimatedAmount value={showQuote ? `~${compactAmount(quotedReceive, toToken?.decimals)}` : "~0.00"} />
+              </span>
+            )}
+            {showQuoteShimmer ? null : (
+            <span className="nx-usd">
+              <DepositAnimatedAmount value={showQuote ? `≈ ${compactUsd(quotedReceiveUsd)}` : "≈ $0.00"} />
+            </span>
+            )}
+            {showQuote && quotedReceive.gte(1_000_000) ? <InfoIcon /> : null}
+          </span>
   );
-  const visibleTokens = availableTokens
-    .filter((token) => {
-      const query = tokenQuery.trim().toLowerCase();
-      const chainMatches = chainFilter === "all" || token.chainName === chainFilter;
-      const queryMatches =
-        !query ||
-        `${token.symbol} ${token.chainName ?? ""}`.toLowerCase().includes(query);
-      return chainMatches && queryMatches;
-    })
-    .sort((a, b) => {
-      const usdDelta = readDecimal(b.balanceInFiat).cmp(readDecimal(a.balanceInFiat));
-      if (usdDelta !== 0) return usdDelta;
-      return `${a.symbol ?? ""} ${a.chainName ?? ""}`.localeCompare(
-        `${b.symbol ?? ""} ${b.chainName ?? ""}`,
-      );
-    });
 
   if (fromTokens.length === 0) {
     return (
       <div className={`nx-deposit-screen${slideFromLeft ? " nx-back" : ""}`} style={{ width: "100%" }}>
-        <div className="nx-card" style={{ borderRadius: "30px", boxShadow: "none" }}>
+        <div className="nx-card">
           <div className="nx-head">
             {onBack ? (
               <button
@@ -581,192 +609,20 @@ export function DepositIdleForm({
               </button>
             ) : null}
           </div>
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              opacity: isBalanceLoading ? 0.5 : 1,
-              padding: 12,
-              pointerEvents: isBalanceLoading ? "none" : "auto",
-              transition: "opacity 200ms cubic-bezier(.23,1,.32,1)",
-            }}
-          >
-            <label
-              style={{
-                alignItems: "center",
-                background: "var(--nx-fill, #F3F3F3)",
-                borderRadius: 14,
-                display: "flex",
-                flex: 1,
-                gap: 10,
-                minWidth: 0,
-                padding: "11px 14px",
-              }}
-            >
-              <svg fill="none" height="15" viewBox="0 0 14 14" width="15">
-                <circle cx="6" cy="6" r="4.5" stroke="var(--nx-mute, #737372)" strokeWidth="1.4" />
-                <path d="M9.5 9.5L12.5 12.5" stroke="var(--nx-mute, #737372)" strokeLinecap="round" strokeWidth="1.4" />
-              </svg>
-              <input
-                onChange={(event) => setTokenQuery(event.target.value)}
-                placeholder="Search token or chain"
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--nx-ink, #161615)",
-                  flex: 1,
-                  font: `400 14px/18px ${uiFont}`,
-                  minWidth: 0,
-                  outline: "none",
-                }}
-                value={tokenQuery}
-              />
-            </label>
-            <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setChainMenuOpen((open) => !open)}
-                style={{
-                  alignItems: "center",
-                  background: "var(--nx-pop, #FFFFFF)",
-                  border: "none",
-                  borderRadius: 14,
-                  boxShadow: "var(--nx-pill-ring, #1616151F) 0 0 3px",
-                  cursor: "pointer",
-                  display: "flex",
-                  font: `500 14px/18px ${uiFont}`,
-                  gap: 8,
-                  height: 40,
-                  padding: "0 12px 0 10px",
-                }}
-                type="button"
-              >
-                <span style={{ display: "flex" }}>
-                  {(chainFilter === "all" ? chains.slice(0, 3) : chains.filter(([name]) => name === chainFilter)).map(([name, logo], index) => (
-                    <img
-                      alt=""
-                      key={name}
-                      src={logo}
-                      style={{
-                        borderRadius: "999px",
-                        height: 18,
-                        marginLeft: index === 0 ? 0 : -6,
-                        outline: "1.5px solid var(--nx-fill, #F3F3F3)",
-                        width: 18,
-                      }}
-                    />
-                  ))}
-                </span>
-                <span>{chainFilter === "all" ? "All Chains" : chainFilter}</span>
-              </button>
-              {chainMenuOpen ? (
-                <div
-                  style={{
-                    background: "var(--nx-pop, #FFFFFF)",
-                    borderRadius: 16,
-                    boxShadow: "#16161514 0 8px 28px, var(--nx-pop-ring, #1616150A) 0 0 0 1px",
-                    minWidth: 180,
-                    padding: 6,
-                    position: "absolute",
-                    right: 0,
-                    top: 46,
-                    zIndex: 5,
-                  }}
-                >
-                  <button
-                    onClick={() => {
-                      setChainFilter("all");
-                      setChainMenuOpen(false);
-                    }}
-                    style={{ background: "none", border: "none", cursor: "pointer", display: "block", font: `400 14px/18px ${uiFont}`, padding: "9px 10px", textAlign: "left", width: "100%" }}
-                    type="button"
-                  >
-                    All Chains
-                  </button>
-                  {chains.map(([name]) => (
-                    <button
-                      key={name}
-                      onClick={() => {
-                        setChainFilter(name);
-                        setChainMenuOpen(false);
-                      }}
-                      style={{ background: "none", border: "none", cursor: "pointer", display: "block", font: `400 14px/18px ${uiFont}`, padding: "9px 10px", textAlign: "left", width: "100%" }}
-                      type="button"
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+          <div style={{ height: 420, maxHeight: "60vh" }}>
+            <DepositAssetSelector
+              tokens={availableTokens}
+              isBalanceLoading={isBalanceLoading}
+              onSelect={(token) => onSelectAvailableToken?.(token)}
+            />
           </div>
-          {isBalanceLoading ? (
-            <div aria-busy="true">
-              {Array.from({ length: 5 }, (_, index) => (
-                <div className="nx-skel-row" key={index}>
-                  <span className="nx-shim" style={{ borderRadius: 999, height: 40, width: 40 }} />
-                  <span style={{ display: "flex", flex: 1, flexDirection: "column", gap: 6 }}>
-                    <Shimmer height={14} width={[64, 56, 72, 60, 52][index]} />
-                    <Shimmer height={12} width={[88, 72, 96, 80, 64][index]} />
-                  </span>
-                  <span style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", gap: 6 }}>
-                    <Shimmer height={14} width={[96, 104, 88, 92, 84][index]} />
-                    <Shimmer height={12} width={[52, 44, 48, 40, 48][index]} />
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : visibleTokens.length === 0 ? (
-            <div style={{ color: "var(--nx-mute-2, #8C8C8B)", font: `400 14px/18px ${uiFont}`, padding: "28px 12px 32px", textAlign: "center" }}>
-              {tokenQuery ? `No tokens match “${tokenQuery}”` : "No tokens in this wallet"}
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 360, overflow: "auto" }}>
-              {visibleTokens.map((token, index) => (
-                <button
-                  key={`${token.chainId}-${token.contractAddress}-${index}`}
-                  onClick={() => onSelectAvailableToken?.(token)}
-                  style={{
-                    alignItems: "center",
-                    animation: `nx-row-in 200ms cubic-bezier(.23,1,.32,1) ${Math.min(index, 6) * 24}ms both`,
-                    background: "transparent",
-                    border: "none",
-                    borderRadius: 18,
-                    cursor: "pointer",
-                    display: "flex",
-                    gap: 12,
-                    padding: 12,
-                    textAlign: "left",
-                    width: "100%",
-                  }}
-                  type="button"
-                >
-                  <LogoPair token={token} />
-                  <span style={{ display: "flex", flex: 1, flexDirection: "column", gap: 2, minWidth: 0 }}>
-                    <span style={{ color: "var(--nx-ink, #161615)", font: `500 16px/20px ${uiFont}` }}>{token.symbol}</span>
-                    <span style={{ color: "var(--nx-mute, #737372)", font: `400 14px/18px ${uiFont}` }}>{token.chainName}</span>
-                  </span>
-                  <span style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ color: "var(--nx-ink, #161615)", font: `500 16px/20px ${uiFont}`, fontVariantNumeric: "tabular-nums" }}>
-                      {formatTokenAmount(readDecimal(token.balance), token.decimals)} {token.symbol}
-                    </span>
-                    <span style={{ color: "var(--nx-mute, #737372)", font: `400 14px/18px ${uiFont}` }}>
-                      {formatUsd(readDecimal(token.balanceInFiat))}
-                    </span>
-                  </span>
-                  <svg fill="none" height="16" viewBox="0 0 16 16" width="16">
-                    <path d="M6 3.5L10.5 8L6 12.5" stroke="var(--nx-faint, #A3A3A2)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
-                  </svg>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`nx-deposit-screen${slideFromLeft ? " nx-back" : ""}${openKey ? " nx-focus" : ""}`} style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+    <div className={`nx-deposit-screen${slideFromLeft ? " nx-back" : ""}${isEditingEmptyAmount ? " nx-focus" : ""}`} style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
       <div className="nx-card">
         <div className="nx-head" style={{ borderBottom: "1px solid var(--nx-line-2, #EDEDED)", gap: 8 }}>
           <button
@@ -838,30 +694,11 @@ export function DepositIdleForm({
         </div>
         <div className="nx-hero nx-focusable">
           <div className="nx-who">{destinationLabel} receives</div>
-          <div className="nx-amt-line">
-            {showQuoteShimmer ? (
-              <span className="nx-shim" style={{ borderRadius: 14, height: 48, width: 188 }} />
-            ) : (
-              <span className={`nx-big${showQuote ? " nx-arrive" : ""}`} style={{ color: !showQuote && !openKey ? "var(--nx-ghost, #C4C4C2)" : undefined }}>
-                {showQuote ? `~${formatTokenAmount(quotedReceive, toToken?.decimals)}` : "~0.00"}
-              </span>
-            )}
-            {showQuoteShimmer ? null : (
-            <span className="nx-usd">
-              {showQuote ? `≈ ${formatUsd(quotedReceiveUsd)}` : "≈ $0.00"}
-            </span>
-            )}
-            {showQuote ? (
-              <Tip label="Exact amount">
-                <span style={{ display: "flex", justifyContent: "space-between", gap: 24 }}>
-                  <span>Exact amount</span>
-                  <b style={{ color: "var(--nx-ink, #161615)", fontWeight: 500 }}>
-                    {formatTokenAmount(quotedReceive, toToken?.decimals)} {toToken?.symbol}
-                  </b>
-                </span>
-              </Tip>
-            ) : null}
-          </div>
+          {showQuote && quotedReceive.gte(1_000_000) ? (
+            <Tip label="Exact amount" trigger={quoteLine}>
+              <TipRow label="Exact amount" value={`${formatTokenAmount(quotedReceive, toToken?.decimals)} ${toToken?.symbol ?? ""}`} />
+            </Tip>
+          ) : quoteLine}
           <div className="nx-meta">
             {showQuoteShimmer ? (
               <span style={{ alignItems: "center", display: "inline-flex", gap: 8 }}>
@@ -872,7 +709,9 @@ export function DepositIdleForm({
               <>
                 <TokenLogo label={toToken.symbol} size={20} src={toToken.logo} />
                 <span>{toToken.symbol}</span>
-                <span>on {toToken.chainName}</span>
+                <span>on</span>
+                <TokenLogo label={toToken.chainName} size={20} src={toToken.chainLogo || (toToken.chainId ? CHAIN_METADATA[toToken.chainId]?.logo : undefined)} />
+                <span>{toToken.chainName}</span>
               </>
             ) : null}
           </div>
@@ -883,11 +722,12 @@ export function DepositIdleForm({
         <div className="nx-swap-div" />
         <div className="nx-spend nx-focusable">
           <span>Your Spend</span>
-          <span className="nx-tnum">{formatUsd(spendUsd)}</span>
+          <span className="nx-tnum"><DepositAnimatedAmount value={formatUsd(spendUsd)} /></span>
           <span className="nx-spend-label">Total</span>
         </div>
         <div className="nx-plist">
-          {fromTokens.map((token, index) => {
+          {displayedTokens.map(({ token, exiting }) => {
+            const index = fromTokens.findIndex((item) => tokenKey(item) === tokenKey(token));
             const key = tokenKey(token, index);
             const open = openKey === key;
             const units = tokenUnitAmount(token);
@@ -901,8 +741,10 @@ export function DepositIdleForm({
               ? `Balance: ${formatUsd(readDecimal(token.balanceInFiat))}`
               : `Balance: ${formatTokenAmount(readDecimal(token.balance), token.decimals)} ${token.symbol}`;
             return (
+              <div className={`nx-token-presence${exiting ? " exiting" : key === newTokenKey ? " entering" : ""}`} key={key} inert={exiting}>
+              <div className="nx-token-clip">
               <div
-                className={`nx-prow${open ? " open" : ""}${error ? " err" : ""}`}
+                className={`nx-prow${open ? " open" : ""}${typing && open ? " keying" : ""}${error ? " err" : ""}`}
                 key={key}
                 ref={open ? openRowRef : undefined}
               >
@@ -910,7 +752,8 @@ export function DepositIdleForm({
                   className="nx-pr-top"
                   onClick={() => setOpenKey(key)}
                 >
-                  <div className="nx-pr-tok">
+                  <button className="nx-pr-tok" type="button" aria-label={`Change ${token.symbol} on ${token.chainName}`} disabled={isSourcePickerDisabled || isAmountReadOnly}
+                    onClick={(event) => { event.stopPropagation(); onOpenSourcePicker(index); }}>
                     <LogoPair token={token} />
                     <span>
                       <span className="nx-nm">
@@ -921,9 +764,9 @@ export function DepositIdleForm({
                       </span>
                       <span className="nx-ch">{token.chainName}</span>
                     </span>
-                  </div>
+                  </button>
                   <div className="nx-pr-amt">
-                    <div className={`nx-pr-val${open ? " open" : ""}`} style={{ justifyContent: "flex-end" }}>
+                    <div key={token.userAmountMode} className={`nx-pr-val nx-mode-change${open ? " open" : ""}`} style={{ justifyContent: "flex-end" }}>
                       {usdMode ? (
                         <span
                           style={{
@@ -939,7 +782,7 @@ export function DepositIdleForm({
                           $
                         </span>
                       ) : null}
-                      <input
+                      <DepositAmountInput
                         aria-label={`${token.symbol} amount`}
                         inputMode="decimal"
                         onChange={(event) => {
@@ -975,7 +818,7 @@ export function DepositIdleForm({
                       />
                     </div>
                     <div className="nx-pr-sub">
-                      <span>{secondary}</span>
+                      <DepositAnimatedAmount value={secondary} />
                       <button
                         aria-label={usdMode ? `Enter in ${token.symbol}` : "Enter in dollars"}
                         onClick={(event) => {
@@ -1007,8 +850,7 @@ export function DepositIdleForm({
                     aria-label="Remove"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onUpdateTokens?.(fromTokens.filter((_, tokenIndex) => tokenIndex !== index));
-                      setOpenKey(null);
+                      removeToken(token, index);
                     }}
                     style={{
                       background: "var(--nx-fill-2, #EDEDEC)",
@@ -1027,7 +869,7 @@ export function DepositIdleForm({
                 <div className={`nx-collapse${open || error ? " on" : ""}`}>
                   <div>
                     <div className="nx-pr-bal">
-                      <span>{balanceLabel}</span>
+                      <span className="nx-mode-change" key={token.userAmountMode}>{balanceLabel}</span>
                       {[20, 50, 100].map((pct) => (
                         <button
                           key={pct}
@@ -1066,29 +908,38 @@ export function DepositIdleForm({
                   </div>
                 </div>
               </div>
+              </div>
+              </div>
             );
           })}
           <button
-            className="nx-add"
-            disabled={atCap || isSourcePickerDisabled}
-            onClick={onOpenSourcePicker}
+            className={`nx-add${atCap ? " full" : ""}`}
+            aria-expanded={atCap ? capNote : undefined}
+            aria-label={atCap ? "Token limit: show details" : undefined}
+            disabled={isSourcePickerDisabled}
+            onClick={() => {
+              if (!atCap) { onOpenSourcePicker(); return; }
+              setCapNote(true);
+              if (capTimer.current) clearTimeout(capTimer.current);
+              capTimer.current = setTimeout(() => setCapNote(false), 3500);
+            }}
             type="button"
           >
             <span className="nx-plus">+</span>
-            {atCap ? "Token limit reached" : "Add another token"}
+            Add another token
           </button>
-          {atCap ? (
-            <div className="nx-cap">You can add up to {maxSourceTokens} tokens. Remove one to add another.</div>
-          ) : null}
+          <div className={`nx-collapse${atCap && capNote ? " on" : ""}`} inert={!atCap || !capNote} aria-hidden={!atCap || !capNote}>
+            <div><div className="nx-cap" role="status">You can add up to {maxSourceTokens} tokens. Remove one to add another.</div></div>
+          </div>
         </div>
       </div>
-      <div className="nx-fees nx-focusable">
+      <div className="nx-fees nx-focusable" style={{ opacity: quoteMotion.stale ? 0.45 : undefined, transition: "opacity 150ms ease-out" }}>
         <div>
           Fees (Est){" "}
           {showQuoteShimmer ? (
             <span className="nx-shim" style={{ height: 14, width: 48 }} />
           ) : (
-            <b>{feeUsd ? formatUsd(readDecimal(feeUsd)) : "$0.00"}</b>
+            <b>{quoteMotion.value?.feeUsd ? formatUsd(readDecimal(quoteMotion.value.feeUsd)) : "$0.00"}</b>
           )}
           <Tip align="start" label="Fee breakdown">
             <TipRow label="Network fees:" value={formatFeeLine(networkFeeUsd)} />
