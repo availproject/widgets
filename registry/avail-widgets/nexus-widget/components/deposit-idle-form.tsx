@@ -438,7 +438,13 @@ export function DepositIdleForm({
   }, [openKey]);
 
   React.useEffect(() => {
-    const index = fromTokens.findLastIndex((token) => !previousTokenKeys.current.includes(tokenKey(token)));
+    let index = -1;
+    for (let tokenIndex = fromTokens.length - 1; tokenIndex >= 0; tokenIndex--) {
+      if (!previousTokenKeys.current.includes(tokenKey(fromTokens[tokenIndex]))) {
+        index = tokenIndex;
+        break;
+      }
+    }
     if (index >= 0) {
       const token = fromTokens[index];
       if (token && !token.userAmount) {
