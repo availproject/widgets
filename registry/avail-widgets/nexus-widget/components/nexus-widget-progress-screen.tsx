@@ -19,6 +19,7 @@ import { DepositCalculatedAmount } from "./deposit-idle-form";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
+import { useNexusWidgetThemeStyle } from "../theme-context";
 
 type ProgressSdkStep = SwapStepType | BridgeStepType;
 
@@ -60,6 +61,65 @@ const muted = "var(--nexus-widget-text-secondary, #848483)";
 const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
 const danger = "var(--nexus-widget-error-text, #E92C2C)";
+
+const PROGRESS_GRID_LIGHT_URL =
+  "https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif";
+const PROGRESS_GRID_DARK_URL =
+  "https://files.availproject.org/nexus-elements/nexus-one/progress-grid-dark.gif";
+
+function useIsDarkMode() {
+  const themeStyle = useNexusWidgetThemeStyle();
+  const [isDomDark, setIsDomDark] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined")
+      return;
+
+    const checkDark = () => {
+      const root = document.documentElement;
+      const body = document.body;
+      const isDarkClass = Boolean(
+        root?.classList?.contains("dark") || body?.classList?.contains("dark")
+      );
+      const isDataThemeDark =
+        root?.getAttribute?.("data-theme") === "dark" ||
+        root?.getAttribute?.("data-nexus-widget-theme") === "dark";
+      const prefersDark =
+        typeof window.matchMedia === "function"
+          ? Boolean(window.matchMedia("(prefers-color-scheme: dark)")?.matches)
+          : false;
+      return Boolean(isDarkClass || isDataThemeDark || prefersDark);
+    };
+
+    setIsDomDark(checkDark());
+
+    const mediaQuery =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : undefined;
+    const handleMediaChange = () => setIsDomDark(checkDark());
+    mediaQuery?.addEventListener?.("change", handleMediaChange);
+
+    const root = document.documentElement;
+    let observer: MutationObserver | undefined;
+    if (root && typeof MutationObserver !== "undefined") {
+      observer = new MutationObserver(() => {
+        setIsDomDark(checkDark());
+      });
+      observer.observe(root, {
+        attributes: true,
+        attributeFilter: ["class", "data-theme", "data-nexus-widget-theme"],
+      });
+    }
+
+    return () => {
+      mediaQuery?.removeEventListener?.("change", handleMediaChange);
+      observer?.disconnect();
+    };
+  }, []);
+
+  return themeStyle?.colorScheme === "dark" || isDomDark;
+}
 
 const formatDecimal = (value: unknown, decimals = 2) =>
   (parseDecimal(value) ?? new Decimal(0)).toDecimalPlaces(decimals).toFixed();
@@ -1118,6 +1178,10 @@ export function NexusWidgetProgressScreen({
   failedStep,
   recipientAddress,
 }: NexusWidgetProgressScreenProps) {
+  const isDark = useIsDarkMode();
+  const progressGridUrl = isDark
+    ? PROGRESS_GRID_DARK_URL
+    : PROGRESS_GRID_LIGHT_URL;
   const intentSources = intentData?.sources ?? [];
   const intentDestination = intentData?.destination;
   const destinationSourceToken = fromTokens.find((token) => {
@@ -1393,7 +1457,7 @@ export function NexusWidgetProgressScreen({
               <img
                 alt=""
                 aria-hidden="true"
-                src="https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif"
+                src={progressGridUrl}
                 style={{
                   display: "block",
                   height: "167px",
@@ -1482,7 +1546,7 @@ export function NexusWidgetProgressScreen({
         <img
           alt=""
           aria-hidden="true"
-          src="https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif"
+          src={progressGridUrl}
           style={{
             display: "block",
             height: "148px",

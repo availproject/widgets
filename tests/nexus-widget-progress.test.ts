@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { buildStatusRows, NexusWidgetProgressScreen, type NexusWidgetProgressEvent } from "../registry/avail-widgets/nexus-widget/components/nexus-widget-progress-screen";
+import { NexusWidgetThemeContext } from "../registry/avail-widgets/nexus-widget/theme-context";
 
 const chain = { id: 42161, name: "Arbitrum" };
 const token = { contractAddress: "0xusdc", symbol: "USDC" };
@@ -484,5 +485,28 @@ test("two tokens with generic ID (erc20_approval) both tracked and does not show
   swapRow = res.find((r) => r.id === "swapTokens");
   assert.equal(swapRow?.state, "inProgress");
 });
+
+test("progress screen uses light progress grid by default and dark grid in dark mode", () => {
+  const defaultHtml = renderToStaticMarkup(
+    createElement(NexusWidgetProgressScreen, {
+      mode: "swap",
+    })
+  );
+  assert.match(defaultHtml, /nexus-one\/progress-grid\.gif/);
+  assert.doesNotMatch(defaultHtml, /nexus-one\/progress-grid-dark\.gif/);
+
+  const darkHtml = renderToStaticMarkup(
+    createElement(
+      NexusWidgetThemeContext.Provider,
+      { value: { colorScheme: "dark" } as any },
+      createElement(NexusWidgetProgressScreen, {
+        mode: "swap",
+      })
+    )
+  );
+  assert.match(darkHtml, /nexus-one\/progress-grid-dark\.gif/);
+  assert.doesNotMatch(darkHtml, /nexus-one\/progress-grid\.gif"/);
+});
+
 
 

@@ -26,6 +26,7 @@ import {
   type WalletClient,
 } from "viem";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE, nexusWidgetTheme } from "../theme";
+import { useNexusWidgetThemeStyle } from "../theme-context";
 import type { NexusWidgetDepositOpportunityConfig } from "../types";
 import type { SwapTokenOption } from "./swap-asset-selector";
 import {
@@ -314,8 +315,10 @@ const ONRAMP_CALLBACK_SUCCESS_MESSAGE = "nexus-onramp-success";
 const ONRAMP_CALLBACK_SUCCESS_ACK_MESSAGE = "nexus-onramp-success-received";
 const ONRAMP_CALLBACK_CHANNEL = "nexus-widgets:onramp";
 const ONRAMP_CALLBACK_STORAGE_KEY = "nexus-widgets:onramp:session";
-const ONRAMP_PROGRESS_ARTWORK_URL =
+const ONRAMP_PROGRESS_ARTWORK_LIGHT_URL =
   "https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif";
+const ONRAMP_PROGRESS_ARTWORK_DARK_URL =
+  "https://files.availproject.org/nexus-elements/nexus-one/progress-grid-dark.gif";
 const ONRAMP_SHEET_EDGE_OFFSET = "-16px";
 const ONRAMP_GENERIC_QUOTE_ERROR_MESSAGE =
   "We are facing some issues at the moment, try again later";
@@ -1857,6 +1860,7 @@ function CountryMark({
 
 
 const useIsDarkMode = () => {
+  const themeStyle = useNexusWidgetThemeStyle();
   const [isDark, setIsDark] = React.useState(false);
 
   React.useEffect(() => {
@@ -1870,7 +1874,9 @@ const useIsDarkMode = () => {
       const isDarkClass = Boolean(
         root?.classList?.contains("dark") || body?.classList?.contains("dark"),
       );
-      const isDataThemeDark = root?.getAttribute?.("data-theme") === "dark";
+      const isDataThemeDark =
+        root?.getAttribute?.("data-theme") === "dark" ||
+        root?.getAttribute?.("data-nexus-widget-theme") === "dark";
       const prefersDark =
         typeof window.matchMedia === "function"
           ? Boolean(window.matchMedia("(prefers-color-scheme: dark)")?.matches)
@@ -1896,7 +1902,7 @@ const useIsDarkMode = () => {
       });
       observer.observe(root, {
         attributes: true,
-        attributeFilter: ["class", "data-theme"],
+        attributeFilter: ["class", "data-theme", "data-nexus-widget-theme"],
       });
     }
 
@@ -1906,7 +1912,7 @@ const useIsDarkMode = () => {
     };
   }, []);
 
-  return isDark;
+  return themeStyle?.colorScheme === "dark" || isDark;
 };
 
 function ProviderMark({ provider }: { provider?: string }) {
@@ -2738,14 +2744,20 @@ const getOnrampExplorerUrl = (
 };
 
 function OnrampStatusArtwork() {
+  const isDark = useIsDarkMode();
+  const artworkUrl = isDark
+    ? ONRAMP_PROGRESS_ARTWORK_DARK_URL
+    : ONRAMP_PROGRESS_ARTWORK_LIGHT_URL;
+
   return (
     <div
       aria-hidden="true"
       style={{
         alignItems: "center",
-        backgroundColor: "#FAFBFC",
-        backgroundImage:
-          "radial-gradient(circle at center, rgba(250, 251, 252, 0) 0 36%, rgba(250, 251, 252, 0.92) 72%, #FAFBFC 100%), repeating-linear-gradient(0deg, rgba(132, 132, 131, 0.09) 0 8px, transparent 8px 14px), repeating-linear-gradient(90deg, rgba(132, 132, 131, 0.09) 0 8px, transparent 8px 14px)",
+        backgroundColor: isDark ? "var(--nx-band, #1A1A18)" : "#FAFBFC",
+        backgroundImage: isDark
+          ? undefined
+          : "radial-gradient(circle at center, rgba(250, 251, 252, 0) 0 36%, rgba(250, 251, 252, 0.92) 72%, #FAFBFC 100%), repeating-linear-gradient(0deg, rgba(132, 132, 131, 0.09) 0 8px, transparent 8px 14px), repeating-linear-gradient(90deg, rgba(132, 132, 131, 0.09) 0 8px, transparent 8px 14px)",
         borderRadius: "10px",
         display: "flex",
         height: "150px",
@@ -2756,7 +2768,7 @@ function OnrampStatusArtwork() {
     >
       <img
         alt=""
-        src={ONRAMP_PROGRESS_ARTWORK_URL}
+        src={artworkUrl}
         style={{
           display: "block",
           height: "100%",
