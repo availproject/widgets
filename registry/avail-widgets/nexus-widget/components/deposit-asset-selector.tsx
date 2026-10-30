@@ -10,6 +10,7 @@ interface DepositAssetSelectorProps {
   selectedTokens?: SwapTokenOption[];
   editingToken?: SwapTokenOption;
   isBalanceLoading?: boolean;
+  minBalanceUsd?: number;
   onSelect: (token: SwapTokenOption) => void;
   onDismiss?: () => void;
 }
@@ -22,6 +23,7 @@ export function DepositAssetSelector({
   selectedTokens = [],
   editingToken,
   isBalanceLoading = false,
+  minBalanceUsd,
   onSelect,
   onDismiss,
 }: DepositAssetSelectorProps) {
@@ -62,9 +64,19 @@ export function DepositAssetSelector({
   const selectedKeys = new Set(selectedTokens.flatMap((token) =>
     (token.sourceTokens?.length ? token.sourceTokens : [token]).map(sourceKey),
   ));
-  const availableTokens = tokens.filter((token) =>
-    !selectedKeys.has(sourceKey(token)) || (editingToken && sourceKey(token) === sourceKey(editingToken)),
-  );
+  const availableTokens = tokens.filter((token) => {
+    if (
+      selectedKeys.has(sourceKey(token)) &&
+      !(editingToken && sourceKey(token) === sourceKey(editingToken))
+    ) {
+      return false;
+    }
+    if (minBalanceUsd !== undefined) {
+      const fiat = parseAmount(token.balanceInFiat) ?? new Decimal(0);
+      if (fiat.lt(minBalanceUsd)) return false;
+    }
+    return true;
+  });
   const chains = Array.from(new Map(availableTokens
     .filter((token) => token.chainId !== undefined)
     .map((token) => [token.chainId!, {

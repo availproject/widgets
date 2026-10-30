@@ -99,3 +99,42 @@ test("chain menu renders radio buttons for all chains and each chain option", as
   }
 });
 
+test("deposit picker hides tokens whose balance is below minBalanceUsd ($1)", async () => {
+  const previous = Object.fromEntries(
+    ["document", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+  });
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    await act(async () => {
+      renderer = create(
+        <DepositAssetSelector
+          tokens={tokens}
+          minBalanceUsd={1}
+          onSelect={() => {}}
+        />
+      );
+    });
+    const rows = renderer!.root.findAllByProps({ className: "nx-asset-row" });
+    // tokens has usdc ($3.24), Arbitrum usdc ($10.33), and ETH ($0.50).
+    // With minBalanceUsd=1, ETH ($0.50) is hidden, so only 2 tokens remain.
+    assert.equal(rows.length, 2);
+    const symbols = rows.map((r) => r.findAllByProps({ className: "nx-asset-primary" })[0]?.children?.join(""));
+    assert.ok(!symbols.includes("ETH"));
+  } finally {
+    await act(async () => {
+      renderer?.unmount();
+    });
+    for (const [key, descriptor] of Object.entries(previous)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+

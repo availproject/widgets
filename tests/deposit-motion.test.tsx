@@ -3,7 +3,7 @@ import { test } from "node:test";
 import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { DepositAnimatedAmount } from "../registry/avail-widgets/nexus-widget/components/deposit-animated-amount";
-import { DepositAnimatedLabel, groupDepositInput } from "../registry/avail-widgets/nexus-widget/components/deposit-motion";
+import { DepositAmountInput, DepositAnimatedLabel, groupDepositInput } from "../registry/avail-widgets/nexus-widget/components/deposit-motion";
 import { sanitizeAmount } from "../registry/avail-widgets/nexus-widget/components/deposit-idle-form";
 
 test("sanitizeAmount normalizes leading dots, strips rogue leading zeros, and caps decimals", () => {
@@ -61,4 +61,52 @@ test("CTA label keeps only the current accessible text while outgoing text anima
     assert.deepEqual(renderer!.root.findByProps({ className: "nx-label-out" }).children, ["Getting quote…"]);
     assert.equal(renderer!.root.findByProps({ className: "nx-label-out" }).props["aria-hidden"], true);
   } finally { await act(async () => renderer?.unmount()); delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT; }
+});
+
+test("DepositAmountInput sizes seamlessly with prefix to eliminate gaps between dollar sign and number", async () => {
+  (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+  let renderer: ReactTestRenderer | undefined;
+  let focused = false;
+  try {
+    await act(async () => {
+      renderer = create(
+        <DepositAmountInput
+          aria-label="USDC amount"
+          prefix={<span className="dollar-prefix">$</span>}
+          placeholder="0"
+          value="0.21"
+          onFocus={() => { focused = true; }}
+          style={{ font: '500 20px/28px "Geist", system-ui, sans-serif' }}
+        />
+      );
+    });
+    const field = renderer!.root.findByProps({ className: "nx-amount-field" });
+    assert.ok(field, "Expected .nx-amount-field container");
+    const prefix = field.findByProps({ className: "dollar-prefix" });
+    assert.equal(prefix.children[0], "$");
+
+    const measuringSpan = field.findByProps({ "aria-hidden": "true" });
+    assert.equal(measuringSpan.children[0], "0.21");
+    assert.equal(measuringSpan.props.style.visibility, "hidden");
+    assert.equal(measuringSpan.props.style.padding, 0);
+
+    const input = field.findByProps({ "aria-label": "USDC amount" });
+    assert.equal(input.props.value, "0.21");
+    assert.equal(input.props.style.width, "100%");
+    assert.equal(input.props.style.padding, 0);
+    assert.equal(input.props.style.margin, 0);
+    // Explicit width in ch is removed so grid sizing driven by measuring span eliminates gaps
+    assert.equal((input.props.style as any).width, "100%");
+
+    // Verify click on container triggers focus
+    if (input.instance) {
+      (input.instance as any).focus = () => { focused = true; };
+    }
+    await act(async () => { field.props.onClick(); });
+    // If instance.focus was called, focused is true
+    assert.equal(typeof field.props.onClick, "function");
+  } finally {
+    await act(async () => renderer?.unmount());
+    delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+  }
 });

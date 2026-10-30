@@ -5996,7 +5996,7 @@ function NexusWidgetInner({
           !contractAddress ||
           balance.lte(0) ||
           !fiatBalance ||
-          (activeMode === "deposit"
+          (activeMode === "deposit" && swapType === "exactOut"
             ? fiatBalance.lte(0)
             : fiatBalance.lt(minimumSourceUsd))
         )
@@ -6029,7 +6029,7 @@ function NexusWidgetInner({
   };
 
   const getMinimumBalanceSourceTokens = () =>
-    activeMode === "deposit"
+    activeMode === "deposit" && swapType === "exactOut"
       ? getExpandedSourceTokens(
           swapBalance
             ? deriveTokenOptions(swapBalance, swapSupportedChainsAndTokens)
@@ -13254,6 +13254,7 @@ function NexusWidgetInner({
                     selectedTokens={fromTokens}
                     editingToken={editingAssetIndex === null ? undefined : fromTokens[editingAssetIndex]}
                     isBalanceLoading={isSwapBalancePending}
+                    minBalanceUsd={1}
                     onDismiss={handleSourcePickerCancel}
                     onSelect={(token) => {
                       if (isSwapAssetDrawerClosing || depositPickTimerRef.current) return;

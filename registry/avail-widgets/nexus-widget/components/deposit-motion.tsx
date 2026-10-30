@@ -55,33 +55,110 @@ export const groupDepositInput = (value: string) => {
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (fraction.length ? `.${fraction.join("")}` : "");
 };
 
-/** Preserve selection by digit position when grouping inserts or removes commas. */
-export function DepositAmountInput({ value = "", onChange, style, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  const input = useRef<HTMLInputElement>(null);
-  const selection = useRef<number | null>(null);
-  const [selectionRevision, setSelectionRevision] = useState(0);
-  const shown = groupDepositInput(String(value));
-  useLayoutEffect(() => {
-    if (selection.current == null || !input.current) return;
-    let offset = 0, digits = 0;
-    while (offset < shown.length && digits < selection.current) {
-      if (shown[offset] !== ",") digits++;
-      offset++;
-    }
-    input.current.setSelectionRange(offset, offset);
-    selection.current = null;
-  }, [shown, selectionRevision]);
-  return <input {...props} ref={input} value={shown} style={{ fieldSizing: "content", ...style, width: style?.width ?? `${Math.max(shown.length, 1)}ch`, textAlign: style?.textAlign ?? "right" }}
-    onChange={event => {
-      let sel = event.target.value.slice(0, event.target.selectionStart ?? 0).replaceAll(",", "").length;
-      if (event.target.value.trimStart().startsWith(".") && (event.target.selectionStart ?? 0) >= 1) {
-        sel += 1;
-      }
-      selection.current = sel;
-      setSelectionRevision(v => v + 1);
-      onChange?.(event);
-    }} />;
+export interface DepositAmountInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "prefix"> {
+  prefix?: React.ReactNode;
 }
+
+/** Preserve selection by digit position when grouping inserts or removes commas. Auto-sizes to content to prevent gaps. */
+export const DepositAmountInput = React.forwardRef<HTMLInputElement, DepositAmountInputProps>(
+  function DepositAmountInput({ prefix, value = "", onChange, style, ...props }, forwardedRef) {
+    const internalRef = useRef<HTMLInputElement>(null);
+    const selection = useRef<number | null>(null);
+    const [selectionRevision, setSelectionRevision] = useState(0);
+    const shown = groupDepositInput(String(value));
+
+    useLayoutEffect(() => {
+      const el = internalRef.current;
+      if (selection.current == null || !el) return;
+      let offset = 0, digits = 0;
+      while (offset < shown.length && digits < selection.current) {
+        if (shown[offset] !== ",") digits++;
+        offset++;
+      }
+      el.setSelectionRange(offset, offset);
+      selection.current = null;
+    }, [shown, selectionRevision]);
+
+    const { width: _w, textAlign: _ta, fieldSizing: _fs, ...cleanStyle } = (style || {}) as React.CSSProperties & { fieldSizing?: string };
+
+    return (
+      <span
+        className="nx-amount-field"
+        onClick={() => internalRef.current?.focus()}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          cursor: "text",
+        }}
+      >
+        {prefix}
+        <span
+          style={{
+            display: "inline-grid",
+            alignItems: "center",
+            justifyItems: "end",
+            position: "relative",
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              gridArea: "1 / 1",
+              visibility: "hidden",
+              whiteSpace: "pre",
+              font: style?.font,
+              fontSize: style?.fontSize,
+              fontWeight: style?.fontWeight,
+              fontFamily: style?.fontFamily,
+              letterSpacing: style?.letterSpacing,
+              lineHeight: style?.lineHeight,
+              padding: 0,
+              margin: 0,
+              border: 0,
+              pointerEvents: "none",
+            }}
+          >
+            {shown || props.placeholder || "0"}
+          </span>
+          <input
+            {...props}
+            ref={(node) => {
+              internalRef.current = node;
+              if (typeof forwardedRef === "function") {
+                forwardedRef(node);
+              } else if (forwardedRef) {
+                (forwardedRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
+              }
+            }}
+            value={shown}
+            style={{
+              ...cleanStyle,
+              gridArea: "1 / 1",
+              width: "100%",
+              minWidth: 0,
+              padding: 0,
+              margin: 0,
+              border: "none",
+              background: "transparent",
+              outline: "none",
+              textAlign: "right",
+            }}
+            onChange={(event) => {
+              let sel = event.target.value.slice(0, event.target.selectionStart ?? 0).replaceAll(",", "").length;
+              if (event.target.value.trimStart().startsWith(".") && (event.target.selectionStart ?? 0) >= 1) {
+                sel += 1;
+              }
+              selection.current = sel;
+              setSelectionRevision((v) => v + 1);
+              onChange?.(event);
+            }}
+          />
+        </span>
+      </span>
+    );
+  }
+);
 
 /** Outgoing screens are inert DOM snapshots, so effects and payment hooks never run twice. */
 export function DepositScreenMotion({ screenKey, back, enabled = true, children }: { screenKey: string; back?: boolean; enabled?: boolean; children: React.ReactNode }) {

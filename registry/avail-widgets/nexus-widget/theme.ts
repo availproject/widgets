@@ -194,7 +194,7 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-nm { display:flex; align-items:center; gap:4px; font:500 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-ink); }
 .nx-ch { display:block; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
 .nx-pr-amt { flex:1; display:flex; flex-direction:column; align-items:flex-end; min-width:0; }
-.nx-pr-val { display:flex; align-items:center; justify-content:flex-end; width:100%; }
+.nx-pr-val { display:flex; align-items:center; justify-content:flex-end; width:100%; gap:0; }
 .nx-caret { width:2px; height:32px; border-radius:1px; background:var(--nx-blue); animation:nx-blink 1.06s steps(1) infinite; flex-shrink:0; }
 .nx-pr-sub { display:flex; align-items:center; gap:4px; font:400 14px/18px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
 .nx-collapse { display:grid; grid-template-rows:0fr; transition:grid-template-rows 200ms cubic-bezier(.2,0,0,1); }
@@ -238,9 +238,9 @@ button.nx-pr-tok:disabled { cursor:default; }
 .nx-collapse > div { opacity:0; transform:translateY(-4px); transition:opacity 100ms,transform 100ms; }
 .nx-collapse.on { transition-duration:250ms; }
 .nx-collapse.on > div { opacity:1; transform:none; transition:opacity 150ms 50ms,transform 150ms 50ms; }
-.nx-pr-val input, .nx-pr-val > span { transition:font-size 250ms cubic-bezier(.2,0,0,1),line-height 250ms cubic-bezier(.2,0,0,1); }
+.nx-pr-val input, .nx-pr-val span { transition:font-size 250ms cubic-bezier(.2,0,0,1),line-height 250ms cubic-bezier(.2,0,0,1); }
 .nx-prow.keying input { caret-animation:manual; }
-.nx-pr-val input { caret-color:var(--nx-blue); max-width:100%; }
+.nx-pr-val input { caret-color:var(--nx-blue); max-width:100%; padding:0; margin:0; border:0; }
 .nx-prow.err input, .nx-prow.shake input { caret-color:var(--nx-red); }
 .nx-prow button, .nx-head button, .nx-history-header button { transition:transform 100ms,background-color 150ms; }
 .nx-prow button:active:not(:disabled), .nx-head button:active, .nx-history-header button:active { transform:scale(.92); }
