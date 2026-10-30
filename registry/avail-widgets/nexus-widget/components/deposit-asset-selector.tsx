@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import Decimal from "decimal.js";
-import { Check, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronUp, Info, Search } from "lucide-react";
 import { parseAmount } from "../utils/amount";
 import { LogoPair, TokenLogo } from "./deposit-token-logo";
 import type { SwapTokenOption } from "./swap-asset-selector";
@@ -61,35 +61,57 @@ export function DepositAssetSelector({
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, [chainMenuOpen]);
 
+  const [hiddenExpanded, setHiddenExpanded] = useState(false);
+
   const selectedKeys = new Set(selectedTokens.flatMap((token) =>
     (token.sourceTokens?.length ? token.sourceTokens : [token]).map(sourceKey),
   ));
-  const availableTokens = tokens.filter((token) => {
+  const unselectedTokens = tokens.filter((token) => {
     if (
       selectedKeys.has(sourceKey(token)) &&
       !(editingToken && sourceKey(token) === sourceKey(editingToken))
     ) {
       return false;
     }
-    if (minBalanceUsd !== undefined) {
-      const fiat = parseAmount(token.balanceInFiat) ?? new Decimal(0);
-      if (fiat.lt(minBalanceUsd)) return false;
-    }
     return true;
   });
-  const chains = Array.from(new Map(availableTokens
+  const chains = Array.from(new Map(unselectedTokens
     .filter((token) => token.chainId !== undefined)
     .map((token) => [token.chainId!, {
       id: token.chainId!, name: token.chainName || `Chain ${token.chainId}`, logo: token.chainLogo,
     }])).values());
   const selectedChain = chains.find((chain) => chain.id === chainId);
-  const visibleTokens = availableTokens.filter((token) =>
-    (chainId === "all" || token.chainId === chainId) &&
-    `${token.symbol} ${token.name} ${token.chainName ?? ""} ${token.contractAddress}`
-      .toLowerCase().includes(query.trim().toLowerCase()),
-  ).sort((a, b) =>
-    (parseAmount(b.balanceInFiat) ?? new Decimal(0)).cmp(parseAmount(a.balanceInFiat) ?? 0),
-  );
+
+  const matchesFilter = (token: SwapTokenOption) => {
+    const matchesChain = chainId === "all" || token.chainId === chainId;
+    if (!matchesChain) return false;
+    if (!query.trim()) return true;
+    const searchTarget = `${token.symbol} ${token.name} ${token.chainName ?? ""} ${token.contractAddress}`.toLowerCase();
+    return searchTarget.includes(query.trim().toLowerCase());
+  };
+
+  const filteredTokens = unselectedTokens.filter(matchesFilter);
+
+  const visibleTokens = filteredTokens
+    .filter((token) => {
+      if (minBalanceUsd === undefined) return true;
+      const fiat = parseAmount(token.balanceInFiat) ?? new Decimal(0);
+      return fiat.gte(minBalanceUsd);
+    })
+    .sort((a, b) =>
+      (parseAmount(b.balanceInFiat) ?? new Decimal(0)).cmp(parseAmount(a.balanceInFiat) ?? 0),
+    );
+
+  const hiddenTokens = minBalanceUsd !== undefined
+    ? filteredTokens
+        .filter((token) => {
+          const fiat = parseAmount(token.balanceInFiat) ?? new Decimal(0);
+          return fiat.lt(minBalanceUsd);
+        })
+        .sort((a, b) =>
+          (parseAmount(b.balanceInFiat) ?? new Decimal(0)).cmp(parseAmount(a.balanceInFiat) ?? 0),
+        )
+    : [];
 
   return (
     <div
@@ -142,6 +164,15 @@ export function DepositAssetSelector({
         .nx-asset-row { display:flex; align-items:center; gap:12px; width:100%; min-height:68px; padding:14px 12px; border-radius:18px; background:transparent; text-align:left; }
         .nx-asset-primary { font-size:16px; line-height:20px; font-weight:500; overflow-wrap:anywhere; }
         .nx-asset-secondary { color:var(--nx-mute,#737372); font-size:14px; line-height:18px; }
+        .nx-asset-divider { border-top:1px solid var(--nx-line,#E5E5E4); margin:10px 12px 6px; }
+        .nx-asset-hidden-toggle { display:flex; align-items:center; gap:10px; width:100%; padding:8px 12px; border-radius:14px; background:transparent; color:var(--nx-mute,#737372); font:400 14px/20px "Geist",system-ui,sans-serif; text-align:left; transition:background-color 120ms; }
+        .nx-asset-hidden-toggle:hover { background:var(--nx-fill,#F3F3F3); }
+        .nx-asset-hidden-toggle-chevron { display:flex; align-items:center; justify-content:center; margin-left:auto; color:var(--nx-mute,#737372); flex-shrink:0; }
+        .nx-asset-hidden-icons { display:flex; align-items:center; flex-shrink:0; }
+        .nx-asset-hidden-icon { width:20px; height:20px; border-radius:999px; outline:1.5px solid var(--nx-pop,#FFF); overflow:hidden; display:inline-flex; align-items:center; justify-content:center; filter:grayscale(1); opacity:0.65; background:var(--nx-fill,#F3F3F3); flex-shrink:0; }
+        .nx-asset-hidden-info { display:flex; align-items:center; gap:6px; padding:4px 12px 6px; color:var(--nx-mute,#737372); font:400 13px/18px "Geist",system-ui,sans-serif; }
+        .nx-asset-row-disabled { opacity:0.55; cursor:default; pointer-events:none; }
+        .nx-asset-row-disabled:hover { background:transparent !important; }
         @container (max-width:380px) {
           .nx-asset-controls { padding-left:12px; padding-right:12px; }
           .nx-asset-search { gap:6px; padding:10px; }
@@ -152,6 +183,8 @@ export function DepositAssetSelector({
           .nx-asset-row { gap:8px; padding-left:4px; padding-right:4px; }
           .nx-asset-primary { font-size:14px; }
           .nx-asset-secondary { font-size:12px; }
+          .nx-asset-hidden-toggle { font-size:13px; padding-left:4px; padding-right:4px; }
+          .nx-asset-hidden-info { font-size:12px; padding-left:4px; padding-right:4px; }
         }
       `}</style>
       <div className="nx-asset-controls" aria-busy={isBalanceLoading} inert={isBalanceLoading}>
@@ -237,28 +270,97 @@ export function DepositAssetSelector({
             <span className="nx-shim" style={{ height: 30, width: 70 }} />
             <span className="nx-shim" style={{ height: 30, width: 90, marginLeft: "auto" }} />
           </div>
-        )) : visibleTokens.length === 0 ? (
+        )) : visibleTokens.length === 0 && hiddenTokens.length === 0 ? (
           <div role="status" className="nx-asset-secondary" style={{ padding: "28px 12px", textAlign: "center" }}>
             {query.trim() || chainId !== "all" ? "No tokens match your search" : selectedTokens.length ? "No more tokens available" : "No tokens in this wallet"}
           </div>
-        ) : visibleTokens.map((token, index) => (
-          <button className="nx-asset-row" key={sourceKey(token)} type="button" onClick={() => onSelect(token)}
-            aria-pressed={editingToken ? sourceKey(token) === sourceKey(editingToken) : undefined}
-            style={{ animationDelay: `${Math.min(index, 6) * 24}ms`, ...(editingToken && sourceKey(token) === sourceKey(editingToken) ? { background: "var(--nx-fill, #F3F3F3)" } : {}) }}>
-            <LogoPair token={token} />
-            <span style={{ display: "flex", flex: 1, flexDirection: "column", gap: 2, minWidth: 0 }}>
-              <span className="nx-asset-primary">{token.symbol}</span>
-              <span className="nx-asset-secondary">{token.chainName}</span>
-            </span>
-            <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 0, maxWidth: "50%" }}>
-              <span className="nx-asset-primary">{parseAmount(token.balance)?.toDecimalPlaces(Math.min(8, token.decimals), Decimal.ROUND_DOWN).toFixed() ?? "0"} {token.symbol}</span>
-              <span className="nx-asset-secondary">{formatUsd(token.balanceInFiat)}</span>
-            </span>
-            {editingToken && sourceKey(token) === sourceKey(editingToken) ? (
-              <span aria-hidden="true" style={{ display: "grid", placeItems: "center", width: 20, height: 20, flexShrink: 0, borderRadius: 999, background: "var(--nx-blue,#006BF4)", color: "#fff" }}><Check size={12} /></span>
-            ) : <ChevronRight aria-hidden size={16} style={{ flexShrink: 0, color: "var(--nx-faint,#A3A3A2)" }} />}
-          </button>
-        ))}
+        ) : (
+          <>
+            {visibleTokens.length === 0 && hiddenTokens.length > 0 ? (
+              <div role="status" className="nx-asset-secondary" style={{ padding: "18px 12px 10px", textAlign: "center" }}>
+                {query.trim() || chainId !== "all" ? "No tokens with balance above $1 match your search" : "No tokens with balance above $1"}
+              </div>
+            ) : null}
+            {visibleTokens.map((token, index) => (
+              <button className="nx-asset-row" key={sourceKey(token)} type="button" onClick={() => onSelect(token)}
+                aria-pressed={editingToken ? sourceKey(token) === sourceKey(editingToken) : undefined}
+                style={{ animationDelay: `${Math.min(index, 6) * 24}ms`, ...(editingToken && sourceKey(token) === sourceKey(editingToken) ? { background: "var(--nx-fill, #F3F3F3)" } : {}) }}>
+                <LogoPair token={token} />
+                <span style={{ display: "flex", flex: 1, flexDirection: "column", gap: 2, minWidth: 0 }}>
+                  <span className="nx-asset-primary">{token.symbol}</span>
+                  <span className="nx-asset-secondary">{token.chainName}</span>
+                </span>
+                <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 0, maxWidth: "50%" }}>
+                  <span className="nx-asset-primary">{parseAmount(token.balance)?.toDecimalPlaces(Math.min(8, token.decimals), Decimal.ROUND_DOWN).toFixed() ?? "0"} {token.symbol}</span>
+                  <span className="nx-asset-secondary">{formatUsd(token.balanceInFiat)}</span>
+                </span>
+                {editingToken && sourceKey(token) === sourceKey(editingToken) ? (
+                  <span aria-hidden="true" style={{ display: "grid", placeItems: "center", width: 20, height: 20, flexShrink: 0, borderRadius: 999, background: "var(--nx-blue,#006BF4)", color: "#fff" }}><Check size={12} /></span>
+                ) : <ChevronRight aria-hidden size={16} style={{ flexShrink: 0, color: "var(--nx-faint,#A3A3A2)" }} />}
+              </button>
+            ))}
+
+            {hiddenTokens.length > 0 ? (
+              <>
+                {visibleTokens.length > 0 ? <div className="nx-asset-divider" /> : null}
+                <button
+                  className="nx-asset-hidden-toggle"
+                  type="button"
+                  aria-expanded={hiddenExpanded}
+                  onClick={() => setHiddenExpanded((prev) => !prev)}
+                >
+                  <span className="nx-asset-hidden-icons">
+                    {hiddenTokens.slice(0, 3).map((token, index) => (
+                      <span
+                        className="nx-asset-hidden-icon"
+                        key={sourceKey(token)}
+                        style={{ marginLeft: index ? -6 : 0, zIndex: 3 - index }}
+                      >
+                        <TokenLogo label={token.symbol} size={20} src={token.logo} />
+                      </span>
+                    ))}
+                  </span>
+                  <span>
+                    {hiddenTokens.length} {hiddenTokens.length === 1 ? "token" : "tokens"} below ${minBalanceUsd ?? 1} hidden
+                  </span>
+                  <span className="nx-asset-hidden-toggle-chevron">
+                    {hiddenExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </span>
+                </button>
+
+                {hiddenExpanded ? (
+                  <div className="nx-asset-hidden-collapse">
+                    <div className="nx-asset-hidden-info">
+                      <Info aria-hidden size={14} style={{ flexShrink: 0 }} />
+                      <span>Too small to deposit, so they can’t be selected.</span>
+                    </div>
+                    <div className="nx-asset-hidden-list">
+                      {hiddenTokens.map((token) => (
+                        <div
+                          className="nx-asset-row nx-asset-row-disabled"
+                          key={sourceKey(token)}
+                          aria-disabled="true"
+                        >
+                          <LogoPair token={token} />
+                          <span style={{ display: "flex", flex: 1, flexDirection: "column", gap: 2, minWidth: 0 }}>
+                            <span className="nx-asset-primary">{token.symbol}</span>
+                            <span className="nx-asset-secondary">{token.chainName}</span>
+                          </span>
+                          <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 0, maxWidth: "50%" }}>
+                            <span className="nx-asset-primary">
+                              {parseAmount(token.balance)?.toDecimalPlaces(Math.min(8, token.decimals), Decimal.ROUND_DOWN).toFixed() ?? "0"} {token.symbol}
+                            </span>
+                            <span className="nx-asset-secondary">{formatUsd(token.balanceInFiat)}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   );

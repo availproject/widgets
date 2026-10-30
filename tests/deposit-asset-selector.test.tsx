@@ -123,10 +123,41 @@ test("deposit picker hides tokens whose balance is below minBalanceUsd ($1)", as
     });
     const rows = renderer!.root.findAllByProps({ className: "nx-asset-row" });
     // tokens has usdc ($3.24), Arbitrum usdc ($10.33), and ETH ($0.50).
-    // With minBalanceUsd=1, ETH ($0.50) is hidden, so only 2 tokens remain.
+    // With minBalanceUsd=1, ETH ($0.50) is hidden, so only 2 selectable tokens remain.
     assert.equal(rows.length, 2);
     const symbols = rows.map((r) => r.findAllByProps({ className: "nx-asset-primary" })[0]?.children?.join(""));
     assert.ok(!symbols.includes("ETH"));
+
+    // Verify the hidden tokens toggle button
+    const toggle = renderer!.root.findByProps({ className: "nx-asset-hidden-toggle" });
+    assert.ok(toggle, "Expected hidden tokens toggle button");
+    assert.equal(toggle.props["aria-expanded"], false);
+    const spanTexts = toggle.findAllByType("span").map((s) => (Array.isArray(s.children) ? s.children.join("") : String(s.children ?? "")));
+    assert.ok(spanTexts.some((t) => /1 token below \$1 hidden/.test(t)));
+
+    // Expand the hidden tokens section
+    await act(async () => {
+      toggle.props.onClick();
+    });
+    assert.equal(toggle.props["aria-expanded"], true);
+
+    // Verify info message and disabled hidden row
+    const info = renderer!.root.findByProps({ className: "nx-asset-hidden-info" });
+    const infoText = info.findAllByType("span").map((s) => (Array.isArray(s.children) ? s.children.join("") : String(s.children ?? ""))).join("");
+    assert.match(infoText, /Too small to deposit, so they can’t be selected\./);
+
+    const disabledRow = renderer!.root.findByProps({ className: "nx-asset-row nx-asset-row-disabled" });
+    assert.ok(disabledRow, "Expected disabled row for ETH below $1");
+    assert.equal(disabledRow.props["aria-disabled"], "true");
+    const disabledSymbol = disabledRow.findAllByProps({ className: "nx-asset-primary" })[0]?.children?.join("");
+    assert.equal(disabledSymbol, "ETH");
+
+    // Collapse again
+    await act(async () => {
+      toggle.props.onClick();
+    });
+    assert.equal(toggle.props["aria-expanded"], false);
+    assert.equal(renderer!.root.findAllByProps({ className: "nx-asset-hidden-info" }).length, 0);
   } finally {
     await act(async () => {
       renderer?.unmount();

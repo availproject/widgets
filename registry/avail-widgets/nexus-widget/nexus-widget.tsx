@@ -6028,20 +6028,17 @@ function NexusWidgetInner({
     return getExpandedSourceTokens(tokens).filter(hasGasForSource);
   };
 
+  const getAllSourceTokens = () =>
+    getExpandedSourceTokens(
+      swapBalance
+        ? deriveTokenOptions(swapBalance, swapSupportedChainsAndTokens)
+        : [],
+    );
+
   const getMinimumBalanceSourceTokens = () =>
     activeMode === "deposit" && swapType === "exactOut"
-      ? getExpandedSourceTokens(
-          swapBalance
-            ? deriveTokenOptions(swapBalance, swapSupportedChainsAndTokens)
-            : [],
-        )
-      : filterMinimumSourceUsdTokens(
-          getExpandedSourceTokens(
-            swapBalance
-              ? deriveTokenOptions(swapBalance, swapSupportedChainsAndTokens)
-              : [],
-          ),
-        );
+      ? getAllSourceTokens()
+      : filterMinimumSourceUsdTokens(getAllSourceTokens());
   const getHeldDestinationTokenOption = () => {
     if (!toToken?.chainId || !toToken.contractAddress) return undefined;
 
@@ -12563,7 +12560,7 @@ function NexusWidgetInner({
                       toToken={toTokenWithFetchedBalance}
                       totalBalance={totalSwapBalanceUsd}
                       usdValue={depositUsdDisplay}
-                      availableTokens={getMinimumBalanceSourceTokens()}
+                      availableTokens={getAllSourceTokens()}
                       onBack={handleBack}
                       onClose={handleDepositDismiss}
                       onOpenHistory={
@@ -13250,7 +13247,7 @@ function NexusWidgetInner({
                 <>
                   <DepositSheetGrip onDismiss={handleSourcePickerCancel} />
                   <DepositAssetSelector
-                    tokens={getMinimumBalanceSourceTokens()}
+                    tokens={getAllSourceTokens()}
                     selectedTokens={fromTokens}
                     editingToken={editingAssetIndex === null ? undefined : fromTokens[editingAssetIndex]}
                     isBalanceLoading={isSwapBalancePending}
