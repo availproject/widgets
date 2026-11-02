@@ -131,4 +131,13 @@ test("classifyIntentError handles other backend codes cleanly", () => {
   });
   assert.equal(noRoutable.bucket, "quote_provider");
   assert.match(noRoutable.message, /source asset/i);
+
+  const revertedTx = classifyIntentError({
+    code: ERROR_CODES.EXEC_TX_CONFIRM_FAILED,
+    message:
+      "Failed to confirm execute transaction: Transaction reverted: 0x4147d58b443de32aa72a2bb8d024095672cf834fbfc18297056dd82ba1895692",
+  });
+  assert.equal(revertedTx.bucket, "wallet_network");
+  assert.match(revertedTx.message, /destination protocol transaction reverted/i);
+  assert.match(revertedTx.message, /safely in your wallet/i);
 });

@@ -333,6 +333,20 @@ const classifyNonQuoteError = (
   }
 
   if (
+    message.includes("Transaction reverted") ||
+    code === "execution/tx_onchain_reverted" ||
+    code === "execution/exec_tx_confirm_failed"
+  ) {
+    return {
+      bucket: "wallet_network",
+      message:
+        "The destination protocol transaction reverted on-chain. Your swapped funds have arrived and remain safely in your wallet on the destination chain.",
+      retryable: true,
+      technicalDetails: getTechnicalDetails(value) ?? message,
+    };
+  }
+
+  if (
     value.category === "execution" ||
     value.context?.service === "wallet" ||
     value.context?.service === "rpc" ||
