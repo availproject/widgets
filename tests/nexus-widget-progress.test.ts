@@ -508,5 +508,120 @@ test("progress screen uses light progress grid by default and dark grid in dark 
   assert.doesNotMatch(darkHtml, /nexus-one\/progress-grid\.gif"/);
 });
 
+test("multi-token deposit with 1 ERC20 and 2 native tokens shows native token deposit progress rows after intent", () => {
+  const usdtApproval = {
+    id: "approval:42161:0xusdt",
+    type: "ERC20_APPROVAL",
+    token: { symbol: "USDT", contractAddress: "0xusdt" },
+    chain: { id: 42161, name: "Arbitrum" },
+  };
+  const intentSignature = {
+    id: "intent-signature",
+    type: "INTENT_SIGNATURE",
+  };
+  const hypeNative = {
+    id: "native:999:1",
+    type: "NATIVE_TRANSACTION",
+    chainId: 999,
+    sourceIndex: 1,
+    symbol: "HYPE",
+  };
+  const ethNative = {
+    id: "native:8453:2",
+    type: "NATIVE_TRANSACTION",
+    chainId: 8453,
+    sourceIndex: 2,
+    symbol: "ETH",
+  };
+  const intentFulfillment = {
+    id: "intent-fulfillment",
+    type: "INTENT_FULFILLMENT",
+  };
+
+  const stepsList = [usdtApproval, intentSignature, hypeNative, ethNative, intentFulfillment];
+  const context = {
+    destinationChain: "Optimism",
+    destinationSymbol: "USDC",
+    opportunityName: "Aave",
+    intentSources: [
+      { chain: { id: 42161, name: "Arbitrum" }, token: { symbol: "USDT", contractAddress: "0xusdt" } },
+      { chain: { id: 999, name: "HyperEVM" }, token: { symbol: "HYPE" } },
+      { chain: { id: 8453, name: "Base" }, token: { symbol: "ETH" } },
+    ],
+  };
+
+  // Initial state: plan received
+  const events: NexusWidgetProgressEvent[] = [plan(stepsList)];
+  let res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+
+  assert.equal(res.find((r) => r.id === "approveTokens")?.label, "Approve tokens for deposit (1 of 1)");
+  assert.equal(res.find((r) => r.id === "approveTokens")?.state, "preapproval");
+  assert.equal(res.find((r) => r.id === "intentVerified")?.state, "default");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.state, "default");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.label, "Deposit native tokens (1 of 2)");
+
+  // 1. USDT approved
+  events.push(progress(usdtApproval, "completed"));
+  res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  assert.equal(res.find((r) => r.id === "approveTokens")?.state, "completed");
+  assert.equal(res.find((r) => r.id === "approveTokens")?.label, "Tokens approved for deposit (1 of 1)");
+  assert.equal(res.find((r) => r.id === "intentVerified")?.state, "preapproval");
+
+  // 2. Intent signed
+  events.push(progress(intentSignature, "completed"));
+  res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  assert.equal(res.find((r) => r.id === "intentVerified")?.state, "completed");
+  assert.equal(res.find((r) => r.id === "intentVerified")?.label, "Intent approved");
+  // Now native transactions is active for token 1 (HYPE)
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.state, "preapproval");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.label, "Deposit native tokens (1 of 2)");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.description, "Confirm HYPE deposit in wallet");
+  // Swaps not in progress yet
+  assert.equal(res.find((r) => r.id === "swapTokens")?.state, "default");
+
+  // 3. First native token (HYPE) completed
+  events.push(progress(hypeNative, "completed"));
+  res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.state, "preapproval");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.label, "Deposit native tokens (2 of 2)");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.description, "Confirm ETH deposit in wallet");
+  assert.equal(res.find((r) => r.id === "swapTokens")?.state, "default");
+
+  // 4. Second native token (ETH) completed
+  events.push(progress(ethNative, "completed"));
+  res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.state, "completed");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.label, "Native tokens deposited (2 of 2)");
+  // Swaps now start
+  assert.equal(res.find((r) => r.id === "swapTokens")?.state, "inProgress");
+});
+
+test("native token transaction user rejection sets error on nativeTransactions row", () => {
+  const hypeNative = {
+    id: "native:999:1",
+    type: "NATIVE_TRANSACTION",
+    chainId: 999,
+    sourceIndex: 1,
+    symbol: "HYPE",
+  };
+  const stepsList = [{ id: "intent-signature", type: "INTENT_SIGNATURE" }, hypeNative];
+  const events: NexusWidgetProgressEvent[] = [
+    plan(stepsList),
+    progress({ id: "intent-signature", type: "INTENT_SIGNATURE" }, "completed"),
+    progress(hypeNative, "failed"),
+  ];
+  const res = buildStatusRows({
+    events,
+    mode: "deposit",
+    steps: [],
+    failedStep: hypeNative as any,
+    isRejected: true,
+    context: { destinationChain: "Optimism", destinationSymbol: "USDC", opportunityName: "Aave" },
+  });
+  const nativeRow = res.find((r) => r.id === "nativeTransactions");
+  assert.equal(nativeRow?.state, "error");
+  assert.equal(nativeRow?.description, "Rejected in wallet");
+});
+
 
 

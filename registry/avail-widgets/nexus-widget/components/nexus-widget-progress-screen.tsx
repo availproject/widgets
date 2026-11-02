@@ -140,6 +140,7 @@ const getStepType = (step?: ProgressSdkStep) =>
 type ProgressStatusId =
   | "approveTokens"
   | "intentVerified"
+  | "nativeTransactions"
   | "swapTokens"
   | "receiveToken"
   | "action";
@@ -172,6 +173,7 @@ type ProgressListEventName =
 const STATUS_ORDER: ProgressStatusId[] = [
   "approveTokens",
   "intentVerified",
+  "nativeTransactions",
   "swapTokens",
   "receiveToken",
   "action",
@@ -232,6 +234,17 @@ const DESTINATION_SWAP_TYPES = [
 ];
 const BRIDGE_FILL_RECEIVE_TYPES = ["BRIDGE_FILL", "INTENT_FULFILLMENT"];
 
+const isNativeTransactionStep = (step?: ProgressSdkStep) => {
+  if (!step) return false;
+  const type = getStepType(step);
+  const id = String((step as any)?.id ?? (step as any)?.typeID ?? "").toLowerCase();
+  return (
+    type === "NATIVE_TRANSACTION" ||
+    type.includes("NATIVE_TRANSACTION") ||
+    id.startsWith("native:")
+  );
+};
+
 const getStatusForStep = (
   step: ProgressSdkStep | undefined,
   mode: NexusWidgetMode,
@@ -258,6 +271,10 @@ const getStatusForStep = (
     return "intentVerified";
   }
 
+  if (isNativeTransactionStep(step)) {
+    return "nativeTransactions";
+  }
+
   if (type.includes("SWAP_START")) {
     return "swapTokens";
   }
@@ -271,7 +288,6 @@ const getStatusForStep = (
     type.includes("BRIDGE_FILL") ||
     type.includes("BRIDGE_INTENT_SUBMISSION") ||
     type.includes("INTENT_SUBMISSION") ||
-    type.includes("NATIVE_TRANSACTION") ||
     type.includes("SWAP_COMPLETE") ||
     type.includes("SWAP_SKIPPED")
   ) {
@@ -382,7 +398,25 @@ const isSameStep = (left?: ProgressSdkStep, right?: ProgressSdkStep) => {
 
   const leftKey = getStepId(left);
   const rightKey = getStepId(right);
-  return Boolean(leftKey && leftKey === rightKey);
+  if (Boolean(leftKey && leftKey === rightKey)) {
+    return true;
+  }
+
+  if (
+    (leftType === "NATIVE_TRANSACTION" || leftType.includes("NATIVE_TRANSACTION")) &&
+    (rightType === "NATIVE_TRANSACTION" || rightType.includes("NATIVE_TRANSACTION")) &&
+    leftChain !== undefined &&
+    leftChain === rightChain
+  ) {
+    const leftSource = (left as any)?.sourceIndex;
+    const rightSource = (right as any)?.sourceIndex;
+    if (leftSource !== undefined && rightSource !== undefined) {
+      return leftSource === rightSource;
+    }
+    return true;
+  }
+
+  return false;
 };
 const getEventState = (event: NexusWidgetProgressEvent) =>
   String((event.event as { state?: string } | undefined)?.state ?? "").toLowerCase();
@@ -438,6 +472,15 @@ const getStepTokenSymbol = (
   if (directSymbol && typeof directSymbol === "string" && directSymbol.trim() !== "") {
     return directSymbol.trim();
   }
+
+  const sourceIndex = (step as any)?.sourceIndex;
+  if (
+    typeof sourceIndex === "number" &&
+    context?.intentSources?.[sourceIndex]?.token?.symbol
+  ) {
+    return context.intentSources[sourceIndex].token.symbol;
+  }
+
   const tokenAddress = getStepTokenAddress(step);
   const chainId = getStepChainId(step);
 
@@ -469,6 +512,28 @@ const getStepTokenSymbol = (
     ) {
       if (context?.opportunity?.tokenSymbol) return context.opportunity.tokenSymbol;
     }
+  }
+
+  if (chainId !== undefined) {
+    const sourceByChain = context?.intentSources?.find(
+      (s) =>
+        s.chain?.id === chainId &&
+        (!s.token?.contractAddress ||
+          s.token.contractAddress === "0x0000000000000000000000000000000000000000" ||
+          s.token.contractAddress.toLowerCase() ===
+            "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+    );
+    if (sourceByChain?.token?.symbol) return sourceByChain.token.symbol;
+
+    const fromByChain = context?.fromTokens?.find(
+      (t) =>
+        t.chainId === chainId &&
+        (!t.contractAddress ||
+          t.contractAddress === "0x0000000000000000000000000000000000000000" ||
+          t.contractAddress.toLowerCase() ===
+            "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+    );
+    if (fromByChain?.symbol) return fromByChain.symbol;
   }
 
   if (context?.fromTokens && context.fromTokens.length === 1 && context.fromTokens[0]?.symbol) {
@@ -639,6 +704,126 @@ const getApprovalProgress = (
   };
 };
 
+const getNativeTransactionProgress = (
+  plan: ProgressSdkStep[],
+  events: NexusWidgetProgressEvent[],
+  steps: ProgressStep[],
+  failedStep?: ProgressSdkStep | null,
+  context?: BuildStatusRowsContext,
+) => {
+  const seen = new Set<string>();
+  const allCandidates: ProgressSdkStep[] = [
+    ...plan,
+    ...(events.map((e) => e.step).filter(Boolean) as ProgressSdkStep[]),
+  ];
+  const nativeSteps = allCandidates.flatMap((step, index) => {
+    if (!isNativeTransactionStep(step)) return [];
+    const stepId = step.id ? String(step.id) : "";
+    const key =
+      stepId ||
+      `${getStepType(step)}:${getStepChainId(step) ?? ""}:${(step as any)?.sourceIndex ?? index}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [step];
+  });
+
+  if (nativeSteps.length === 0) {
+    return {
+      total: 0,
+      completed: 0,
+      failed: false,
+      symbols: [] as string[],
+      activeStep: null as ProgressSdkStep | null,
+      activeSymbol: "",
+    };
+  }
+
+  const downstreamComplete =
+    hasCompletedType(events, steps, [
+      "INTENT_SUBMISSION",
+      "INTENT_FULFILLMENT",
+      "DESTINATION_SWAP",
+      "BRIDGE_FILL",
+      "TRANSACTION_SENT",
+      "TRANSACTION_CONFIRMED",
+      "SWAP_COMPLETE",
+    ]) ||
+    events.some(
+      (e) =>
+        !e.steps &&
+        stepMatches(e.step, [
+          "INTENT_SUBMISSION",
+          "INTENT_FULFILLMENT",
+          "DESTINATION_SWAP",
+          "BRIDGE_FILL",
+          "TRANSACTION_SENT",
+          "TRANSACTION_CONFIRMED",
+          "SWAP_COMPLETE",
+        ]) &&
+        (e.completed ||
+          ["submitted", "confirmed", "completed"].includes(getEventState(e))),
+    );
+
+  const items = nativeSteps.map((step) => {
+    const symbol = getStepTokenSymbol(step, context);
+    const directEvents = events.filter(
+      (e) => !e.steps && isSameStep(e.step, step),
+    );
+    const directCompleted =
+      steps.some((item) => item.completed && isSameStep(item.step, step)) ||
+      directEvents.some(
+        (e) =>
+          e.completed ||
+          ["submitted", "confirmed", "completed"].includes(getEventState(e)),
+      ) ||
+      downstreamComplete;
+    const directFailed =
+      !directCompleted &&
+      (isSameStep(failedStep ?? undefined, step) ||
+        directEvents.some((e) => getEventState(e) === "failed"));
+    return { step, symbol, completed: directCompleted, failed: directFailed };
+  });
+
+  // Infer completion if a later native transaction started or completed
+  for (let i = 0; i < items.length; i++) {
+    if (!items[i].completed) {
+      const laterActiveOrDone = items.slice(i + 1).some(
+        (later) =>
+          later.completed ||
+          events.some(
+            (e) =>
+              !e.steps &&
+              isSameStep(e.step, later.step) &&
+              [
+                "wallet_prompted",
+                "started",
+                "submitted",
+                "confirmed",
+                "completed",
+              ].includes(getEventState(e)),
+          ),
+      );
+      if (laterActiveOrDone) {
+        items[i].completed = true;
+      }
+    }
+  }
+
+  const completedCount = items.filter((item) => item.completed).length;
+  const failed = items.some((item) => item.failed);
+  const pending = items.filter((item) => !item.completed);
+  const activeItem = pending[0] ?? null;
+
+  return {
+    total: nativeSteps.length,
+    completed: completedCount,
+    failed,
+    symbols: items.map((i) => i.symbol).filter(Boolean),
+    activeStep: activeItem?.step ?? null,
+    activeSymbol: activeItem?.symbol ?? "",
+  };
+};
+
 const hasStartedStatus = (
   events: NexusWidgetProgressEvent[],
   id: ProgressStatusId,
@@ -705,6 +890,14 @@ export const buildStatusRows = ({
   const approvalTotal = approval.total;
   const approvalCompletedCount = approval.completed;
   if (approval.failed) failedStatus = "approveTokens";
+  const nativeTx = getNativeTransactionProgress(
+    currentPlan,
+    events,
+    steps,
+    failedStep,
+    context,
+  );
+  if (nativeTx.failed) failedStatus = "nativeTransactions";
   const refundEligibleFailure = Boolean(failedStep &&
     stepMatches(failedStep, REFUND_ELIGIBLE_SWAP_TYPES));
   const isExplicitSourceOnlyPlan =
@@ -797,7 +990,7 @@ export const buildStatusRows = ({
     ]) ||
     hasStartedStatus(events, "swapTokens", mode, hasTransferAction) ||
     hasStartedStatus(events, "receiveToken", mode, hasTransferAction) ||
-    hasEventType(events, [
+    hasProgressEventType(events, [
       "SOURCE_SWAP",
       "SOURCE_SWAP_BATCH_TX",
       "SOURCE_SWAP_HASH",
@@ -896,7 +1089,63 @@ export const buildStatusRows = ({
       });
     }
 
+    if (nativeTx.total > 0) {
+      const nativeCurrent = Math.min(
+        nativeTx.total,
+        Math.max(1, nativeTx.completed + 1),
+      );
+      const nativeDone = nativeTx.completed >= nativeTx.total;
+      const activeSymbol = nativeTx.activeSymbol;
+      const state: ProgressStatusState =
+        failedStatus === "nativeTransactions"
+          ? "error"
+          : nativeDone
+            ? "completed"
+            : !intentVerifiedComplete
+              ? "default"
+              : "preapproval";
+
+      const promptDescription = activeSymbol
+        ? mode === "deposit"
+          ? `Confirm ${activeSymbol} deposit in wallet`
+          : `Confirm ${activeSymbol} in wallet`
+        : "Confirm in wallet";
+
+      pushRow({
+        id: "nativeTransactions",
+        state,
+        description:
+          state === "error" && isRejected
+            ? "Rejected in wallet"
+            : state === "preapproval"
+              ? promptDescription
+              : undefined,
+        label:
+          state === "completed"
+            ? mode === "deposit"
+              ? nativeTx.total === 1
+                ? "Native token deposited"
+                : `Native tokens deposited (${nativeTx.total} of ${nativeTx.total})`
+              : nativeTx.total === 1
+                ? "Native token transferred"
+                : `Native tokens transferred (${nativeTx.total} of ${nativeTx.total})`
+            : state === "error"
+              ? isRejected
+                ? "Deposit rejected"
+                : "Deposit failed"
+              : mode === "deposit"
+                ? nativeTx.total === 1
+                  ? `Deposit native token${activeSymbol ? ` (${activeSymbol})` : ""}`
+                  : `Deposit native tokens (${nativeCurrent} of ${nativeTx.total})`
+                : nativeTx.total === 1
+                  ? `Transfer native token${activeSymbol ? ` (${activeSymbol})` : ""}`
+                  : `Transfer native tokens (${nativeCurrent} of ${nativeTx.total})`,
+      });
+    }
+
     const approvalsSatisfied = !approval.blocksSwapExecution;
+    const nativeTransactionsSatisfied =
+      nativeTx.total === 0 || nativeTx.completed >= nativeTx.total;
     let state: ProgressStatusState = "default";
     if (failedStatus === "swapTokens") {
       state = "error";
@@ -904,6 +1153,7 @@ export const buildStatusRows = ({
       state = "completed";
     } else if (
       approvalsSatisfied &&
+      nativeTransactionsSatisfied &&
       (intentVerifiedComplete ||
         hasStartedStatus(events, "swapTokens", mode, hasTransferAction) ||
         hasEventType(events, [
@@ -912,7 +1162,6 @@ export const buildStatusRows = ({
           "SOURCE_SWAP_BATCH_TX",
           "SOURCE_SWAP_HASH",
           "SWAP_START",
-          "NATIVE_TRANSACTION",
           "INTENT_SUBMISSION",
         ]))
     ) {

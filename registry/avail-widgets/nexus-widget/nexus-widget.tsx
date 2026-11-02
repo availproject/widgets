@@ -2569,8 +2569,7 @@ const logSwapPlanSteps = (
   stepList: Array<SwapStepType | BridgeStepType>,
   rawSteps: unknown,
 ) => {
-  if (!isNexusWidgetSdkDebugEnabled()) return;
-  console.log(`[NexusWidget SDK][swap] ${eventType} step list`, {
+  console.log(`[NexusWidget SDK][swap] ${eventType} steps list:`, {
     count: stepList.length,
     eventType,
     rawSteps,
@@ -2584,17 +2583,19 @@ const logSwapPlanProgress = (
   eventName: string,
   completed: boolean,
 ) => {
-  if (!isNexusWidgetSdkDebugEnabled()) return;
-  console.log("[NexusWidget SDK][swap] plan_progress", {
-    completed,
-    eventName,
-    eventType: getSdkEventType(event),
-    normalizedStep: summarizeSdkProgressStep(step),
-    rawEvent: event,
-    rawStep: event?.step,
-    state: event?.state,
-    stepType: event?.stepType,
-  });
+  console.log(
+    `[NexusWidget SDK][swap] plan_progress (${step?.type ?? event?.stepType ?? eventName}):`,
+    {
+      completed,
+      eventName,
+      eventType: getSdkEventType(event),
+      normalizedStep: summarizeSdkProgressStep(step),
+      rawEvent: event,
+      rawStep: event?.step,
+      state: event?.state,
+      stepType: event?.stepType,
+    },
+  );
 };
 
 const getFailureMessageForProgressStep = (
@@ -7299,6 +7300,15 @@ function NexusWidgetInner({
               data?.intent ?? data?.quote ?? data,
             )
           : normalizeRenderableSwapIntentData(intent, bridgeProvider);
+      console.log("[NexusWidget Pre-Intent onIntent Data]", {
+        intent,
+        sources: intent?.sources ?? intent?.quote?.input,
+        planSteps:
+          data?.intent?.plan?.steps ??
+          (data as any)?.quote?.plan?.steps ??
+          data?.intent?.steps,
+        raw: data,
+      });
       logSdkIntentEvent("onIntent", data, {
         bridgeProvider,
         currentRunId: swapRunIdRef.current,
@@ -9348,6 +9358,10 @@ function NexusWidgetInner({
               normalizePlanStep(step, step?.type, undefined, false),
             )
           : [];
+        console.log(
+          `[NexusWidget SDK Pre-Intent Steps List (${event.type})]`,
+          event.plan?.steps ?? stepList,
+        );
         logSwapPlanSteps(event.type, stepList, event.plan?.steps);
         if (stepList.length === 0) return;
 
@@ -9411,6 +9425,19 @@ function NexusWidgetInner({
     };
 
     const onEvent = (event: any) => {
+      console.log("[NexusWidget SDK onEvent]", event);
+      if (
+        event?.type === "plan_preview" ||
+        event?.type === "plan_confirmed" ||
+        event?.type === "quote" ||
+        event?.plan?.steps ||
+        event?.quote?.plan?.steps
+      ) {
+        console.log(
+          `[NexusWidget SDK Pre-Intent Steps List (${event?.type ?? "plan"})]`,
+          event.plan?.steps ?? event.quote?.plan?.steps ?? event,
+        );
+      }
       const isCurrentRun = swapRunIdRef.current === runId;
       const isCurrentQuote = isCurrentQuoteInput();
       logSdkSwapEvent("onEvent", event, {
