@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { ERROR_CODES, BackendError } from "@avail-project/nexus-core";
 import {
   classifyIntentError,
+  conveysFundsAreSafeOrRefunded,
   extractIntentQuoteFailure,
 } from "../registry/avail-widgets/nexus/intent-error-classifier";
 import { useNexusError } from "../registry/avail-widgets/common/hooks/useNexusError";
@@ -140,4 +141,78 @@ test("classifyIntentError handles other backend codes cleanly", () => {
   assert.equal(revertedTx.bucket, "wallet_network");
   assert.match(revertedTx.message, /destination protocol transaction reverted/i);
   assert.match(revertedTx.message, /safely in your wallet/i);
+});
+
+test("conveysFundsAreSafeOrRefunded correctly identifies when refund/safety reassurance is needed", () => {
+  // Rejection in wallet does not convey funds are safe or refunded
+  assert.equal(
+    conveysFundsAreSafeOrRefunded(
+      "Transaction failed",
+      "Transaction was rejected in your wallet."
+    ),
+    false
+  );
+  assert.equal(
+    conveysFundsAreSafeOrRefunded(
+      undefined,
+      "Transaction was rejected in your wallet."
+    ),
+    false
+  );
+
+  // Generic errors do not convey funds are safe or refunded
+  assert.equal(conveysFundsAreSafeOrRefunded("Transaction failed"), false);
+  assert.equal(conveysFundsAreSafeOrRefunded("Collection Failed"), false);
+  assert.equal(conveysFundsAreSafeOrRefunded("Destination Swap Failed"), false);
+  assert.equal(
+    conveysFundsAreSafeOrRefunded("Swap Failed", "The transaction could not be completed."),
+    false
+  );
+  assert.equal(
+    conveysFundsAreSafeOrRefunded("Transaction failed", "User rejected the request"),
+    false
+  );
+  assert.equal(conveysFundsAreSafeOrRefunded(null, undefined), false);
+
+  // Messages that explicitly reassure funds are safe, refunded, or in your wallet
+  assert.equal(
+    conveysFundsAreSafeOrRefunded("Deposit failed. Funds are in your wallet"),
+    true
+  );
+  assert.equal(
+    conveysFundsAreSafeOrRefunded("Send failed. Funds are in your wallet"),
+    true
+  );
+  assert.equal(
+    conveysFundsAreSafeOrRefunded("Swap Failed. Refund Initiated"),
+    true
+  );
+  assert.equal(
+    conveysFundsAreSafeOrRefunded(
+      "Deposit Failed",
+      "Deposit approval was cancelled. The swapped tokens have been received and are in your wallet."
+    ),
+    true
+  );
+  assert.equal(
+    conveysFundsAreSafeOrRefunded(
+      "Destination Swap Failed",
+      "USDC has been bridged and you have those funds in your wallet."
+    ),
+    true
+  );
+  assert.equal(
+    conveysFundsAreSafeOrRefunded(
+      "Deposit Failed",
+      "The destination protocol transaction reverted on-chain. Your swapped funds have arrived and remain safely in your wallet on the destination chain."
+    ),
+    true
+  );
+  assert.equal(
+    conveysFundsAreSafeOrRefunded(
+      "Transaction failed",
+      "Any tokens collected will be refunded to your wallet"
+    ),
+    true
+  );
 });

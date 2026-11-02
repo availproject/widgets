@@ -3,7 +3,14 @@
 
 import { ERROR_CODES, type EthereumProvider } from "@avail-project/nexus-core";
 import Decimal from "decimal.js";
-import { AlertCircle, ArrowLeft, ChevronDown, ChevronLeft, History, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ChevronDown,
+  ChevronLeft,
+  History,
+  Loader2,
+} from "lucide-react";
 import React, {
   useCallback,
   useEffect,
@@ -53,13 +60,23 @@ import {
   adaptIntentEvent,
   normalizeIntentQuote,
 } from "../nexus/better-intent-compat";
-import { classifyIntentError } from "../nexus/intent-error-classifier";
+import {
+  classifyIntentError,
+  conveysFundsAreSafeOrRefunded,
+} from "../nexus/intent-error-classifier";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
 import { DepositFundingMethod } from "./components/deposit-funding-method";
 import { DepositAssetSelector } from "./components/deposit-asset-selector";
-import { DepositAnimatedLabel, DepositScreenMotion, DepositSheetGrip } from "./components/deposit-motion";
-import { DepositIdleForm, DepositCalculatedAmount } from "./components/deposit-idle-form";
+import {
+  DepositAnimatedLabel,
+  DepositScreenMotion,
+  DepositSheetGrip,
+} from "./components/deposit-motion";
+import {
+  DepositIdleForm,
+  DepositCalculatedAmount,
+} from "./components/deposit-idle-form";
 import { DepositOnrampFlow } from "./components/deposit-onramp-flow";
 import { OnrampHistoryCard } from "./components/onramp-history-card";
 import { useOnrampHistory } from "./utils/use-onramp-history";
@@ -2870,7 +2887,7 @@ function SourceRowsList({
   );
 }
 
-function SwapReceiptPanel({
+export function SwapReceiptPanel({
   entry,
   onDone,
 }: {
@@ -2937,13 +2954,20 @@ function SwapReceiptPanel({
     ? entry.failureDescription ||
       "This transaction is still pending. Check the intent explorer for the latest status."
     : undefined;
+  const showRefundReassurance =
+    isFailed &&
+    !conveysFundsAreSafeOrRefunded(failureHeadline, failureDescription);
   const receiptLocation = isDeposit ? depositVenue : chainName;
   const receiptSummary = receiptLocation ? `on ${receiptLocation}` : "";
 
   if (isDeposit) {
     const success = !isFailed && !isTimeout;
-    const accent = success ? "var(--nx-green, #12AD59)" : "var(--nx-red, #D93636)";
-    const soft = success ? "var(--nx-green-soft, #EEF9F2)" : "var(--nx-red-band, #FEF6F6)";
+    const accent = success
+      ? "var(--nx-green, #12AD59)"
+      : "var(--nx-red, #D93636)";
+    const soft = success
+      ? "var(--nx-green-soft, #EEF9F2)"
+      : "var(--nx-red-band, #FEF6F6)";
     const durationLabel =
       typeof entry.durationSeconds === "number" && entry.durationSeconds > 0
         ? `Completed in ${entry.durationSeconds}s`
@@ -2951,7 +2975,10 @@ function SwapReceiptPanel({
     const explorerHost = (() => {
       if (!entry.finalExplorerUrl) return "";
       try {
-        const host = new URL(entry.finalExplorerUrl).hostname.replace(/^www\./, "");
+        const host = new URL(entry.finalExplorerUrl).hostname.replace(
+          /^www\./,
+          "",
+        );
         if (host.includes("basescan")) return "Basescan";
         if (host.includes("arbiscan")) return "Arbiscan";
         if (host.includes("etherscan")) return "Etherscan";
@@ -2969,22 +2996,58 @@ function SwapReceiptPanel({
       <div
         style={{
           alignItems: "center",
-          borderBottom: options?.border === false ? "none" : "1px solid var(--nx-line, #F0F0F0)",
+          borderBottom:
+            options?.border === false
+              ? "none"
+              : "1px solid var(--nx-line, #F0F0F0)",
           display: "flex",
           justifyContent: "space-between",
           padding: "14px 0",
         }}
       >
-        <span style={{ color: "var(--nx-mute-2, #8C8C8B)", font: `400 14px/18px ${uiFont}` }}>{label}</span>
-        <span style={{ color: "var(--nx-ink, #161615)", font: `500 14px/18px ${uiFont}`, textAlign: "right" }}>{value}</span>
+        <span
+          style={{
+            color: "var(--nx-mute-2, #8C8C8B)",
+            font: `400 14px/18px ${uiFont}`,
+          }}
+        >
+          {label}
+        </span>
+        <span
+          style={{
+            color: "var(--nx-ink, #161615)",
+            font: `500 14px/18px ${uiFont}`,
+            textAlign: "right",
+          }}
+        >
+          {value}
+        </span>
       </div>
     );
 
     return (
-      <div className={success ? "nx-receipt-success" : undefined} style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+      <div
+        className={success ? "nx-receipt-success" : undefined}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          width: "100%",
+        }}
+      >
         <div className="nx-card" style={{ padding: "8px 8px 16px" }}>
-          <div style={{ font: `500 20px/26px ${'"Delight","Geist",system-ui,sans-serif'}`, padding: "14px 12px 12px", textAlign: "center" }}>
-            {isTimeout ? timeoutHeadline : isFailed ? "Deposit Failed" : "Deposit Complete"}
+          <div
+            style={{
+              font: `500 20px/26px ${'"Delight","Geist",system-ui,sans-serif'}`,
+              padding: "14px 12px 12px",
+              textAlign: "center",
+            }}
+          >
+            {isTimeout
+              ? timeoutHeadline
+              : isFailed
+                ? "Deposit Failed"
+                : "Deposit Complete"}
           </div>
           <div
             className="nx-receipt-band"
@@ -2997,71 +3060,237 @@ function SwapReceiptPanel({
               justifyContent: "center",
             }}
           >
-            <div className="nx-ring-outer" style={{ alignItems: "center", background: success ? "#12AD5912" : "#D9363612", borderRadius: 999, display: "flex", height: 124, justifyContent: "center", width: 124 }}>
-              <div className="nx-ring-middle" style={{ alignItems: "center", background: success ? "#12AD591F" : "#D936361F", borderRadius: 999, display: "flex", height: 92, justifyContent: "center", width: 92 }}>
-                <div className="nx-ring-center" style={{ alignItems: "center", background: accent, borderRadius: 999, boxShadow: success ? "#12AD5973 0 8px 20px -4px" : "#D9363673 0 8px 20px -4px", color: "#fff", display: "flex", height: 60, justifyContent: "center", width: 60 }}>
+            <div
+              className="nx-ring-outer"
+              style={{
+                alignItems: "center",
+                background: success ? "#12AD5912" : "#D9363612",
+                borderRadius: 999,
+                display: "flex",
+                height: 124,
+                justifyContent: "center",
+                width: 124,
+              }}
+            >
+              <div
+                className="nx-ring-middle"
+                style={{
+                  alignItems: "center",
+                  background: success ? "#12AD591F" : "#D936361F",
+                  borderRadius: 999,
+                  display: "flex",
+                  height: 92,
+                  justifyContent: "center",
+                  width: 92,
+                }}
+              >
+                <div
+                  className="nx-ring-center"
+                  style={{
+                    alignItems: "center",
+                    background: accent,
+                    borderRadius: 999,
+                    boxShadow: success
+                      ? "#12AD5973 0 8px 20px -4px"
+                      : "#D9363673 0 8px 20px -4px",
+                    color: "#fff",
+                    display: "flex",
+                    height: 60,
+                    justifyContent: "center",
+                    width: 60,
+                  }}
+                >
                   {success ? (
                     <svg fill="none" height="28" viewBox="0 0 24 24" width="28">
-                      <path d="M5 12.5L10 17.5L19 7.5" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" />
+                      <path
+                        d="M5 12.5L10 17.5L19 7.5"
+                        stroke="#fff"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2.4"
+                      />
                     </svg>
                   ) : (
                     <svg fill="none" height="22" viewBox="0 0 24 24" width="22">
-                      <path d="M6 6L18 18M18 6L6 18" stroke="#fff" strokeLinecap="round" strokeWidth="2.4" />
+                      <path
+                        d="M6 6L18 18M18 6L6 18"
+                        stroke="#fff"
+                        strokeLinecap="round"
+                        strokeWidth="2.4"
+                      />
                     </svg>
                   )}
                 </div>
               </div>
             </div>
           </div>
-          <div style={{ alignItems: "center", display: "flex", flexDirection: "column", gap: 2, padding: "12px 12px 4px" }}>
-            <div style={{ color: "var(--nx-mute-2, #8C8C8B)", font: `400 14px/18px ${uiFont}` }}>
-              {success ? `${depositVenue || "Deposit"} Received` : failureHeadline}
+          <div
+            style={{
+              alignItems: "center",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              padding: "12px 12px 4px",
+            }}
+          >
+            <div
+              style={{
+                color: "var(--nx-mute-2, #8C8C8B)",
+                font: `400 14px/18px ${uiFont}`,
+              }}
+            >
+              {success
+                ? `${depositVenue || "Deposit"} Received`
+                : failureHeadline}
             </div>
             {failureDescription || timeoutDescription ? (
-              <div style={{ color: "var(--nx-mute-2, #8C8C8B)", font: `400 13px/18px ${uiFont}`, maxWidth: 280, textAlign: "center" }}>
+              <div
+                style={{
+                  color: "var(--nx-mute-2, #8C8C8B)",
+                  font: `400 13px/18px ${uiFont}`,
+                  maxWidth: 280,
+                  textAlign: "center",
+                }}
+              >
                 {failureDescription || timeoutDescription}
               </div>
             ) : null}
+            {showRefundReassurance ? (
+              <div
+                style={{
+                  color: "var(--nx-mute-2, #8C8C8B)",
+                  font: `400 13px/18px ${uiFont}`,
+                  maxWidth: 280,
+                  textAlign: "center",
+                }}
+              >
+                Any tokens collected will be refunded to your wallet
+              </div>
+            ) : null}
             <div style={{ alignItems: "baseline", display: "flex", gap: 8 }}>
-              <span style={{ font: `300 48px/56px ${uiFont}`, letterSpacing: "-0.03em" }}><DepositCalculatedAmount value={displayAmount || "0"} entranceDelay={success ? 350 : undefined} /></span>
-              <span style={{ color: "var(--nx-mute, #737372)", font: `500 18px/22px ${uiFont}` }}>{tokenSymbol}</span>
+              <span
+                style={{
+                  font: `300 48px/56px ${uiFont}`,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                <DepositCalculatedAmount
+                  value={displayAmount || "0"}
+                  entranceDelay={success ? 350 : undefined}
+                />
+              </span>
+              <span
+                style={{
+                  color: "var(--nx-mute, #737372)",
+                  font: `500 18px/22px ${uiFont}`,
+                }}
+              >
+                {tokenSymbol}
+              </span>
             </div>
-            <div style={{ color: "var(--nx-mute-2, #8C8C8B)", font: `400 14px/18px ${uiFont}` }}>≈ {formatUsdDisplay(value)}</div>
-            <div style={{ alignItems: "center", color: "var(--nx-faint, #A3A3A2)", display: "flex", font: `400 12px/16px ${uiFont}`, gap: 4, marginTop: 4 }}>
+            <div
+              style={{
+                color: "var(--nx-mute-2, #8C8C8B)",
+                font: `400 14px/18px ${uiFont}`,
+              }}
+            >
+              ≈ {formatUsdDisplay(value)}
+            </div>
+            <div
+              style={{
+                alignItems: "center",
+                color: "var(--nx-faint, #A3A3A2)",
+                display: "flex",
+                font: `400 12px/16px ${uiFont}`,
+                gap: 4,
+                marginTop: 4,
+              }}
+            >
               on
               {entry.toToken?.chainLogo ? (
-                <img alt="" src={entry.toToken.chainLogo} style={{ borderRadius: 999, height: 12, width: 12 }} />
+                <img
+                  alt=""
+                  src={entry.toToken.chainLogo}
+                  style={{ borderRadius: 999, height: 12, width: 12 }}
+                />
               ) : null}
               {chainName}
               {durationLabel ? ` · ${durationLabel}` : ""}
             </div>
           </div>
         </div>
-        <div className="nx-card nx-receipt-details" style={{ padding: "4px 20px" }}>
-          <div style={{ alignItems: "flex-start", borderBottom: "1px solid var(--nx-line, #F0F0F0)", display: "flex", justifyContent: "space-between", padding: "14px 0" }}>
-            <span style={{ color: "var(--nx-mute-2, #8C8C8B)", font: `400 14px/18px ${uiFont}` }}>You Deposited</span>
+        <div
+          className="nx-card nx-receipt-details"
+          style={{ padding: "4px 20px" }}
+        >
+          <div
+            style={{
+              alignItems: "flex-start",
+              borderBottom: "1px solid var(--nx-line, #F0F0F0)",
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "14px 0",
+            }}
+          >
+            <span
+              style={{
+                color: "var(--nx-mute-2, #8C8C8B)",
+                font: `400 14px/18px ${uiFont}`,
+              }}
+            >
+              You Deposited
+            </span>
             <span style={{ textAlign: "right" }}>
-              <span style={{ color: "var(--nx-ink, #161615)", display: "block", font: `500 14px/18px ${uiFont}` }}>{formatUsdDisplay(sourceTotalUsd)}</span>
+              <span
+                style={{
+                  color: "var(--nx-ink, #161615)",
+                  display: "block",
+                  font: `500 14px/18px ${uiFont}`,
+                }}
+              >
+                {formatUsdDisplay(sourceTotalUsd)}
+              </span>
               {sourceCount > 0 ? (
                 <button
                   onClick={() => setShowSourceDetails((current) => !current)}
-                  style={{ background: "none", border: "none", color: "var(--nx-blue, #006BF4)", cursor: "pointer", font: `500 14px/18px ${uiFont}`, padding: 0 }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--nx-blue, #006BF4)",
+                    cursor: "pointer",
+                    font: `500 14px/18px ${uiFont}`,
+                    padding: 0,
+                  }}
                   type="button"
                 >
-                  {sourceCount} token{sourceCount === 1 ? "" : "s"} {showSourceDetails ? "▴" : "▾"}
+                  {sourceCount} token{sourceCount === 1 ? "" : "s"}{" "}
+                  {showSourceDetails ? "▴" : "▾"}
                 </button>
               ) : null}
             </span>
           </div>
           {showSourceDetails ? (
             <div style={{ paddingBottom: 8 }}>
-              <SourceRowsList borderTopFirst={false} entry={entry} maxHeight={184} scrollAfterRows={3} />
+              <SourceRowsList
+                borderTopFirst={false}
+                entry={entry}
+                maxHeight={184}
+                scrollAfterRows={3}
+              />
             </div>
           ) : null}
           {showIntentExplorer
             ? detailRow(
                 "Intent Explorer",
-                <a href={entry.intentExplorerUrl ?? undefined} rel="noopener noreferrer" style={{ color: "var(--nx-blue, #006BF4)", textDecoration: "none" }} target="_blank">
+                <a
+                  href={entry.intentExplorerUrl ?? undefined}
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "var(--nx-blue, #006BF4)",
+                    textDecoration: "none",
+                  }}
+                  target="_blank"
+                >
                   View Intent ↗
                 </a>,
               )
@@ -3069,14 +3298,31 @@ function SwapReceiptPanel({
           {entry.finalExplorerUrl
             ? detailRow(
                 "Final Transaction",
-                <a href={entry.finalExplorerUrl} rel="noopener noreferrer" style={{ color: "var(--nx-blue, #006BF4)", textDecoration: "none" }} target="_blank">
-                  {explorerHost ? `View on ${explorerHost} ↗` : "View transaction ↗"}
+                <a
+                  href={entry.finalExplorerUrl}
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "var(--nx-blue, #006BF4)",
+                    textDecoration: "none",
+                  }}
+                  target="_blank"
+                >
+                  {explorerHost
+                    ? `View on ${explorerHost} ↗`
+                    : "View transaction ↗"}
                 </a>,
               )
             : null}
-          {detailRow("Total Fees", formatUsdDisplay(entry.feeUsd), { border: false })}
+          {detailRow("Total Fees", formatUsdDisplay(entry.feeUsd), {
+            border: false,
+          })}
         </div>
-        <button className="nx-deposit-cta" onClick={onDone} style={{ width: "100%" }} type="button">
+        <button
+          className="nx-deposit-cta"
+          onClick={onDone}
+          style={{ width: "100%" }}
+          type="button"
+        >
           Done
         </button>
       </div>
@@ -3175,6 +3421,24 @@ function SwapReceiptPanel({
             }}
           >
             {failureDescription || timeoutDescription}
+          </div>
+        )}
+        {showRefundReassurance && (
+          <div
+            style={{
+              color: "var(--nexus-widget-text-secondary, #848483)",
+              fontFamily: uiFont,
+              fontSize: "12px",
+              lineHeight: "16px",
+              margin:
+                failureDescription || timeoutDescription
+                  ? "4px auto 0"
+                  : "6px auto 0",
+              maxWidth: "260px",
+              textAlign: "center",
+            }}
+          >
+            Any tokens collected will be refunded to your wallet
           </div>
         )}
         <div
@@ -3553,7 +3817,11 @@ function SwapHistoryPanel({
             width: "48px",
           }}
         >
-          <History size={22} aria-hidden="true" style={{ color: "var(--nx-mute)" }} />
+          <History
+            size={22}
+            aria-hidden="true"
+            style={{ color: "var(--nx-mute)" }}
+          />
         </div>
         <div
           style={{
@@ -3648,7 +3916,11 @@ function SwapHistoryPanel({
         const historyExplorerUrl = getHistoryExplorerUrl(entry);
 
         return (
-          <article key={entry.id} className="nx-history-card" aria-label={`${destinationSymbol || "Token"} transaction`}>
+          <article
+            key={entry.id}
+            className="nx-history-card"
+            aria-label={`${destinationSymbol || "Token"} transaction`}
+          >
             <div className="nx-history-top">
               <div className="nx-history-asset">
                 <TokenLogoPair
@@ -4211,8 +4483,16 @@ function NexusWidgetInner({
   const [depositOnrampSessionState, setDepositOnrampSessionState] = useState<
     string | null
   >(null);
-  const depositPickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (depositPickTimerRef.current) clearTimeout(depositPickTimerRef.current); }, []);
+  const depositPickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  useEffect(
+    () => () => {
+      if (depositPickTimerRef.current)
+        clearTimeout(depositPickTimerRef.current);
+    },
+    [],
+  );
   const drawerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -6360,7 +6640,8 @@ function NexusWidgetInner({
       if (remainingUsd.lte(0)) break;
 
       const availableUsd = getTokenBalanceUsd(token);
-      if (activeMode !== "deposit" && availableUsd.lt(minimumSourceUsd)) continue;
+      if (activeMode !== "deposit" && availableUsd.lt(minimumSourceUsd))
+        continue;
 
       const rate = getTokenUsdRate(token);
       if (rate.lte(0)) continue;
@@ -6412,7 +6693,8 @@ function NexusWidgetInner({
       if (remainingUsd.lte(0)) break;
 
       const availableUsd = getTokenBalanceUsd(token);
-      if (activeMode !== "deposit" && availableUsd.lt(minimumSourceUsd)) continue;
+      if (activeMode !== "deposit" && availableUsd.lt(minimumSourceUsd))
+        continue;
 
       const rate = await resolveUsdRateForToken(token);
       if (rate.lte(0)) continue;
@@ -8300,7 +8582,9 @@ function NexusWidgetInner({
     const syncDestinationRate =
       activeMode === "deposit"
         ? getDepositTokenUsdRate()
-        : (toToken ? getTokenUsdRate(toToken) : new Decimal(0));
+        : toToken
+          ? getTokenUsdRate(toToken)
+          : new Decimal(0);
 
     if (syncDestinationRate.gt(0)) {
       const baseline = predictiveQuoteCacheRef.current[key];
@@ -8328,10 +8612,9 @@ function NexusWidgetInner({
         destinationUsdNeedingSources,
         cachedSourceUsdRatio,
       );
-      const syncSources =
-        requiredSourceUsd.gt(0)
-          ? buildPredictiveExactOutSourcesSync(requiredSourceUsd)
-          : [];
+      const syncSources = requiredSourceUsd.gt(0)
+        ? buildPredictiveExactOutSourcesSync(requiredSourceUsd)
+        : [];
       if (requiredSourceUsd.lte(0) || syncSources.length > 0) {
         setPredictiveQuote({
           key,
@@ -8349,12 +8632,11 @@ function NexusWidgetInner({
       const cachedDestinationRate = parseFiatNumber(
         baseline?.destinationUsdRate,
       );
-      const destinationRate =
-        syncDestinationRate.gt(0)
-          ? syncDestinationRate
-          : cachedDestinationRate && cachedDestinationRate.gt(0)
-            ? cachedDestinationRate
-            : await resolveUsdRateForToken(toToken);
+      const destinationRate = syncDestinationRate.gt(0)
+        ? syncDestinationRate
+        : cachedDestinationRate && cachedDestinationRate.gt(0)
+          ? cachedDestinationRate
+          : await resolveUsdRateForToken(toToken);
 
       if (cancelled || runId !== predictiveQuoteRunRef.current) return;
       if (destinationRate.lte(0)) {
@@ -9698,7 +9980,8 @@ function NexusWidgetInner({
           if (!selectedOpportunity?.executeDeposit) {
             throw new Error("Deposit config is missing executeDeposit.");
           }
-          const depositingUser = (ownerAddress ?? connectedAddress) as `0x${string}`;
+          const depositingUser = (ownerAddress ??
+            connectedAddress) as `0x${string}`;
           const buildDepositExecute = (amountRaw: bigint) => {
             const executeParams = selectedOpportunity.executeDeposit(
               selectedOpportunity.tokenSymbol,
@@ -9721,11 +10004,12 @@ function NexusWidgetInner({
               toTokenAddress: toToken.contractAddress as `0x${string}`,
               buildExecute: buildDepositExecute,
             });
-          logSdkIntentInput(
-            "swapAndExecute exactInput",
-            exactInputOperation,
-            { activeMode, quoteInputKey, runId },
-          );
+          console.log("swapAndExecute exactInput", exactInputOperation);
+          logSdkIntentInput("swapAndExecute exactInput", exactInputOperation, {
+            activeMode,
+            quoteInputKey,
+            runId,
+          });
           startIntentFetchTiming({
             background,
             operation: "swapAndExecute exactInput",
@@ -9740,7 +10024,10 @@ function NexusWidgetInner({
                 onEvent,
                 hooks: {
                   onIntent: (data) => {
-                    console.log("[nexus-deposit-exact-input-intent]", data.intent);
+                    console.log(
+                      "[nexus-deposit-exact-input-intent]",
+                      data.intent,
+                    );
                     return handleSwapIntentCallback(data, runId, quoteInputKey);
                   },
                 },
@@ -10066,8 +10353,7 @@ function NexusWidgetInner({
         typeof err?.cause?.message === "string" ? err.cause.message : "";
       const errShortMessage =
         typeof err?.shortMessage === "string" ? err.shortMessage : "";
-      const errDetails =
-        typeof err?.details === "string" ? err.details : "";
+      const errDetails = typeof err?.details === "string" ? err.details : "";
       const errName = typeof err?.name === "string" ? err.name : "";
       const errCauseName =
         typeof err?.cause?.name === "string" ? err.cause.name : "";
@@ -10079,7 +10365,8 @@ function NexusWidgetInner({
         err?.cause?.code === "ACTION_REJECTED" ||
         err?.code === "USER_INTENT_HOOK_DENIED" ||
         err?.code === "USER_DENIED_INTENT" ||
-        (typeof err?.code === "string" && err.code.startsWith("user_action/")) ||
+        (typeof err?.code === "string" &&
+          err.code.startsWith("user_action/")) ||
         (typeof err?.cause?.code === "string" &&
           err.cause.code.startsWith("user_action/")) ||
         classifyWidgetError(err).reason === "wallet_rejected" ||
@@ -10100,7 +10387,9 @@ function NexusWidgetInner({
       if (
         isUserRejected &&
         !hasActiveExecution &&
-        (background || swapStepRef.current === "idle" || swapStepRef.current === "preview-intent")
+        (background ||
+          swapStepRef.current === "idle" ||
+          swapStepRef.current === "preview-intent")
       ) {
         if (!background && swapStepRef.current === "preview-intent") {
           swapStepRef.current = "idle";
@@ -11151,8 +11440,14 @@ function NexusWidgetInner({
           if (token.userAmountMode === "usd") {
             const fiat = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
             const price = balance.gt(0) ? fiat.div(balance) : new Decimal(0);
-            const oneCentUnits = price.gt(0) ? new Decimal("0.01").div(price) : new Decimal(0);
-            if (units.minus(maxWithBuffer).lte(Decimal.max(oneCentUnits, buffer.mul("0.05")))) {
+            const oneCentUnits = price.gt(0)
+              ? new Decimal("0.01").div(price)
+              : new Decimal(0);
+            if (
+              units
+                .minus(maxWithBuffer)
+                .lte(Decimal.max(oneCentUnits, buffer.mul("0.05")))
+            ) {
               continue;
             }
           }
@@ -11812,7 +12107,8 @@ function NexusWidgetInner({
   const tokenAssetDrawerMinRootContentHeight =
     isConfiguredReceiveAssetDrawerActive
       ? getConfiguredReceiveSelectorRootHeight(configuredReceiveTokenCount)
-      : isTokenAssetDrawerActive && !(activeMode === "deposit" && swapStep === "choose-swap-asset")
+      : isTokenAssetDrawerActive &&
+          !(activeMode === "deposit" && swapStep === "choose-swap-asset")
         ? TOKEN_SELECTOR_MIN_ROOT_CONTENT_HEIGHT
         : 0;
   const isDrawerOverlayActive =
@@ -11833,9 +12129,10 @@ function NexusWidgetInner({
       data-nexus-widget-theme={themeStyle.colorScheme}
       style={{
         ...themeStyle,
-        backgroundColor: activeMode === "deposit"
-          ? "var(--nx-shell, #F7F7F7)"
-          : "var(--nexus-widget-background, #F9F9F8)",
+        backgroundColor:
+          activeMode === "deposit"
+            ? "var(--nx-shell, #F7F7F7)"
+            : "var(--nexus-widget-background, #F9F9F8)",
         backgroundImage:
           activeMode === "deposit"
             ? "none"
@@ -11879,7 +12176,9 @@ function NexusWidgetInner({
         transition: (() => {
           const transitions = [];
           if (hasMeasuredRootContent && shouldAnimateRootHeight) {
-            transitions.push(`height ${ROOT_HEIGHT_TRANSITION_MS}ms cubic-bezier(.2,0,0,1)`);
+            transitions.push(
+              `height ${ROOT_HEIGHT_TRANSITION_MS}ms cubic-bezier(.2,0,0,1)`,
+            );
           }
           return transitions.join(", ");
         })(),
@@ -11915,1046 +12214,1128 @@ function NexusWidgetInner({
           width: "100%",
         }}
       >
-        <DepositScreenMotion enabled={activeMode === "deposit"} back={depositSlideFromLeft}
-          screenKey={activeMode === "deposit" ? (["idle", "choose-swap-asset", "choose-receive-asset", "enter-recipient"].includes(swapStep)
-            ? `${depositFundingStep}:${fromTokens.length ? "amount" : "select"}` : swapStep) : "static"}>
-
-        <div
-          className={swapStep === "history" ? "nx-history-header" : undefined}
-          style={{
-            alignItems: "center",
-            boxSizing: "border-box",
-            display: hideDepositHeader ? "none" : "flex",
-            flexShrink: 0,
-            justifyContent: "space-between",
-            padding: swapStep === "history" ? "20px" : 0,
-            width: "100%",
-            position: "relative",
-            zIndex: 10,
-          }}
+        <DepositScreenMotion
+          enabled={activeMode === "deposit"}
+          back={depositSlideFromLeft}
+          screenKey={
+            activeMode === "deposit"
+              ? [
+                  "idle",
+                  "choose-swap-asset",
+                  "choose-receive-asset",
+                  "enter-recipient",
+                ].includes(swapStep)
+                ? `${depositFundingStep}:${fromTokens.length ? "amount" : "select"}`
+                : swapStep
+              : "static"
+          }
         >
           <div
-            className="flex items-center gap-x-2"
-            style={
-              hasDepositOnrampSession
-                ? {
-                    justifyContent: "center",
-                    paddingInline: "36px",
-                    textAlign: "center",
-                    width: "100%",
-                  }
-                : undefined
-            }
-          >
-            {canGoBack && (
-              <button
-                aria-label="Back"
-                onClick={handleBack}
-                style={{
-                  alignItems: "center",
-                  backgroundColor: swapStep === "history" ? "var(--nx-fill)" : "transparent",
-                  borderRadius: "50%",
-                  width: swapStep === "history" ? "32px" : undefined,
-                  height: swapStep === "history" ? "32px" : undefined,
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  padding: "4px",
-                  marginRight: "4px",
-                }}
-              >
-                {swapStep === "history" ? <ChevronLeft size={18} style={{ color: "var(--nx-ink)" }} /> : <ArrowLeft
-                  className="w-5 h-5"
-                  style={{ color: theme.colors.textStrong }}
-                />}
-              </button>
-            )}
-            <div
-              style={{
-                alignItems: isTitleCentered() ? "center" : "flex-start",
-                display: "flex",
-                flexDirection: "column",
-                gap: "2px",
-              }}
-            >
-              <div
-                style={{
-                  boxSizing: "border-box",
-                  color: theme.colors.text,
-                  ...theme.typography.headingPanel,
-                  ...(swapStep === "history" ? { fontSize: "20px", lineHeight: "24px", color: "var(--nx-ink)" } : {}),
-                }}
-              >
-                {getTitle()}
-              </div>
-            </div>
-
-            {/* Sub-screen asset counts */}
-            {!isTitleCentered() &&
-              activeMode === "swap" &&
-              swapStep === "choose-swap-asset" &&
-              swapType === "exactIn" && (
-                <span
-                  style={{
-                    color: theme.colors.muted,
-                    fontFamily: theme.fonts.sans,
-                    fontSize: "14px",
-                    marginLeft: "7px",
-                  }}
-                >
-                  {fromTokens.length} asset(s) selected
-                </span>
-              )}
-          </div>
-
-          {/* Right side icons */}
-          <div
+            className={swapStep === "history" ? "nx-history-header" : undefined}
             style={{
               alignItems: "center",
               boxSizing: "border-box",
-              display: "flex",
-              gap: "9px",
-              position: hasDepositOnrampSession ? "absolute" : undefined,
-              right: hasDepositOnrampSession ? 0 : undefined,
-              top: hasDepositOnrampSession ? 0 : undefined,
+              display: hideDepositHeader ? "none" : "flex",
+              flexShrink: 0,
+              justifyContent: "space-between",
+              padding: swapStep === "history" ? "20px" : 0,
+              width: "100%",
+              position: "relative",
+              zIndex: 10,
             }}
           >
-            {hasQuoteRefreshCountdown && (
-              <QuoteRefreshCountdown
-                isRefreshing={quoteRefreshing || previewQuoteRefreshing}
-                progress={quoteRefreshProgress}
-                secondsRemaining={quoteRefreshSecondsRemaining}
-              />
-            )}
-            {showHistoryButton && (
-              <button
-                aria-label="Transaction history"
-                onClick={() => setSwapStep("history")}
-                style={{
-                  alignItems: "center",
-                  backgroundColor: theme.primitives.iconButton.backgroundColor,
-                  borderColor: theme.primitives.iconButton.borderColor,
-                  borderRadius: theme.radius.iconButton,
-                  borderStyle: "solid",
-                  borderWidth: "1px",
-                  boxShadow: theme.primitives.iconButton.boxShadow,
-                  boxSizing: "border-box",
-                  display: "flex",
-                  flexShrink: 0,
-                  height: "28px",
-                  justifyContent: "center",
-                  width: "28px",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              >
-                <svg
-                  fill="none"
-                  height="14"
-                  style={{ width: "14px", height: "14px", flexShrink: 0 }}
-                  viewBox="0 0 16 16"
-                  width="14"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M8 4V8L10.5 9.5"
-                    stroke={theme.colors.textStrong}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.4"
-                  />
-                  <path
-                    d="M14 8C14 11.314 11.314 14 8 14C4.686 14 2 11.314 2 8C2 4.686 4.686 2 8 2C10.196 2 12.117 3.179 13.163 4.936"
-                    stroke={theme.colors.textStrong}
-                    strokeLinecap="round"
-                    strokeWidth="1.4"
-                  />
-                  <path
-                    d="M13.5 2V5H10.5"
-                    stroke={theme.colors.textStrong}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.4"
-                  />
-                </svg>
-              </button>
-            )}
-            {showCloseButton && (
-              <button
-                aria-label="Close"
-                onClick={handleClose}
-                style={{
-                  alignItems: "center",
-                  backgroundColor: swapStep === "history" ? "var(--nx-fill)" : theme.primitives.iconButton.backgroundColor,
-                  borderColor: theme.primitives.iconButton.borderColor,
-                  borderRadius: theme.radius.iconButton,
-                  borderStyle: "solid",
-                  borderWidth: swapStep === "history" ? 0 : "1px",
-                  boxShadow: swapStep === "history" ? "none" : theme.primitives.iconButton.boxShadow,
-                  boxSizing: "border-box",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexShrink: 0,
-                  height: swapStep === "history" ? "32px" : "28px",
-                  justifyContent: "center",
-                  padding: 0,
-                  width: swapStep === "history" ? "32px" : "28px",
-                }}
-              >
-                <svg
-                  fill="none"
-                  height="14"
-                  style={{ width: "14px", height: "14px", flexShrink: 0 }}
-                  viewBox="0 0 16 16"
-                  width="14"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M4 4L12 12M12 4L4 12"
-                    stroke={theme.colors.textStrong}
-                    strokeLinecap="round"
-                    strokeWidth="1.4"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* ------------------------------------------------------------------ */}
-        {/* Main content area */}
-        {/* ------------------------------------------------------------------ */}
-        <div
-          style={{
-            boxSizing: "border-box",
-            display: "flex",
-            flex: 1,
-            flexDirection: "column",
-            gap: "7px",
-            minHeight: 0,
-            padding: 0,
-            width: "100%",
-          }}
-        >
-          {/* =============================================================== */}
-          {/* SHARED SUB-SCREENS (non-drawer panels)                        */}
-          {/* =============================================================== */}
-          {(activeMode === "swap" ||
-            activeMode === "send" ||
-            activeMode === "deposit") &&
-            swapStep !== "idle" &&
-            swapStep !== "choose-swap-asset" &&
-            swapStep !== "choose-receive-asset" &&
-            swapStep !== "enter-recipient" && (
-              <>
-                {/* Panel: preview. */}
-                {swapStep === "preview-intent" && (
-                  <div
-                    className="w-full"
-                    style={{
-                      maxHeight: "calc(90dvh - 92px)",
-                      minHeight: 0,
-                      overflowX: "hidden",
-                      overflowY: isPreviewTransitioning ? "hidden" : "auto",
-                      overscrollBehavior: "contain",
-                      scrollbarColor:
-                        "var(--nexus-widget-border-empty, #C8C8C7) transparent",
-                      scrollbarWidth: "thin",
+            <div
+              className="flex items-center gap-x-2"
+              style={
+                hasDepositOnrampSession
+                  ? {
+                      justifyContent: "center",
+                      paddingInline: "36px",
+                      textAlign: "center",
                       width: "100%",
+                    }
+                  : undefined
+              }
+            >
+              {canGoBack && (
+                <button
+                  aria-label="Back"
+                  onClick={handleBack}
+                  style={{
+                    alignItems: "center",
+                    backgroundColor:
+                      swapStep === "history" ? "var(--nx-fill)" : "transparent",
+                    borderRadius: "50%",
+                    width: swapStep === "history" ? "32px" : undefined,
+                    height: swapStep === "history" ? "32px" : undefined,
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    padding: "4px",
+                    marginRight: "4px",
+                  }}
+                >
+                  {swapStep === "history" ? (
+                    <ChevronLeft size={18} style={{ color: "var(--nx-ink)" }} />
+                  ) : (
+                    <ArrowLeft
+                      className="w-5 h-5"
+                      style={{ color: theme.colors.textStrong }}
+                    />
+                  )}
+                </button>
+              )}
+              <div
+                style={{
+                  alignItems: isTitleCentered() ? "center" : "flex-start",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "2px",
+                }}
+              >
+                <div
+                  style={{
+                    boxSizing: "border-box",
+                    color: theme.colors.text,
+                    ...theme.typography.headingPanel,
+                    ...(swapStep === "history"
+                      ? {
+                          fontSize: "20px",
+                          lineHeight: "24px",
+                          color: "var(--nx-ink)",
+                        }
+                      : {}),
+                  }}
+                >
+                  {getTitle()}
+                </div>
+              </div>
+
+              {/* Sub-screen asset counts */}
+              {!isTitleCentered() &&
+                activeMode === "swap" &&
+                swapStep === "choose-swap-asset" &&
+                swapType === "exactIn" && (
+                  <span
+                    style={{
+                      color: theme.colors.muted,
+                      fontFamily: theme.fonts.sans,
+                      fontSize: "14px",
+                      marginLeft: "7px",
                     }}
                   >
-                    <SwapIntentPreview
-                      activeMode={activeMode}
-                      destinationGasFeeUsd={previewDestinationGasFeeUsd}
-                      estimatedTime="10s"
-                      explorerUrls={explorerUrls}
-                      fromAmount={amount}
+                    {fromTokens.length} asset(s) selected
+                  </span>
+                )}
+            </div>
+
+            {/* Right side icons */}
+            <div
+              style={{
+                alignItems: "center",
+                boxSizing: "border-box",
+                display: "flex",
+                gap: "9px",
+                position: hasDepositOnrampSession ? "absolute" : undefined,
+                right: hasDepositOnrampSession ? 0 : undefined,
+                top: hasDepositOnrampSession ? 0 : undefined,
+              }}
+            >
+              {hasQuoteRefreshCountdown && (
+                <QuoteRefreshCountdown
+                  isRefreshing={quoteRefreshing || previewQuoteRefreshing}
+                  progress={quoteRefreshProgress}
+                  secondsRemaining={quoteRefreshSecondsRemaining}
+                />
+              )}
+              {showHistoryButton && (
+                <button
+                  aria-label="Transaction history"
+                  onClick={() => setSwapStep("history")}
+                  style={{
+                    alignItems: "center",
+                    backgroundColor:
+                      theme.primitives.iconButton.backgroundColor,
+                    borderColor: theme.primitives.iconButton.borderColor,
+                    borderRadius: theme.radius.iconButton,
+                    borderStyle: "solid",
+                    borderWidth: "1px",
+                    boxShadow: theme.primitives.iconButton.boxShadow,
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexShrink: 0,
+                    height: "28px",
+                    justifyContent: "center",
+                    width: "28px",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  <svg
+                    fill="none"
+                    height="14"
+                    style={{ width: "14px", height: "14px", flexShrink: 0 }}
+                    viewBox="0 0 16 16"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M8 4V8L10.5 9.5"
+                      stroke={theme.colors.textStrong}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.4"
+                    />
+                    <path
+                      d="M14 8C14 11.314 11.314 14 8 14C4.686 14 2 11.314 2 8C2 4.686 4.686 2 8 2C10.196 2 12.117 3.179 13.163 4.936"
+                      stroke={theme.colors.textStrong}
+                      strokeLinecap="round"
+                      strokeWidth="1.4"
+                    />
+                    <path
+                      d="M13.5 2V5H10.5"
+                      stroke={theme.colors.textStrong}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.4"
+                    />
+                  </svg>
+                </button>
+              )}
+              {showCloseButton && (
+                <button
+                  aria-label="Close"
+                  onClick={handleClose}
+                  style={{
+                    alignItems: "center",
+                    backgroundColor:
+                      swapStep === "history"
+                        ? "var(--nx-fill)"
+                        : theme.primitives.iconButton.backgroundColor,
+                    borderColor: theme.primitives.iconButton.borderColor,
+                    borderRadius: theme.radius.iconButton,
+                    borderStyle: "solid",
+                    borderWidth: swapStep === "history" ? 0 : "1px",
+                    boxShadow:
+                      swapStep === "history"
+                        ? "none"
+                        : theme.primitives.iconButton.boxShadow,
+                    boxSizing: "border-box",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexShrink: 0,
+                    height: swapStep === "history" ? "32px" : "28px",
+                    justifyContent: "center",
+                    padding: 0,
+                    width: swapStep === "history" ? "32px" : "28px",
+                  }}
+                >
+                  <svg
+                    fill="none"
+                    height="14"
+                    style={{ width: "14px", height: "14px", flexShrink: 0 }}
+                    viewBox="0 0 16 16"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M4 4L12 12M12 4L4 12"
+                      stroke={theme.colors.textStrong}
+                      strokeLinecap="round"
+                      strokeWidth="1.4"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ------------------------------------------------------------------ */}
+          {/* Main content area */}
+          {/* ------------------------------------------------------------------ */}
+          <div
+            style={{
+              boxSizing: "border-box",
+              display: "flex",
+              flex: 1,
+              flexDirection: "column",
+              gap: "7px",
+              minHeight: 0,
+              padding: 0,
+              width: "100%",
+            }}
+          >
+            {/* =============================================================== */}
+            {/* SHARED SUB-SCREENS (non-drawer panels)                        */}
+            {/* =============================================================== */}
+            {(activeMode === "swap" ||
+              activeMode === "send" ||
+              activeMode === "deposit") &&
+              swapStep !== "idle" &&
+              swapStep !== "choose-swap-asset" &&
+              swapStep !== "choose-receive-asset" &&
+              swapStep !== "enter-recipient" && (
+                <>
+                  {/* Panel: preview. */}
+                  {swapStep === "preview-intent" && (
+                    <div
+                      className="w-full"
+                      style={{
+                        maxHeight: "calc(90dvh - 92px)",
+                        minHeight: 0,
+                        overflowX: "hidden",
+                        overflowY: isPreviewTransitioning ? "hidden" : "auto",
+                        overscrollBehavior: "contain",
+                        scrollbarColor:
+                          "var(--nexus-widget-border-empty, #C8C8C7) transparent",
+                        scrollbarWidth: "thin",
+                        width: "100%",
+                      }}
+                    >
+                      <SwapIntentPreview
+                        activeMode={activeMode}
+                        destinationGasFeeUsd={previewDestinationGasFeeUsd}
+                        estimatedTime="10s"
+                        explorerUrls={explorerUrls}
+                        fromAmount={amount}
+                        fromAmountUsd={previewFromAmountUsd}
+                        fromToken={fromTokens[0]}
+                        fromTokens={fromTokens}
+                        intentData={intentData}
+                        isLoading={intentLoading}
+                        isRefreshing={previewQuoteRefreshing}
+                        mode={activeMode}
+                        onAccept={handleSwapAccept}
+                        onReject={() => {
+                          telemetry.stopBeforeExecution("rejected");
+                          clearPendingSwapIntent();
+                          setSwapStep("idle");
+                        }}
+                        onTransitionChange={setIsPreviewTransitioning}
+                        opportunity={selectedOpportunity}
+                        recipientAddress={transferRecipientAddress}
+                        steps={steps}
+                        supportedTokenAssets={supportedChainsAndTokens}
+                        swapBalances={swapBalance}
+                        swapType={swapType}
+                        toAmount={previewDestinationAmount}
+                        toAmountTokens={
+                          previewDestinationAmount
+                            ? `${previewDestinationAmount}`
+                            : undefined
+                        }
+                        toAmountUsd={previewToAmountUsd}
+                        toToken={toTokenWithFetchedBalance}
+                        totalFeeUsd={intentFeeUsd}
+                      />
+                    </div>
+                  )}
+
+                  {swapStep === "progress" && (
+                    <NexusWidgetProgressScreen
+                      failedStep={failedProgressStep}
+                      isRejected={failedProgressIsRejected}
                       fromAmountUsd={previewFromAmountUsd}
-                      fromToken={fromTokens[0]}
                       fromTokens={fromTokens}
                       intentData={intentData}
-                      isLoading={intentLoading}
-                      isRefreshing={previewQuoteRefreshing}
                       mode={activeMode}
-                      onAccept={handleSwapAccept}
-                      onReject={() => {
-                        telemetry.stopBeforeExecution("rejected");
-                        clearPendingSwapIntent();
-                        setSwapStep("idle");
-                      }}
-                      onTransitionChange={setIsPreviewTransitioning}
                       opportunity={selectedOpportunity}
+                      progressEvents={progressEvents}
                       recipientAddress={transferRecipientAddress}
                       steps={steps}
-                      supportedTokenAssets={supportedChainsAndTokens}
-                      swapBalances={swapBalance}
-                      swapType={swapType}
                       toAmount={previewDestinationAmount}
-                      toAmountTokens={
-                        previewDestinationAmount
-                          ? `${previewDestinationAmount}`
-                          : undefined
-                      }
                       toAmountUsd={previewToAmountUsd}
                       toToken={toTokenWithFetchedBalance}
                       totalFeeUsd={intentFeeUsd}
                     />
-                  </div>
-                )}
-
-                {swapStep === "progress" && (
-                  <NexusWidgetProgressScreen
-                    failedStep={failedProgressStep}
-                    isRejected={failedProgressIsRejected}
-                    fromAmountUsd={previewFromAmountUsd}
-                    fromTokens={fromTokens}
-                    intentData={intentData}
-                    mode={activeMode}
-                    opportunity={selectedOpportunity}
-                    progressEvents={progressEvents}
-                    recipientAddress={transferRecipientAddress}
-                    steps={steps}
-                    toAmount={previewDestinationAmount}
-                    toAmountUsd={previewToAmountUsd}
-                    toToken={toTokenWithFetchedBalance}
-                    totalFeeUsd={intentFeeUsd}
-                  />
-                )}
-
-                {(swapStep === "success" || swapStep === "failed") &&
-                  currentSwapEntry && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-                      <SwapReceiptPanel
-                        entry={currentSwapEntry}
-                        onDone={
-                          swapStep === "failed"
-                            ? handleFailureBack
-                            : handleTerminalReceiptDone
-                        }
-                      />
-                    </div>
                   )}
-              </>
+
+                  {(swapStep === "success" || swapStep === "failed") &&
+                    currentSwapEntry && (
+                      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+                        <SwapReceiptPanel
+                          entry={currentSwapEntry}
+                          onDone={
+                            swapStep === "failed"
+                              ? handleFailureBack
+                              : handleTerminalReceiptDone
+                          }
+                        />
+                      </div>
+                    )}
+                </>
+              )}
+
+            {/* =============================================================== */}
+            {/* HISTORY SCREEN                                                   */}
+            {/* =============================================================== */}
+            {swapStep === "history" && (
+              <SwapHistoryPanel
+                entries={[...swapHistory, ...onrampHistory]}
+                now={historyNow}
+              />
             )}
 
-          {/* =============================================================== */}
-          {/* HISTORY SCREEN                                                   */}
-          {/* =============================================================== */}
-          {swapStep === "history" && (
-            <SwapHistoryPanel
-              entries={[...swapHistory, ...onrampHistory]}
-              now={historyNow}
-            />
-          )}
-
-          {/* =============================================================== */}
-          {/* SWAP IDLE SCREEN                                                 */}
-          {/* =============================================================== */}
-          {activeMode === "swap" &&
-            [
-              "idle",
-              "choose-swap-asset",
-              "choose-receive-asset",
-              "enter-recipient",
-            ].includes(swapStep) && (
-              <>
-                <SwapIdleForm
-                  amount={amount}
-                  defaultRecipientAddress={defaultRecipientAddress}
-                  fromTokens={fromTokens}
-                  isReceiveAmountLoading={isReceiveAmountLoading}
-                  isReceivePredictive={isExactInPredictiveQuote}
-                  isReceiveUsdLoading={isReceiveUsdLoading}
-                  isAmountReadOnly={isConfiguredAmountFixed}
-                  isBalanceLoading={isSwapBalancePending}
-                  isDestinationPickerDisabled={isReceiveAssetPickerLocked}
-                  hideDestinationTokenDropdownIcon={
-                    hideDestinationTokenDropdownIcon
-                  }
-                  onAmountChange={(val, panel) => {
-                    handleSwapAmountChange(val, panel);
-                  }}
-                  onOpenDestPicker={() =>
-                    openDrawerStep("choose-receive-asset")
-                  }
-                  onOpenRecipientPicker={handleOpenRecipientEditor}
-                  onOpenSourcePicker={(index) => {
-                    if (needsWalletConnection) {
-                      void handleConnectWallet();
-                      return;
+            {/* =============================================================== */}
+            {/* SWAP IDLE SCREEN                                                 */}
+            {/* =============================================================== */}
+            {activeMode === "swap" &&
+              [
+                "idle",
+                "choose-swap-asset",
+                "choose-receive-asset",
+                "enter-recipient",
+              ].includes(swapStep) && (
+                <>
+                  <SwapIdleForm
+                    amount={amount}
+                    defaultRecipientAddress={defaultRecipientAddress}
+                    fromTokens={fromTokens}
+                    isReceiveAmountLoading={isReceiveAmountLoading}
+                    isReceivePredictive={isExactInPredictiveQuote}
+                    isReceiveUsdLoading={isReceiveUsdLoading}
+                    isAmountReadOnly={isConfiguredAmountFixed}
+                    isBalanceLoading={isSwapBalancePending}
+                    isDestinationPickerDisabled={isReceiveAssetPickerLocked}
+                    hideDestinationTokenDropdownIcon={
+                      hideDestinationTokenDropdownIcon
                     }
-                    setEditingAssetIndex(index ?? null);
-                    beginSourcePickerEdit();
-                    openDrawerStep("choose-swap-asset");
-                  }}
-                  onUpdateTokens={handleSwapTokensUpdate}
-                  receiveQuoteAmount={
-                    swapType === "exactIn" ? idleReceiveQuoteAmount : undefined
-                  }
-                  receiveQuoteUsd={idleReceiveQuoteUsd}
-                  recipientAddress={effectiveRecipientAddress}
-                  sourceRouteMessage={
-                    swapQuoteIssue?.message ?? insufficientSourceIssue?.message
-                  }
-                  sourceRouteStatus={
-                    swapQuoteIssue?.type === "insufficientSources"
-                      ? "insufficient"
-                      : swapQuoteIssue
-                        ? "error"
-                        : isExactOutRouteLoading
-                          ? "loading"
-                          : undefined
-                  }
-                  swapType={swapType}
-                  toToken={toTokenWithFetchedBalance}
-                  totalBalance={totalSwapBalanceUsd}
-                  usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
-                />
-
-                {receiveAmountIssue && (
-                  <StatusAlert
-                    message={receiveAmountIssue.message}
-                    type="error"
-                  />
-                )}
-
-                {configuredAmountIssue && (
-                  <StatusAlert
-                    message={configuredAmountIssue.message}
-                    type="error"
-                  />
-                )}
-
-                {txError && !blockingQuoteIssue && (
-                  <StatusAlert message={txError} type="error" />
-                )}
-
-                {/* CTA Button */}
-                <div
-                  style={{
-                    boxSizing: "border-box",
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
-                >
-                  <button
-                    disabled={isSwapCtaDisabled}
-                    onClick={() => {
+                    onAmountChange={(val, panel) => {
+                      handleSwapAmountChange(val, panel);
+                    }}
+                    onOpenDestPicker={() =>
+                      openDrawerStep("choose-receive-asset")
+                    }
+                    onOpenRecipientPicker={handleOpenRecipientEditor}
+                    onOpenSourcePicker={(index) => {
                       if (needsWalletConnection) {
                         void handleConnectWallet();
                         return;
                       }
-                      void handleEnterPreview();
+                      setEditingAssetIndex(index ?? null);
+                      beginSourcePickerEdit();
+                      openDrawerStep("choose-swap-asset");
                     }}
+                    onUpdateTokens={handleSwapTokensUpdate}
+                    receiveQuoteAmount={
+                      swapType === "exactIn"
+                        ? idleReceiveQuoteAmount
+                        : undefined
+                    }
+                    receiveQuoteUsd={idleReceiveQuoteUsd}
+                    recipientAddress={effectiveRecipientAddress}
+                    sourceRouteMessage={
+                      swapQuoteIssue?.message ??
+                      insufficientSourceIssue?.message
+                    }
+                    sourceRouteStatus={
+                      swapQuoteIssue?.type === "insufficientSources"
+                        ? "insufficient"
+                        : swapQuoteIssue
+                          ? "error"
+                          : isExactOutRouteLoading
+                            ? "loading"
+                            : undefined
+                    }
+                    swapType={swapType}
+                    toToken={toTokenWithFetchedBalance}
+                    totalBalance={totalSwapBalanceUsd}
+                    usdValue={amount && usdValue > 0 ? usdValue.toFixed(2) : ""}
+                  />
+
+                  {receiveAmountIssue && (
+                    <StatusAlert
+                      message={receiveAmountIssue.message}
+                      type="error"
+                    />
+                  )}
+
+                  {configuredAmountIssue && (
+                    <StatusAlert
+                      message={configuredAmountIssue.message}
+                      type="error"
+                    />
+                  )}
+
+                  {txError && !blockingQuoteIssue && (
+                    <StatusAlert message={txError} type="error" />
+                  )}
+
+                  {/* CTA Button */}
+                  <div
                     style={{
-                      alignItems: "center",
-                      backgroundColor: blockingQuoteIssue
-                        ? "var(--nexus-widget-error-background, #FCEEED)"
-                        : isSwapCtaDisabled
-                          ? theme.colors.surfaceCool
-                          : primaryButtonBackground,
-                      border: blockingQuoteIssue
-                        ? "1px solid var(--nexus-widget-error-border, #F7C4C1)"
-                        : "none",
-                      borderRadius: theme.radius.primaryButton,
-                      boxShadow:
-                        blockingQuoteIssue || isSwapCtaDisabled
-                          ? "none"
-                          : theme.shadows.primaryButton,
                       boxSizing: "border-box",
                       display: "flex",
-                      flexShrink: 0,
-                      gap: "7px",
-                      height: "42px",
-                      justifyContent: "center",
-                      marginTop: "8px",
-                      paddingInline: "16px",
-                      cursor: isSwapCtaDisabled ? "default" : "pointer",
-                      width: "100%",
+                      flexDirection: "column",
                     }}
                   >
-                    {blockingQuoteIssue ? (
-                      <AlertCircle
-                        style={{
-                          color: "var(--nexus-widget-error-text, #D32F2F)",
-                          height: "14px",
-                          width: "14px",
-                        }}
-                      />
-                    ) : (needsWalletConnection && walletConnectBusy) ||
-                      quoteRefreshing ||
-                      receiveMaxCalculating ? (
-                      <Loader2
-                        className="animate-spin"
-                        style={{
-                          ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
-                          color: isSwapCtaDisabled
-                            ? theme.colors.muted
-                            : primaryButtonForeground,
-                          height: "14px",
-                          width: "14px",
-                        }}
-                      />
-                    ) : null}
-                    <div
+                    <button
+                      disabled={isSwapCtaDisabled}
+                      onClick={() => {
+                        if (needsWalletConnection) {
+                          void handleConnectWallet();
+                          return;
+                        }
+                        void handleEnterPreview();
+                      }}
                       style={{
-                        boxSizing: "border-box",
-                        color: blockingQuoteIssue
-                          ? "var(--nexus-widget-error-text, #D32F2F)"
+                        alignItems: "center",
+                        backgroundColor: blockingQuoteIssue
+                          ? "var(--nexus-widget-error-background, #FCEEED)"
                           : isSwapCtaDisabled
-                            ? theme.colors.muted
-                            : primaryButtonForeground,
-                        fontFamily: theme.fonts.sans,
-                        fontSize: blockingQuoteIssue ? "13px" : "14px",
-                        fontWeight: 500,
-                        letterSpacing: "0",
-                        lineHeight: blockingQuoteIssue ? "17px" : "19px",
+                            ? theme.colors.surfaceCool
+                            : primaryButtonBackground,
+                        border: blockingQuoteIssue
+                          ? "1px solid var(--nexus-widget-error-border, #F7C4C1)"
+                          : "none",
+                        borderRadius: theme.radius.primaryButton,
+                        boxShadow:
+                          blockingQuoteIssue || isSwapCtaDisabled
+                            ? "none"
+                            : theme.shadows.primaryButton,
+                        boxSizing: "border-box",
+                        display: "flex",
+                        flexShrink: 0,
+                        gap: "7px",
+                        height: "42px",
+                        justifyContent: "center",
+                        marginTop: "8px",
+                        paddingInline: "16px",
+                        cursor: isSwapCtaDisabled ? "default" : "pointer",
+                        width: "100%",
                       }}
                     >
-                      {needsWalletConnection
-                        ? walletCtaLabel
-                        : fromTokens.length === 0
-                          ? "Add Assets to Bridge"
-                          : quoteCtaLabel("Review swap")}
-                    </div>
-                  </button>
-                </div>
-              </>
-            )}
+                      {blockingQuoteIssue ? (
+                        <AlertCircle
+                          style={{
+                            color: "var(--nexus-widget-error-text, #D32F2F)",
+                            height: "14px",
+                            width: "14px",
+                          }}
+                        />
+                      ) : (needsWalletConnection && walletConnectBusy) ||
+                        quoteRefreshing ||
+                        receiveMaxCalculating ? (
+                        <Loader2
+                          className="animate-spin"
+                          style={{
+                            ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+                            color: isSwapCtaDisabled
+                              ? theme.colors.muted
+                              : primaryButtonForeground,
+                            height: "14px",
+                            width: "14px",
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        style={{
+                          boxSizing: "border-box",
+                          color: blockingQuoteIssue
+                            ? "var(--nexus-widget-error-text, #D32F2F)"
+                            : isSwapCtaDisabled
+                              ? theme.colors.muted
+                              : primaryButtonForeground,
+                          fontFamily: theme.fonts.sans,
+                          fontSize: blockingQuoteIssue ? "13px" : "14px",
+                          fontWeight: 500,
+                          letterSpacing: "0",
+                          lineHeight: blockingQuoteIssue ? "17px" : "19px",
+                        }}
+                      >
+                        {needsWalletConnection
+                          ? walletCtaLabel
+                          : fromTokens.length === 0
+                            ? "Add Assets to Bridge"
+                            : quoteCtaLabel("Review swap")}
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
 
-          {/* =============================================================== */}
-          {/* DEPOSIT MODE LAYOUT                                              */}
-          {/* =============================================================== */}
-          {activeMode === "deposit" &&
-            [
-              "idle",
-              "choose-swap-asset",
-              "choose-receive-asset",
-              "enter-recipient",
-            ].includes(swapStep) && (
-              <>
-                {isDepositMethodScreen && (
-                  <DepositFundingMethod
-                    enableOnRamp={configuredEnableOnRamp}
-                    enableTransferCrypto={true}
-                    enableHyperliquid={true}
-                    isBalanceLoading={isSwapBalancePending}
-                    onSelectLocalCurrency={() => {
-                      setDepositSlideFromLeft(false);
-                      setDepositFundingStep("onramp");
-                    }}
-                    onSelectWallet={() => {
-                      setDepositSlideFromLeft(false);
-                      clearPendingSwapIntent();
-                      setSourceSelectionTouched(true);
-                      setFromTokens([]);
-                      setAmount("");
-                      setTxError(null);
-                      setSwapQuoteIssue(null);
-                      setQuoteRefreshing(false);
-                      setDepositFundingStep("wallet");
-                      if (needsWalletConnection) {
-                        void handleConnectWallet();
-                      }
-                    }}
-                    primaryButtonForeground={primaryButtonForeground}
-                    slideFromLeft={depositSlideFromLeft}
-                    onClose={embed ? undefined : handleDepositDismiss}
-                    title={
-                      normalizeConfiguredString(appearanceConfig?.appName) ??
-                      normalizeConfiguredString(appearanceConfig?.widgetHeading) ??
-                      "Deposit"
-                    }
-                    totalBalance={totalSwapBalanceUsd}
-                  />
-                )}
-
-                {isDepositOnrampScreen && (
-                  <DepositOnrampFlow
-                    destinationTokens={configuredDestinationTokenOptions}
-                    getWalletProvider={getOnrampWalletProvider}
-                    walletConnected={walletStatus === "connected"}
-                    onConnectWallet={handleConnectOnrampWallet}
-                    onBack={() => {
-                      setDepositSlideFromLeft(true);
-                      setDepositFundingStep("method");
-                    }}
-                    onClose={handleDepositDismiss}
-                    onError={(message) => {
-                      setTxError(message);
-                      onError?.(message);
-                    }}
-                    onSelectDestinationToken={(token) => {
-                      const tokenChanged = !isSameTokenSelection(
-                        toToken,
-                        token,
-                      );
-                      if (tokenChanged) {
-                        onReceiveAssetChange?.({
-                          chainId: token.chainId,
-                          chainName: token.chainName,
-                          contractAddress: token.contractAddress,
-                          symbol: token.symbol,
-                        });
-                      }
-                      const nextDeposit = getDepositForTokenSelection(
-                        configuredDepositOptions,
-                        token,
-                      );
-                      if (nextDeposit) {
-                        setSelectedOpportunity(nextDeposit);
-                      }
-                      setToToken(token);
-                    }}
-                    onSessionStateChange={setDepositOnrampSessionState}
-                    onSessionUpdate={recordOnrampSession}
-                    nexusSDK={nexusSDK}
-                    ownerAddress={ownerAddress}
-                    opportunity={selectedOpportunity}
-                    primaryButtonForeground={primaryButtonForeground}
-                    toToken={toTokenWithFetchedBalance}
-                    walletClient={walletClient}
-                  />
-                )}
-
-                {selectedOpportunity && depositFundingStep === "wallet" && (
-                  <>
-                    <DepositIdleForm
-                      key={fromTokens.length === 0 ? "select-token" : "enter-amount"}
+            {/* =============================================================== */}
+            {/* DEPOSIT MODE LAYOUT                                              */}
+            {/* =============================================================== */}
+            {activeMode === "deposit" &&
+              [
+                "idle",
+                "choose-swap-asset",
+                "choose-receive-asset",
+                "enter-recipient",
+              ].includes(swapStep) && (
+                <>
+                  {isDepositMethodScreen && (
+                    <DepositFundingMethod
+                      enableOnRamp={configuredEnableOnRamp}
+                      enableTransferCrypto={true}
+                      enableHyperliquid={true}
+                      isBalanceLoading={isSwapBalancePending}
+                      onSelectLocalCurrency={() => {
+                        setDepositSlideFromLeft(false);
+                        setDepositFundingStep("onramp");
+                      }}
+                      onSelectWallet={() => {
+                        setDepositSlideFromLeft(false);
+                        clearPendingSwapIntent();
+                        setSourceSelectionTouched(true);
+                        setFromTokens([]);
+                        setAmount("");
+                        setTxError(null);
+                        setSwapQuoteIssue(null);
+                        setQuoteRefreshing(false);
+                        setDepositFundingStep("wallet");
+                        if (needsWalletConnection) {
+                          void handleConnectWallet();
+                        }
+                      }}
+                      primaryButtonForeground={primaryButtonForeground}
                       slideFromLeft={depositSlideFromLeft}
-                      amount={amount}
-                      amountMode={depositAmountMode}
-                      calculatingPercent={maxCalculationPercent}
-                      destinationLabel={
+                      onClose={embed ? undefined : handleDepositDismiss}
+                      title={
                         normalizeConfiguredString(appearanceConfig?.appName) ??
                         normalizeConfiguredString(
                           appearanceConfig?.widgetHeading,
                         ) ??
                         "Deposit"
                       }
-                      feeUsd={hasCurrentQuoteIntent ? intentFeeUsd : undefined}
-                      feeDetails={
-                        hasCurrentQuoteIntent
-                          ? ((intentData as { feesAndBuffer?: { bridge?: Record<string, unknown> }; fees?: Record<string, unknown> } | null)
-                              ?.feesAndBuffer?.bridge ??
-                            (intentData as { fees?: Record<string, unknown> } | null)?.fees)
-                          : undefined
-                      }
-                      fromTokens={fromTokens}
-                      isAmountReadOnly={isConfiguredAmountFixed}
-                      isBalanceLoading={
-                        isSwapBalancePending ||
-                        needsWalletConnection ||
-                        walletConnectBusy
-                      }
-                      isCalculatingMax={receiveMaxCalculating}
-                      isPredictive={false}
-                      isQuoteRefreshing={quoteRefreshing || intentLoading}
-                      isSourcePickerDisabled={isSourcePickerRefreshDisabled}
-                      onAmountChange={handleDepositAmountChange}
-                      onAmountModeToggle={handleDepositAmountModeToggle}
-                      onOpenSourcePicker={(index) => {
-                        if (needsWalletConnection) {
-                          void handleConnectWallet();
-                          return;
-                        }
-                        setEditingAssetIndex(index ?? null);
-                        openDrawerStep("choose-swap-asset");
-                      }}
-                      onOpenTokenPicker={() =>
-                        openDrawerStep("choose-receive-asset")
-                      }
-                      onSetPercent={handleDepositPercentSelect}
-                      onUpdateTokens={handleDepositSourcesUpdate}
-                      receiveAmount={
-                        hasCurrentQuoteIntent ? intentToAmount : undefined
-                      }
-                      minReceiveAmount={
-                        hasCurrentQuoteIntent
-                          ? intentData?.destination.minAmount
-                          : undefined
-                      }
-                      receiveUsd={
-                        hasCurrentQuoteIntent ? previewToAmountUsd : undefined
-                      }
-                      routeMessage={
-                        swapQuoteIssue?.message ??
-                        receiveAmountIssue?.message ??
-                        txError ??
-                        insufficientSourceIssue?.message
-                      }
-                      routeStatus={
-                        swapQuoteIssue?.type === "insufficientSources"
-                          ? "insufficient"
-                          : swapQuoteIssue || receiveAmountIssue || txError
-                            ? "error"
-                            : quoteRefreshing || intentLoading
-                              ? "loading"
-                              : undefined
-                      }
-                      showAutoBadge={false}
-                      isTokenPickerDisabled={isReceiveAssetPickerLocked}
-                      hideDestinationTokenDropdownIcon={
-                        hideDestinationTokenDropdownIcon
-                      }
-                      tokenValue={depositTokenDisplay}
-                      toToken={toTokenWithFetchedBalance}
                       totalBalance={totalSwapBalanceUsd}
-                      usdValue={depositUsdDisplay}
-                      availableTokens={getAllSourceTokens()}
-                      onBack={handleBack}
-                      onClose={handleDepositDismiss}
-                      onOpenHistory={
-                        showHistoryButton ? () => setSwapStep("history") : undefined
-                      }
-                      quoteLabel={
-                        hasQuoteRefreshCountdown
-                          ? `${quoteRefreshSecondsRemaining}s`
-                          : "–"
-                      }
-                      quoteProgress={
-                        hasQuoteRefreshCountdown ? quoteRefreshProgress : 1
-                      }
-                      onSelectAvailableToken={(token) => {
-                        setDepositSlideFromLeft(false);
-                        handleDepositSourcesUpdate([
-                          { ...token, userAmount: "", userAmountMode: "usd" },
-                        ]);
-                      }}
-                      walletLabel={
-                        ownerAddress
-                          ? `${ownerAddress.slice(0, 6)}…${ownerAddress.slice(-4)}`
-                          : undefined
-                      }
                     />
+                  )}
 
-                    {receiveAmountIssue && (
-                      <StatusAlert
-                        message={receiveAmountIssue.message}
-                        type="error"
-                      />
-                    )}
-
-                    {configuredAmountIssue && (
-                      <StatusAlert
-                        message={configuredAmountIssue.message}
-                        type="error"
-                      />
-                    )}
-
-                    {txError && !blockingQuoteIssue && (
-                      <StatusAlert message={txError} type="error" />
-                    )}
-
-                    {fromTokens.length > 0 && (
-                    <div
-                      style={{
-                        boxSizing: "border-box",
-                        display: "flex",
-                        flexDirection: "column",
+                  {isDepositOnrampScreen && (
+                    <DepositOnrampFlow
+                      destinationTokens={configuredDestinationTokenOptions}
+                      getWalletProvider={getOnrampWalletProvider}
+                      walletConnected={walletStatus === "connected"}
+                      onConnectWallet={handleConnectOnrampWallet}
+                      onBack={() => {
+                        setDepositSlideFromLeft(true);
+                        setDepositFundingStep("method");
                       }}
-                    >
-                      <button
-                        aria-disabled={isDepositCtaDisabled}
-                        onClick={() => {
-                          if (isDepositCtaDisabled) {
-                            const inputs = Array.from(rootContentRef.current?.querySelectorAll<HTMLInputElement>(".nx-prow input") ?? []);
-                            const input = inputs.find(field => field.closest(".err")) ?? inputs.find(field => !Number(field.value.replaceAll(",", "")));
-                            if (input) {
-                              input.focus();
-                              const row = input.closest<HTMLElement>(".nx-prow");
-                              row?.classList.remove("shake");
-                              if (row) { void row.offsetWidth; row.classList.add("shake"); }
-                              row?.addEventListener("animationend", () => row.classList.remove("shake"), { once: true });
-                            }
-                            return;
-                          }
+                      onClose={handleDepositDismiss}
+                      onError={(message) => {
+                        setTxError(message);
+                        onError?.(message);
+                      }}
+                      onSelectDestinationToken={(token) => {
+                        const tokenChanged = !isSameTokenSelection(
+                          toToken,
+                          token,
+                        );
+                        if (tokenChanged) {
+                          onReceiveAssetChange?.({
+                            chainId: token.chainId,
+                            chainName: token.chainName,
+                            contractAddress: token.contractAddress,
+                            symbol: token.symbol,
+                          });
+                        }
+                        const nextDeposit = getDepositForTokenSelection(
+                          configuredDepositOptions,
+                          token,
+                        );
+                        if (nextDeposit) {
+                          setSelectedOpportunity(nextDeposit);
+                        }
+                        setToToken(token);
+                      }}
+                      onSessionStateChange={setDepositOnrampSessionState}
+                      onSessionUpdate={recordOnrampSession}
+                      nexusSDK={nexusSDK}
+                      ownerAddress={ownerAddress}
+                      opportunity={selectedOpportunity}
+                      primaryButtonForeground={primaryButtonForeground}
+                      toToken={toTokenWithFetchedBalance}
+                      walletClient={walletClient}
+                    />
+                  )}
+
+                  {selectedOpportunity && depositFundingStep === "wallet" && (
+                    <>
+                      <DepositIdleForm
+                        key={
+                          fromTokens.length === 0
+                            ? "select-token"
+                            : "enter-amount"
+                        }
+                        slideFromLeft={depositSlideFromLeft}
+                        amount={amount}
+                        amountMode={depositAmountMode}
+                        calculatingPercent={maxCalculationPercent}
+                        destinationLabel={
+                          normalizeConfiguredString(
+                            appearanceConfig?.appName,
+                          ) ??
+                          normalizeConfiguredString(
+                            appearanceConfig?.widgetHeading,
+                          ) ??
+                          "Deposit"
+                        }
+                        feeUsd={
+                          hasCurrentQuoteIntent ? intentFeeUsd : undefined
+                        }
+                        feeDetails={
+                          hasCurrentQuoteIntent
+                            ? ((
+                                intentData as {
+                                  feesAndBuffer?: {
+                                    bridge?: Record<string, unknown>;
+                                  };
+                                  fees?: Record<string, unknown>;
+                                } | null
+                              )?.feesAndBuffer?.bridge ??
+                              (
+                                intentData as {
+                                  fees?: Record<string, unknown>;
+                                } | null
+                              )?.fees)
+                            : undefined
+                        }
+                        fromTokens={fromTokens}
+                        isAmountReadOnly={isConfiguredAmountFixed}
+                        isBalanceLoading={
+                          isSwapBalancePending ||
+                          needsWalletConnection ||
+                          walletConnectBusy
+                        }
+                        isCalculatingMax={receiveMaxCalculating}
+                        isPredictive={false}
+                        isQuoteRefreshing={quoteRefreshing || intentLoading}
+                        isSourcePickerDisabled={isSourcePickerRefreshDisabled}
+                        onAmountChange={handleDepositAmountChange}
+                        onAmountModeToggle={handleDepositAmountModeToggle}
+                        onOpenSourcePicker={(index) => {
                           if (needsWalletConnection) {
                             void handleConnectWallet();
                             return;
                           }
-                          if (hasCurrentQuoteIntent) {
-                            handleSwapAccept();
-                            return;
-                          }
-                          void handleEnterPreview();
+                          setEditingAssetIndex(index ?? null);
+                          openDrawerStep("choose-swap-asset");
                         }}
-                        className="nx-deposit-cta"
-                        style={{
-                          alignItems: "center",
-                          backgroundColor: blockingQuoteIssue
-                            ? "var(--nx-red-band, #FEF6F6)"
-                            : isDepositCtaDisabled
-                              ? "var(--nx-cta-off, #EDEDED)"
-                              : "var(--nx-blue, #006BF4)",
-                          border: "none",
-                          borderRadius: "999px",
-                          boxShadow:
-                            blockingQuoteIssue || isDepositCtaDisabled
-                              ? "none"
-                              : "var(--nx-sh-cta)",
-                          boxSizing: "border-box",
-                          color: blockingQuoteIssue
-                            ? "var(--nx-red, #D93636)"
-                            : isDepositCtaDisabled
-                              ? "var(--nx-mute-2, #8C8C8B)"
-                              : "#FFFFFF",
-                          cursor: isDepositCtaDisabled ? "default" : "pointer",
-                          display: "flex",
-                          flexShrink: 0,
-                          fontFamily: theme.fonts.sans,
-                          fontSize: "16px",
-                          fontWeight: 500,
-                          gap: "10px",
-                          height: "56px",
-                          justifyContent: "center",
-                          transition:
-                            "background-color 200ms, box-shadow 200ms, color 200ms, transform 160ms",
-                          width: "100%",
+                        onOpenTokenPicker={() =>
+                          openDrawerStep("choose-receive-asset")
+                        }
+                        onSetPercent={handleDepositPercentSelect}
+                        onUpdateTokens={handleDepositSourcesUpdate}
+                        receiveAmount={
+                          hasCurrentQuoteIntent ? intentToAmount : undefined
+                        }
+                        minReceiveAmount={
+                          hasCurrentQuoteIntent
+                            ? intentData?.destination.minAmount
+                            : undefined
+                        }
+                        receiveUsd={
+                          hasCurrentQuoteIntent ? previewToAmountUsd : undefined
+                        }
+                        routeMessage={
+                          swapQuoteIssue?.message ??
+                          receiveAmountIssue?.message ??
+                          txError ??
+                          insufficientSourceIssue?.message
+                        }
+                        routeStatus={
+                          swapQuoteIssue?.type === "insufficientSources"
+                            ? "insufficient"
+                            : swapQuoteIssue || receiveAmountIssue || txError
+                              ? "error"
+                              : quoteRefreshing || intentLoading
+                                ? "loading"
+                                : undefined
+                        }
+                        showAutoBadge={false}
+                        isTokenPickerDisabled={isReceiveAssetPickerLocked}
+                        hideDestinationTokenDropdownIcon={
+                          hideDestinationTokenDropdownIcon
+                        }
+                        tokenValue={depositTokenDisplay}
+                        toToken={toTokenWithFetchedBalance}
+                        totalBalance={totalSwapBalanceUsd}
+                        usdValue={depositUsdDisplay}
+                        availableTokens={getAllSourceTokens()}
+                        onBack={handleBack}
+                        onClose={handleDepositDismiss}
+                        onOpenHistory={
+                          showHistoryButton
+                            ? () => setSwapStep("history")
+                            : undefined
+                        }
+                        quoteLabel={
+                          hasQuoteRefreshCountdown
+                            ? `${quoteRefreshSecondsRemaining}s`
+                            : "–"
+                        }
+                        quoteProgress={
+                          hasQuoteRefreshCountdown ? quoteRefreshProgress : 1
+                        }
+                        onSelectAvailableToken={(token) => {
+                          setDepositSlideFromLeft(false);
+                          handleDepositSourcesUpdate([
+                            { ...token, userAmount: "", userAmountMode: "usd" },
+                          ]);
                         }}
-                      >
-                        {blockingQuoteIssue ? (
-                          <AlertCircle
-                            style={{
-                              color: "var(--nexus-widget-error-text, #D32F2F)",
-                              height: "14px",
-                              width: "14px",
-                            }}
-                          />
-                        ) : (needsWalletConnection && walletConnectBusy) ||
-                          isExactOutPaymentQuotePending ||
-                          receiveMaxCalculating ? (
-                          <Loader2
-                            className="animate-spin"
-                            style={{
-                              ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
-                              color: isDepositCtaDisabled
-                                ? "var(--nx-mute-2, #8C8C8B)"
-                                : "#FFFFFF",
-                              height: "14px",
-                              width: "14px",
-                            }}
-                          />
-                        ) : null}
+                        walletLabel={
+                          ownerAddress
+                            ? `${ownerAddress.slice(0, 6)}…${ownerAddress.slice(-4)}`
+                            : undefined
+                        }
+                      />
+
+                      {receiveAmountIssue && (
+                        <StatusAlert
+                          message={receiveAmountIssue.message}
+                          type="error"
+                        />
+                      )}
+
+                      {configuredAmountIssue && (
+                        <StatusAlert
+                          message={configuredAmountIssue.message}
+                          type="error"
+                        />
+                      )}
+
+                      {txError && !blockingQuoteIssue && (
+                        <StatusAlert message={txError} type="error" />
+                      )}
+
+                      {fromTokens.length > 0 && (
                         <div
                           style={{
                             boxSizing: "border-box",
-                            color: blockingQuoteIssue
-                              ? "var(--nx-red, #D93636)"
-                              : isDepositCtaDisabled
-                                ? "var(--nx-mute-2, #8C8C8B)"
-                                : "#FFFFFF",
-                            fontFamily: theme.fonts.sans,
-                            fontSize: "16px",
-                            fontWeight: 500,
-                            lineHeight: "20px",
+                            display: "flex",
+                            flexDirection: "column",
                           }}
                         >
-                          <DepositAnimatedLabel>{needsWalletConnection
-                            ? walletCtaLabel
-                            : blockingQuoteIssue
-                              ? quoteCtaLabel("Deposit")
-                              : fromTokens.length === 0
-                                ? "Select token"
-                                : !hasReadySwapQuoteInput
-                                  ? "Enter amount"
-                                  : quoteRefreshing ||
-                                      intentLoading ||
-                                      !hasCurrentQuoteIntent
-                                    ? "Getting quote…"
-                                    : "Deposit"}</DepositAnimatedLabel>
+                          <button
+                            aria-disabled={isDepositCtaDisabled}
+                            onClick={() => {
+                              if (isDepositCtaDisabled) {
+                                const inputs = Array.from(
+                                  rootContentRef.current?.querySelectorAll<HTMLInputElement>(
+                                    ".nx-prow input",
+                                  ) ?? [],
+                                );
+                                const input =
+                                  inputs.find((field) =>
+                                    field.closest(".err"),
+                                  ) ??
+                                  inputs.find(
+                                    (field) =>
+                                      !Number(field.value.replaceAll(",", "")),
+                                  );
+                                if (input) {
+                                  input.focus();
+                                  const row =
+                                    input.closest<HTMLElement>(".nx-prow");
+                                  row?.classList.remove("shake");
+                                  if (row) {
+                                    void row.offsetWidth;
+                                    row.classList.add("shake");
+                                  }
+                                  row?.addEventListener(
+                                    "animationend",
+                                    () => row.classList.remove("shake"),
+                                    { once: true },
+                                  );
+                                }
+                                return;
+                              }
+                              if (needsWalletConnection) {
+                                void handleConnectWallet();
+                                return;
+                              }
+                              if (hasCurrentQuoteIntent) {
+                                handleSwapAccept();
+                                return;
+                              }
+                              void handleEnterPreview();
+                            }}
+                            className="nx-deposit-cta"
+                            style={{
+                              alignItems: "center",
+                              backgroundColor: blockingQuoteIssue
+                                ? "var(--nx-red-band, #FEF6F6)"
+                                : isDepositCtaDisabled
+                                  ? "var(--nx-cta-off, #EDEDED)"
+                                  : "var(--nx-blue, #006BF4)",
+                              border: "none",
+                              borderRadius: "999px",
+                              boxShadow:
+                                blockingQuoteIssue || isDepositCtaDisabled
+                                  ? "none"
+                                  : "var(--nx-sh-cta)",
+                              boxSizing: "border-box",
+                              color: blockingQuoteIssue
+                                ? "var(--nx-red, #D93636)"
+                                : isDepositCtaDisabled
+                                  ? "var(--nx-mute-2, #8C8C8B)"
+                                  : "#FFFFFF",
+                              cursor: isDepositCtaDisabled
+                                ? "default"
+                                : "pointer",
+                              display: "flex",
+                              flexShrink: 0,
+                              fontFamily: theme.fonts.sans,
+                              fontSize: "16px",
+                              fontWeight: 500,
+                              gap: "10px",
+                              height: "56px",
+                              justifyContent: "center",
+                              transition:
+                                "background-color 200ms, box-shadow 200ms, color 200ms, transform 160ms",
+                              width: "100%",
+                            }}
+                          >
+                            {blockingQuoteIssue ? (
+                              <AlertCircle
+                                style={{
+                                  color:
+                                    "var(--nexus-widget-error-text, #D32F2F)",
+                                  height: "14px",
+                                  width: "14px",
+                                }}
+                              />
+                            ) : (needsWalletConnection && walletConnectBusy) ||
+                              isExactOutPaymentQuotePending ||
+                              receiveMaxCalculating ? (
+                              <Loader2
+                                className="animate-spin"
+                                style={{
+                                  ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+                                  color: isDepositCtaDisabled
+                                    ? "var(--nx-mute-2, #8C8C8B)"
+                                    : "#FFFFFF",
+                                  height: "14px",
+                                  width: "14px",
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              style={{
+                                boxSizing: "border-box",
+                                color: blockingQuoteIssue
+                                  ? "var(--nx-red, #D93636)"
+                                  : isDepositCtaDisabled
+                                    ? "var(--nx-mute-2, #8C8C8B)"
+                                    : "#FFFFFF",
+                                fontFamily: theme.fonts.sans,
+                                fontSize: "16px",
+                                fontWeight: 500,
+                                lineHeight: "20px",
+                              }}
+                            >
+                              <DepositAnimatedLabel>
+                                {needsWalletConnection
+                                  ? walletCtaLabel
+                                  : blockingQuoteIssue
+                                    ? quoteCtaLabel("Deposit")
+                                    : fromTokens.length === 0
+                                      ? "Select token"
+                                      : !hasReadySwapQuoteInput
+                                        ? "Enter amount"
+                                        : quoteRefreshing ||
+                                            intentLoading ||
+                                            !hasCurrentQuoteIntent
+                                          ? "Getting quote…"
+                                          : "Deposit"}
+                              </DepositAnimatedLabel>
+                            </div>
+                          </button>
                         </div>
-                      </button>
-                    </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
+                      )}
+                    </>
+                  )}
+                </>
+              )}
 
-          {/* =============================================================== */}
-          {/* SEND MODE — recipient first, then amount, then asset         */}
-          {/* =============================================================== */}
-          {activeMode === "send" &&
-            [
-              "idle",
-              "choose-swap-asset",
-              "choose-receive-asset",
-              "enter-recipient",
-            ].includes(swapStep) && (
-              <>
-                <SendIdleForm
-                  amount={amount}
-                  calculatingPercent={maxCalculationPercent}
-                  fromTokens={displayFromTokens}
-                  isAmountReadOnly={isConfiguredAmountFixed}
-                  isAssetPickerDisabled={isReceiveAssetPickerLocked}
-                  isBalanceLoading={isSwapBalancePending}
-                  hideDestinationTokenDropdownIcon={
-                    hideDestinationTokenDropdownIcon
-                  }
-                  isCalculatingMax={receiveMaxCalculating}
-                  isPredictive={isExactOutPredictiveQuote}
-                  isQuoteRefreshing={
-                    !hasCurrentExactOutPaymentIntent &&
-                    (quoteRefreshing || intentLoading)
-                  }
-                  isSourcePickerDisabled={isSourcePickerRefreshDisabled}
-                  onAmountChange={handleSendAmountChange}
-                  onOpenAssetPicker={() =>
-                    openDrawerStep("choose-receive-asset")
-                  }
-                  isRecipientLocked={isConfiguredRecipientLocked}
-                  onOpenRecipientPicker={
-                    isConfiguredRecipientLocked
-                      ? () => undefined
-                      : handleOpenRecipientEditor
-                  }
-                  onOpenSourcePicker={() => {
-                    if (needsWalletConnection) {
-                      void handleConnectWallet();
-                      return;
+            {/* =============================================================== */}
+            {/* SEND MODE — recipient first, then amount, then asset         */}
+            {/* =============================================================== */}
+            {activeMode === "send" &&
+              [
+                "idle",
+                "choose-swap-asset",
+                "choose-receive-asset",
+                "enter-recipient",
+              ].includes(swapStep) && (
+                <>
+                  <SendIdleForm
+                    amount={amount}
+                    calculatingPercent={maxCalculationPercent}
+                    fromTokens={displayFromTokens}
+                    isAmountReadOnly={isConfiguredAmountFixed}
+                    isAssetPickerDisabled={isReceiveAssetPickerLocked}
+                    isBalanceLoading={isSwapBalancePending}
+                    hideDestinationTokenDropdownIcon={
+                      hideDestinationTokenDropdownIcon
                     }
-                    setEditingAssetIndex(null);
-                    captureSourceSelectionRequiredUsd();
-                    beginSourcePickerEdit();
-                    openDrawerStep("choose-swap-asset");
-                  }}
-                  onSetPercent={handleSendPercentSelect}
-                  recipientAddress={recipientAddress || ""}
-                  routeMessage={
-                    swapQuoteIssue?.message ?? insufficientSourceIssue?.message
-                  }
-                  routeStatus={
-                    swapQuoteIssue?.type === "insufficientSources"
-                      ? "insufficient"
-                      : swapQuoteIssue
-                        ? "error"
-                        : displayExactOutRouteLoading
-                          ? "loading"
-                          : undefined
-                  }
-                  showAutoBadge={!sourceSelectionTouched}
-                  toToken={toTokenWithFetchedBalance}
-                  totalBalance={totalSwapBalanceUsd}
-                  usdValue={
-                    amount && sendAmountUsd > 0 ? sendAmountUsd.toFixed(2) : ""
-                  }
-                />
-
-                {receiveAmountIssue && (
-                  <StatusAlert
-                    message={receiveAmountIssue.message}
-                    type="error"
-                  />
-                )}
-
-                {configuredAmountIssue && (
-                  <StatusAlert
-                    message={configuredAmountIssue.message}
-                    type="error"
-                  />
-                )}
-
-                {txError && !blockingQuoteIssue && (
-                  <StatusAlert message={txError} type="error" />
-                )}
-
-                <div
-                  style={{
-                    boxSizing: "border-box",
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
-                >
-                  <button
-                    disabled={isSendCtaDisabled}
-                    onClick={() => {
+                    isCalculatingMax={receiveMaxCalculating}
+                    isPredictive={isExactOutPredictiveQuote}
+                    isQuoteRefreshing={
+                      !hasCurrentExactOutPaymentIntent &&
+                      (quoteRefreshing || intentLoading)
+                    }
+                    isSourcePickerDisabled={isSourcePickerRefreshDisabled}
+                    onAmountChange={handleSendAmountChange}
+                    onOpenAssetPicker={() =>
+                      openDrawerStep("choose-receive-asset")
+                    }
+                    isRecipientLocked={isConfiguredRecipientLocked}
+                    onOpenRecipientPicker={
+                      isConfiguredRecipientLocked
+                        ? () => undefined
+                        : handleOpenRecipientEditor
+                    }
+                    onOpenSourcePicker={() => {
                       if (needsWalletConnection) {
                         void handleConnectWallet();
                         return;
                       }
-                      if (sendNeedsRecipient) {
-                        handleOpenRecipientEditor();
-                        return;
-                      }
-                      void handleEnterPreview();
+                      setEditingAssetIndex(null);
+                      captureSourceSelectionRequiredUsd();
+                      beginSourcePickerEdit();
+                      openDrawerStep("choose-swap-asset");
                     }}
+                    onSetPercent={handleSendPercentSelect}
+                    recipientAddress={recipientAddress || ""}
+                    routeMessage={
+                      swapQuoteIssue?.message ??
+                      insufficientSourceIssue?.message
+                    }
+                    routeStatus={
+                      swapQuoteIssue?.type === "insufficientSources"
+                        ? "insufficient"
+                        : swapQuoteIssue
+                          ? "error"
+                          : displayExactOutRouteLoading
+                            ? "loading"
+                            : undefined
+                    }
+                    showAutoBadge={!sourceSelectionTouched}
+                    toToken={toTokenWithFetchedBalance}
+                    totalBalance={totalSwapBalanceUsd}
+                    usdValue={
+                      amount && sendAmountUsd > 0
+                        ? sendAmountUsd.toFixed(2)
+                        : ""
+                    }
+                  />
+
+                  {receiveAmountIssue && (
+                    <StatusAlert
+                      message={receiveAmountIssue.message}
+                      type="error"
+                    />
+                  )}
+
+                  {configuredAmountIssue && (
+                    <StatusAlert
+                      message={configuredAmountIssue.message}
+                      type="error"
+                    />
+                  )}
+
+                  {txError && !blockingQuoteIssue && (
+                    <StatusAlert message={txError} type="error" />
+                  )}
+
+                  <div
                     style={{
-                      alignItems: "center",
-                      backgroundColor: blockingQuoteIssue
-                        ? "var(--nexus-widget-error-background, #FCEEED)"
-                        : isSendCtaDisabled
-                          ? theme.colors.surfaceCool
-                          : primaryButtonBackground,
-                      border: blockingQuoteIssue
-                        ? "1px solid var(--nexus-widget-error-border, #F7C4C1)"
-                        : "none",
-                      borderRadius: blockingQuoteIssue
-                        ? "4px"
-                        : theme.radius.primaryButton,
-                      boxShadow:
-                        blockingQuoteIssue || isSendCtaDisabled
-                          ? "none"
-                          : theme.shadows.primaryButton,
                       boxSizing: "border-box",
                       display: "flex",
-                      flexShrink: 0,
-                      gap: "7px",
-                      height: "40px",
-                      justifyContent: "center",
-                      paddingInline: "16px",
-                      cursor: isSendCtaDisabled ? "default" : "pointer",
-                      width: "100%",
+                      flexDirection: "column",
                     }}
                   >
-                    {blockingQuoteIssue ? (
-                      <AlertCircle
-                        style={{
-                          color: "var(--nexus-widget-error-text, #D32F2F)",
-                          height: "14px",
-                          width: "14px",
-                        }}
-                      />
-                    ) : (needsWalletConnection && walletConnectBusy) ||
-                      (!sendNeedsRecipient &&
-                        (isExactOutPaymentQuotePending ||
-                          receiveMaxCalculating)) ? (
-                      <Loader2
-                        className="animate-spin"
-                        style={{
-                          ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
-                          color: isSendCtaDisabled
-                            ? theme.colors.muted
-                            : primaryButtonForeground,
-                          height: "14px",
-                          width: "14px",
-                        }}
-                      />
-                    ) : null}
-                    <div
+                    <button
+                      disabled={isSendCtaDisabled}
+                      onClick={() => {
+                        if (needsWalletConnection) {
+                          void handleConnectWallet();
+                          return;
+                        }
+                        if (sendNeedsRecipient) {
+                          handleOpenRecipientEditor();
+                          return;
+                        }
+                        void handleEnterPreview();
+                      }}
                       style={{
-                        boxSizing: "border-box",
-                        color: blockingQuoteIssue
-                          ? "var(--nexus-widget-error-text, #D32F2F)"
+                        alignItems: "center",
+                        backgroundColor: blockingQuoteIssue
+                          ? "var(--nexus-widget-error-background, #FCEEED)"
                           : isSendCtaDisabled
-                            ? theme.colors.muted
-                            : primaryButtonForeground,
-                        fontFamily: theme.fonts.sans,
-                        fontSize: blockingQuoteIssue ? "13px" : "14px",
-                        fontWeight: 500,
-                        lineHeight: "21px",
+                            ? theme.colors.surfaceCool
+                            : primaryButtonBackground,
+                        border: blockingQuoteIssue
+                          ? "1px solid var(--nexus-widget-error-border, #F7C4C1)"
+                          : "none",
+                        borderRadius: blockingQuoteIssue
+                          ? "4px"
+                          : theme.radius.primaryButton,
+                        boxShadow:
+                          blockingQuoteIssue || isSendCtaDisabled
+                            ? "none"
+                            : theme.shadows.primaryButton,
+                        boxSizing: "border-box",
+                        display: "flex",
+                        flexShrink: 0,
+                        gap: "7px",
+                        height: "40px",
+                        justifyContent: "center",
+                        paddingInline: "16px",
+                        cursor: isSendCtaDisabled ? "default" : "pointer",
+                        width: "100%",
                       }}
                     >
-                      {sendCtaLabel}
-                    </div>
-                  </button>
-                </div>
-              </>
-            )}
-        </div>
+                      {blockingQuoteIssue ? (
+                        <AlertCircle
+                          style={{
+                            color: "var(--nexus-widget-error-text, #D32F2F)",
+                            height: "14px",
+                            width: "14px",
+                          }}
+                        />
+                      ) : (needsWalletConnection && walletConnectBusy) ||
+                        (!sendNeedsRecipient &&
+                          (isExactOutPaymentQuotePending ||
+                            receiveMaxCalculating)) ? (
+                        <Loader2
+                          className="animate-spin"
+                          style={{
+                            ...NEXUS_WIDGET_FAST_SPINNER_STYLE,
+                            color: isSendCtaDisabled
+                              ? theme.colors.muted
+                              : primaryButtonForeground,
+                            height: "14px",
+                            width: "14px",
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        style={{
+                          boxSizing: "border-box",
+                          color: blockingQuoteIssue
+                            ? "var(--nexus-widget-error-text, #D32F2F)"
+                            : isSendCtaDisabled
+                              ? theme.colors.muted
+                              : primaryButtonForeground,
+                          fontFamily: theme.fonts.sans,
+                          fontSize: blockingQuoteIssue ? "13px" : "14px",
+                          fontWeight: 500,
+                          lineHeight: "21px",
+                        }}
+                      >
+                        {sendCtaLabel}
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+          </div>
         </DepositScreenMotion>
       </div>
 
@@ -13236,7 +13617,9 @@ function NexusWidgetInner({
             }}
           >
             <div
-              className={activeMode === "deposit" ? "nx-deposit-scrim" : undefined}
+              className={
+                activeMode === "deposit" ? "nx-deposit-scrim" : undefined
+              }
               onClick={handleSourcePickerCancel}
               style={{
                 position: "absolute",
@@ -13255,23 +13638,38 @@ function NexusWidgetInner({
             />
             <div
               className={
-                activeMode === "deposit" ? `nx-deposit-sheet${isSwapAssetDrawerClosing ? " closing" : ""}` : isSwapAssetDrawerClosing
-                  ? undefined
-                  : "animate-in slide-in-from-bottom-full duration-300"
+                activeMode === "deposit"
+                  ? `nx-deposit-sheet${isSwapAssetDrawerClosing ? " closing" : ""}`
+                  : isSwapAssetDrawerClosing
+                    ? undefined
+                    : "animate-in slide-in-from-bottom-full duration-300"
               }
               data-nexus-widget-sheet
               style={{
                 ...modalHeightTransitionStyle,
                 bottom: 0,
-                height: activeMode === "deposit" ? "78%" : ASSET_SELECTOR_DRAWER_HEIGHT,
+                height:
+                  activeMode === "deposit"
+                    ? "78%"
+                    : ASSET_SELECTOR_DRAWER_HEIGHT,
                 left: 0,
-                maxHeight: activeMode === "deposit" ? "78%" : ASSET_SELECTOR_DRAWER_HEIGHT,
-                minHeight: activeMode === "deposit" ? "78%" : ASSET_SELECTOR_DRAWER_HEIGHT,
+                maxHeight:
+                  activeMode === "deposit"
+                    ? "78%"
+                    : ASSET_SELECTOR_DRAWER_HEIGHT,
+                minHeight:
+                  activeMode === "deposit"
+                    ? "78%"
+                    : ASSET_SELECTOR_DRAWER_HEIGHT,
                 position: "absolute",
                 right: 0,
                 width: "100%",
-                backgroundColor: activeMode === "deposit" ? "var(--nx-card, #FFFFFF)" : "var(--nexus-widget-surface-inset, #FFFFFE)",
-                borderRadius: activeMode === "deposit" ? "24px 24px 0 0" : "12px 12px 0 0",
+                backgroundColor:
+                  activeMode === "deposit"
+                    ? "var(--nx-card, #FFFFFF)"
+                    : "var(--nexus-widget-surface-inset, #FFFFFE)",
+                borderRadius:
+                  activeMode === "deposit" ? "24px 24px 0 0" : "12px 12px 0 0",
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
@@ -13292,282 +13690,306 @@ function NexusWidgetInner({
                   <DepositAssetSelector
                     tokens={getAllSourceTokens()}
                     selectedTokens={fromTokens}
-                    editingToken={editingAssetIndex === null ? undefined : fromTokens[editingAssetIndex]}
+                    editingToken={
+                      editingAssetIndex === null
+                        ? undefined
+                        : fromTokens[editingAssetIndex]
+                    }
                     isBalanceLoading={isSwapBalancePending}
                     minBalanceUsd={1}
                     onDismiss={handleSourcePickerCancel}
                     onSelect={(token) => {
-                      if (isSwapAssetDrawerClosing || depositPickTimerRef.current) return;
+                      if (
+                        isSwapAssetDrawerClosing ||
+                        depositPickTimerRef.current
+                      )
+                        return;
                       closeDrawerToIdle();
                       depositPickTimerRef.current = setTimeout(() => {
                         depositPickTimerRef.current = null;
-                      if (editingAssetIndex !== null) {
-                        const current = fromTokens[editingAssetIndex];
-                        if (!current) return;
-                        if (!isSameTokenSelection(current, token)) {
-                          if (fromTokens.some((selected, index) => index !== editingAssetIndex && isSameTokenSelection(selected, token))) return;
-                          clearPendingSwapIntent();
-                          handleDepositSourcesUpdate(fromTokens.map((selected, index) => index === editingAssetIndex
-                            ? { ...token, userAmount: "", userAmountMode: "usd" }
-                            : selected));
+                        if (editingAssetIndex !== null) {
+                          const current = fromTokens[editingAssetIndex];
+                          if (!current) return;
+                          if (!isSameTokenSelection(current, token)) {
+                            if (
+                              fromTokens.some(
+                                (selected, index) =>
+                                  index !== editingAssetIndex &&
+                                  isSameTokenSelection(selected, token),
+                              )
+                            )
+                              return;
+                            clearPendingSwapIntent();
+                            handleDepositSourcesUpdate(
+                              fromTokens.map((selected, index) =>
+                                index === editingAssetIndex
+                                  ? {
+                                      ...token,
+                                      userAmount: "",
+                                      userAmountMode: "usd",
+                                    }
+                                  : selected,
+                              ),
+                            );
+                          }
+                        } else {
+                          if (
+                            fromTokens.length >= 3 ||
+                            fromTokens.some((selected) =>
+                              isSameTokenSelection(selected, token),
+                            )
+                          )
+                            return;
+                          handleDepositSourcesUpdate([
+                            ...fromTokens,
+                            { ...token, userAmount: "", userAmountMode: "usd" },
+                          ]);
                         }
-                      } else {
-                        if (fromTokens.length >= 3 || fromTokens.some((selected) => isSameTokenSelection(selected, token))) return;
-                        handleDepositSourcesUpdate([...fromTokens, { ...token, userAmount: "", userAmountMode: "usd" }]);
-                      }
                       }, 160);
                     }}
                   />
                 </>
               ) : (
-              <SwapAssetSelector
-                allowSelectedTokenRemoval={false}
-                allowUnified={
-                  activeMode === "send" ||
-                  activeMode === "swap"
-                }
-                autoSelectFilterTabs={
-                  activeMode === "send"
-                }
-                editingAssetIndex={editingAssetIndex}
-                filterTabBehavior={
-                  activeMode === "send"
-                    ? "source-pool"
-                    : "select-all"
-                }
-                hideCustomTab={activeMode === "swap"}
-                initialFilterTab={
-                  activeMode === "send"
-                    ? depositSourceFilter === "stablecoins"
-                      ? "stables"
-                      : depositSourceFilter
-                    : "all"
-                }
-                isMulti={activeMode === "send"}
-                lockedTokens={lockedDestinationSourceTokens}
-                onBack={handleSourcePickerCancel}
-                onDone={
-                  activeMode === "send"
-                    ? commitSourcePickerDraft
-                    : closeDrawerToIdle
-                }
-                onFilterTabSelect={
-                  activeMode === "send"
-                    ? handleSourcePickerFilterTabSelect
-                    : undefined
-                }
-                onSelect={(token) => {
-                  if (activeMode === "swap") {
-                    const next = [...fromTokens];
-                    const targetIndex =
-                      editingAssetIndex !== null &&
-                      editingAssetIndex < next.length
-                        ? editingAssetIndex
-                        : null;
-                    const existingToken =
-                      targetIndex !== null ? next[targetIndex] : undefined;
-                    const tokenChanged = !isSameTokenSelection(
-                      existingToken,
-                      token,
-                    );
-                    const preservedAmount = tokenChanged
-                      ? ""
-                      : existingToken?.userAmount ||
-                        (targetIndex === 0 ? amount : "");
-                    const newToken = {
-                      ...token,
-                      userAmount: preservedAmount,
-                    };
-
-                    if (targetIndex !== null) {
-                      next[targetIndex] = newToken;
-                    } else {
-                      next.push(newToken);
-                    }
-
-                    if (tokenChanged) {
-                      clearPendingSwapIntent();
-                      setAmount(getSourceAmountInput(next));
-                    }
-                    if (swapType !== "exactIn") {
-                      setSwapType("exactIn");
-                    }
-                    setFromTokens(next);
-                    closeDrawerToIdle();
-                  } else if (
-                    activeMode === "send"
-                  ) {
-                    if (!hasMinimumSourceUsdBalance(token)) return;
-                    handleSourcePickerDraftSelectionChange([
-                      { ...token, userAmount: "" },
-                    ]);
+                <SwapAssetSelector
+                  allowSelectedTokenRemoval={false}
+                  allowUnified={activeMode === "send" || activeMode === "swap"}
+                  autoSelectFilterTabs={activeMode === "send"}
+                  editingAssetIndex={editingAssetIndex}
+                  filterTabBehavior={
+                    activeMode === "send" ? "source-pool" : "select-all"
                   }
-                }}
-                onSelectionChange={
-                  activeMode === "send"
-                    ? handleSourcePickerDraftSelectionChange
-                    : undefined
-                }
-                onToggle={(token) => {
-                  const isDepositOrSendSourcePicker =
-                    activeMode === "send";
-                  const prevTokens = isDepositOrSendSourcePicker
-                    ? sourcePickerSelectedTokens
-                    : fromTokens;
-                  const isSameSelection = (
-                    a: SwapTokenOption,
-                    b: SwapTokenOption,
-                  ) => {
-                    if (a.isUnified || b.isUnified) {
-                      return Boolean(
-                        a.isUnified &&
-                        b.isUnified &&
-                        a.unifiedSymbol === b.unifiedSymbol,
+                  hideCustomTab={activeMode === "swap"}
+                  initialFilterTab={
+                    activeMode === "send"
+                      ? depositSourceFilter === "stablecoins"
+                        ? "stables"
+                        : depositSourceFilter
+                      : "all"
+                  }
+                  isMulti={activeMode === "send"}
+                  lockedTokens={lockedDestinationSourceTokens}
+                  onBack={handleSourcePickerCancel}
+                  onDone={
+                    activeMode === "send"
+                      ? commitSourcePickerDraft
+                      : closeDrawerToIdle
+                  }
+                  onFilterTabSelect={
+                    activeMode === "send"
+                      ? handleSourcePickerFilterTabSelect
+                      : undefined
+                  }
+                  onSelect={(token) => {
+                    if (activeMode === "swap") {
+                      const next = [...fromTokens];
+                      const targetIndex =
+                        editingAssetIndex !== null &&
+                        editingAssetIndex < next.length
+                          ? editingAssetIndex
+                          : null;
+                      const existingToken =
+                        targetIndex !== null ? next[targetIndex] : undefined;
+                      const tokenChanged = !isSameTokenSelection(
+                        existingToken,
+                        token,
                       );
-                    }
-                    return (
-                      a.contractAddress.toLowerCase() ===
-                        b.contractAddress.toLowerCase() &&
-                      a.chainId === b.chainId
-                    );
-                  };
-                  const sourceTokens = token.sourceTokens ?? [];
-                  const isSameUnifiedGroup = (item: SwapTokenOption) =>
-                    Boolean(
-                      item.isUnified &&
-                      token.isUnified &&
-                      item.unifiedSymbol === token.unifiedSymbol,
-                    );
-                  const withDefaultAmount = (item: SwapTokenOption) => ({
-                    ...item,
-                    userAmount:
-                      activeMode === "swap" && prevTokens.length === 0
-                        ? amount
-                        : "",
-                  });
-                  const getNextTokens = () => {
-                    if (
-                      isDepositOrSendSourcePicker &&
-                      token.isUnified &&
-                      sourceTokens.length > 0
-                    ) {
-                      const hasUnifiedSelection =
-                        prevTokens.some(isSameUnifiedGroup);
-                      const areAllChildrenSelected = sourceTokens.every(
-                        (source) =>
-                          prevTokens.some((item) =>
-                            isSameSelection(item, source),
-                          ),
-                      );
-                      const withoutGroup = prevTokens.filter(
-                        (item) =>
-                          !isSameUnifiedGroup(item) &&
-                          !sourceTokens.some((source) =>
-                            isSameSelection(item, source),
-                          ),
-                      );
+                      const preservedAmount = tokenChanged
+                        ? ""
+                        : existingToken?.userAmount ||
+                          (targetIndex === 0 ? amount : "");
+                      const newToken = {
+                        ...token,
+                        userAmount: preservedAmount,
+                      };
 
-                      if (hasUnifiedSelection || areAllChildrenSelected) {
-                        return withoutGroup;
+                      if (targetIndex !== null) {
+                        next[targetIndex] = newToken;
+                      } else {
+                        next.push(newToken);
                       }
 
-                      return [
-                        ...withoutGroup,
-                        ...sourceTokens.map((source) =>
-                          withDefaultAmount(source),
-                        ),
-                      ];
+                      if (tokenChanged) {
+                        clearPendingSwapIntent();
+                        setAmount(getSourceAmountInput(next));
+                      }
+                      if (swapType !== "exactIn") {
+                        setSwapType("exactIn");
+                      }
+                      setFromTokens(next);
+                      closeDrawerToIdle();
+                    } else if (activeMode === "send") {
+                      if (!hasMinimumSourceUsdBalance(token)) return;
+                      handleSourcePickerDraftSelectionChange([
+                        { ...token, userAmount: "" },
+                      ]);
                     }
-
-                    if (isDepositOrSendSourcePicker && !token.isUnified) {
-                      const unifiedSelection = prevTokens.find(
-                        (item) =>
-                          item.isUnified &&
-                          item.sourceTokens?.some((source) =>
-                            isSameSelection(source, token),
-                          ),
-                      );
-
-                      if (unifiedSelection?.sourceTokens?.length) {
-                        const withoutUnified = prevTokens.filter(
-                          (item) => !isSameSelection(item, unifiedSelection),
+                  }}
+                  onSelectionChange={
+                    activeMode === "send"
+                      ? handleSourcePickerDraftSelectionChange
+                      : undefined
+                  }
+                  onToggle={(token) => {
+                    const isDepositOrSendSourcePicker = activeMode === "send";
+                    const prevTokens = isDepositOrSendSourcePicker
+                      ? sourcePickerSelectedTokens
+                      : fromTokens;
+                    const isSameSelection = (
+                      a: SwapTokenOption,
+                      b: SwapTokenOption,
+                    ) => {
+                      if (a.isUnified || b.isUnified) {
+                        return Boolean(
+                          a.isUnified &&
+                          b.isUnified &&
+                          a.unifiedSymbol === b.unifiedSymbol,
                         );
+                      }
+                      return (
+                        a.contractAddress.toLowerCase() ===
+                          b.contractAddress.toLowerCase() &&
+                        a.chainId === b.chainId
+                      );
+                    };
+                    const sourceTokens = token.sourceTokens ?? [];
+                    const isSameUnifiedGroup = (item: SwapTokenOption) =>
+                      Boolean(
+                        item.isUnified &&
+                        token.isUnified &&
+                        item.unifiedSymbol === token.unifiedSymbol,
+                      );
+                    const withDefaultAmount = (item: SwapTokenOption) => ({
+                      ...item,
+                      userAmount:
+                        activeMode === "swap" && prevTokens.length === 0
+                          ? amount
+                          : "",
+                    });
+                    const getNextTokens = () => {
+                      if (
+                        isDepositOrSendSourcePicker &&
+                        token.isUnified &&
+                        sourceTokens.length > 0
+                      ) {
+                        const hasUnifiedSelection =
+                          prevTokens.some(isSameUnifiedGroup);
+                        const areAllChildrenSelected = sourceTokens.every(
+                          (source) =>
+                            prevTokens.some((item) =>
+                              isSameSelection(item, source),
+                            ),
+                        );
+                        const withoutGroup = prevTokens.filter(
+                          (item) =>
+                            !isSameUnifiedGroup(item) &&
+                            !sourceTokens.some((source) =>
+                              isSameSelection(item, source),
+                            ),
+                        );
+
+                        if (hasUnifiedSelection || areAllChildrenSelected) {
+                          return withoutGroup;
+                        }
+
                         return [
-                          ...withoutUnified,
-                          ...unifiedSelection.sourceTokens
-                            .filter((source) => !isSameSelection(source, token))
-                            .map((source) => withDefaultAmount(source)),
+                          ...withoutGroup,
+                          ...sourceTokens.map((source) =>
+                            withDefaultAmount(source),
+                          ),
                         ];
                       }
-                    }
 
-                    const exists = prevTokens.find((item) =>
-                      isSameSelection(item, token),
-                    );
-                    if (exists) {
-                      return prevTokens.filter(
-                        (item) => !isSameSelection(item, token),
+                      if (isDepositOrSendSourcePicker && !token.isUnified) {
+                        const unifiedSelection = prevTokens.find(
+                          (item) =>
+                            item.isUnified &&
+                            item.sourceTokens?.some((source) =>
+                              isSameSelection(source, token),
+                            ),
+                        );
+
+                        if (unifiedSelection?.sourceTokens?.length) {
+                          const withoutUnified = prevTokens.filter(
+                            (item) => !isSameSelection(item, unifiedSelection),
+                          );
+                          return [
+                            ...withoutUnified,
+                            ...unifiedSelection.sourceTokens
+                              .filter(
+                                (source) => !isSameSelection(source, token),
+                              )
+                              .map((source) => withDefaultAmount(source)),
+                          ];
+                        }
+                      }
+
+                      const exists = prevTokens.find((item) =>
+                        isSameSelection(item, token),
                       );
-                    }
-                    if (
-                      isDepositOrSendSourcePicker &&
-                      !hasMinimumSourceUsdBalance(token)
-                    ) {
-                      return prevTokens;
-                    }
-                    const tokenSourceKeys = new Set(
-                      (token.sourceTokens ?? []).map(
-                        (source) =>
-                          `${source.chainId}-${source.contractAddress.toLowerCase()}`,
-                      ),
-                    );
-                    const next = prevTokens.filter((existing) => {
-                      if (
-                        token.isUnified &&
-                        tokenSourceKeys.has(
-                          `${existing.chainId}-${existing.contractAddress.toLowerCase()}`,
-                        )
-                      ) {
-                        return false;
+                      if (exists) {
+                        return prevTokens.filter(
+                          (item) => !isSameSelection(item, token),
+                        );
                       }
                       if (
-                        existing.isUnified &&
-                        existing.sourceTokens?.some(
+                        isDepositOrSendSourcePicker &&
+                        !hasMinimumSourceUsdBalance(token)
+                      ) {
+                        return prevTokens;
+                      }
+                      const tokenSourceKeys = new Set(
+                        (token.sourceTokens ?? []).map(
                           (source) =>
-                            source.chainId === token.chainId &&
-                            source.contractAddress.toLowerCase() ===
-                              token.contractAddress.toLowerCase(),
-                        )
-                      ) {
-                        return false;
-                      }
-                      return true;
-                    });
-                    return [...next, withDefaultAmount(token)];
-                  };
-                  const nextTokens = getNextTokens();
+                            `${source.chainId}-${source.contractAddress.toLowerCase()}`,
+                        ),
+                      );
+                      const next = prevTokens.filter((existing) => {
+                        if (
+                          token.isUnified &&
+                          tokenSourceKeys.has(
+                            `${existing.chainId}-${existing.contractAddress.toLowerCase()}`,
+                          )
+                        ) {
+                          return false;
+                        }
+                        if (
+                          existing.isUnified &&
+                          existing.sourceTokens?.some(
+                            (source) =>
+                              source.chainId === token.chainId &&
+                              source.contractAddress.toLowerCase() ===
+                                token.contractAddress.toLowerCase(),
+                          )
+                        ) {
+                          return false;
+                        }
+                        return true;
+                      });
+                      return [...next, withDefaultAmount(token)];
+                    };
+                    const nextTokens = getNextTokens();
 
-                  if (isDepositOrSendSourcePicker) {
-                    handleSourcePickerDraftSelectionChange(nextTokens);
-                  } else {
-                    clearPendingSwapIntent();
-                    setFromTokens(nextTokens);
+                    if (isDepositOrSendSourcePicker) {
+                      handleSourcePickerDraftSelectionChange(nextTokens);
+                    } else {
+                      clearPendingSwapIntent();
+                      setFromTokens(nextTokens);
+                    }
+                  }}
+                  preserveSelectedBelowMinimum={false}
+                  requiredUsd={assetSelectorRequiredUsdDisplay}
+                  selectedTokens={sourcePickerSelectedTokens}
+                  showBelowMinimumInline={
+                    activeMode === "swap" && swapType === "exactIn"
                   }
-                }}
-                preserveSelectedBelowMinimum={false}
-                requiredUsd={assetSelectorRequiredUsdDisplay}
-                selectedTokens={sourcePickerSelectedTokens}
-                showBelowMinimumInline={
-                  activeMode === "swap" && swapType === "exactIn"
-                }
-                swapBalance={swapBalance}
-                swapSupportedChains={swapSupportedChainsAndTokens}
-                title={
-                  activeMode === "send"
-                    ? "Choose Assets to Pay with"
-                    : "Choose assets to send"
-                }
-              />
+                  swapBalance={swapBalance}
+                  swapSupportedChains={swapSupportedChainsAndTokens}
+                  title={
+                    activeMode === "send"
+                      ? "Choose Assets to Pay with"
+                      : "Choose assets to send"
+                  }
+                />
               )}
             </div>
           </div>

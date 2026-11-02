@@ -423,3 +423,48 @@ export const classifyIntentError = (error: unknown): ClassifiedIntentError => {
 export const formatClassifiedIntentError = (
   classified: ClassifiedIntentError
 ) => classified.message;
+
+/**
+ * Checks whether an error/failure headline or description already conveys
+ * that funds are safe, refunded, or safely in the user's wallet.
+ *
+ * If this returns false, widgets should display reassurance such as:
+ * "Any tokens collected will be refunded to your wallet"
+ */
+export function conveysFundsAreSafeOrRefunded(
+  headline?: string | null,
+  description?: string | null
+): boolean {
+  const combined = [headline, description].filter(Boolean).join(" ");
+  if (!combined.trim()) return false;
+
+  // 1. Any mention of refund (refund, refunded, refunding, refunds, etc.)
+  if (/\brefund/i.test(combined)) {
+    return true;
+  }
+
+  // 2. Any mention of safe / safely (e.g., "safely in your wallet", "funds are safe")
+  if (/\bsafe(ly)?\b/i.test(combined)) {
+    return true;
+  }
+
+  // 3. Mentions that funds or tokens are in your wallet or have been received / arrived.
+  // Note: we specifically do NOT match phrases where "rejected" is applied to the wallet
+  // (such as "Transaction was rejected in your wallet.") without confirming funds arrived.
+  const mentionsFundsOrTokens = /\b(funds|tokens)\b/i.test(combined);
+  const mentionsInWalletOrArrived =
+    /\b(in your wallet|received|arrived)\b/i.test(combined);
+
+  if (mentionsFundsOrTokens && mentionsInWalletOrArrived) {
+    if (
+      /\brejected\s+in\s+(your\s+)?wallet\b/i.test(combined) &&
+      !/\b(are|remain|have been|safely)\b/i.test(combined)
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+

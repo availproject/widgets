@@ -4,6 +4,7 @@ import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { DepositIdleForm } from "../registry/avail-widgets/nexus-widget/components/deposit-idle-form";
 import { NexusWidgetProgressScreen } from "../registry/avail-widgets/nexus-widget/components/nexus-widget-progress-screen";
+import { SwapReceiptPanel } from "../registry/avail-widgets/nexus-widget/nexus-widget";
 import type { SwapTokenOption } from "../registry/avail-widgets/nexus-widget/components/swap-asset-selector";
 
 const token: SwapTokenOption = {
@@ -386,6 +387,94 @@ test("MAX in USD mode on native gas tokens and ERC20 tokens does not produce max
     await act(async () => {
       renderer?.unmount();
     });
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
+test("SwapReceiptPanel renders refund reassurance message when transaction was rejected", async () => {
+  const originals = Object.fromEntries(
+    ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+    window: { setTimeout, clearTimeout },
+  });
+
+  try {
+    const rejectedEntry: any = {
+      id: "test-reject",
+      status: "failed",
+      mode: "deposit",
+      failureMessage: "Transaction failed",
+      failureDescription: "Transaction was rejected in your wallet.",
+      fromTokens: [],
+      intentData: null,
+      toToken: { symbol: "USDC", chainName: "Optimism", chainId: 10 },
+      startedAt: Date.now() - 1000,
+      endedAt: Date.now(),
+      durationSeconds: 1,
+      createdAt: Date.now(),
+    };
+
+    let renderer: ReactTestRenderer | undefined;
+    await act(async () => {
+      renderer = create(
+        <SwapReceiptPanel entry={rejectedEntry} onDone={() => {}} />
+      );
+    });
+
+    const text = JSON.stringify(renderer!.toJSON());
+    assert.ok(text.includes("Transaction was rejected in your wallet."));
+    assert.ok(
+      text.includes("Any tokens collected will be refunded to your wallet"),
+      "Should display refund reassurance below description"
+    );
+
+    // When failure already states funds are safe or in wallet, reassurance is not added
+    const safeEntry: any = {
+      ...rejectedEntry,
+      failureMessage: "Deposit failed. Funds are in your wallet",
+      failureDescription: undefined,
+    };
+
+    await act(async () => {
+      renderer!.update(
+        <SwapReceiptPanel entry={safeEntry} onDone={() => {}} />
+      );
+    });
+
+    const safeText = JSON.stringify(renderer!.toJSON());
+    assert.ok(safeText.includes("Funds are in your wallet"));
+    assert.ok(
+      !safeText.includes("Any tokens collected will be refunded to your wallet"),
+      "Should not show refund reassurance when headline already conveys funds are in wallet"
+    );
+
+    // Also test swap mode
+    const swapRejectedEntry: any = {
+      ...rejectedEntry,
+      mode: "swap",
+    };
+
+    await act(async () => {
+      renderer!.update(
+        <SwapReceiptPanel entry={swapRejectedEntry} onDone={() => {}} />
+      );
+    });
+
+    const swapText = JSON.stringify(renderer!.toJSON());
+    assert.ok(
+      swapText.includes("Any tokens collected will be refunded to your wallet"),
+      "Should show refund reassurance in swap mode as well"
+    );
+  } finally {
     for (const [key, descriptor] of Object.entries(originals)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else Reflect.deleteProperty(globalThis, key);
