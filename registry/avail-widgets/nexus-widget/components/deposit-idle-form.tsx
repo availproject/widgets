@@ -802,6 +802,9 @@ export function DepositIdleForm({
                                     ? "var(--nx-ink, #161615)"
                                     : "var(--nx-ghost, #C4C4C2)",
                                 font: open ? `400 36px/40px ${uiFont}` : `500 20px/28px ${uiFont}`,
+                                fontSize: open ? "36px" : "20px",
+                                fontWeight: open ? 400 : 500,
+                                fontFamily: uiFont,
                                 letterSpacing: open ? "-0.03em" : "-0.02em",
                                 lineHeight: open ? "40px" : "28px",
                                 userSelect: "none",
@@ -835,7 +838,11 @@ export function DepositIdleForm({
                           font: open
                             ? `400 36px/40px ${uiFont}`
                             : `500 20px/28px ${uiFont}`,
+                          fontSize: open ? "36px" : "20px",
+                          fontWeight: open ? 400 : 500,
+                          fontFamily: uiFont,
                           letterSpacing: open ? "-0.03em" : "-0.02em",
+                          lineHeight: open ? "40px" : "28px",
                           outline: "none",
                           textAlign: "right",
                         }}

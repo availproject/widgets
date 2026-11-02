@@ -101,7 +101,7 @@ export function AmountInputUnified({
                 {tokenIcon}
               </div>
             ) : (
-              <span className="leading-none text-gray-800 mr-1">$</span>
+              <span className="leading-none text-gray-800 mr-0">$</span>
             )}
             <input
               className="min-w-0 text-start bg-transparent border-none outline-none p-0 focus:ring-0 placeholder:text-gray-300 truncate tabular-nums"

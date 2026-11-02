@@ -1396,11 +1396,51 @@ const rawUnitsToDecimalString = (
 const readIntentOutput = (value: any) =>
   value?.output ?? value?.intent?.output ?? value?.quote?.output;
 
+const readSwapAndExecuteRequirement = (value: any) =>
+  value?.executeRequirement ??
+  value?.intent?.executeRequirement ??
+  value?.executionRequirement ??
+  value?.intent?.executionRequirement;
+
 const stampDepositOutputAmounts = (
   normalized: SwapIntentData | null,
   rawSource: any,
 ): SwapIntentData | null => {
   if (!normalized) return normalized;
+
+  // For ExactInput Deposit (swapAndExecute), use intent.executeRequirement.token.amountRaw
+  // and intent.executeRequirement.token.amount (as usd) for display and calculations.
+  const req =
+    readSwapAndExecuteRequirement(rawSource) ??
+    readSwapAndExecuteRequirement(normalized);
+  const tradeType =
+    rawSource?.quote?.tradeType ??
+    rawSource?.intent?.quote?.tradeType ??
+    rawSource?.tradeType ??
+    rawSource?.intent?.tradeType ??
+    (normalized as any)?.quote?.tradeType ??
+    (normalized as any)?.tradeType;
+
+  if (
+    req?.token?.amountRaw != null &&
+    (tradeType === "exactInput" || tradeType === "exactIn")
+  ) {
+    const decimals = Number(
+      req.token.decimals ?? normalized.destination.token.decimals ?? 18,
+    );
+    const amountStr = rawUnitsToDecimalString(req.token.amountRaw, decimals);
+    const usdStr = String(req.token.amount ?? amountStr);
+    return {
+      ...normalized,
+      destination: {
+        ...normalized.destination,
+        amount: amountStr,
+        minAmount: amountStr,
+        value: usdStr,
+      },
+    };
+  }
+
   const output = readIntentOutput(rawSource);
   if (output?.amountRaw == null) return normalized;
   const decimals = Number(
@@ -2519,7 +2559,10 @@ const normalizeSwapAndExecuteRequirementIntent = (
     chain: requirement?.chain,
     gas: requirement?.gas,
     token: requirement?.token,
-    value: requirement?.token?.value,
+    value:
+      requirement?.token?.amount ??
+      requirement?.token?.valueUsd ??
+      requirement?.token?.value,
   });
   if (!destination) return null;
 
@@ -2543,6 +2586,8 @@ const normalizeRenderableSwapIntentData = (
   rawIntent: any,
   bridgeProvider?: BridgeProvider,
 ): SwapIntentData | null => {
+  console.log("normalizeRenderableSwapIntentData", rawIntent);
+
   const direct = normalizeSwapIntentData(rawIntent);
   const normalizedIntent = direct
     ? null

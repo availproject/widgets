@@ -93,9 +93,10 @@ test("DepositAmountInput sizes seamlessly with prefix to eliminate gaps between 
     const input = field.findByProps({ "aria-label": "USDC amount" });
     assert.equal(input.props.value, "0.21");
     assert.equal(input.props.style.width, "100%");
+    assert.equal(input.props.style.position, "absolute");
     assert.equal(input.props.style.padding, 0);
     assert.equal(input.props.style.margin, 0);
-    // Explicit width in ch is removed so grid sizing driven by measuring span eliminates gaps
+    // Explicit width in ch is removed and input is positioned absolute so measuring span dictates exact content width
     assert.equal((input.props.style as any).width, "100%");
 
     // Verify click on container triggers focus

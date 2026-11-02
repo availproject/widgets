@@ -134,8 +134,14 @@ export const DepositAmountInput = React.forwardRef<HTMLInputElement, DepositAmou
             value={shown}
             style={{
               ...cleanStyle,
-              gridArea: "1 / 1",
+              position: "absolute",
+              inset: 0,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               width: "100%",
+              height: "100%",
               minWidth: 0,
               padding: 0,
               margin: 0,
@@ -143,6 +149,7 @@ export const DepositAmountInput = React.forwardRef<HTMLInputElement, DepositAmou
               background: "transparent",
               outline: "none",
               textAlign: "right",
+              fieldSizing: "content",
             }}
             onChange={(event) => {
               let sel = event.target.value.slice(0, event.target.selectionStart ?? 0).replaceAll(",", "").length;
