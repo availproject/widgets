@@ -9521,6 +9521,9 @@ function NexusWidgetInner({
               : new Decimal(0);
             if (price.gt(0)) {
               cleanAmount = cleanAmount.div(price);
+              if (parseFiatNumber(token.userAmount)?.lte(fiatBalance)) {
+                cleanAmount = Decimal.min(cleanAmount, tokenBalance);
+              }
             } else {
               cleanAmount = new Decimal(0);
             }
@@ -11095,7 +11098,9 @@ function NexusWidgetInner({
     const balance = parseFiatNumber(token.balance) ?? new Decimal(0);
     const fiat = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
     const price = balance.gt(0) ? fiat.div(balance) : new Decimal(0);
-    return price.gt(0) ? entered.div(price) : new Decimal(0);
+    if (price.lte(0)) return new Decimal(0);
+    const rawUnits = entered.div(price);
+    return entered.lte(fiat) ? Decimal.min(rawUnits, balance) : rawUnits;
   };
 
   const describeDepositSourceIssue = (
@@ -11114,7 +11119,16 @@ function NexusWidgetInner({
       }
       if (isNativeTokenAddress(token.contractAddress)) {
         const buffer = Decimal.max(balance.mul("0.02"), new Decimal("0.00002"));
-        if (units.gt(balance.minus(buffer))) {
+        const maxWithBuffer = balance.minus(buffer);
+        if (units.gt(maxWithBuffer)) {
+          if (token.userAmountMode === "usd") {
+            const fiat = parseFiatNumber(token.balanceInFiat) ?? new Decimal(0);
+            const price = balance.gt(0) ? fiat.div(balance) : new Decimal(0);
+            const oneCentUnits = price.gt(0) ? new Decimal("0.01").div(price) : new Decimal(0);
+            if (units.minus(maxWithBuffer).lte(Decimal.max(oneCentUnits, buffer.mul("0.05")))) {
+              continue;
+            }
+          }
           return {
             ctaLabel: "Keep gas",
             message: `Leave ~${buffer.toSignificantDigits(2).toFixed()} ${token.symbol} for gas.`,
@@ -12397,6 +12411,8 @@ function NexusWidgetInner({
                 {isDepositMethodScreen && (
                   <DepositFundingMethod
                     enableOnRamp={configuredEnableOnRamp}
+                    enableTransferCrypto={true}
+                    enableHyperliquid={true}
                     isBalanceLoading={isSwapBalancePending}
                     onSelectLocalCurrency={() => {
                       setDepositSlideFromLeft(false);

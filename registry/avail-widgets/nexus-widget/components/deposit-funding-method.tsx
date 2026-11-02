@@ -22,34 +22,6 @@ interface DepositFundingMethodProps {
   onClose?: () => void;
 }
 
-interface LogoItem {
-  alt: string;
-  height?: string;
-  url: string;
-  width?: string;
-}
-
-const WALLET_LOGOS: LogoItem[] = [
-  {
-    alt: "MetaMask",
-    height: "22px",
-    url: "https://files.availproject.org/widgets/assets/metamask.png",
-    width: "22px",
-  },
-  {
-    alt: "Rabby",
-    height: "22px",
-    url: "https://files.availproject.org/widgets/assets/rabby.png",
-    width: "22px",
-  },
-  {
-    alt: "Coinbase",
-    height: "22px",
-    url: "https://files.availproject.org/widgets/assets/coinbase.png",
-    width: "22px",
-  },
-];
-
 const theme = nexusWidgetTheme;
 
 function RadioMark({ selected }: { selected: boolean }) {
@@ -57,82 +29,386 @@ function RadioMark({ selected }: { selected: boolean }) {
     <span
       aria-hidden="true"
       style={{
-        alignItems: "center",
-        backgroundColor: "transparent",
-        borderColor: selected ? "var(--nx-blue, #006BF4)" : "var(--nx-ring, #CFCFCD)",
+        backgroundColor: "var(--nx-card, #FFFFFE)",
+        borderColor: selected ? "var(--nx-blue, #006BF4)" : "var(--nx-line-2, #E8E8E7)",
         borderRadius: "999px",
         borderStyle: "solid",
-        borderWidth: selected ? "2px" : "1.5px",
+        borderWidth: selected ? "5px" : "1.5px",
         boxSizing: "border-box",
-        display: "inline-flex",
+        display: "inline-block",
         flexShrink: 0,
         height: "18px",
-        justifyContent: "center",
         transition: "border-color 150ms ease, border-width 150ms ease",
         width: "18px",
       }}
-    >
-      {selected ? (
-        <span
-          style={{
-            backgroundColor: "var(--nx-blue, #006BF4)",
-            borderRadius: "999px",
-            display: "block",
-            height: "8px",
-            width: "8px",
-          }}
-        />
-      ) : null}
-    </span>
+    />
   );
 }
 
-function LogoStack({ items }: { items: LogoItem[] }) {
+function WalletLogos() {
   return (
     <div
       style={{
         alignItems: "center",
+        borderRadius: "999px",
         boxSizing: "border-box",
         display: "flex",
         flexShrink: 0,
+        height: "36px",
+        justifyContent: "center",
+        overflow: "clip",
+        width: "89px",
       }}
     >
-      {items.map((item, index) => (
-        <div
-          key={item.alt}
-          style={{
-            alignItems: "center",
-            backgroundColor: "var(--nx-card, #FFFFFF)",
-            borderRadius: "999px",
-            boxShadow: "0 0 0 1.5px var(--nx-card, #FFFFFF)",
-            boxSizing: "border-box",
-            display: "grid",
-            flexShrink: 0,
-            height: "28px",
-            marginLeft: index === 0 ? "0px" : "-8px",
-            placeItems: "center",
-            position: "relative",
-            width: "28px",
-            zIndex: index + 1,
-          }}
-        >
-          <img
-            alt={item.alt}
-            src={item.url}
+      <div style={{ alignItems: "start", boxSizing: "border-box", display: "flex" }}>
+        <div style={{ boxSizing: "border-box", flexShrink: 0, height: "32px", position: "relative", width: "32px" }}>
+          <div
             style={{
-              height: item.height ?? "20px",
-              objectFit: "contain",
-              width: item.width ?? "20px",
+              backgroundColor: "#F2F2F2",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid var(--nx-card, #FFFFFE)",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQRK3NFSCFRWJQXF2Y6477G.png)",
+              backgroundPosition: "57.143% 33.333%",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "116.667%",
+              boxSizing: "border-box",
+              height: "23px",
+              left: 5,
+              position: "absolute",
+              top: 5,
+              width: "21px",
             }}
           />
         </div>
-      ))}
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQSM9DRH7GN3W78VRTVSZXJ.png)",
+              backgroundPosition: "50%",
+              backgroundSize: "cover",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid var(--nx-card, #FFFFFE)",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQTS1TFZAJFD945BFM8ZDC0.png)",
+              backgroundPosition: "50%",
+              backgroundSize: "cover",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid var(--nx-card, #FFFFFE)",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CashLogos() {
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        borderRadius: "999px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexShrink: 0,
+        height: "36px",
+        justifyContent: "center",
+        overflow: "clip",
+        width: "89px",
+      }}
+    >
+      <div style={{ alignItems: "start", boxSizing: "border-box", display: "flex" }}>
+        <div style={{ boxSizing: "border-box", flexShrink: 0, height: "32px", position: "relative", width: "32px" }}>
+          <div
+            style={{
+              backgroundColor: "#F2F2F2",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid var(--nx-card, #FFFFFE)",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQV6GH49YDFT560SEYR63SA.png)",
+              backgroundPosition: "50%",
+              backgroundSize: "cover",
+              boxSizing: "border-box",
+              height: "15px",
+              left: "50%",
+              position: "absolute",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "26px",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#F2F2F2",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid var(--nx-card, #FFFFFE)",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQV8WWM08Y64A73CV3J8A20.png)",
+              backgroundPosition: "50%",
+              backgroundSize: "cover",
+              boxSizing: "border-box",
+              height: "20px",
+              left: 7.5,
+              position: "absolute",
+              top: 6,
+              width: "16px",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#F2F2F2",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid var(--nx-card, #FFFFFE)",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQVBJFAG0P2T8S1KY38PVTT.png)",
+              backgroundPosition: "33.333%",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "contain",
+              boxSizing: "border-box",
+              height: "20px",
+              left: "50%",
+              position: "absolute",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "21px",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TransferCryptoLogos() {
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        borderRadius: "999px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexShrink: 0,
+        height: "36px",
+        justifyContent: "center",
+        overflow: "clip",
+        width: "91px",
+      }}
+    >
+      <div style={{ alignItems: "start", boxSizing: "border-box", display: "flex" }}>
+        <div style={{ boxSizing: "border-box", flexShrink: 0, height: "32px", position: "relative", width: "32px" }}>
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQVN4Y8Q3ADRYKXY4J6R22C.png)",
+              backgroundPosition: "50%",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "104.065%",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid var(--nx-card, #FFFFFE)",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQVHQH1402W4F784BH626JA.png)",
+              backgroundPosition: "50% 53.333%",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "111.111%",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid var(--nx-card, #FFFFFE)",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            marginLeft: "-4px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
+          <div
+            style={{
+              backgroundImage:
+                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQVQ9YTKYJ2XV8RE1JJZ0KV.png)",
+              backgroundPosition: "50%",
+              backgroundSize: "cover",
+              borderRadius: "999px",
+              boxSizing: "border-box",
+              height: "32px",
+              left: 0,
+              outline: "1.5px solid var(--nx-card, #FFFFFE)",
+              position: "absolute",
+              top: 0,
+              width: "32px",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HyperliquidLogo() {
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        borderRadius: "999px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexShrink: 0,
+        height: "36px",
+        justifyContent: "center",
+        overflow: "clip",
+        width: "36px",
+      }}
+    >
+      <div
+        style={{
+          backgroundImage:
+            "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/4RQEH0TV7F8T0V0WSTWQ2CF7MS.png)",
+          backgroundPosition: "50%",
+          backgroundSize: "cover",
+          borderRadius: "999px",
+          boxSizing: "border-box",
+          flexShrink: 0,
+          height: "32px",
+          width: "32px",
+        }}
+      />
     </div>
   );
 }
 
 function MethodOptionRow({
   active,
+  badge,
   description,
   hasDivider,
   label,
@@ -140,6 +416,7 @@ function MethodOptionRow({
   rightContent,
 }: {
   active: boolean;
+  badge?: React.ReactNode;
   description: React.ReactNode;
   hasDivider?: boolean;
   label: string;
@@ -149,43 +426,57 @@ function MethodOptionRow({
   const [isHovered, setIsHovered] = React.useState(false);
 
   return (
-    <>
-      <button
-        aria-label={label}
-        onClick={onClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+    <button
+      aria-label={label}
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        alignItems: "center",
+        backgroundColor: isHovered
+          ? "var(--nx-fill-soft, rgba(0, 0, 0, 0.02))"
+          : "transparent",
+        border: "none",
+        borderBottom: hasDivider
+          ? "1px solid var(--nx-line, #F0F0EF)"
+          : "none",
+        boxSizing: "border-box",
+        cursor: "pointer",
+        display: "flex",
+        gap: "12px",
+        justifyContent: "space-between",
+        paddingBlock: "14px",
+        paddingInline: "16px",
+        textAlign: "left",
+        transition: "background-color 150ms ease",
+        width: "100%",
+      }}
+      type="button"
+      {...({ label } as any)}
+    >
+      <RadioMark selected={active} />
+      <div
         style={{
-          alignItems: "center",
-          backgroundColor: isHovered
-            ? "var(--nx-fill-soft, rgba(0, 0, 0, 0.02))"
-            : "transparent",
-          border: "none",
-          borderRadius: "14px",
           boxSizing: "border-box",
-          cursor: "pointer",
           display: "flex",
-          gap: "12px",
-          justifyContent: "space-between",
-          padding: "14px 12px",
-          textAlign: "left",
-          transition: "background-color 150ms ease",
-          width: "100%",
+          flex: 1,
+          flexBasis: "0%",
+          flexDirection: "column",
+          gap: badge ? "4px" : "2px",
+          minWidth: 0,
         }}
-        type="button"
-        {...({ label } as any)}
       >
         <div
           style={{
+            alignItems: "center",
+            boxSizing: "border-box",
             display: "flex",
-            flex: 1,
-            flexDirection: "column",
-            gap: "2px",
-            minWidth: 0,
+            gap: "8px",
           }}
         >
           <div
             style={{
+              boxSizing: "border-box",
               color: "var(--nx-ink, #161615)",
               fontFamily: theme.fonts.sans,
               fontSize: "16px",
@@ -195,47 +486,29 @@ function MethodOptionRow({
           >
             {label}
           </div>
-          <div
-            style={{
-              color: "var(--nx-mute-2, #8C8C8B)",
-              fontFamily: theme.fonts.sans,
-              fontSize: "14px",
-              fontWeight: 400,
-              lineHeight: "18px",
-            }}
-          >
-            {description}
-          </div>
+          {badge}
         </div>
         <div
           style={{
-            alignItems: "center",
-            display: "flex",
-            flexShrink: 0,
-            gap: "12px",
+            boxSizing: "border-box",
+            color: "var(--nx-mute-2, #848483)",
+            fontFamily: theme.fonts.sans,
+            fontSize: label === "Deposit with Wallet" ? "13px" : "14px",
+            lineHeight: label === "Deposit with Wallet" ? "16px" : "18px",
           }}
         >
-          {rightContent}
-          <RadioMark selected={active} />
+          {description}
         </div>
-      </button>
-      {hasDivider ? (
-        <div
-          style={{
-            background: "var(--nx-line, #F0F0F0)",
-            height: "1px",
-            margin: "0 12px",
-          }}
-        />
-      ) : null}
-    </>
+      </div>
+      {rightContent}
+    </button>
   );
 }
 
 export function DepositFundingMethod({
   enableOnRamp = false,
-  enableTransferCrypto = false,
-  enableHyperliquid = false,
+  enableTransferCrypto = true,
+  enableHyperliquid = true,
   isBalanceLoading = false,
   onSelectLocalCurrency,
   onSelectWallet,
@@ -298,12 +571,13 @@ export function DepositFundingMethod({
   const options: Array<{
     id: FundingMethod;
     label: string;
+    badge?: React.ReactNode;
     description: React.ReactNode;
     rightContent: React.ReactNode;
   }> = [
     {
       id: "wallet",
-      label: "Pay from your wallet",
+      label: "Deposit with Wallet",
       description: isBalanceLoading ? (
         <span
           style={{
@@ -326,51 +600,40 @@ export function DepositFundingMethod({
       ) : (
         `Wallet balance: ${formattedBalance}`
       ),
-      rightContent: <LogoStack items={WALLET_LOGOS} />,
+      rightContent: <WalletLogos />,
     },
     ...(showCash
       ? [
           {
             id: "local-currency" as const,
-            label: "Cash",
-            description: "Card, Apple Pay or bank transfer",
-            rightContent: (
+            label: "Deposit with Cash",
+            badge: (
               <div
                 style={{
-                  alignItems: "center",
-                  backgroundColor: "var(--nx-fill, #F3F3F3)",
+                  backgroundColor: "#E8F5E9",
                   borderRadius: "999px",
-                  display: "grid",
-                  height: "32px",
-                  placeItems: "center",
-                  width: "32px",
+                  boxSizing: "border-box",
+                  flexShrink: 0,
+                  paddingBlock: "2px",
+                  paddingInline: "8px",
+                  whiteSpace: "nowrap",
                 }}
               >
-                <svg
-                  aria-hidden="true"
-                  fill="none"
-                  height="18"
-                  viewBox="0 0 20 20"
-                  width="18"
+                <div
+                  style={{
+                    color: "#2E7D32",
+                    fontFamily: theme.fonts.sans,
+                    fontSize: "11px",
+                    fontWeight: 500,
+                    lineHeight: "14px",
+                  }}
                 >
-                  <rect
-                    height="11"
-                    rx="2"
-                    stroke="var(--nx-ink-2, #3A3A39)"
-                    strokeWidth="1.5"
-                    width="15"
-                    x="2.5"
-                    y="4.5"
-                  />
-                  <path
-                    d="M2.5 8H17.5M5.5 12H8.5"
-                    stroke="var(--nx-ink-2, #3A3A39)"
-                    strokeLinecap="round"
-                    strokeWidth="1.5"
-                  />
-                </svg>
+                  Recommended
+                </div>
               </div>
             ),
+            description: "Card, Apple Pay, Bank Transfer",
+            rightContent: <CashLogos />,
           },
         ]
       : []),
@@ -378,66 +641,9 @@ export function DepositFundingMethod({
       ? [
           {
             id: "transfer-crypto" as const,
-            label: "Transfer crypto",
-            description: "Send from another wallet or exchange",
-            rightContent: (
-              <div
-                style={{
-                  alignItems: "center",
-                  backgroundColor: "var(--nx-fill, #F3F3F3)",
-                  borderRadius: "999px",
-                  display: "grid",
-                  height: "32px",
-                  placeItems: "center",
-                  width: "32px",
-                }}
-              >
-                <svg
-                  aria-hidden="true"
-                  fill="none"
-                  height="18"
-                  viewBox="0 0 18 18"
-                  width="18"
-                >
-                  <rect
-                    height="5"
-                    rx="1.5"
-                    stroke="var(--nx-ink-2, #3A3A39)"
-                    strokeWidth="1.5"
-                    width="5"
-                    x="2"
-                    y="2"
-                  />
-                  <rect
-                    height="5"
-                    rx="1.5"
-                    stroke="var(--nx-ink-2, #3A3A39)"
-                    strokeWidth="1.5"
-                    width="5"
-                    x="11"
-                    y="2"
-                  />
-                  <rect
-                    height="5"
-                    rx="1.5"
-                    stroke="var(--nx-ink-2, #3A3A39)"
-                    strokeWidth="1.5"
-                    width="5"
-                    x="2"
-                    y="11"
-                  />
-                  <rect
-                    height="5"
-                    rx="1.5"
-                    stroke="var(--nx-ink-2, #3A3A39)"
-                    strokeWidth="1.5"
-                    width="5"
-                    x="11"
-                    y="11"
-                  />
-                </svg>
-              </div>
-            ),
+            label: "Transfer Crypto",
+            description: "Send crypto from any wallet",
+            rightContent: <TransferCryptoLogos />,
           },
         ]
       : []),
@@ -445,31 +651,9 @@ export function DepositFundingMethod({
       ? [
           {
             id: "hyperliquid" as const,
-            label: "Hyperliquid",
-            description: "Use your USDC on Hyperliquid",
-            rightContent: (
-              <div
-                style={{
-                  alignItems: "center",
-                  backgroundColor: "var(--nx-fill, #F3F3F3)",
-                  borderRadius: "999px",
-                  display: "grid",
-                  height: "32px",
-                  placeItems: "center",
-                  width: "32px",
-                }}
-              >
-                <img
-                  alt="Hyperliquid"
-                  src="https://files.availproject.org/widgets/assets/hyperliquid.png"
-                  style={{
-                    height: "20px",
-                    objectFit: "contain",
-                    width: "20px",
-                  }}
-                />
-              </div>
-            ),
+            label: "Deposit from Hyperliquid",
+            description: "Spend your USDC from Hyperliquid",
+            rightContent: <HyperliquidLogo />,
           },
         ]
       : []),
@@ -598,20 +782,40 @@ export function DepositFundingMethod({
           style={{
             display: "flex",
             flexDirection: "column",
-            paddingTop: "4px",
+            paddingTop: "16px",
           }}
         >
-          {options.map((option, index) => (
-            <MethodOptionRow
-              active={selectedMethod === option.id}
-              description={option.description}
-              hasDivider={index < options.length - 1}
-              key={option.id}
-              label={option.label}
-              onClick={() => setSelectedMethod(option.id)}
-              rightContent={option.rightContent}
-            />
-          ))}
+          <div
+            style={{
+              alignSelf: "stretch",
+              backgroundColor: "var(--nx-card, #FFFFFE)",
+              borderColor: "var(--nx-line-2, #E8E8E7)",
+              borderRadius: "14px",
+              borderStyle: "solid",
+              borderWidth: "1px",
+              boxShadow: "var(--nx-shadow-sm, 0px 1px 12px rgba(91, 91, 91, 0.05))",
+              boxSizing: "border-box",
+              display: "flex",
+              flex: 1,
+              flexDirection: "column",
+              overflow: "clip",
+              overflowWrap: "anywhere",
+              WebkitFontSmoothing: "antialiased",
+            }}
+          >
+            {options.map((option, index) => (
+              <MethodOptionRow
+                active={selectedMethod === option.id}
+                badge={option.badge}
+                description={option.description}
+                hasDivider={index < options.length - 1}
+                key={option.id}
+                label={option.label}
+                onClick={() => setSelectedMethod(option.id)}
+                rightContent={option.rightContent}
+              />
+            ))}
+          </div>
         </div>
 
         <div

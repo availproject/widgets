@@ -756,8 +756,8 @@ test("onramp funding is opt-in; the default only offers wallet funding", async (
       totalBalance="10"
     />);
   });
-  assert.equal(renderer!.root.findAllByProps({ label: "Cash" }).length, 0);
-  await act(async () => renderer!.root.findByProps({ label: "Pay from your wallet" }).props.onClick());
+  assert.equal(renderer!.root.findAllByProps({ label: "Deposit with Cash" }).length, 0);
+  await act(async () => renderer!.root.findByProps({ label: "Deposit with Wallet" }).props.onClick());
   await act(async () => renderer!.root.findAllByType("button").find(button => button.children.includes("Continue"))!.props.onClick());
   assert.equal(walletSelections, 1);
   assert.equal(onrampSelections, 0);
@@ -773,11 +773,11 @@ test("disabling onramp removes the cash option", async () => {
     totalBalance: "10",
   };
   await act(async () => { renderer = create(<DepositFundingMethod {...props} enableOnRamp />); });
-  await act(async () => renderer!.root.findByProps({ label: "Cash" }).props.onClick());
+  await act(async () => renderer!.root.findByProps({ label: "Deposit with Cash" }).props.onClick());
   await act(async () => renderer!.root.findAllByType("button").find(button => button.children.includes("Continue"))!.props.onClick());
   assert.equal(onrampSelections, 1);
   await act(async () => renderer!.update(<DepositFundingMethod {...props} enableOnRamp={false} />));
-  assert.equal(renderer!.root.findAllByProps({ label: "Cash" }).length, 0);
+  assert.equal(renderer!.root.findAllByProps({ label: "Deposit with Cash" }).length, 0);
   const continueButton = renderer!.root.findAllByType("button").find(button => button.children.includes("Continue"))!;
   assert.equal(continueButton.props.disabled, true);
   await act(async () => continueButton.props.onClick());

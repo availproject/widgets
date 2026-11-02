@@ -271,3 +271,126 @@ test("deposit receive amount is truncated to 3 decimal places and timer pill has
   }
 });
 
+test("MAX in USD mode on native gas tokens and ERC20 tokens does not produce max/gas error", async () => {
+  const originals = Object.fromEntries(
+    ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+    window: { setTimeout, clearTimeout, matchMedia: () => ({ matches: false }) },
+  });
+  let renderer: ReactTestRenderer | undefined;
+
+  // HYPE is native (0x0 address), balance ~0.12762897 HYPE, fiat $11.73
+  const hypeToken: SwapTokenOption = {
+    chainId: 999,
+    contractAddress: "0x0000000000000000000000000000000000000000",
+    symbol: "HYPE",
+    name: "Hyperliquid",
+    decimals: 18,
+    balance: "0.12762897",
+    balanceInFiat: "$11.73",
+    userAmount: "",
+    userAmountMode: "usd",
+  };
+
+  // LINK is ERC20, balance 1.054321 LINK, fiat $11.73
+  const linkToken: SwapTokenOption = {
+    chainId: 1,
+    contractAddress: "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+    symbol: "LINK",
+    name: "ChainLink Token",
+    decimals: 18,
+    balance: "1.054321",
+    balanceInFiat: "$11.73",
+    userAmount: "",
+    userAmountMode: "usd",
+  };
+
+  try {
+    let currentTokens: SwapTokenOption[] = [hypeToken, linkToken];
+    function Form() {
+      const [tokens, setTokens] = React.useState<SwapTokenOption[]>([hypeToken, linkToken]);
+      currentTokens = tokens;
+      return (
+        <DepositIdleForm
+          amount=""
+          amountMode="usd"
+          fromTokens={tokens}
+          onUpdateTokens={setTokens}
+          onAmountChange={() => {}}
+          onAmountModeToggle={() => {}}
+          onOpenSourcePicker={() => {}}
+          onSetPercent={() => {}}
+          tokenValue="0"
+          usdValue="0"
+          totalBalance="23.46"
+          isQuoteRefreshing={false}
+        />
+      );
+    }
+
+    await act(async () => {
+      renderer = create(<Form />);
+    });
+
+    // 1. Click MAX on HYPE (first token, index 0)
+    const maxButtons = renderer!.root.findAll(
+      (node) => node.type === "button" && node.children.includes("MAX")
+    );
+    assert.equal(maxButtons.length, 2);
+
+    await act(async () => {
+      maxButtons[0].props.onClick({ stopPropagation() {} });
+    });
+
+    // Verify HYPE amount was set and no error is rendered for HYPE
+    assert.ok(Number(currentTokens[0].userAmount) > 0);
+    const errorsAfterHypeMax = renderer!.root.findAllByProps({ className: "nx-pr-err" });
+    assert.equal(
+      errorsAfterHypeMax.length,
+      0,
+      `Expected no gas error on HYPE MAX, but found: ${errorsAfterHypeMax.map((e) => e.children).join(", ")}`
+    );
+
+    // 2. Test manual $11.5 on HYPE (the exact case from user screenshot)
+    const hypeInput = renderer!.root.findByProps({ "aria-label": "HYPE amount" });
+    await act(async () => {
+      hypeInput.props.onChange({ target: { value: "11.5" } });
+    });
+    const errorsAfterManual11_5 = renderer!.root.findAllByProps({ className: "nx-pr-err" });
+    assert.equal(
+      errorsAfterManual11_5.length,
+      0,
+      `Expected no gas error for manual 11.5 on HYPE, but found: ${errorsAfterManual11_5.map((e) => e.children).join(", ")}`
+    );
+
+    // 3. Click MAX on LINK (second token, index 1)
+    await act(async () => {
+      maxButtons[1].props.onClick({ stopPropagation() {} });
+    });
+
+    // Verify LINK amount was set and no error is rendered
+    assert.ok(Number(currentTokens[1].userAmount) > 0);
+    const errorsAfterLinkMax = renderer!.root.findAllByProps({ className: "nx-pr-err" });
+    assert.equal(
+      errorsAfterLinkMax.length,
+      0,
+      `Expected no balance error on LINK MAX, but found: ${errorsAfterLinkMax.map((e) => e.children).join(", ")}`
+    );
+  } finally {
+    await act(async () => {
+      renderer?.unmount();
+    });
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
+

@@ -77,7 +77,9 @@ const tokenUnitAmount = (token: SwapTokenOption) => {
   const balance = readDecimal(token.balance);
   const fiat = readDecimal(token.balanceInFiat);
   const price = balance.gt(0) ? fiat.div(balance) : new Decimal(0);
-  return price.gt(0) ? entered.div(price) : new Decimal(0);
+  if (price.lte(0)) return new Decimal(0);
+  const rawUnits = entered.div(price);
+  return entered.lte(fiat) ? Decimal.min(rawUnits, balance) : rawUnits;
 };
 
 const gasBuffer = (token: SwapTokenOption) => {
@@ -94,8 +96,19 @@ const rowError = (token: SwapTokenOption) => {
     return `Not enough ${token.symbol} on ${token.chainName || "this chain"}. Lower the amount or tap MAX.`;
   }
   const buffer = gasBuffer(token);
-  if (buffer.gt(0) && amount.gt(balance.minus(buffer))) {
-    return `Leave ~${buffer.toSignificantDigits(2).toFixed()} ${token.symbol} for gas. Lower the amount slightly.`;
+  if (buffer.gt(0)) {
+    const maxWithBuffer = balance.minus(buffer);
+    if (amount.gt(maxWithBuffer)) {
+      if (token.userAmountMode === "usd") {
+        const fiat = readDecimal(token.balanceInFiat);
+        const price = balance.gt(0) ? fiat.div(balance) : new Decimal(0);
+        const oneCentUnits = price.gt(0) ? new Decimal("0.01").div(price) : new Decimal(0);
+        if (amount.minus(maxWithBuffer).lte(Decimal.max(oneCentUnits, buffer.mul("0.05")))) {
+          return null;
+        }
+      }
+      return `Leave ~${buffer.toSignificantDigits(2).toFixed()} ${token.symbol} for gas. Lower the amount slightly.`;
+    }
   }
   return null;
 };
@@ -837,7 +850,7 @@ export function DepositIdleForm({
                           event.stopPropagation();
                           const nextUsd = !usdMode;
                           const nextAmount = nextUsd
-                            ? tokenUsd(token, units).toDecimalPlaces(2).toFixed()
+                            ? tokenUsd(token, units).toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed()
                             : formatTokenAmount(units, token.decimals);
                           updateToken(index, {
                             userAmount: units.gt(0) ? nextAmount : "",
@@ -898,7 +911,7 @@ export function DepositIdleForm({
                             const nextUnits =
                               pct === 100 ? Decimal.max(balance.minus(buffer), 0) : balance.mul(pct).div(100);
                             const nextAmount = usdMode
-                              ? tokenUsd(token, nextUnits).toDecimalPlaces(2).toFixed()
+                              ? tokenUsd(token, nextUnits).toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed()
                               : formatTokenAmount(nextUnits, token.decimals);
                             updateToken(index, {
                               userAmount: nextAmount,
