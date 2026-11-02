@@ -3,7 +3,11 @@
 import React from "react";
 import { nexusWidgetTheme } from "../theme";
 
-type FundingMethod = "wallet" | "local-currency" | "transfer-crypto" | "hyperliquid";
+type FundingMethod =
+  | "wallet"
+  | "local-currency"
+  | "transfer-crypto"
+  | "hyperliquid";
 
 interface DepositFundingMethodProps {
   enableOnRamp?: boolean;
@@ -30,7 +34,9 @@ function RadioMark({ selected }: { selected: boolean }) {
       aria-hidden="true"
       style={{
         backgroundColor: "var(--nx-card, #FFFFFE)",
-        borderColor: selected ? "var(--nx-blue, #006BF4)" : "var(--nx-line-2, #E8E8E7)",
+        borderColor: selected
+          ? "var(--nx-blue, #006BF4)"
+          : "var(--nx-line-2, #E8E8E7)",
         borderRadius: "999px",
         borderStyle: "solid",
         borderWidth: selected ? "5px" : "1.5px",
@@ -60,8 +66,22 @@ function WalletLogos() {
         width: "89px",
       }}
     >
-      <div style={{ alignItems: "start", boxSizing: "border-box", display: "flex" }}>
-        <div style={{ boxSizing: "border-box", flexShrink: 0, height: "32px", position: "relative", width: "32px" }}>
+      <div
+        style={{
+          alignItems: "start",
+          boxSizing: "border-box",
+          display: "flex",
+        }}
+      >
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
           <div
             style={{
               backgroundColor: "#F2F2F2",
@@ -165,8 +185,22 @@ function CashLogos() {
         width: "89px",
       }}
     >
-      <div style={{ alignItems: "start", boxSizing: "border-box", display: "flex" }}>
-        <div style={{ boxSizing: "border-box", flexShrink: 0, height: "32px", position: "relative", width: "32px" }}>
+      <div
+        style={{
+          alignItems: "start",
+          boxSizing: "border-box",
+          display: "flex",
+        }}
+      >
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
           <div
             style={{
               backgroundColor: "#F2F2F2",
@@ -294,8 +328,22 @@ function TransferCryptoLogos() {
         width: "91px",
       }}
     >
-      <div style={{ alignItems: "start", boxSizing: "border-box", display: "flex" }}>
-        <div style={{ boxSizing: "border-box", flexShrink: 0, height: "32px", position: "relative", width: "32px" }}>
+      <div
+        style={{
+          alignItems: "start",
+          boxSizing: "border-box",
+          display: "flex",
+        }}
+      >
+        <div
+          style={{
+            boxSizing: "border-box",
+            flexShrink: 0,
+            height: "32px",
+            position: "relative",
+            width: "32px",
+          }}
+        >
           <div
             style={{
               backgroundImage:
@@ -437,9 +485,7 @@ function MethodOptionRow({
           ? "var(--nx-fill-soft, rgba(0, 0, 0, 0.02))"
           : "transparent",
         border: "none",
-        borderBottom: hasDivider
-          ? "1px solid var(--nx-line, #F0F0EF)"
-          : "none",
+        borderBottom: hasDivider ? "1px solid var(--nx-line, #F0F0EF)" : "none",
         boxSizing: "border-box",
         cursor: "pointer",
         display: "flex",
@@ -607,31 +653,6 @@ export function DepositFundingMethod({
           {
             id: "local-currency" as const,
             label: "Deposit with Cash",
-            badge: (
-              <div
-                style={{
-                  backgroundColor: "#E8F5E9",
-                  borderRadius: "999px",
-                  boxSizing: "border-box",
-                  flexShrink: 0,
-                  paddingBlock: "2px",
-                  paddingInline: "8px",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <div
-                  style={{
-                    color: "#2E7D32",
-                    fontFamily: theme.fonts.sans,
-                    fontSize: "11px",
-                    fontWeight: 500,
-                    lineHeight: "14px",
-                  }}
-                >
-                  Recommended
-                </div>
-              </div>
-            ),
             description: "Card, Apple Pay, Bank Transfer",
             rightContent: <CashLogos />,
           },
@@ -793,7 +814,8 @@ export function DepositFundingMethod({
               borderRadius: "14px",
               borderStyle: "solid",
               borderWidth: "1px",
-              boxShadow: "var(--nx-shadow-sm, 0px 1px 12px rgba(91, 91, 91, 0.05))",
+              boxShadow:
+                "var(--nx-shadow-sm, 0px 1px 12px rgba(91, 91, 91, 0.05))",
               boxSizing: "border-box",
               display: "flex",
               flex: 1,
