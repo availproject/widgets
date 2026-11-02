@@ -623,5 +623,47 @@ test("native token transaction user rejection sets error on nativeTransactions r
   assert.equal(nativeRow?.description, "Rejected in wallet");
 });
 
+test("native transaction step resolves native token symbol (BNB) rather than mismatching ERC20 (USDT) on different chain", () => {
+  const bnbNative = {
+    id: "native:56:1",
+    type: "NATIVE_TRANSACTION",
+    kind: "native_source_deposit",
+    chainId: 56,
+    sourceIndex: 1,
+  };
+  const stepsList = [
+    { id: "intent-signature", type: "INTENT_SIGNATURE" },
+    { id: "native:8453:0", type: "NATIVE_TRANSACTION", kind: "native_source_deposit", chainId: 8453, sourceIndex: 0 },
+    bnbNative,
+  ];
+  const context = {
+    destinationChain: "Optimism",
+    destinationSymbol: "USDC",
+    opportunityName: "Aave",
+    fromTokens: [
+      { chainId: 8453, symbol: "ETH", contractAddress: "0x0000000000000000000000000000000000000000" },
+      { chainId: 42161, symbol: "USDT", contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9" },
+      { chainId: 56, symbol: "BNB", contractAddress: "0x0000000000000000000000000000000000000000" },
+    ],
+    intentSources: [
+      { chain: { id: 8453 }, token: { symbol: "ETH" } },
+      { chain: { id: 42161 }, token: { symbol: "USDT" } },
+      { chain: { id: 56 }, token: { symbol: "BNB" } },
+    ],
+  };
+
+  const events: NexusWidgetProgressEvent[] = [
+    plan(stepsList),
+    progress({ id: "intent-signature", type: "INTENT_SIGNATURE" }, "completed"),
+    progress(stepsList[1], "completed"),
+  ];
+
+  const res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  const nativeRow = res.find((r) => r.id === "nativeTransactions");
+  assert.equal(nativeRow?.label, "Deposit native tokens (2 of 2)");
+  assert.equal(nativeRow?.description, "Confirm BNB deposit in wallet");
+});
+
+
 
 

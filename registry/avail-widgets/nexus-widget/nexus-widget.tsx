@@ -12815,8 +12815,6 @@ function NexusWidgetInner({
                   {isDepositMethodScreen && (
                     <DepositFundingMethod
                       enableOnRamp={configuredEnableOnRamp}
-                      enableTransferCrypto={true}
-                      enableHyperliquid={true}
                       isBalanceLoading={isSwapBalancePending}
                       onSelectLocalCurrency={() => {
                         setDepositSlideFromLeft(false);

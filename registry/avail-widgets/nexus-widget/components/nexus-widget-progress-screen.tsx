@@ -10,7 +10,7 @@ import type {
   BridgeStepType,
   SwapStepType,
 } from "../../common/types/transaction-flow";
-import { getShortChainName } from "../../common/utils/constant";
+import { CHAIN_METADATA, getShortChainName } from "../../common/utils/constant";
 import {
   type NexusWidgetDepositOpportunityMetadata,
   type NexusWidgetMode,
@@ -238,10 +238,12 @@ const isNativeTransactionStep = (step?: ProgressSdkStep) => {
   if (!step) return false;
   const type = getStepType(step);
   const id = String((step as any)?.id ?? (step as any)?.typeID ?? "").toLowerCase();
+  const kind = String((step as any)?.kind ?? "").toLowerCase();
   return (
     type === "NATIVE_TRANSACTION" ||
     type.includes("NATIVE_TRANSACTION") ||
-    id.startsWith("native:")
+    id.startsWith("native:") ||
+    kind === "native_source_deposit"
   );
 };
 
@@ -473,18 +475,48 @@ const getStepTokenSymbol = (
     return directSymbol.trim();
   }
 
-  const sourceIndex = (step as any)?.sourceIndex;
-  if (
-    typeof sourceIndex === "number" &&
-    context?.intentSources?.[sourceIndex]?.token?.symbol
-  ) {
-    return context.intentSources[sourceIndex].token.symbol;
-  }
-
   const tokenAddress = getStepTokenAddress(step);
   const chainId = getStepChainId(step);
 
-  if (tokenAddress) {
+  // If this is a native transaction step, resolve the native token symbol for its chain
+  if (isNativeTransactionStep(step)) {
+    if (chainId !== undefined) {
+      const fromNative = context?.fromTokens?.find(
+        (t) =>
+          t.chainId === chainId &&
+          (!t.contractAddress ||
+            t.contractAddress === "0x0000000000000000000000000000000000000000" ||
+            t.contractAddress.toLowerCase() ===
+              "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+      );
+      if (fromNative?.symbol) return fromNative.symbol;
+
+      const sourceNative = context?.intentSources?.find(
+        (s) =>
+          s.chain?.id === chainId &&
+          (!s.token?.contractAddress ||
+            s.token.contractAddress === "0x0000000000000000000000000000000000000000" ||
+            s.token.contractAddress.toLowerCase() ===
+              "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+      );
+      if (sourceNative?.token?.symbol) return sourceNative.token.symbol;
+
+      const fromAnyOnChain = context?.fromTokens?.find((t) => t.chainId === chainId);
+      if (fromAnyOnChain?.symbol) return fromAnyOnChain.symbol;
+
+      const sourceAnyOnChain = context?.intentSources?.find((s) => s.chain?.id === chainId);
+      if (sourceAnyOnChain?.token?.symbol) return sourceAnyOnChain.token.symbol;
+
+      const nativeCurrency = CHAIN_METADATA[chainId]?.nativeCurrency?.symbol;
+      if (nativeCurrency) return nativeCurrency;
+    }
+  }
+
+  if (
+    tokenAddress &&
+    tokenAddress !== "0x0000000000000000000000000000000000000000" &&
+    tokenAddress !== "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  ) {
     const fromMatch = context?.fromTokens?.find(
       (t) =>
         (chainId === undefined || t.chainId === undefined || t.chainId === chainId) &&
@@ -514,6 +546,20 @@ const getStepTokenSymbol = (
     }
   }
 
+  // If sourceIndex is given, ensure the chain matches before trusting it
+  const sourceIndex = (step as any)?.sourceIndex;
+  if (
+    typeof sourceIndex === "number" &&
+    context?.intentSources?.[sourceIndex]?.token?.symbol
+  ) {
+    const candidateSource = context.intentSources[sourceIndex];
+    if (chainId === undefined || candidateSource?.chain?.id === chainId) {
+      if (candidateSource?.token?.symbol) {
+        return candidateSource.token.symbol;
+      }
+    }
+  }
+
   if (chainId !== undefined) {
     const sourceByChain = context?.intentSources?.find(
       (s) =>
@@ -534,6 +580,15 @@ const getStepTokenSymbol = (
             "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
     );
     if (fromByChain?.symbol) return fromByChain.symbol;
+
+    const fromAnyOnChain = context?.fromTokens?.find((t) => t.chainId === chainId);
+    if (fromAnyOnChain?.symbol) return fromAnyOnChain.symbol;
+
+    const sourceAnyOnChain = context?.intentSources?.find((s) => s.chain?.id === chainId);
+    if (sourceAnyOnChain?.token?.symbol) return sourceAnyOnChain.token.symbol;
+
+    const nativeCurrency = CHAIN_METADATA[chainId]?.nativeCurrency?.symbol;
+    if (nativeCurrency) return nativeCurrency;
   }
 
   if (context?.fromTokens && context.fromTokens.length === 1 && context.fromTokens[0]?.symbol) {

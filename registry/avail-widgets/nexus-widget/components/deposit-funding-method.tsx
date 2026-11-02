@@ -3,11 +3,7 @@
 import React from "react";
 import { nexusWidgetTheme } from "../theme";
 
-type FundingMethod =
-  | "wallet"
-  | "local-currency"
-  | "transfer-crypto"
-  | "hyperliquid";
+type FundingMethod = "wallet" | "local-currency";
 
 interface DepositFundingMethodProps {
   enableOnRamp?: boolean;
@@ -313,147 +309,6 @@ function CashLogos() {
   );
 }
 
-function TransferCryptoLogos() {
-  return (
-    <div
-      style={{
-        alignItems: "center",
-        borderRadius: "999px",
-        boxSizing: "border-box",
-        display: "flex",
-        flexShrink: 0,
-        height: "36px",
-        justifyContent: "center",
-        overflow: "clip",
-        width: "91px",
-      }}
-    >
-      <div
-        style={{
-          alignItems: "start",
-          boxSizing: "border-box",
-          display: "flex",
-        }}
-      >
-        <div
-          style={{
-            boxSizing: "border-box",
-            flexShrink: 0,
-            height: "32px",
-            position: "relative",
-            width: "32px",
-          }}
-        >
-          <div
-            style={{
-              backgroundImage:
-                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQVN4Y8Q3ADRYKXY4J6R22C.png)",
-              backgroundPosition: "50%",
-              backgroundRepeat: "no-repeat",
-              backgroundSize: "104.065%",
-              borderRadius: "999px",
-              boxSizing: "border-box",
-              height: "32px",
-              left: 0,
-              outline: "1.5px solid var(--nx-card, #FFFFFE)",
-              position: "absolute",
-              top: 0,
-              width: "32px",
-            }}
-          />
-        </div>
-        <div
-          style={{
-            boxSizing: "border-box",
-            flexShrink: 0,
-            height: "32px",
-            marginLeft: "-4px",
-            position: "relative",
-            width: "32px",
-          }}
-        >
-          <div
-            style={{
-              backgroundImage:
-                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQVHQH1402W4F784BH626JA.png)",
-              backgroundPosition: "50% 53.333%",
-              backgroundRepeat: "no-repeat",
-              backgroundSize: "111.111%",
-              borderRadius: "999px",
-              boxSizing: "border-box",
-              height: "32px",
-              left: 0,
-              outline: "1.5px solid var(--nx-card, #FFFFFE)",
-              position: "absolute",
-              top: 0,
-              width: "32px",
-            }}
-          />
-        </div>
-        <div
-          style={{
-            boxSizing: "border-box",
-            flexShrink: 0,
-            height: "32px",
-            marginLeft: "-4px",
-            position: "relative",
-            width: "32px",
-          }}
-        >
-          <div
-            style={{
-              backgroundImage:
-                "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/01KZQVQ9YTKYJ2XV8RE1JJZ0KV.png)",
-              backgroundPosition: "50%",
-              backgroundSize: "cover",
-              borderRadius: "999px",
-              boxSizing: "border-box",
-              height: "32px",
-              left: 0,
-              outline: "1.5px solid var(--nx-card, #FFFFFE)",
-              position: "absolute",
-              top: 0,
-              width: "32px",
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HyperliquidLogo() {
-  return (
-    <div
-      style={{
-        alignItems: "center",
-        borderRadius: "999px",
-        boxSizing: "border-box",
-        display: "flex",
-        flexShrink: 0,
-        height: "36px",
-        justifyContent: "center",
-        overflow: "clip",
-        width: "36px",
-      }}
-    >
-      <div
-        style={{
-          backgroundImage:
-            "url(https://app.paper.design/file-assets/01KS00EAWSTF1EENZNDW5RNCD4/4RQEH0TV7F8T0V0WSTWQ2CF7MS.png)",
-          backgroundPosition: "50%",
-          backgroundSize: "cover",
-          borderRadius: "999px",
-          boxSizing: "border-box",
-          flexShrink: 0,
-          height: "32px",
-          width: "32px",
-        }}
-      />
-    </div>
-  );
-}
-
 function MethodOptionRow({
   active,
   badge,
@@ -553,13 +408,9 @@ function MethodOptionRow({
 
 export function DepositFundingMethod({
   enableOnRamp = false,
-  enableTransferCrypto = true,
-  enableHyperliquid = true,
   isBalanceLoading = false,
   onSelectLocalCurrency,
   onSelectWallet,
-  onSelectTransferCrypto,
-  onSelectHyperliquid,
   primaryButtonForeground = "#FFFFFF",
   totalBalance = "0.00",
   title = "Deposit",
@@ -574,13 +425,7 @@ export function DepositFundingMethod({
     if (!enableOnRamp && selectedMethod === "local-currency") {
       setSelectedMethod(null);
     }
-    if (!enableTransferCrypto && selectedMethod === "transfer-crypto") {
-      setSelectedMethod(null);
-    }
-    if (!enableHyperliquid && selectedMethod === "hyperliquid") {
-      setSelectedMethod(null);
-    }
-  }, [enableOnRamp, enableTransferCrypto, enableHyperliquid, selectedMethod]);
+  }, [enableOnRamp, selectedMethod]);
 
   const handleContinue = () => {
     if (!selectedMethod) return;
@@ -592,21 +437,11 @@ export function DepositFundingMethod({
       onSelectLocalCurrency();
       return;
     }
-    if (selectedMethod === "transfer-crypto") {
-      onSelectTransferCrypto?.();
-      return;
-    }
-    if (selectedMethod === "hyperliquid") {
-      onSelectHyperliquid?.();
-      return;
-    }
   };
 
   const navBack = onBack || onClose;
 
   const showCash = Boolean(enableOnRamp);
-  const showTransferCrypto = Boolean(enableTransferCrypto);
-  const showHyperliquid = Boolean(enableHyperliquid);
 
   const formattedBalance = totalBalance
     ? totalBalance.startsWith("$")
@@ -655,26 +490,6 @@ export function DepositFundingMethod({
             label: "Deposit with Cash",
             description: "Card, Apple Pay, Bank Transfer",
             rightContent: <CashLogos />,
-          },
-        ]
-      : []),
-    ...(showTransferCrypto
-      ? [
-          {
-            id: "transfer-crypto" as const,
-            label: "Transfer Crypto",
-            description: "Send crypto from any wallet",
-            rightContent: <TransferCryptoLogos />,
-          },
-        ]
-      : []),
-    ...(showHyperliquid
-      ? [
-          {
-            id: "hyperliquid" as const,
-            label: "Deposit from Hyperliquid",
-            description: "Spend your USDC from Hyperliquid",
-            rightContent: <HyperliquidLogo />,
           },
         ]
       : []),
