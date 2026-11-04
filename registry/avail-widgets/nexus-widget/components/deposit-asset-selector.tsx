@@ -8,7 +8,7 @@ import {
   Info,
   Search,
 } from "lucide-react";
-import { parseAmount } from "../utils/amount";
+import { formatTokenBalance, formatUsdAmount as formatUsd, parseAmount } from "../utils/amount";
 import { LogoPair, TokenLogo } from "./deposit-token-logo";
 import type { SwapTokenOption } from "./swap-asset-selector";
 
@@ -471,12 +471,10 @@ export function DepositAssetSelector({
                   }}
                 >
                   <span className="nx-asset-primary">
-                    {parseAmount(token.balance)
-                      ?.toDecimalPlaces(
-                        Math.min(8, token.decimals),
-                        Decimal.ROUND_DOWN,
-                      )
-                      .toFixed() ?? "0"}{" "}
+                    {formatTokenBalance(token.balance, {
+                      symbol: token.symbol,
+                      decimals: token.decimals,
+                    })}{" "}
                     {token.symbol}
                   </span>
                   <span className="nx-asset-secondary">
@@ -596,12 +594,10 @@ export function DepositAssetSelector({
                             }}
                           >
                             <span className="nx-asset-primary">
-                              {parseAmount(token.balance)
-                                ?.toDecimalPlaces(
-                                  Math.min(8, token.decimals),
-                                  Decimal.ROUND_DOWN,
-                                )
-                                .toFixed() ?? "0"}{" "}
+                              {formatTokenBalance(token.balance, {
+                                symbol: token.symbol,
+                                decimals: token.decimals,
+                              })}{" "}
                               {token.symbol}
                             </span>
                             <span className="nx-asset-secondary">
@@ -620,9 +616,4 @@ export function DepositAssetSelector({
       </div>
     </div>
   );
-}
-
-function formatUsd(value: string) {
-  const amount = parseAmount(value) ?? new Decimal(0);
-  return amount.gt(0) && amount.lt(0.01) ? "<$0.01" : `$${amount.toFixed(2)}`;
 }

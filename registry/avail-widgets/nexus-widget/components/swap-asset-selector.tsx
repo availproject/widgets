@@ -24,7 +24,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { parseAmount as parseTokenAmount } from "../utils/amount";
+import { isStablecoinSymbol, parseAmount as parseTokenAmount } from "../utils/amount";
 import { useNexusWidgetThemeStyle } from "../theme-context";
 import {
   CHAIN_METADATA,
@@ -353,6 +353,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
       balanceInFiat?: string;
       balanceValue: number;
       fiatValue: number;
+      symbol?: string;
     }[] = [];
     for (const t of tokens) {
       if (t.chainId && !seen.has(t.chainId)) {
@@ -369,6 +370,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
               ? 0
               : balanceValue,
           fiatValue: getTokenFiatValue(t),
+          symbol: t.symbol,
         });
       }
     }
@@ -516,7 +518,7 @@ const ChainLogos = ({ tokens }: { tokens: SwapTokenOption[] }) => {
                   }}
                 >
                   {chain.balance
-                    ? formatTokenAmountDisplay(chain.balance)
+                    ? formatTokenAmountDisplay(chain.balance, chain.symbol)
                     : chain.balanceInFiat || "0"}
                 </span>
               </div>
@@ -729,7 +731,7 @@ const formatBalanceWithSymbol = (
   token: Pick<SwapTokenOption, "balance" | "symbol">,
 ) => {
   const symbol = token.symbol?.trim() || "";
-  const formatted = formatTokenAmountDisplay(token.balance);
+  const formatted = formatTokenAmountDisplay(token.balance, symbol);
   return symbol ? `${formatted} ${symbol}` : formatted;
 };
 
@@ -768,7 +770,7 @@ const compareTokensByUsdBalance = (a: SwapTokenOption, b: SwapTokenOption) => {
 const sortTokensByUsdBalance = (tokens: SwapTokenOption[]) =>
   [...tokens].sort(compareTokensByUsdBalance);
 
-export const formatTokenAmountDisplay = (value: unknown) => {
+export const formatTokenAmountDisplay = (value: unknown, symbol?: string) => {
   const amount = parseTokenAmount(value) ?? new Decimal(0);
   const abs = amount.abs();
 
@@ -794,7 +796,8 @@ export const formatTokenAmountDisplay = (value: unknown) => {
     return `>${minDisplay.toFixed()}`;
   }
 
-  return amount.toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed();
+  const maxDecimals = isStablecoinSymbol(symbol) ? 2 : 8;
+  return amount.toDecimalPlaces(maxDecimals, Decimal.ROUND_DOWN).toFixed();
 };
 
 const addThousandsSeparators = (value: string) => {
@@ -827,7 +830,7 @@ export const formatUsdBalanceLabel = (value: unknown) => {
     }
   }
 
-  return `$${addThousandsSeparators(amount.toDecimalPlaces(2).toFixed(2))}`;
+  return `$${addThousandsSeparators(amount.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed(2))}`;
 };
 
 export const formatSelectedTokenBalanceLabel = (
@@ -835,7 +838,7 @@ export const formatSelectedTokenBalanceLabel = (
 ) => {
   if (!token) return "";
   const symbol = token.symbol || "";
-  const formatted = formatTokenAmountDisplay(token.balance);
+  const formatted = formatTokenAmountDisplay(token.balance, symbol);
   return symbol ? `${formatted} ${symbol}` : formatted;
 };
 
@@ -1359,14 +1362,11 @@ export function SwapAssetSelector({
           ? getUnifiedSymbol(sortedGroup[0])
           : null;
         const symbol = unifiedSym ?? sortedGroup[0].symbol;
-        const isStable = ["USDC", "USDT", "DAI", "USDM", "CTUSD"].includes(
-          symbol.toUpperCase(),
-        );
+        const isStable = isStablecoinSymbol(symbol);
         const maxDigits = isStable ? 2 : 6;
-        const formattedBal = totalBalVal.toLocaleString(undefined, {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: maxDigits,
-        });
+        const formattedBal = new Decimal(totalBalVal)
+          .toDecimalPlaces(maxDigits, Decimal.ROUND_DOWN)
+          .toFixed();
 
         return {
           symbol,

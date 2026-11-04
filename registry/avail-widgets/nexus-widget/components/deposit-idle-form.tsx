@@ -8,7 +8,7 @@ import { DepositAnimatedAmount } from "./deposit-animated-amount";
 import { CHAIN_METADATA } from "../../common/utils/constant";
 import { DepositAssetSelector } from "./deposit-asset-selector";
 import { LogoPair, TokenLogo } from "./deposit-token-logo";
-import { parseAmount as parseDecimal } from "../utils/amount";
+import { isStablecoinSymbol, parseAmount as parseDecimal } from "../utils/amount";
 import type { SwapTokenOption } from "./swap-asset-selector";
 
 interface DepositIdleFormProps {
@@ -115,16 +115,18 @@ const rowError = (token: SwapTokenOption) => {
 
 const formatUsd = (value: Decimal) => {
   if (value.gt(0) && value.lt(0.01)) return "<$0.01";
-  return `$${value.toDecimalPlaces(2).toFixed()}`;
+  return `$${value.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed(2)}`;
 };
 
-const formatTokenAmount = (value: Decimal, decimals = 6) =>
-  value.toDecimalPlaces(Math.min(8, decimals), Decimal.ROUND_DOWN).toFixed();
+const formatTokenAmount = (value: Decimal, decimals = 6, symbol?: string) => {
+  const maxDecimals = isStablecoinSymbol(symbol) ? 2 : Math.min(8, decimals);
+  return value.toDecimalPlaces(maxDecimals, Decimal.ROUND_DOWN).toFixed();
+};
 
-const compactAmount = (value: Decimal, decimals = 6) => {
-  if (value.gte(1_000_000_000)) return `${value.div(1_000_000_000).toDecimalPlaces(1).toFixed()}B`;
-  if (value.gte(1_000_000)) return `${value.div(1_000_000).toDecimalPlaces(1).toFixed()}M`;
-  return formatTokenAmount(value, decimals);
+const compactAmount = (value: Decimal, decimals = 6, symbol?: string) => {
+  if (value.gte(1_000_000_000)) return `${value.div(1_000_000_000).toDecimalPlaces(1, Decimal.ROUND_DOWN).toFixed()}B`;
+  if (value.gte(1_000_000)) return `${value.div(1_000_000).toDecimalPlaces(1, Decimal.ROUND_DOWN).toFixed()}M`;
+  return formatTokenAmount(value, decimals, symbol);
 };
 const compactUsd = (value: Decimal) => value.gte(1_000_000) ? `$${compactAmount(value)}` : formatUsd(value);
 
@@ -718,7 +720,7 @@ export function DepositIdleForm({
           <div className="nx-who">{destinationLabel} receives</div>
           {showQuote && quotedReceive.gte(1_000_000) ? (
             <Tip label="Exact amount" trigger={quoteLine}>
-              <TipRow label="Exact amount" value={`${formatTokenAmount(quotedReceive, toToken?.decimals)} ${toToken?.symbol ?? ""}`} />
+              <TipRow label="Exact amount" value={`${formatTokenAmount(quotedReceive, toToken?.decimals, toToken?.symbol)} ${toToken?.symbol ?? ""}`} />
             </Tip>
           ) : quoteLine}
           <div className="nx-meta">
@@ -757,11 +759,11 @@ export function DepositIdleForm({
             const usdMode = token.userAmountMode === "usd";
             const shown = token.userAmount || "";
             const secondary = usdMode
-              ? `≈ ${units.gt(0) ? formatTokenAmount(units, token.decimals) : "0.00"} ${token.symbol}`
+              ? `≈ ${units.gt(0) ? formatTokenAmount(units, token.decimals, token.symbol) : "0.00"} ${token.symbol}`
               : `≈ ${formatUsd(tokenUsd(token, units))}`;
             const balanceLabel = usdMode
               ? `Balance: ${formatUsd(readDecimal(token.balanceInFiat))}`
-              : `Balance: ${formatTokenAmount(readDecimal(token.balance), token.decimals)} ${token.symbol}`;
+              : `Balance: ${formatTokenAmount(readDecimal(token.balance), token.decimals, token.symbol)} ${token.symbol}`;
             return (
               <div className={`nx-token-presence${exiting ? " exiting" : key === newTokenKey ? " entering" : ""}`} key={key} inert={exiting}>
               <div className="nx-token-clip">
@@ -858,7 +860,7 @@ export function DepositIdleForm({
                           const nextUsd = !usdMode;
                           const nextAmount = nextUsd
                             ? tokenUsd(token, units).toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed()
-                            : formatTokenAmount(units, token.decimals);
+                            : formatTokenAmount(units, token.decimals, token.symbol);
                           updateToken(index, {
                             userAmount: units.gt(0) ? nextAmount : "",
                             userAmountMode: nextUsd ? "usd" : "token",
@@ -919,7 +921,7 @@ export function DepositIdleForm({
                               pct === 100 ? Decimal.max(balance.minus(buffer), 0) : balance.mul(pct).div(100);
                             const nextAmount = usdMode
                               ? tokenUsd(token, nextUnits).toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed()
-                              : formatTokenAmount(nextUnits, token.decimals);
+                              : formatTokenAmount(nextUnits, token.decimals, token.symbol);
                             updateToken(index, {
                               userAmount: nextAmount,
                               userAmountMode: usdMode ? "usd" : "token",
@@ -1003,6 +1005,7 @@ export function DepositIdleForm({
                   ? `${formatTokenAmount(
                       quotedMinReceive.gt(0) ? quotedMinReceive : quotedReceive,
                       toToken?.decimals,
+                      toToken?.symbol,
                     )} ${toToken?.symbol || ""}`
                   : "–"
               }

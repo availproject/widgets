@@ -122,7 +122,9 @@ function useIsDarkMode() {
 }
 
 const formatDecimal = (value: unknown, decimals = 2) =>
-  (parseDecimal(value) ?? new Decimal(0)).toDecimalPlaces(decimals).toFixed();
+  (parseDecimal(value) ?? new Decimal(0))
+    .toDecimalPlaces(decimals, Decimal.ROUND_DOWN)
+    .toFixed();
 
 const formatUsd = (value: unknown) => `$${formatDecimal(value, 2)}`;
 

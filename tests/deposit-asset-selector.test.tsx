@@ -169,3 +169,65 @@ test("deposit picker hides tokens whose balance is below minBalanceUsd ($1)", as
   }
 });
 
+test("deposit picker formats stable coins with only 2 decimal places and rounds down", async () => {
+  const previous = Object.fromEntries(
+    ["document", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+  });
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    const testTokens: SwapTokenOption[] = [
+      {
+        chainId: 8453,
+        chainName: "Base",
+        contractAddress: "0xusdc",
+        symbol: "USDC",
+        name: "USD Coin",
+        decimals: 6,
+        balance: "5.154823",
+        balanceInFiat: "$5.15",
+      },
+      {
+        chainId: 4114,
+        chainName: "Citrea",
+        contractAddress: "0xcbtc",
+        symbol: "CBTC",
+        name: "Citrea BTC",
+        decimals: 8,
+        balance: "0.00001479",
+        balanceInFiat: "$1.14",
+      },
+    ];
+    await act(async () => {
+      renderer = create(
+        <DepositAssetSelector tokens={testTokens} onSelect={() => {}} />
+      );
+    });
+    const rows = renderer!.root.findAllByProps({ className: "nx-asset-row" });
+    assert.equal(rows.length, 2);
+
+    // Row 0: USDC should display 5.15 USDC (not 5.154823 USDC)
+    const usdcBalanceSpan = rows[0].findAllByProps({ className: "nx-asset-primary" })[1];
+    assert.equal(usdcBalanceSpan.children.join(""), "5.15 USDC");
+
+    // Row 1: CBTC should preserve precision (0.00001479 CBTC)
+    const cbtcBalanceSpan = rows[1].findAllByProps({ className: "nx-asset-primary" })[1];
+    assert.equal(cbtcBalanceSpan.children.join(""), "0.00001479 CBTC");
+  } finally {
+    await act(async () => {
+      renderer?.unmount();
+    });
+    for (const [key, descriptor] of Object.entries(previous)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
+

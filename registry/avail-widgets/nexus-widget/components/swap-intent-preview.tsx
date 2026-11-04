@@ -5,7 +5,7 @@
 import Decimal from "decimal.js";
 import { ChevronDown, Info, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
-import { parseAmount as parseDecimal } from "../utils/amount";
+import { isStablecoinSymbol, parseAmount as parseDecimal } from "../utils/amount";
 import type { SwapStepType } from "../../common/types/transaction-flow";
 import { CHAIN_METADATA, getShortChainName } from "../../common/utils/constant";
 import TransactionProgress from "../../swaps/components/transaction-progress";
@@ -141,7 +141,7 @@ const formatAmount = (
 ) => {
   const amount = toDecimal(value);
   const max = options.max ?? 2;
-  return amount.toDecimalPlaces(max).toFixed();
+  return amount.toDecimalPlaces(max, Decimal.ROUND_DOWN).toFixed();
 };
 
 const formatUsdDelta = (value: Decimal) => {
@@ -164,21 +164,25 @@ const formatUsdValue = (value: Decimal) => {
   return value.lt(0) ? `-$${amount}` : `$${amount}`;
 };
 
-const formatTokenAmount = (value: unknown) => {
+const formatTokenAmount = (value: unknown, symbol?: string) => {
   const amount = toDecimal(value);
-  return amount.toDecimalPlaces(8).toFixed();
+  const maxDecimals = isStablecoinSymbol(symbol) ? 2 : 8;
+  return amount.toDecimalPlaces(maxDecimals, Decimal.ROUND_DOWN).toFixed();
 };
 
-const formatHeaderTokenAmount = (value: unknown) => {
+const formatHeaderTokenAmount = (value: unknown, symbol?: string) => {
   const amount = toDecimal(value);
   if (amount.isZero()) return "0";
+  if (isStablecoinSymbol(symbol)) {
+    return amount.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed();
+  }
   if (amount.abs().gte(1000)) {
-    return amount.toDecimalPlaces(2).toFixed();
+    return amount.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed();
   }
   if (amount.abs().gte(1)) {
-    return amount.toDecimalPlaces(4).toFixed();
+    return amount.toDecimalPlaces(4, Decimal.ROUND_DOWN).toFixed();
   }
-  return amount.toDecimalPlaces(8).toFixed();
+  return amount.toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed();
 };
 
 const getFontSize = (amountStr: string, symbolStr: string) => {
@@ -1085,10 +1089,10 @@ export function SwapIntentPreview({
         })}%`
       : pendingValue;
   const destinationHeaderAmount = hasResolvedQuote
-    ? formatHeaderTokenAmount(destinationTokenAmount)
+    ? formatHeaderTokenAmount(destinationTokenAmount, destTokenSymbol)
     : pendingValue;
   const destinationTokenDisplay = hasResolvedQuote
-    ? `${formatTokenAmount(destinationTokenAmount)} ${destTokenSymbol}`
+    ? `${formatTokenAmount(destinationTokenAmount, destTokenSymbol)} ${destTokenSymbol}`
     : pendingLabel;
   const destinationSourceAddress =
     normalizedIntentDest?.token.contractAddress || toToken?.contractAddress;
@@ -1156,8 +1160,8 @@ export function SwapIntentPreview({
               : sourceValueNumber;
           const tokenAmountValue =
             displaySourceAmount !== undefined
-              ? formatTokenAmount(displaySourceAmount)
-              : formatTokenAmount(source.amount);
+              ? formatTokenAmount(displaySourceAmount, source.token.symbol)
+              : formatTokenAmount(source.amount, source.token.symbol);
 
           return {
             key: `${source.chain.id}-${source.token.contractAddress}-${index}`,
@@ -1217,7 +1221,7 @@ export function SwapIntentPreview({
               : sourceUsdNumber;
           const tokenAmountValue =
             displaySourceAmount !== undefined
-              ? formatTokenAmount(displaySourceAmount)
+              ? formatTokenAmount(displaySourceAmount, source.symbol)
               : "";
 
           return {
@@ -1252,9 +1256,10 @@ export function SwapIntentPreview({
             normalizedIntentDest?.chain.id ?? toToken?.chainId,
             normalizedIntentDest?.chain.name || toToken?.chainName || "",
           ),
-          tokenAmount: `${formatTokenAmount(displayOnlyDestinationSourceAmount)} ${destTokenSymbol}`,
+          tokenAmount: `${formatTokenAmount(displayOnlyDestinationSourceAmount, destTokenSymbol)} ${destTokenSymbol}`,
           tokenAmountValue: formatTokenAmount(
             displayOnlyDestinationSourceAmount,
+            destTokenSymbol,
           ),
           usdAmount:
             displayOnlyDestinationSourceUsd !== undefined
@@ -1294,7 +1299,8 @@ export function SwapIntentPreview({
       const sourceRow = baseSourceDetailRows[0];
       return {
         amount:
-          sourceRow?.tokenAmountValue ?? formatHeaderTokenAmount(source.amount),
+          sourceRow?.tokenAmountValue ??
+          formatHeaderTokenAmount(source.amount, source.token.symbol),
         chainName: getShortChainName(source.chain.id, source.chain.name),
         symbol: source.token.symbol,
       };
@@ -1307,7 +1313,7 @@ export function SwapIntentPreview({
       return {
         amount:
           baseSourceDetailRows[0]?.tokenAmountValue ??
-          formatHeaderTokenAmount(sourceAmount),
+          formatHeaderTokenAmount(sourceAmount, source.symbol),
         chainName: getShortChainName(source.chainId, source.chainName),
         symbol: source.symbol,
       };

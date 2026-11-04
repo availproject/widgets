@@ -27,6 +27,7 @@ import {
 } from "viem";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE, nexusWidgetTheme } from "../theme";
 import { useNexusWidgetThemeStyle } from "../theme-context";
+import { isStablecoinSymbol } from "../utils/amount";
 import type { NexusWidgetDepositOpportunityConfig } from "../types";
 import type { SwapTokenOption } from "./swap-asset-selector";
 import {
@@ -430,10 +431,15 @@ const formatNumberDisplay = (value: unknown, maxDecimals = 2) => {
   return decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
 };
 
-const formatPlainNumberDisplay = (value: unknown, maxDecimals = 6) => {
+const formatPlainNumberDisplay = (
+  value: unknown,
+  maxDecimals = 6,
+  symbol?: string,
+) => {
   const parsed = parseDecimal(value);
   if (!parsed || parsed.isZero()) return "0";
-  return parsed.toDecimalPlaces(maxDecimals, Decimal.ROUND_DOWN).toFixed();
+  const decimals = isStablecoinSymbol(symbol) ? 2 : maxDecimals;
+  return parsed.toDecimalPlaces(decimals, Decimal.ROUND_DOWN).toFixed();
 };
 
 const ONRAMP_FOREX_RATES_CACHE_KEY = "nexus_onramp_forex_rates_usd";
@@ -6378,7 +6384,7 @@ export function DepositOnrampFlow({
                 }}
               >
                 {receiveAmount
-                  ? formatPlainNumberDisplay(receiveAmount, 6)
+                  ? formatPlainNumberDisplay(receiveAmount, 6, toToken?.symbol)
                   : "0"}
               </div>
               <div
@@ -6661,7 +6667,7 @@ export function DepositOnrampFlow({
       {activeSheet === "fees" && (
         <Sheet
           onClose={() => setActiveSheet(null)}
-          title={`Buying ${formatPlainNumberDisplay(receiveAmount, 6)} ${toToken?.symbol ?? ""}`}
+          title={`Buying ${formatPlainNumberDisplay(receiveAmount, 6, toToken?.symbol)} ${toToken?.symbol ?? ""}`}
         >
           <div
             style={{
@@ -6701,7 +6707,7 @@ export function DepositOnrampFlow({
                 }}
               >
                 {receiveAmount
-                  ? `Cost of ${formatPlainNumberDisplay(receiveAmount, 6)} ${toToken?.symbol ?? ""}`.trim()
+                  ? `Cost of ${formatPlainNumberDisplay(receiveAmount, 6, toToken?.symbol)} ${toToken?.symbol ?? ""}`.trim()
                   : `Cost of ${toToken?.symbol ?? "tokens"}`}
               </span>
               <span
@@ -6837,7 +6843,7 @@ export function DepositOnrampFlow({
                     title={getProviderLabel(option.provider)}
                     value={
                       option.destinationAmount
-                        ? `${formatPlainNumberDisplay(option.destinationAmount, 6)} ${toToken?.symbol ?? ""}`
+                        ? `${formatPlainNumberDisplay(option.destinationAmount, 6, toToken?.symbol)} ${toToken?.symbol ?? ""}`
                         : undefined
                     }
                   />

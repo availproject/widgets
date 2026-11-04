@@ -141,6 +141,7 @@ import {
   type SwapType,
 } from "./types";
 import {
+  isStablecoinSymbol,
   parseAmount as parseDecimalLoose,
   parseAmount as parseFiatNumber,
 } from "./utils/amount";
@@ -338,7 +339,8 @@ const modalHeightTransitionStyle = {
   interpolateSize: "allow-keywords",
 } as React.CSSProperties;
 
-const getCappedTokenDisplayDecimals = (decimals?: number) => {
+const getCappedTokenDisplayDecimals = (decimals?: number, symbol?: string) => {
+  if (isStablecoinSymbol(symbol)) return 2;
   const parsedDecimals = Number(decimals);
   if (!Number.isFinite(parsedDecimals) || parsedDecimals < 0) {
     return DEPOSIT_TOKEN_DISPLAY_DECIMALS;
@@ -1363,7 +1365,7 @@ const formatDecimalDisplay = (
 ) => {
   const amount = parseDecimalLoose(value) ?? new Decimal(0);
   const max = options.max ?? 2;
-  return amount.toDecimalPlaces(max).toFixed();
+  return amount.toDecimalPlaces(max, Decimal.ROUND_DOWN).toFixed();
 };
 
 const formatUsdDisplay = (value: unknown) => {
@@ -1372,9 +1374,10 @@ const formatUsdDisplay = (value: unknown) => {
   return `$${formatDecimalDisplay(amount, { min: 2, max: 2 })}`;
 };
 
-const formatTokenDisplay = (value: unknown) => {
+const formatTokenDisplay = (value: unknown, symbol?: string) => {
   const amount = parseDecimalLoose(value) ?? new Decimal(0);
-  return formatDecimalDisplay(amount, { max: 8 });
+  const max = isStablecoinSymbol(symbol) ? 2 : 8;
+  return formatDecimalDisplay(amount, { max });
 };
 
 const getSwapTokenUsdValue = (token: SwapTokenOption) =>
@@ -6345,7 +6348,7 @@ function NexusWidgetInner({
           balance: breakdown.balance,
           balanceInFiat:
             fiatBalance !== undefined
-              ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
+              ? `$${fiatBalance.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed(2)}`
               : "$0.00",
         });
       }
@@ -6410,7 +6413,7 @@ function NexusWidgetInner({
           balance: breakdown.balance,
           balanceInFiat:
             fiatBalance !== undefined
-              ? `$${fiatBalance.toDecimalPlaces(2).toFixed()}`
+              ? `$${fiatBalance.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed(2)}`
               : "$0.00",
           verified:
             breakdown.verified !== undefined
@@ -7003,7 +7006,7 @@ function NexusWidgetInner({
 
       return {
         type: "insufficientSources",
-        missingUsd: missingUsd.toDecimalPlaces(2).toFixed(),
+        missingUsd: missingUsd.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed(),
         message: `Need ${formattedMissing} more across your assets`,
       };
     }
@@ -7032,7 +7035,7 @@ function NexusWidgetInner({
 
     return {
       type: "insufficientSources",
-      missingUsd: missingUsd.toDecimalPlaces(2).toFixed(),
+      missingUsd: missingUsd.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed(),
       message: `Need ${formattedMissing} more across your assets`,
     };
   };
@@ -7136,7 +7139,12 @@ function NexusWidgetInner({
           return {
             ...token,
             ...preservedAmounts,
-            balance: totalBalance.toDecimalPlaces(8).toFixed(),
+            balance: totalBalance
+              .toDecimalPlaces(
+                isStablecoinSymbol(token.symbol) ? 2 : 8,
+                Decimal.ROUND_DOWN,
+              )
+              .toFixed(),
             balanceInFiat: formatUsdDisplay(totalFiat),
             sourceTokens,
           };
@@ -8256,11 +8264,13 @@ function NexusWidgetInner({
       : depositTokenAmountForQuote
         ? depositTokenAmountForQuote.mul(getDepositTokenUsdRate())
         : new Decimal(0);
-  const depositUsdDisplay = depositUsdDecimal.toDecimalPlaces(2).toFixed();
+  const depositUsdDisplay = depositUsdDecimal
+    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+    .toFixed();
   const depositTokenDisplay =
     depositTokenAmountForQuote
       ?.toDecimalPlaces(
-        getCappedTokenDisplayDecimals(toToken?.decimals),
+        getCappedTokenDisplayDecimals(toToken?.decimals, toToken?.symbol),
         Decimal.ROUND_DOWN,
       )
       .toFixed() ?? "0";
@@ -8304,7 +8314,7 @@ function NexusWidgetInner({
       amount: usdAmount
         .div(rate)
         .toDecimalPlaces(
-          getCappedTokenDisplayDecimals(token.decimals),
+          getCappedTokenDisplayDecimals(token.decimals, token.symbol),
           Decimal.ROUND_DOWN,
         )
         .toFixed(),
@@ -11601,11 +11611,11 @@ function NexusWidgetInner({
     if (parsedAmount.gt(0) && rate.gt(0)) {
       const converted =
         depositAmountMode === "token"
-          ? parsedAmount.mul(rate).toDecimalPlaces(2)
+          ? parsedAmount.mul(rate).toDecimalPlaces(2, Decimal.ROUND_DOWN)
           : parsedAmount
               .div(rate)
               .toDecimalPlaces(
-                getCappedTokenDisplayDecimals(toToken?.decimals),
+                getCappedTokenDisplayDecimals(toToken?.decimals, toToken?.symbol),
                 Decimal.ROUND_DOWN,
               );
       setAmount(converted.toFixed());
@@ -12058,7 +12068,7 @@ function NexusWidgetInner({
   ]);
 
   const totalSwapBalanceUsd = getActiveTotalBalanceUsd()
-    .toDecimalPlaces(2)
+    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
     .toFixed();
   const requestedOutputUsd =
     amount && toToken
@@ -12090,7 +12100,7 @@ function NexusWidgetInner({
     return undefined;
   })();
   const exactOutRequiredUsdDisplay = exactOutRequiredUsdAmount
-    ?.toDecimalPlaces(2)
+    ?.toDecimalPlaces(2, Decimal.ROUND_DOWN)
     .toFixed();
   const assetSelectorRequiredUsdDisplay =
     (activeMode === "deposit" || activeMode === "send") &&
