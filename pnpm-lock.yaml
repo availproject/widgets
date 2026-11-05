@@ -14,8 +14,8 @@ importers:
   .:
     dependencies:
       '@avail-project/nexus-core':
-        specifier: github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117
-        version: https://codeload.github.com/availproject/nexus-sdk/tar.gz/e646e3873e3e722c5cc28bd8c7e7fb1040785117(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+        specifier: github:availproject/nexus-sdk#3.2.0-rc.1
+        version: https://codeload.github.com/availproject/nexus-sdk/tar.gz/8182cdedf1bd6cc41d6146ac42a5c19f39cb1611(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.15(@types/react-dom@19.1.2(@types/react@19.1.2))(@types/react@19.1.2)(react-dom@19.2.2(react@19.2.2))(react@19.2.2)
@@ -186,8 +186,8 @@ importers:
   packages/widgets:
     dependencies:
       '@avail-project/nexus-core':
-        specifier: github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117
-        version: https://codeload.github.com/availproject/nexus-sdk/tar.gz/e646e3873e3e722c5cc28bd8c7e7fb1040785117(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+        specifier: github:availproject/nexus-sdk#3.2.0-rc.1
+        version: https://codeload.github.com/availproject/nexus-sdk/tar.gz/8182cdedf1bd6cc41d6146ac42a5c19f39cb1611(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.18(@types/react-dom@19.1.2(@types/react@19.1.2))(@types/react@19.1.2)(react-dom@19.2.2(react@19.2.2))(react@19.2.2)
@@ -262,8 +262,8 @@ packages:
     resolution: {integrity: sha512-C90iyzm/jLV7Lomv2UzwWUzRv9WZr1oRsFRKsX5HjQL4EXrbi9H/RtBkjCP+NF+ABZXUKpAa4F1dkoTaea4zHg==}
     hasBin: true
 
-  '@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/e646e3873e3e722c5cc28bd8c7e7fb1040785117':
-    resolution: {gitHosted: true, integrity: sha512-tNI4zyZhzcWdNR+6meqTSGLlwRSVuCtZb6UCQ2COUTMu7alR+5HfAysljoCG4uLXojIs7f44fvyzOZmmDSr2rQ==, tarball: https://codeload.github.com/availproject/nexus-sdk/tar.gz/e646e3873e3e722c5cc28bd8c7e7fb1040785117}
+  '@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/8182cdedf1bd6cc41d6146ac42a5c19f39cb1611':
+    resolution: {gitHosted: true, integrity: sha512-Tf8HxvKm8cSjKcAeaRH1g2AFDiORV80QjhfsQvVzj38Yu9nfEGPLGvO37zitp6xnKxIY+974XWnrDSZFUwRaTg==, tarball: https://codeload.github.com/availproject/nexus-sdk/tar.gz/8182cdedf1bd6cc41d6146ac42a5c19f39cb1611}
     version: 3.1.0
     engines: {node: '>=18.0.0'}
 
@@ -1372,6 +1372,7 @@ packages:
   '@opentelemetry/sdk-trace-base@2.8.0':
     resolution: {integrity: sha512-mhU4jp+vW0mGbFRd+GeXHvmfA4aDqWjBjLC3pE5XMpLs0IE2ryYb019Ts2AQrOq67gaTF25D91+fgvEHDZEnuQ==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.3.0 <1.10.0'
 
@@ -6887,7 +6888,7 @@ snapshots:
 
   '@antfu/ni@23.3.1': {}
 
-  '@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/e646e3873e3e722c5cc28bd8c7e7fb1040785117(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)':
+  '@avail-project/nexus-core@https://codeload.github.com/availproject/nexus-sdk/tar.gz/8182cdedf1bd6cc41d6146ac42a5c19f39cb1611(@opentelemetry/api@1.9.1)(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)':
     dependencies:
       '@opentelemetry/api-logs': 0.219.0
       '@opentelemetry/exporter-logs-otlp-http': 0.219.0(@opentelemetry/api@1.9.1)

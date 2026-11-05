@@ -109,6 +109,7 @@ test("adaptIntentHook normalizes SwapAndExecuteHookData when swap is required", 
   const mockHookData: SwapAndExecuteHookData = {
     attemptId: "test-attempt-1",
     intent: {
+      executionMode: "wallet",
       executeRequirement: mockExecuteRequirement,
       available: {
         token: { amountRaw: BigInt(0), amount: "0", valueUsd: "0" },
@@ -156,6 +157,7 @@ test("adaptIntentHook normalizes SwapAndExecuteHookData when swap is skipped (fu
   let denied = false;
 
   const mockFullyFundedIntent: SwapAndExecuteIntent = {
+    executionMode: "wallet",
     executeRequirement: mockExecuteRequirement,
     available: {
       token: { amountRaw: BigInt(15000000), amount: "15.0", valueUsd: "15.00" },
@@ -198,6 +200,7 @@ test("adaptIntentHook normalizes SwapAndExecuteHookData when swap is skipped (fu
 
 test("adaptIntentHook uses executeRequirement.token.amountRaw and amount (as usd) for exactInput swapAndExecute", async () => {
   const mockExactInputIntent: SwapAndExecuteIntent = {
+    executionMode: "wallet",
     executeRequirement: {
       ...mockExecuteRequirement,
       token: {

@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
 import { NexusWidget } from "@/registry/avail-widgets/nexus-widget/nexus-widget";
+import type { NexusWidgetDepositRoute } from "@/registry/avail-widgets/nexus-widget/types";
 import { useWidgetPreviewTheme } from "../helpers/use-widget-preview-theme";
 import {
   encodeFunctionData,
@@ -138,9 +139,6 @@ const getOpportunityTokenLabel = (opportunity: DepositShowcaseOpportunity) => {
 const getOpportunityLabel = (opportunity: DepositShowcaseOpportunity) =>
   opportunity.label ??
   `${opportunity.protocol} - ${getOpportunityTokenLabel(opportunity)} (${getChainLabel(opportunity.chainId)})`;
-
-const getOpportunityHeading = (opportunity: DepositShowcaseOpportunity) =>
-  opportunity.title ?? "Deposit";
 
 const resolveDepositAddress = (opportunity: DepositShowcaseOpportunity) => {
   const token = getOpportunityTokens(opportunity)[0];
@@ -320,6 +318,8 @@ const NexusWidgetDepositShowcase = () => {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [renderMode, setRenderMode] = useState<NexusWidgetRenderMode>("inline");
   const isPopupMode = renderMode === "popup";
+  const [depositRoute, setDepositRoute] =
+    useState<NexusWidgetDepositRoute>("exactOutput");
   const [enableOnRamp, setEnableOnRamp] = useState(true);
 
   // Default sandbox configuration state
@@ -592,6 +592,32 @@ const NexusWidgetDepositShowcase = () => {
       connectLabel="Connect wallet to use Deposit"
       controls={
         <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 p-0.5 text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setDepositRoute("exactOutput")}
+              className={cn(
+                "px-3 py-1.5 rounded-md transition-all cursor-pointer font-medium",
+                depositRoute === "exactOutput"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
+              )}
+            >
+              Deposit (Exact out)
+            </button>
+            <button
+              type="button"
+              onClick={() => setDepositRoute("exactInput")}
+              className={cn(
+                "px-3 py-1.5 rounded-md transition-all cursor-pointer font-medium",
+                depositRoute === "exactInput"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
+              )}
+            >
+              Deposit (Exact In)
+            </button>
+          </div>
           <button
             type="button"
             aria-pressed={enableOnRamp}
@@ -804,12 +830,13 @@ const NexusWidgetDepositShowcase = () => {
           }}
         >
           <NexusWidget
-            key={`${selectedOpt}-${renderMode}-${enableOnRamp}`}
+            key={`${selectedOpt}-${renderMode}-${enableOnRamp}-${depositRoute}`}
             embed={!isPopupMode}
             defaultOpen={isPopupMode}
             config={{
               theme,
               mode: "deposit",
+              route: depositRoute,
               destination: {
                 chain: currentOpportunity.chainId,
                 tokens: getRequiredOpportunityTokens(currentOpportunity),
@@ -820,7 +847,7 @@ const NexusWidgetDepositShowcase = () => {
               appearance: {
                 appLogoURL: currentOpportunity.depositTargetLogo,
                 appName: currentOpportunity.protocol,
-                heading: getOpportunityHeading(currentOpportunity),
+                heading: "Deposit",
               },
             }}
             connectedAddress={address}

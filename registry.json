@@ -900,6 +900,11 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-exact-out-idle-form.tsx",
+          "target": "components/nexus/components/deposit-exact-out-idle-form.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/deposit-funding-method.tsx",
           "target": "components/nexus/components/deposit-funding-method.tsx",
           "type": "registry:component"

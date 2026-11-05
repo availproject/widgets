@@ -708,7 +708,7 @@ test("deposit receipt and progress screen include destination-chain source token
         token: {
           address: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
           amount: "3.89",
-          amountRaw: 3890000n,
+          amountRaw: BigInt(3890000),
           decimals: 6,
           symbol: "USDC",
           valueUsd: "3.89",
