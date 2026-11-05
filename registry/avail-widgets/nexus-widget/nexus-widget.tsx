@@ -1423,6 +1423,17 @@ const stampDepositOutputAmounts = (
     rawSource?.intent?.tradeType ??
     (normalized as any)?.quote?.tradeType ??
     (normalized as any)?.tradeType;
+  const quote =
+    rawSource?.quote ?? rawSource?.intent?.quote ?? (normalized as any)?.quote;
+  const quoteOutput =
+    readIntentOutput(rawSource) ?? readIntentOutput(normalized);
+
+  const baseWithMetadata = {
+    ...normalized,
+    ...(req ? { executeRequirement: req } : {}),
+    ...(quote ? { quote } : {}),
+    ...(quoteOutput ? { quoteOutput } : {}),
+  };
 
   if (
     req?.token?.amountRaw != null &&
@@ -1434,7 +1445,7 @@ const stampDepositOutputAmounts = (
     const amountStr = rawUnitsToDecimalString(req.token.amountRaw, decimals);
     const usdStr = String(req.token.amount ?? amountStr);
     return {
-      ...normalized,
+      ...baseWithMetadata,
       destination: {
         ...normalized.destination,
         amount: amountStr,
@@ -1445,12 +1456,12 @@ const stampDepositOutputAmounts = (
   }
 
   const output = readIntentOutput(rawSource);
-  if (output?.amountRaw == null) return normalized;
+  if (output?.amountRaw == null) return baseWithMetadata;
   const decimals = Number(
     output.decimals ?? normalized.destination.token.decimals ?? 18,
   );
   return {
-    ...normalized,
+    ...baseWithMetadata,
     destination: {
       ...normalized.destination,
       amount: rawUnitsToDecimalString(output.amountRaw, decimals),
@@ -1458,6 +1469,9 @@ const stampDepositOutputAmounts = (
         output.minAmountRaw ?? output.amountRaw,
         decimals,
       ),
+      value: output.amountUsd
+        ? String(output.amountUsd)
+        : normalized.destination.value,
     },
   };
 };
@@ -2050,66 +2064,187 @@ function TruncatedAddress({
   );
 }
 
+const isNativeTokenContractAddress = (address?: string) =>
+  !address ||
+  address.toLowerCase() === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" ||
+  address.toLowerCase() === "0x0000000000000000000000000000000000000000";
+
 const getDisplayDestinationSourceRow = (
   entry: SwapHistoryEntry,
 ): HistorySourceRow | null => {
   if (entry.mode !== "deposit" && entry.mode !== "send") return null;
-  if (!entry.toToken || !entry.requestedToAmount) return null;
+  if (!entry.toToken && !entry.intentData?.destination) return null;
+
+  const destChainId =
+    entry.intentData?.destination.chain.id ?? entry.toToken?.chainId;
+  const destAddress = (
+    entry.intentData?.destination.token.contractAddress ??
+    entry.toToken?.contractAddress ??
+    ""
+  ).toLowerCase();
+  const destSymbol =
+    entry.intentData?.destination.token.symbol || entry.toToken?.symbol || "";
+  const destDecimals =
+    entry.intentData?.destination.token.decimals ?? entry.toToken?.decimals ?? 18;
+  const destName =
+    entry.intentData?.destination.chain.name || entry.toToken?.chainName || "";
+  const destLogo =
+    entry.intentData?.destination.token.logo || entry.toToken?.logo;
+  const destChainLogo = entry.toToken?.chainLogo;
+
+  // Find if entry.fromTokens has the matching destination token
+  const destinationFromToken = entry.fromTokens?.find((token) => {
+    const matchesChain =
+      destChainId !== undefined ? token.chainId === destChainId : true;
+    const tokenAddr = (token.contractAddress ?? "").toLowerCase();
+    const matchesAddress =
+      destAddress !== "" && tokenAddr !== ""
+        ? tokenAddr === destAddress ||
+          (isNativeTokenContractAddress(tokenAddr) &&
+            isNativeTokenContractAddress(destAddress))
+        : false;
+    const matchesSymbol =
+      Boolean(token.symbol && destSymbol) &&
+      token.symbol.toUpperCase() === destSymbol.toUpperCase();
+
+    return matchesChain && (matchesAddress || matchesSymbol);
+  });
 
   const requestedAmount = parseDecimalLoose(entry.requestedToAmount);
-  const intentDestinationAmount = parseDecimalLoose(
-    entry.intentData?.destination.amount,
-  );
-  const destinationBalanceAmount = parseDecimalLoose(
-    entry.toToken.balance?.replace(entry.toToken.symbol, ""),
-  );
-  if (
-    !requestedAmount ||
-    !destinationBalanceAmount ||
-    requestedAmount.lte(0) ||
-    destinationBalanceAmount.lte(0)
-  ) {
-    return null;
-  }
-
-  const intentCoversAmount = intentDestinationAmount ?? new Decimal(0);
-  const displayAmount = Decimal.min(
-    destinationBalanceAmount,
-    Decimal.max(0, requestedAmount.minus(intentCoversAmount)),
-  );
-  if (displayAmount.lte(0)) return null;
-
   const requestedValue = parseDecimalLoose(entry.requestedToValue);
   const destinationValue = parseDecimalLoose(
     entry.intentData?.destination.value,
   );
+  const intentDestinationAmount = parseDecimalLoose(
+    entry.intentData?.destination.amount,
+  );
+  const destinationBalanceAmount = parseDecimalLoose(
+    destinationFromToken?.balance ??
+      entry.toToken?.balance?.replace(entry.toToken?.symbol ?? "", ""),
+  );
+
   const rate =
-    requestedValue && requestedAmount.gt(0)
+    requestedValue && requestedAmount && requestedAmount.gt(0)
       ? requestedValue.div(requestedAmount)
-      : destinationValue && intentCoversAmount.gt(0)
-        ? destinationValue.div(intentCoversAmount)
+      : destinationValue && intentDestinationAmount && intentDestinationAmount.gt(0)
+        ? destinationValue.div(intentDestinationAmount)
         : undefined;
 
+  let displayAmount: Decimal | null = null;
+  let displayValue: Decimal | null = null;
+
+  // 1. If destinationFromToken has a positive userAmount
+  if (destinationFromToken) {
+    const userAmount = parseDecimalLoose(destinationFromToken.userAmount);
+    if (userAmount && userAmount.gt(0)) {
+      if (destinationFromToken.userAmountMode === "usd") {
+        displayValue = userAmount;
+        const balance = parseDecimalLoose(destinationFromToken.balance);
+        const fiat = parseDecimalLoose(destinationFromToken.balanceInFiat);
+        const price =
+          balance && balance.gt(0) && fiat && fiat.gt(0)
+            ? fiat.div(balance)
+            : rate;
+        displayAmount =
+          price && price.gt(0) ? userAmount.div(price) : userAmount;
+      } else {
+        displayAmount = userAmount;
+        if (destinationFromToken.userAmountUsd) {
+          displayValue =
+            parseDecimalLoose(destinationFromToken.userAmountUsd) ?? null;
+        } else {
+          const balance = parseDecimalLoose(destinationFromToken.balance);
+          const fiat = parseDecimalLoose(destinationFromToken.balanceInFiat);
+          const price =
+            balance && balance.gt(0) && fiat && fiat.gt(0)
+              ? fiat.div(balance)
+              : rate;
+          displayValue =
+            price && price.gt(0)
+              ? userAmount.mul(price)
+              : (fiat ?? userAmount);
+        }
+      }
+    }
+  }
+
+  // 2. Check exactInput requirement difference if not set yet
+  if (!displayAmount || displayAmount.lte(0)) {
+    const req =
+      readSwapAndExecuteRequirement(
+        (entry.intentData as any)?.executeRequirement,
+      ) ?? readSwapAndExecuteRequirement(entry.intentData);
+    const quoteOutput =
+      (entry.intentData as any)?.quote?.output ??
+      (entry.intentData as any)?.quoteOutput;
+    if (req?.token?.amountRaw != null && quoteOutput?.amountRaw != null) {
+      const decimals = Number(req.token.decimals ?? destDecimals);
+      const reqAmt = parseDecimalLoose(
+        rawUnitsToDecimalString(req.token.amountRaw, decimals),
+      );
+      const quoteAmt = parseDecimalLoose(
+        rawUnitsToDecimalString(quoteOutput.amountRaw, decimals),
+      );
+      if (reqAmt && quoteAmt && reqAmt.gt(quoteAmt)) {
+        displayAmount = reqAmt.minus(quoteAmt);
+        displayValue = rate
+          ? displayAmount.mul(rate)
+          : req.token.valueUsd
+            ? (parseDecimalLoose(req.token.valueUsd)?.minus(
+                parseDecimalLoose(quoteOutput.amountUsd) ?? 0,
+              ) ?? displayAmount)
+            : displayAmount;
+      }
+    }
+  }
+
+  // 3. Fallback to requestedAmount minus intentCoversAmount
+  if (!displayAmount || displayAmount.lte(0)) {
+    if (requestedAmount && requestedAmount.gt(0)) {
+      const intentCoversAmount = intentDestinationAmount ?? new Decimal(0);
+      const diff = requestedAmount.minus(intentCoversAmount);
+      if (diff.gt(0)) {
+        displayAmount =
+          destinationBalanceAmount && destinationBalanceAmount.gt(0)
+            ? Decimal.min(destinationBalanceAmount, diff)
+            : diff;
+        if (displayAmount.gt(0)) {
+          displayValue = rate ? displayAmount.mul(rate) : displayAmount;
+        }
+      }
+    }
+  }
+
+  if (!displayAmount || displayAmount.lte(0)) return null;
+
+  const symbol = destinationFromToken?.symbol || destSymbol;
   return {
-    key: `destination-balance-${entry.toToken.chainId}-${entry.toToken.contractAddress}`,
-    chainId: entry.toToken.chainId,
-    contractAddress: entry.toToken.contractAddress,
-    tokenLogo: entry.intentData?.destination.token.logo || entry.toToken.logo,
-    chainLogo: entry.toToken.chainLogo,
-    symbol: entry.toToken.symbol,
+    key: `destination-balance-${destChainId}-${destAddress || symbol}`,
+    chainId: destChainId,
+    contractAddress: destAddress || destinationFromToken?.contractAddress,
+    tokenLogo: destLogo || destinationFromToken?.logo,
+    chainLogo: destChainLogo || destinationFromToken?.chainLogo,
+    symbol,
     chainName: getShortChainName(
-      entry.toToken.chainId,
-      entry.toToken.chainName,
+      destChainId,
+      destName || destinationFromToken?.chainName,
     ),
     amount: displayAmount
       .toDecimalPlaces(
-        Math.max(0, entry.toToken.decimals ?? 18),
+        isStablecoinSymbol(symbol) ? 2 : Math.min(8, destDecimals),
         Decimal.ROUND_DOWN,
       )
       .toFixed(),
-    value: rate
-      ? displayAmount.mul(rate).toFixed()
-      : entry.toToken.balanceInFiat,
+    value: displayValue
+      ? displayValue.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed()
+      : rate
+        ? displayAmount
+            .mul(rate)
+            .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+            .toFixed()
+        : displayAmount
+            .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+            .toFixed(),
   };
 };
 
@@ -2752,7 +2887,7 @@ const getSourceRows = (entry: SwapHistoryEntry): HistorySourceRow[] => {
           token.chainId === source.chain.id &&
           (token.contractAddress?.toLowerCase() ===
             source.token.contractAddress?.toLowerCase() ||
-            token.symbol === source.token.symbol),
+            token.symbol?.toUpperCase() === source.token.symbol?.toUpperCase()),
       );
 
       return {
@@ -2768,24 +2903,120 @@ const getSourceRows = (entry: SwapHistoryEntry): HistorySourceRow[] => {
       };
     });
 
-    return mergeHistorySourceRows(
-      displayDestinationSourceRow
-        ? [displayDestinationSourceRow, ...sourceRows]
-        : sourceRows,
-    );
+    const allRows = displayDestinationSourceRow
+      ? [displayDestinationSourceRow, ...sourceRows]
+      : [...sourceRows];
+
+    // Ensure all tokens configured in entry.fromTokens with positive userAmount are included
+    for (const token of entry.fromTokens) {
+      const isAlreadyCovered = allRows.some((row) => {
+        const matchesChain = row.chainId === token.chainId;
+        const matchesAddress =
+          row.contractAddress && token.contractAddress
+            ? row.contractAddress.toLowerCase() ===
+              token.contractAddress.toLowerCase()
+            : false;
+        const matchesSymbol =
+          Boolean(row.symbol && token.symbol) &&
+          row.symbol.toUpperCase() === token.symbol.toUpperCase();
+        return matchesChain && (matchesAddress || matchesSymbol);
+      });
+
+      if (!isAlreadyCovered) {
+        const userAmt = parseDecimalLoose(token.userAmount);
+        if (userAmt && userAmt.gt(0)) {
+          const balance = parseDecimalLoose(token.balance);
+          const fiat = parseDecimalLoose(token.balanceInFiat);
+          const price =
+            balance && balance.gt(0) && fiat && fiat.gt(0)
+              ? fiat.div(balance)
+              : undefined;
+          const isUsd = token.userAmountMode === "usd";
+          const units = isUsd
+            ? price && price.gt(0)
+              ? userAmt.div(price)
+              : userAmt
+            : userAmt;
+          const val = isUsd
+            ? userAmt
+            : token.userAmountUsd
+              ? (parseDecimalLoose(token.userAmountUsd) ?? userAmt)
+              : price && price.gt(0)
+                ? userAmt.mul(price)
+                : (fiat ?? userAmt);
+
+          allRows.push({
+            key: `from-token-${token.chainId}-${token.contractAddress}-${token.symbol}`,
+            chainId: token.chainId,
+            contractAddress: token.contractAddress,
+            tokenLogo: token.logo,
+            chainLogo: token.chainLogo,
+            symbol: token.symbol,
+            chainName: getShortChainName(token.chainId, token.chainName),
+            amount: units
+              .toDecimalPlaces(
+                isStablecoinSymbol(token.symbol)
+                  ? 2
+                  : Math.min(8, token.decimals ?? 18),
+                Decimal.ROUND_DOWN,
+              )
+              .toFixed(),
+            value: val.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed(),
+          });
+        }
+      }
+    }
+
+    return mergeHistorySourceRows(allRows);
   }
 
-  const fallbackRows = entry.fromTokens.map((token, index) => ({
-    key: `${token.chainId}-${token.contractAddress}-${index}`,
-    chainId: token.chainId,
-    contractAddress: token.contractAddress,
-    tokenLogo: token.logo,
-    chainLogo: token.chainLogo,
-    symbol: token.symbol,
-    chainName: getShortChainName(token.chainId, token.chainName),
-    amount: token.userAmount || "0",
-    value: token.balanceInFiat,
-  }));
+  const fallbackRows = entry.fromTokens.map((token, index) => {
+    const userAmt = parseDecimalLoose(token.userAmount);
+    const balance = parseDecimalLoose(token.balance);
+    const fiat = parseDecimalLoose(token.balanceInFiat);
+    const price =
+      balance && balance.gt(0) && fiat && fiat.gt(0)
+        ? fiat.div(balance)
+        : undefined;
+    const isUsd = token.userAmountMode === "usd";
+    const units =
+      userAmt && userAmt.gt(0)
+        ? isUsd
+          ? price && price.gt(0)
+            ? userAmt.div(price)
+            : userAmt
+          : userAmt
+        : new Decimal(0);
+    const val =
+      userAmt && userAmt.gt(0)
+        ? isUsd
+          ? userAmt
+          : token.userAmountUsd
+            ? (parseDecimalLoose(token.userAmountUsd) ?? userAmt)
+            : price && price.gt(0)
+              ? userAmt.mul(price)
+              : (fiat ?? userAmt)
+        : parseDecimalLoose(token.balanceInFiat) ?? new Decimal(0);
+
+    return {
+      key: `${token.chainId}-${token.contractAddress}-${index}`,
+      chainId: token.chainId,
+      contractAddress: token.contractAddress,
+      tokenLogo: token.logo,
+      chainLogo: token.chainLogo,
+      symbol: token.symbol,
+      chainName: getShortChainName(token.chainId, token.chainName),
+      amount: units
+        .toDecimalPlaces(
+          isStablecoinSymbol(token.symbol)
+            ? 2
+            : Math.min(8, token.decimals ?? 18),
+          Decimal.ROUND_DOWN,
+        )
+        .toFixed(),
+      value: val.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed(),
+    };
+  });
 
   return mergeHistorySourceRows(
     displayDestinationSourceRow
@@ -3223,7 +3454,13 @@ export function SwapReceiptPanel({
                 }}
               >
                 <DepositCalculatedAmount
-                  value={displayAmount || "0"}
+                  value={
+                    displayAmount
+                      ? displayAmount.startsWith("~")
+                        ? displayAmount
+                        : `~${displayAmount}`
+                      : "~0"
+                  }
                   entranceDelay={success ? 350 : undefined}
                 />
               </span>
@@ -11833,9 +12070,8 @@ function NexusWidgetInner({
       sum.plus(parseFiatNumber((source as any).value) ?? new Decimal(0)),
     new Decimal(0),
   );
-  const previewSourceUsdNumber = previewIntentSourceUsdNumber.gt(0)
-    ? previewIntentSourceUsdNumber
-    : fromTokens.length > 0
+  const fromTokensUsdNumber =
+    fromTokens.length > 0
       ? fromTokens.reduce(
           (sum, token) =>
             sum.plus(
@@ -11848,7 +12084,17 @@ function NexusWidgetInner({
             ),
           new Decimal(0),
         )
-      : undefined;
+      : new Decimal(0);
+  const previewSourceUsdNumber =
+    activeMode === "deposit" &&
+    swapType === "exactIn" &&
+    fromTokensUsdNumber.gt(0)
+      ? fromTokensUsdNumber
+      : previewIntentSourceUsdNumber.gt(0)
+        ? previewIntentSourceUsdNumber
+        : fromTokensUsdNumber.gt(0)
+          ? fromTokensUsdNumber
+          : undefined;
   const previewExactOutDestinationAmount =
     activeMode === "send" ? parseFiatNumber(amount) : undefined;
   const previewExactOutDestinationUsdNumber =

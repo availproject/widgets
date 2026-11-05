@@ -444,15 +444,33 @@ export function DepositIdleForm({
     if (!openKey) return;
     const onPointerDown = (event: PointerEvent) => {
       const row = openRowRef.current;
-      if (!row || !(event.target instanceof Node) || row.contains(event.target)) {
+      if (row) {
+        if (typeof Node !== "undefined" && event.target instanceof Node) {
+          if (row.contains(event.target)) return;
+        } else if (
+          event.target &&
+          typeof (row as any).contains === "function" &&
+          (row as any).contains(event.target)
+        ) {
+          return;
+        }
+      }
+      const token = fromTokens.find((item, index) => tokenKey(item, index) === openKey);
+      const hasValue = Boolean(token?.userAmount?.trim() && readDecimal(token.userAmount).gt(0));
+      if (!hasValue) {
+        // User should not be able to click outside the input field unless a value is entered.
+        event.preventDefault();
+        event.stopPropagation();
+        const input = row?.querySelector("input");
+        input?.focus({ preventScroll: true });
         return;
       }
       setOpenKey(null);
       blurAmountField();
     };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [openKey]);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [openKey, fromTokens]);
 
   React.useEffect(() => {
     let index = -1;
@@ -716,7 +734,10 @@ export function DepositIdleForm({
             </button>
           ) : null}
         </div>
-        <div className="nx-hero nx-focusable">
+        <div
+          className="nx-hero nx-focusable"
+          style={{ cursor: "not-allowed", userSelect: "none" }}
+        >
           <div className="nx-who">{destinationLabel} receives</div>
           {showQuote && quotedReceive.gte(1_000_000) ? (
             <Tip label="Exact amount" trigger={quoteLine}>
@@ -774,7 +795,19 @@ export function DepositIdleForm({
               >
                 <div
                   className="nx-pr-top"
-                  onClick={() => setOpenKey(key)}
+                  onClick={() => {
+                    if (openKey && openKey !== key) {
+                      const currentToken = fromTokens.find(
+                        (item, i) => tokenKey(item, i) === openKey,
+                      );
+                      const hasValue = Boolean(
+                        currentToken?.userAmount?.trim() &&
+                          readDecimal(currentToken.userAmount).gt(0),
+                      );
+                      if (!hasValue) return;
+                    }
+                    setOpenKey(key);
+                  }}
                 >
                   <button className="nx-pr-tok" type="button" aria-label={`Change ${token.symbol} on ${token.chainName}`} disabled={isSourcePickerDisabled || isAmountReadOnly}
                     onClick={(event) => { event.stopPropagation(); onOpenSourcePicker(index); }}>
@@ -957,6 +990,16 @@ export function DepositIdleForm({
             aria-label={atCap ? "Token limit: show details" : undefined}
             disabled={isSourcePickerDisabled}
             onClick={() => {
+              if (openKey) {
+                const currentToken = fromTokens.find(
+                  (item, i) => tokenKey(item, i) === openKey,
+                );
+                const hasValue = Boolean(
+                  currentToken?.userAmount?.trim() &&
+                    readDecimal(currentToken.userAmount).gt(0),
+                );
+                if (!hasValue) return;
+              }
               if (!atCap) { onOpenSourcePicker(); return; }
               setCapNote(true);
               if (capTimer.current) clearTimeout(capTimer.current);

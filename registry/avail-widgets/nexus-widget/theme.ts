@@ -172,7 +172,8 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-skel-row { display:flex; align-items:center; gap:12px; padding:12px; animation: nx-row-in 200ms cubic-bezier(.23,1,.32,1) both; }
 .nx-shim { position:relative; overflow:hidden; border-radius:10px; background:var(--nx-shim); }
 .nx-shim::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,var(--nx-shim-hi),transparent); transform:translateX(-100%); animation:nx-shimmer 1.4s linear infinite; }
-.nx-hero { display:flex; flex-direction:column; align-items:center; gap:6px; padding:20px 12px 18px; }
+.nx-hero { display:flex; flex-direction:column; align-items:center; gap:6px; padding:20px 12px 18px; cursor:not-allowed; user-select:none; }
+.nx-hero * { cursor:not-allowed; }
 .nx-who { font:400 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-ink); }
 .nx-amt-line { display:flex; align-items:center; gap:8px; min-height:56px; }
 .nx-big { font:300 48px/56px "Geist",system-ui,sans-serif; letter-spacing:-.03em; color:var(--nx-ink); }

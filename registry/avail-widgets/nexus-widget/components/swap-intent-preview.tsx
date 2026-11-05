@@ -58,6 +58,8 @@ export interface SwapIntentData {
   swapRequired?: boolean;
   bridgeProvider?: BridgeProvider;
   destination: SwapIntentDestination;
+  executeRequirement?: any;
+  quote?: any;
   feesAndBuffer?: {
     buffer?: string;
     bridge?:

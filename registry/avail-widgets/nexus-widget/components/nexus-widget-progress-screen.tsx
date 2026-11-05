@@ -5,7 +5,7 @@
 import Decimal from "decimal.js";
 import { Check, ChevronDown, Loader2, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { parseAmount as parseDecimal } from "../utils/amount";
+import { parseAmount as parseDecimal, isStablecoinSymbol } from "../utils/amount";
 import type {
   BridgeStepType,
   SwapStepType,
@@ -1490,30 +1490,64 @@ export function NexusWidgetProgressScreen({
     : PROGRESS_GRID_LIGHT_URL;
   const intentSources = intentData?.sources ?? [];
   const intentDestination = intentData?.destination;
+  const destinationChainId = intentDestination?.chain.id ?? toToken?.chainId;
+  const destinationTokenAddress = (
+    intentDestination?.token.contractAddress ??
+    toToken?.contractAddress ??
+    ""
+  ).toLowerCase();
+  const destSymbol = (
+    intentDestination?.token.symbol ||
+    toToken?.symbol ||
+    ""
+  ).toUpperCase();
+
+  const isNativeAddr = (addr?: string) =>
+    !addr ||
+    addr.toLowerCase() === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" ||
+    addr.toLowerCase() === "0x0000000000000000000000000000000000000000";
+
   const destinationSourceToken = fromTokens.find((token) => {
-    const destinationChainId = intentDestination?.chain.id ?? toToken?.chainId;
-    const destinationTokenAddress = (
-      intentDestination?.token.contractAddress ??
-      toToken?.contractAddress ??
-      ""
-    ).toLowerCase();
+    const matchesChain =
+      destinationChainId !== undefined ? token.chainId === destinationChainId : true;
+    const tokenAddr = (token.contractAddress ?? "").toLowerCase();
+    const matchesAddress =
+      destinationTokenAddress !== "" && tokenAddr !== ""
+        ? tokenAddr === destinationTokenAddress ||
+          (isNativeAddr(tokenAddr) && isNativeAddr(destinationTokenAddress))
+        : false;
+    const matchesSymbol =
+      Boolean(token.symbol && destSymbol) &&
+      token.symbol.toUpperCase() === destSymbol;
     const tokenAmount =
       parseDecimal(token.userAmount) ?? parseDecimal(token.balance);
 
     return (
-      destinationChainId !== undefined &&
-      destinationTokenAddress !== "" &&
-      token.chainId === destinationChainId &&
-      token.contractAddress.toLowerCase() === destinationTokenAddress &&
+      matchesChain &&
+      (matchesAddress || matchesSymbol) &&
       Boolean(tokenAmount && tokenAmount.gt(0))
     );
   });
-  const sourceSymbols = unique([
-    ...(destinationSourceToken ? [destinationSourceToken.symbol] : []),
-    ...(intentSources.length > 0
-      ? intentSources.map((source) => source.token.symbol)
-      : fromTokens.map((token) => token.symbol)),
-  ]);
+
+  const allSourceSymbols: string[] = [];
+  if (destinationSourceToken?.symbol) {
+    allSourceSymbols.push(destinationSourceToken.symbol);
+  }
+  for (const s of intentSources) {
+    if (s.token?.symbol) allSourceSymbols.push(s.token.symbol);
+  }
+  for (const t of fromTokens) {
+    const amt = parseDecimal(t.userAmount);
+    if (amt && amt.gt(0) && t.symbol) {
+      allSourceSymbols.push(t.symbol);
+    }
+  }
+  const sourceSymbols = unique(
+    allSourceSymbols.length > 0
+      ? allSourceSymbols
+      : fromTokens.map((token) => token.symbol),
+  );
+
   const intentSourceUsd =
     intentSources.length > 0
       ? intentSources.reduce(
@@ -1538,26 +1572,57 @@ export function NexusWidgetProgressScreen({
             quotedDestinationAmount,
           )
         : undefined;
+
+  const destinationSourceUsd = (() => {
+    if (!destinationSourceToken) return undefined;
+    const userAmount = parseDecimal(destinationSourceToken.userAmount);
+    if (userAmount && userAmount.gt(0)) {
+      if (destinationSourceToken.userAmountMode === "usd") {
+        return userAmount;
+      }
+      if (destinationSourceToken.userAmountUsd) {
+        const quotedUsd = parseDecimal(destinationSourceToken.userAmountUsd);
+        if (quotedUsd && quotedUsd.gt(0)) return quotedUsd;
+      }
+      const balance = parseDecimal(destinationSourceToken.balance);
+      const fiat = parseDecimal(destinationSourceToken.balanceInFiat);
+      const price =
+        balance && balance.gt(0) && fiat && fiat.gt(0)
+          ? fiat.div(balance)
+          : destinationUsdRate;
+      if (price && price.gt(0)) {
+        return userAmount.mul(price);
+      }
+      return fiat ?? userAmount;
+    }
+    return undefined;
+  })();
+
   const destinationCoverageUsd =
-    (mode === "deposit" || mode === "send") &&
-    requestedDestinationAmount &&
-    requestedDestinationAmount.gt(0) &&
-    quotedDestinationAmount &&
-    requestedDestinationAmount.gt(quotedDestinationAmount) &&
-    destinationBalanceAmount &&
-    destinationBalanceAmount.gt(0) &&
-    destinationUsdRate &&
-    destinationUsdRate.gt(0)
-      ? Decimal.min(
-          requestedDestinationAmount.minus(quotedDestinationAmount),
-          destinationBalanceAmount,
-        ).mul(destinationUsdRate)
+    mode === "deposit" || mode === "send"
+      ? destinationSourceUsd ??
+        (requestedDestinationAmount &&
+        requestedDestinationAmount.gt(0) &&
+        quotedDestinationAmount &&
+        requestedDestinationAmount.gt(quotedDestinationAmount) &&
+        destinationBalanceAmount &&
+        destinationBalanceAmount.gt(0) &&
+        destinationUsdRate &&
+        destinationUsdRate.gt(0)
+          ? Decimal.min(
+              requestedDestinationAmount.minus(quotedDestinationAmount),
+              destinationBalanceAmount,
+            ).mul(destinationUsdRate)
+          : undefined)
       : undefined;
+
   const quotedDestinationUsd = parseDecimal(intentDestination?.value);
   const feeUsd = parseDecimal(totalFeeUsd);
+  const fromUsdProp = parseDecimal(fromAmountUsd);
   const sourceUsd =
     mode === "deposit" || mode === "send"
       ? [
+          fromUsdProp,
           destinationCoverageUsd !== undefined
             ? (intentSourceUsd ?? new Decimal(0)).plus(destinationCoverageUsd)
             : intentSourceUsd,
@@ -1602,6 +1667,37 @@ export function NexusWidgetProgressScreen({
     mode === "deposit"
       ? opportunity?.title || opportunity?.protocol || destinationChainName
       : destinationChainName;
+
+  const augmentedIntentSources =
+    destinationSourceToken &&
+    !intentSources.some(
+      (s) =>
+        s.chain.id === destinationSourceToken.chainId &&
+        (s.token.contractAddress?.toLowerCase() ===
+          destinationSourceToken.contractAddress?.toLowerCase() ||
+          s.token.symbol?.toUpperCase() ===
+            destinationSourceToken.symbol?.toUpperCase()),
+    )
+      ? [
+          ...intentSources,
+          {
+            chain: {
+              id: destinationSourceToken.chainId ?? 0,
+              name: destinationSourceToken.chainName ?? "",
+              logo: destinationSourceToken.chainLogo ?? "",
+            },
+            token: {
+              contractAddress: destinationSourceToken.contractAddress,
+              symbol: destinationSourceToken.symbol,
+              decimals: destinationSourceToken.decimals,
+              logo: destinationSourceToken.logo ?? "",
+            },
+            amount: destinationSourceToken.userAmount ?? "0",
+            value: destinationSourceUsd?.toFixed() ?? "0",
+          },
+        ]
+      : intentSources;
+
   const statusRows = buildStatusRows({
     events: progressEvents,
     failedStep,
@@ -1613,7 +1709,7 @@ export function NexusWidgetProgressScreen({
       destinationChain: destinationChainName || destinationChain,
       destinationSymbol,
       fromTokens,
-      intentSources,
+      intentSources: augmentedIntentSources,
       opportunity: opportunity
         ? {
             chainId: opportunity.chainId,
@@ -1705,7 +1801,17 @@ export function NexusWidgetProgressScreen({
                 marginTop: "2px",
               }}
             >
-              <span><DepositCalculatedAmount value={formatDecimal(destinationAmount, 2)} /></span>
+              <span>
+                <DepositCalculatedAmount
+                  value={(() => {
+                    const dec = isStablecoinSymbol(destinationSymbol)
+                      ? 2
+                      : Math.min(6, toToken?.decimals ?? 6);
+                    const formatted = formatDecimal(destinationAmount, dec);
+                    return formatted.startsWith("~") ? formatted : `~${formatted}`;
+                  })()}
+                />
+              </span>
               <span
                 style={{
                   color: "var(--nx-mute, #737372)",

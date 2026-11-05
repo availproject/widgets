@@ -482,4 +482,327 @@ test("SwapReceiptPanel renders refund reassurance message when transaction was r
   }
 });
 
+test("DepositIdleForm receive section has not-allowed cursor to indicate non-editable", async () => {
+  const originals = Object.fromEntries(
+    ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+    window: { setTimeout, clearTimeout },
+  });
+
+  try {
+    let renderer: ReactTestRenderer | undefined;
+    await act(async () => {
+      renderer = create(
+        <DepositIdleForm
+          amount=""
+          amountMode="usd"
+          fromTokens={[token]}
+          destinationLabel="Aave"
+          onUpdateTokens={() => {}}
+          onAmountChange={() => {}}
+          onAmountModeToggle={() => {}}
+          onOpenSourcePicker={() => {}}
+          onSetPercent={() => {}}
+          tokenValue="0"
+          usdValue="0"
+          totalBalance="500"
+          isQuoteRefreshing={false}
+          maxSourceTokens={3}
+        />
+      );
+    });
+
+    const hero = renderer!.root.findByProps({ className: "nx-hero nx-focusable" });
+    assert.ok(hero);
+    assert.equal(hero.props.style?.cursor, "not-allowed");
+    assert.equal(hero.props.style?.userSelect, "none");
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
+test("DepositIdleForm does not dismiss open input when value is not entered", async () => {
+  const originals = Object.fromEntries(
+    ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+
+  let capturedPointerDown: ((e: any) => void) | undefined;
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: {
+      addEventListener(type: string, fn: any) {
+        if (type === "pointerdown") capturedPointerDown = fn;
+      },
+      removeEventListener() {},
+    },
+    window: { setTimeout, clearTimeout },
+  });
+
+  try {
+    let renderer: ReactTestRenderer | undefined;
+    const emptyToken: SwapTokenOption = {
+      ...token,
+      userAmount: "",
+    };
+
+    await act(async () => {
+      renderer = create(
+        <DepositIdleForm
+          amount=""
+          amountMode="usd"
+          fromTokens={[emptyToken]}
+          destinationLabel="Aave"
+          onUpdateTokens={() => {}}
+          onAmountChange={() => {}}
+          onAmountModeToggle={() => {}}
+          onOpenSourcePicker={() => {}}
+          onSetPercent={() => {}}
+          tokenValue="0"
+          usdValue="0"
+          totalBalance="500"
+          isQuoteRefreshing={false}
+          maxSourceTokens={3}
+        />
+      );
+    });
+
+    assert.ok(capturedPointerDown, "pointerdown listener should be registered");
+
+    let prevented = false;
+    let stopped = false;
+    const fakeEvent = {
+      target: {}, // outside node
+      preventDefault() {
+        prevented = true;
+      },
+      stopPropagation() {
+        stopped = true;
+      },
+    };
+
+    capturedPointerDown!(fakeEvent);
+    assert.ok(prevented, "Click outside should be prevented when amount is empty");
+    assert.ok(stopped, "Click outside propagation should be stopped when amount is empty");
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
+test("deposit receipt and progress screen include destination-chain source token when source matches destination", async () => {
+  const originals = Object.fromEntries(
+    ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+    window: { setTimeout, clearTimeout },
+  });
+
+  try {
+    const toToken: SwapTokenOption = {
+      chainId: 10,
+      contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      balance: "5.0",
+      balanceInFiat: "5.0",
+    };
+
+    // User selected 3 sources:
+    // 1. USDC on Optimism ($1.41)
+    // 2. USDT on Arbitrum ($1.48)
+    // 3. USDC on Base ($1.00)
+    const fromTokens: SwapTokenOption[] = [
+      {
+        chainId: 10,
+        contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+        symbol: "USDC",
+        name: "USD Coin",
+        decimals: 6,
+        balance: "5.0",
+        balanceInFiat: "5.0",
+        userAmount: "1.41",
+        userAmountMode: "usd",
+        chainName: "Optimism",
+      },
+      {
+        chainId: 42161,
+        contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+        symbol: "USDT",
+        name: "Tether USD",
+        decimals: 6,
+        balance: "10.0",
+        balanceInFiat: "10.0",
+        userAmount: "1.48",
+        userAmountMode: "usd",
+        chainName: "Arbitrum",
+      },
+      {
+        chainId: 8453,
+        contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        symbol: "USDC",
+        name: "USD Coin",
+        decimals: 6,
+        balance: "10.0",
+        balanceInFiat: "10.0",
+        userAmount: "1.00",
+        userAmountMode: "usd",
+        chainName: "Base",
+      },
+    ];
+
+    // Cross-chain swap intent only contains the cross-chain sources (Arbitrum and Base)
+    const intentData: any = {
+      swapRequired: true,
+      destination: {
+        chain: { id: 10, name: "Optimism" },
+        token: {
+          contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+          symbol: "USDC",
+          decimals: 6,
+        },
+        amount: "3.89",
+        value: "3.89",
+      },
+      sources: [
+        {
+          chain: { id: 42161, name: "Arbitrum" },
+          token: {
+            contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+            symbol: "USDT",
+          },
+          amount: "1.48",
+          value: "1.48",
+        },
+        {
+          chain: { id: 8453, name: "Base" },
+          token: {
+            contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            symbol: "USDC",
+          },
+          amount: "1.00",
+          value: "1.00",
+        },
+      ],
+      executeRequirement: {
+        chain: { id: 10, name: "Optimism" },
+        token: {
+          address: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+          amount: "3.89",
+          amountRaw: 3890000n,
+          decimals: 6,
+          symbol: "USDC",
+          valueUsd: "3.89",
+        },
+      },
+    };
+
+    const entry: any = {
+      id: "deposit-multi-source-test",
+      status: "fulfilled",
+      mode: "deposit",
+      createdAt: Date.now(),
+      startedAt: Date.now() - 1000,
+      durationSeconds: 1,
+      fromTokens,
+      toToken,
+      intentData,
+      requestedToAmount: "3.89",
+      requestedToValue: "3.89",
+      opportunity: {
+        title: "Aave",
+        protocol: "Aave",
+        chainId: 10,
+        tokenSymbol: "USDC",
+      },
+    };
+
+    let receiptRenderer: ReactTestRenderer | undefined;
+    await act(async () => {
+      receiptRenderer = create(
+        <SwapReceiptPanel entry={entry} onDone={() => {}} />
+      );
+    });
+
+    const receiptJson = JSON.stringify(receiptRenderer!.toJSON());
+    // 1. Must count 3 tokens: children: ["3", " token", "s", " ", "▾"]
+    assert.ok(receiptJson.includes('"3"') && receiptJson.includes('" token"'), "Receipt should show 3 tokens");
+    // 2. Must show total deposited $3.89
+    assert.ok(receiptJson.includes("$3.89"), "Receipt should show $3.89 total deposited");
+
+    // Click the tokens button to expand the source breakdown
+    const toggleButton = receiptRenderer!.root
+      .findAllByType("button")
+      .find((b) =>
+        b.props.children?.some?.(
+          (c: any) => typeof c === "string" && c.includes("token")
+        )
+      );
+    assert.ok(toggleButton, "Toggle button should exist");
+    await act(async () => {
+      toggleButton.props.onClick();
+    });
+
+    const expandedJson = JSON.stringify(receiptRenderer!.toJSON());
+    assert.ok(expandedJson.includes("USDC"), "Receipt breakdown should include USDC");
+    assert.ok(expandedJson.includes("USDT"), "Receipt breakdown should include USDT");
+    assert.ok(expandedJson.includes("Optimism"), "Receipt breakdown should include Optimism");
+    assert.ok(expandedJson.includes("Arbitrum"), "Receipt breakdown should include Arbitrum");
+    assert.ok(expandedJson.includes("Base"), "Receipt breakdown should include Base");
+
+    // Test Progress Screen
+    let progressRenderer: ReactTestRenderer | undefined;
+    await act(async () => {
+      progressRenderer = create(
+        <NexusWidgetProgressScreen
+          mode="deposit"
+          fromTokens={fromTokens}
+          toToken={toToken}
+          intentData={intentData}
+          toAmount="3.89"
+          toAmountUsd="3.89"
+          fromAmountUsd="3.89"
+          opportunity={entry.opportunity}
+        />
+      );
+    });
+
+    const progressJson = JSON.stringify(progressRenderer!.toJSON());
+    // Progress screen must show "You Spend $3.89"
+    assert.ok(progressJson.includes("$3.89"), "Progress screen should include $3.89 spend");
+    assert.ok(
+      progressJson.includes('"Aave"') && progressJson.includes('" Receives"'),
+      "Progress screen should show Aave Receives"
+    );
+    assert.ok(
+      progressJson.includes('"on"') && progressJson.includes('"Optimism"'),
+      "Progress screen should show on Optimism"
+    );
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
 
