@@ -473,16 +473,16 @@ const getStepTokenSymbol = (
     (step as any).tokenSymbol ??
     step.token?.symbol ??
     (step as any).symbol;
-  if (directSymbol && typeof directSymbol === "string" && directSymbol.trim() !== "") {
-    return directSymbol.trim();
-  }
 
-  const tokenAddress = getStepTokenAddress(step);
+  const isNative = isNativeTransactionStep(step);
   const chainId = getStepChainId(step);
 
   // If this is a native transaction step, resolve the native token symbol for its chain
-  if (isNativeTransactionStep(step)) {
+  if (isNative) {
     if (chainId !== undefined) {
+      const nativeCurrency = CHAIN_METADATA[chainId]?.nativeCurrency?.symbol;
+      if (nativeCurrency) return nativeCurrency;
+
       const fromNative = context?.fromTokens?.find(
         (t) =>
           t.chainId === chainId &&
@@ -502,17 +502,23 @@ const getStepTokenSymbol = (
               "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
       );
       if (sourceNative?.token?.symbol) return sourceNative.token.symbol;
+    }
 
-      const fromAnyOnChain = context?.fromTokens?.find((t) => t.chainId === chainId);
-      if (fromAnyOnChain?.symbol) return fromAnyOnChain.symbol;
-
-      const sourceAnyOnChain = context?.intentSources?.find((s) => s.chain?.id === chainId);
-      if (sourceAnyOnChain?.token?.symbol) return sourceAnyOnChain.token.symbol;
-
-      const nativeCurrency = CHAIN_METADATA[chainId]?.nativeCurrency?.symbol;
-      if (nativeCurrency) return nativeCurrency;
+    if (
+      directSymbol &&
+      typeof directSymbol === "string" &&
+      directSymbol.trim() !== "" &&
+      !isStablecoinSymbol(directSymbol)
+    ) {
+      return directSymbol.trim();
     }
   }
+
+  if (directSymbol && typeof directSymbol === "string" && directSymbol.trim() !== "") {
+    return directSymbol.trim();
+  }
+
+  const tokenAddress = getStepTokenAddress(step);
 
   if (
     tokenAddress &&
@@ -1650,15 +1656,33 @@ export function NexusWidgetProgressScreen({
             undefined,
           )
       : intentSourceUsd;
-  const destinationAmount =
-    (mode === "deposit" || mode === "send") && toAmount
-      ? toAmount
-      : (intentDestination?.amount ?? toAmount ?? "0");
   const destinationSymbol =
     intentDestination?.token.symbol ||
     toToken?.symbol ||
     opportunity?.tokenSymbol ||
     "";
+  const destinationAmount = (() => {
+    if (toAmount && toAmount !== "0") return toAmount;
+    if (intentDestination?.amount && intentDestination.amount !== "0") {
+      return intentDestination.amount;
+    }
+    const reqAmount = (intentData as any)?.executeRequirement?.token?.amount;
+    if (reqAmount && String(reqAmount) !== "0") {
+      return String(reqAmount);
+    }
+    const fallbackUsd =
+      parseDecimal(toAmountUsd) ??
+      parseDecimal((intentDestination as any)?.value) ??
+      (isStablecoinSymbol(destinationSymbol) ? sourceUsd : undefined);
+    if (
+      fallbackUsd &&
+      fallbackUsd.gt(0) &&
+      isStablecoinSymbol(destinationSymbol)
+    ) {
+      return fallbackUsd.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed();
+    }
+    return toAmount ?? "0";
+  })();
   const destinationChainName = getShortChainName(
     intentDestination?.chain.id ?? toToken?.chainId,
     intentDestination?.chain.name || toToken?.chainName || "",

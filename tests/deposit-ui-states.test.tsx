@@ -805,4 +805,142 @@ test("deposit receipt and progress screen include destination-chain source token
   }
 });
 
+test("NexusWidgetProgressScreen and SwapReceiptPanel persist exact-in destination amount and round stablecoins to 2 decimal places", async () => {
+  const originals = Object.fromEntries(
+    ["window", "document", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: {
+      addEventListener() {},
+      removeEventListener() {},
+      documentElement: { style: {} },
+    },
+    window: {
+      addEventListener() {},
+      removeEventListener() {},
+      matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
+    },
+  });
+
+  try {
+    const toToken: SwapTokenOption = {
+      chainId: 10,
+      chainName: "Optimism",
+      contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+      symbol: "USDC",
+      decimals: 6,
+      name: "USD Coin",
+      balance: "0",
+      balanceInFiat: "$0.00",
+    };
+
+    // 1. Test Progress Screen: toAmount is empty or "0", but executeRequirement has 1.53 USDC
+    const intentDataWithRequirement: any = {
+      bridgeProvider: "Across",
+      destination: {
+        amount: "0", // raw intent might have 0
+        chain: { id: 10, name: "Optimism" },
+        token: { symbol: "USDC", decimals: 6, contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85" },
+        value: "1.53",
+      },
+      executeRequirement: {
+        token: {
+          symbol: "USDC",
+          decimals: 6,
+          amount: "1.53",
+          amountRaw: BigInt(1530000),
+          valueUsd: "1.53",
+        },
+      },
+      sources: [
+        {
+          chain: { id: 999, name: "HyperEVM" },
+          token: { symbol: "HYPE", decimals: 18 },
+          amount: "0.01",
+          value: "1.55",
+        },
+      ],
+    };
+
+    let progressRenderer: ReactTestRenderer | undefined;
+    await act(async () => {
+      progressRenderer = create(
+        <NexusWidgetProgressScreen
+          mode="deposit"
+          toToken={toToken}
+          intentData={intentDataWithRequirement}
+          toAmount="0"
+          toAmountUsd="1.53"
+          fromAmountUsd="1.55"
+          opportunity={{ title: "Aave", protocol: "aave-v3", chainId: 10, tokenAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85", tokenSymbol: "USDC", tokenDecimals: 6 }}
+        />
+      );
+    });
+
+    const progressJson = JSON.stringify(progressRenderer!.toJSON());
+    // Should NOT show ~0 USDC, but should show ~1.53
+    assert.ok(!progressJson.includes('"~0"'), "Progress screen should not show ~0");
+    assert.ok(progressJson.includes("1.53"), "Progress screen should show ~1.53 USDC");
+
+    // 2. Test SwapReceiptPanel: destination amount is 0.754421 USDC (should format to ~0.75 USDC)
+    const receiptEntry: any = {
+      id: "test-receipt-entry",
+      mode: "deposit",
+      status: "success",
+      createdAt: Date.now() - 5000,
+      durationSeconds: 1,
+      toToken,
+      opportunity: { title: "Aave", protocol: "aave-v3", chainId: 10, tokenSymbol: "USDC" },
+      intentData: {
+        destination: {
+          amount: "0.754421",
+          chain: { id: 10, name: "Optimism" },
+          token: { symbol: "USDC", decimals: 6 },
+          value: "0.75",
+        },
+        sources: [
+          {
+            chain: { id: 56, name: "BNB" },
+            token: { symbol: "BNB", decimals: 18 },
+            amount: "0.00071633",
+            value: "0.5",
+          },
+          {
+            chain: { id: 999, name: "HyperEVM" },
+            token: { symbol: "HYPE", decimals: 18 },
+            amount: "0.00118685",
+            value: "0.1",
+          },
+        ],
+      },
+      fromTokens: [],
+    };
+
+    let receiptRenderer: ReactTestRenderer | undefined;
+    await act(async () => {
+      receiptRenderer = create(
+        <SwapReceiptPanel
+          entry={receiptEntry}
+          onDone={() => {}}
+        />
+      );
+    });
+
+    const receiptJson = JSON.stringify(receiptRenderer!.toJSON());
+    // Should display ~0.75 USDC, NOT ~0.754421 USDC
+    assert.ok(receiptJson.includes("0.75"), "Receipt should show rounded down 2-decimal 0.75");
+    assert.ok(!receiptJson.includes("0.754421"), "Receipt should not show 6-decimal 0.754421");
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
+
 

@@ -741,18 +741,27 @@ export const normalizeSwapAndExecuteIntent = (
     const normalizedQuote = normalizeIntentQuote(intent.quote, chains);
     const isExactInput =
       intent.quote.tradeType === "exactInput" ||
-      (intent as any).tradeType === "exactInput";
+      (intent.quote as any).tradeType === "exactIn" ||
+      (intent as any).tradeType === "exactInput" ||
+      (intent as any).tradeType === "exactIn" ||
+      Boolean(req?.token);
     const reqToken = req?.token;
     const outputDecimals = reqToken?.decimals || token?.decimals || 18;
+    const rawAmount =
+      reqToken?.amountRaw != null
+        ? formatUnits(reqToken.amountRaw, outputDecimals)
+        : reqToken?.amount != null && String(reqToken.amount) !== "0"
+          ? String(reqToken.amount)
+          : undefined;
 
     const destination =
-      isExactInput && reqToken?.amountRaw != null
+      isExactInput && (rawAmount != null || reqToken?.amount != null)
         ? {
             ...normalizedQuote.destination,
-            amount: formatUnits(reqToken.amountRaw, outputDecimals),
-            minAmount: formatUnits(reqToken.amountRaw, outputDecimals),
-            minAmountUsd: reqToken.amount,
-            value: reqToken.amount,
+            amount: rawAmount ?? String(reqToken?.amount ?? normalizedQuote.destination.amount),
+            minAmount: rawAmount ?? String(reqToken?.amount ?? normalizedQuote.destination.minAmount),
+            minAmountUsd: reqToken?.amount ?? rawAmount,
+            value: reqToken?.amount ?? rawAmount,
             gas: executionGas,
           }
         : {
@@ -774,11 +783,17 @@ export const normalizeSwapAndExecuteIntent = (
   const outputDecimals = req.token.decimals || token?.decimals || 18;
   const isExactInputNoSwap =
     (intent as any).tradeType === "exactInput" ||
-    (intent as any).quote?.tradeType === "exactInput";
+    (intent as any).tradeType === "exactIn" ||
+    (intent as any).quote?.tradeType === "exactInput" ||
+    (intent as any).quote?.tradeType === "exactIn";
+  const rawNoSwapAmount =
+    isExactInputNoSwap && req.token?.amountRaw != null
+      ? formatUnits(req.token.amountRaw, outputDecimals)
+      : req.token.amount;
   const exactInputValue =
     isExactInputNoSwap && req.token?.amount != null
       ? req.token.amount
-      : req.token.valueUsd;
+      : req.token.valueUsd ?? rawNoSwapAmount;
   const zeroFees = {
     caGas: "0",
     caGasUsd: "0",
@@ -795,8 +810,8 @@ export const normalizeSwapAndExecuteIntent = (
   return {
     bridgeProvider: null,
     destination: {
-      amount: req.token.amount,
-      minAmount: req.token.amount,
+      amount: rawNoSwapAmount,
+      minAmount: rawNoSwapAmount,
       minAmountUsd: exactInputValue,
       value: exactInputValue,
       chain: {

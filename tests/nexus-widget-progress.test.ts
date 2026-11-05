@@ -664,6 +664,46 @@ test("native transaction step resolves native token symbol (BNB) rather than mis
   assert.equal(nativeRow?.description, "Confirm BNB deposit in wallet");
 });
 
+test("native transaction step resolves native token symbol (BNB) even when fromTokens contains USDT on same chain (56)", () => {
+  const bnbNative = {
+    id: "native:56:1",
+    type: "NATIVE_TRANSACTION",
+    kind: "native_source_deposit",
+    chainId: 56,
+    sourceIndex: 1,
+  };
+  const stepsList = [
+    { id: "intent-signature", type: "INTENT_SIGNATURE" },
+    { id: "native:999:0", type: "NATIVE_TRANSACTION", kind: "native_source_deposit", chainId: 999, sourceIndex: 0 },
+    bnbNative,
+  ];
+  const context = {
+    destinationChain: "Optimism",
+    destinationSymbol: "USDC",
+    opportunityName: "Aave",
+    fromTokens: [
+      { chainId: 999, symbol: "HYPE", contractAddress: "0x0000000000000000000000000000000000000000" },
+      { chainId: 56, symbol: "USDT", contractAddress: "0x55d398326f99059ff775485246999027b3197955" },
+    ],
+    intentSources: [
+      { chain: { id: 999 }, token: { symbol: "HYPE" } },
+      { chain: { id: 56 }, token: { symbol: "USDT" } },
+    ],
+  };
+
+  const events: NexusWidgetProgressEvent[] = [
+    plan(stepsList),
+    progress({ id: "intent-signature", type: "INTENT_SIGNATURE" }, "completed"),
+    progress(stepsList[1], "completed"),
+  ];
+
+  const res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  const nativeRow = res.find((r) => r.id === "nativeTransactions");
+  assert.equal(nativeRow?.label, "Deposit native tokens (2 of 2)");
+  assert.equal(nativeRow?.description, "Confirm BNB deposit in wallet");
+});
+
+
 
 
 

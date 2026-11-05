@@ -1446,14 +1446,14 @@ const stampDepositOutputAmounts = (
     ...(quoteOutput ? { quoteOutput } : {}),
   };
 
-  if (
-    req?.token?.amountRaw != null &&
-    (tradeType === "exactInput" || tradeType === "exactIn")
-  ) {
+  if (req?.token?.amountRaw != null || req?.token?.amount != null) {
     const decimals = Number(
       req.token.decimals ?? normalized.destination.token.decimals ?? 18,
     );
-    const amountStr = rawUnitsToDecimalString(req.token.amountRaw, decimals);
+    const amountStr =
+      req.token.amountRaw != null
+        ? rawUnitsToDecimalString(req.token.amountRaw, decimals)
+        : String(req.token.amount);
     const usdStr = String(req.token.amount ?? amountStr);
     return {
       ...baseWithMetadata,
@@ -3127,7 +3127,7 @@ function SourceRowsList({
                   fontSize: "15px",
                 }}
               >
-                {formatTokenDisplay(row.amount)} {row.symbol}
+                {formatTokenDisplay(row.amount, row.symbol)} {row.symbol}
               </span>
               <span
                 style={{
@@ -3205,15 +3205,25 @@ export function SwapReceiptPanel({
     entry.opportunity?.tokenLogo ||
     (isDeposit ? entry.opportunity?.logo : undefined);
   const requestedExactOutAmount =
-    (isDeposit || isSend) && entry.requestedToAmount
+    (isDeposit || isSend) && entry.requestedToAmount && entry.requestedToAmount !== "0"
       ? entry.requestedToAmount
       : undefined;
   const requestedExactOutValue =
-    (isDeposit || isSend) && entry.requestedToValue
+    (isDeposit || isSend) && entry.requestedToValue && entry.requestedToValue !== "0"
       ? entry.requestedToValue
       : undefined;
   const value = requestedExactOutValue || destination?.value;
-  const displayAmount = requestedExactOutAmount || amount;
+  const rawDisplayAmount =
+    requestedExactOutAmount ||
+    (amount && amount !== "0" ? amount : undefined) ||
+    ((entry.intentData as any)?.executeRequirement?.token?.amount &&
+    String((entry.intentData as any).executeRequirement.token.amount) !== "0"
+      ? String((entry.intentData as any).executeRequirement.token.amount)
+      : undefined) ||
+    (value && isStablecoinSymbol(tokenSymbol) ? value : undefined);
+  const displayAmount = rawDisplayAmount
+    ? formatTokenDisplay(rawDisplayAmount, tokenSymbol)
+    : undefined;
   const showIntentExplorer = hasValidIntentExplorer(entry);
   const intentLabel = "View Intent";
   const sourceRows = getSourceRows(entry);
@@ -3466,7 +3476,7 @@ export function SwapReceiptPanel({
               >
                 <DepositCalculatedAmount
                   value={
-                    displayAmount
+                    displayAmount && displayAmount !== "0"
                       ? displayAmount.startsWith("~")
                         ? displayAmount
                         : `~${displayAmount}`
@@ -7585,11 +7595,25 @@ function NexusWidgetInner({
       toToken: resolvedToToken,
       requestedToAmount:
         activeMode === "deposit" || activeMode === "send"
-          ? previewDestinationAmount
+          ? (previewDestinationAmount ??
+              (intentData?.destination?.amount && intentData.destination.amount !== "0"
+                ? intentData.destination.amount
+                : undefined) ??
+              ((intentData as any)?.executeRequirement?.token?.amount &&
+              String((intentData as any).executeRequirement.token.amount) !== "0"
+                ? String((intentData as any).executeRequirement.token.amount)
+                : undefined))
           : undefined,
       requestedToValue:
         activeMode === "deposit" || activeMode === "send"
-          ? previewToAmountUsd
+          ? (previewToAmountUsd ??
+              (intentData?.destination?.value && intentData.destination.value !== "0"
+                ? intentData.destination.value
+                : undefined) ??
+              ((intentData as any)?.executeRequirement?.token?.amount &&
+              String((intentData as any).executeRequirement.token.amount) !== "0"
+                ? String((intentData as any).executeRequirement.token.amount)
+                : undefined))
           : undefined,
       recipientAddress: transferRecipientAddress,
       opportunity: selectedOpportunity,
@@ -12192,7 +12216,23 @@ function NexusWidgetInner({
       ? previewExactOutDestinationAmount
           .toDecimalPlaces(toToken?.decimals ?? 18, Decimal.ROUND_DOWN)
           .toFixed()
-      : intentToAmount;
+      : (intentToAmount ??
+          (intentData?.destination?.amount &&
+          intentData.destination.amount !== "0"
+            ? intentData.destination.amount
+            : undefined) ??
+          ((intentData as any)?.executeRequirement?.token?.amount &&
+          String((intentData as any).executeRequirement.token.amount) !== "0"
+            ? String((intentData as any).executeRequirement.token.amount)
+            : undefined) ??
+          (previewDestinationUsdNumber &&
+          isStablecoinSymbol(
+            toToken?.symbol ??
+              selectedOpportunity?.tokenSymbol ??
+              intentData?.destination?.token?.symbol,
+          )
+            ? previewDestinationUsdNumber.toFixed(2)
+            : undefined));
   const previewFromAmountUsd =
     previewSourceUsdNumber && previewSourceUsdNumber.gt(0)
       ? previewSourceUsdNumber.toDecimalPlaces(6).toFixed()

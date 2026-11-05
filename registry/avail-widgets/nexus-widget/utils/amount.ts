@@ -2,7 +2,7 @@ import Decimal from "decimal.js";
 
 // Read the amount as one number. Removing all nonnumeric characters would turn
 // a legacy balance label such as "10 USDT0" into "100".
-const AMOUNT_PATTERN = /^[\s$€£¥≈<>]*([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(?:\s+\S+|%)?\s*$/i;
+const AMOUNT_PATTERN = /^[\s$€£¥≈<>~]*([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(?:\s+\S+|%)?\s*$/i;
 
 export const parseAmount = (value: unknown): Decimal | undefined => {
   if (Decimal.isDecimal(value)) return value.isFinite() ? value : undefined;
