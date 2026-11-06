@@ -1808,7 +1808,7 @@ export function NexusWidgetProgressScreen({
                 textAlign: "center",
               }}
             >
-              {destinationChain || "Deposit"} Receives
+              {destinationChain || "Deposit"} receives
             </div>
             <div
               style={{
@@ -1838,49 +1838,46 @@ export function NexusWidgetProgressScreen({
               </span>
               <span
                 style={{
-                  color: "var(--nx-mute, #737372)",
-                  fontSize: "18px",
-                  fontWeight: 500,
-                  letterSpacing: "0",
-                  lineHeight: "22px",
+                  color: "var(--nx-mute-2, #8C8C8B)",
+                  fontSize: "20px",
+                  fontWeight: 400,
+                  letterSpacing: "-0.02em",
+                  lineHeight: "28px",
                 }}
               >
-                {destinationSymbol}
+                ≈ {formatUsd(toAmountUsd ?? sourceUsd)}
               </span>
             </div>
             <div
               style={{
-                color: "var(--nx-mute-2, #8C8C8B)",
-                fontFamily,
-                fontSize: "14px",
-                lineHeight: "18px",
-                textAlign: "center",
-              }}
-            >
-              ≈ {formatUsd(toAmountUsd ?? sourceUsd)}
-            </div>
-            <div
-              style={{
                 alignItems: "center",
-                color: "var(--nx-faint, #A3A3A2)",
+                color: "var(--nx-ink, #161615)",
                 display: "flex",
                 fontFamily,
-                fontSize: "12px",
-                gap: "4px",
+                fontSize: "14px",
+                gap: "6px",
                 justifyContent: "center",
-                lineHeight: "16px",
+                lineHeight: "20px",
                 marginTop: "4px",
               }}
             >
-              on
+              {toToken?.logo ? (
+                <img
+                  alt=""
+                  src={toToken.logo}
+                  style={{ borderRadius: "999px", height: 20, width: 20 }}
+                />
+              ) : null}
+              <span>{destinationSymbol}</span>
+              <span style={{ color: "var(--nx-mute-2, #8C8C8B)" }}>on</span>
               {toToken?.chainLogo ? (
                 <img
                   alt=""
                   src={toToken.chainLogo}
-                  style={{ borderRadius: "999px", height: 12, width: 12 }}
+                  style={{ borderRadius: "999px", height: 20, width: 20 }}
                 />
               ) : null}
-              {destinationChainName || destinationChain}
+              <span>{destinationChainName || destinationChain}</span>
             </div>
             <div
               style={{

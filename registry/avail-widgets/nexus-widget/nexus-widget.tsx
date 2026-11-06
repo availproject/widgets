@@ -4793,6 +4793,7 @@ function NexusWidgetInner({
   const [depositFundingStep, setDepositFundingStep] =
     useState<DepositFundingStep>(configuredEnableOnRamp ? "method" : "wallet");
   const [depositSlideFromLeft, setDepositSlideFromLeft] = useState(false);
+  const [isDepositEditingEmpty, setIsDepositEditingEmpty] = useState(false);
   const [depositOnrampSessionState, setDepositOnrampSessionState] = useState<
     string | null
   >(null);
@@ -13548,6 +13549,7 @@ function NexusWidgetInner({
                             ? `${ownerAddress.slice(0, 6)}…${ownerAddress.slice(-4)}`
                             : undefined
                         }
+                        onEditingEmptyChange={setIsDepositEditingEmpty}
                       />
 
                       {receiveAmountIssue && (
@@ -13640,7 +13642,7 @@ function NexusWidgetInner({
                                 : isDepositCtaDisabled
                                   ? "var(--nx-mute-2, #8C8C8B)"
                                   : "#FFFFFF",
-                              cursor: isDepositCtaDisabled
+                              cursor: isDepositCtaDisabled || isDepositEditingEmpty
                                 ? "default"
                                 : "pointer",
                               display: "flex",
@@ -13651,8 +13653,10 @@ function NexusWidgetInner({
                               gap: "10px",
                               height: "56px",
                               justifyContent: "center",
+                              opacity: isDepositEditingEmpty ? 0.15 : undefined,
+                              pointerEvents: isDepositEditingEmpty ? "none" : undefined,
                               transition:
-                                "background-color 200ms, box-shadow 200ms, color 200ms, transform 160ms",
+                                "background-color 200ms, box-shadow 200ms, color 200ms, transform 160ms, opacity 200ms",
                               width: "100%",
                             }}
                           >

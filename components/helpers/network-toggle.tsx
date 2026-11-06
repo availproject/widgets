@@ -1,7 +1,7 @@
 "use client";
 import { type NexusNetwork } from "@avail-project/nexus-core";
-import React, { useState, useEffect } from "react";
-import { useNexus } from "@/registry/avail-widgets/nexus/NexusProvider";
+import React, { useState, useEffect, useContext } from "react";
+import { NexusContext } from "@/registry/avail-widgets/nexus/NexusProvider";
 import {
   Select,
   SelectContent,
@@ -16,11 +16,13 @@ interface NetworkToggleProps {
   disableTestnet?: boolean;
 }
 
-const NetworkToggle = ({ disableTestnet = false }: NetworkToggleProps) => {
-  const { nexusSDK, deinitializeNexus } = useNexus();
+const NetworkToggle = ({ disableTestnet = true }: NetworkToggleProps) => {
+  const nexusContext = useContext(NexusContext);
   const [currentNetwork, setCurrentNetwork] = useState<NexusNetwork>("mainnet");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     // Read from localStorage on client side only
     const storedNetwork = getItem(NETWORK_KEY) as NexusNetwork | null;
     if (disableTestnet && storedNetwork === "testnet") {
@@ -39,8 +41,12 @@ const NetworkToggle = ({ disableTestnet = false }: NetworkToggleProps) => {
   const handleNetworkChange = async (newValue: string) => {
     if (disableTestnet && newValue === "testnet") return;
 
-    if (nexusSDK) {
-      await deinitializeNexus();
+    if (nexusContext?.nexusSDK) {
+      try {
+        await nexusContext.deinitializeNexus();
+      } catch {
+        // ignore deinitialization error during network switch
+      }
     }
 
     setItem(NETWORK_KEY, newValue);
@@ -48,13 +54,23 @@ const NetworkToggle = ({ disableTestnet = false }: NetworkToggleProps) => {
     window.location.reload();
   };
 
+  if (!mounted) {
+    return (
+      <div className="flex items-center space-x-2">
+        <SelectTrigger size="sm" className="w-[120px] h-8">
+          <SelectValue placeholder="Mainnet" />
+        </SelectTrigger>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center space-x-2">
       <Select
         value={currentNetwork as string}
         onValueChange={handleNetworkChange}
       >
-        <SelectTrigger>
+        <SelectTrigger size="sm" className="w-[120px] h-8">
           <SelectValue placeholder="Select a network" />
         </SelectTrigger>
         <SelectContent>

@@ -2,7 +2,6 @@
 
 "use client";
 
-import { formatTokenBalance } from "@avail-project/nexus-core/utils";
 import { Check, ChevronDown, Copy, Globe, Info, Search, X } from "lucide-react";
 import React, {
   useCallback,
@@ -13,7 +12,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { parseAmount } from "../utils/amount";
+import { formatTokenBalance, parseAmount } from "../utils/amount";
 import { useNexusWidgetThemeStyle } from "../theme-context";
 import {
   CHAIN_METADATA,

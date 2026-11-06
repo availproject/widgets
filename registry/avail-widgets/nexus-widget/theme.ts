@@ -189,7 +189,7 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-prow { display:flex; flex-direction:column; padding:12px; transition:background-color 150ms cubic-bezier(.23,1,.32,1), opacity 200ms cubic-bezier(.23,1,.32,1); }
 .nx-prow.open { background:var(--nx-input); }
 .nx-prow.err { background:var(--nx-red-band); }
-.nx-focus .nx-focusable, .nx-focus .nx-prow:not(.open) { opacity:.15; }
+.nx-focus .nx-focusable, .nx-focus .nx-prow:not(.open), .nx-focus ~ * .nx-deposit-cta, :has(.nx-focus) .nx-deposit-cta { opacity:.15; }
 .nx-pr-top { display:flex; align-items:center; gap:10px; cursor:pointer; }
 .nx-pr-tok { display:flex; gap:12px; width:126px; flex-shrink:0; align-items:center; }
 .nx-nm { display:flex; align-items:center; gap:4px; font:500 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-ink); }
@@ -235,7 +235,7 @@ button.nx-pr-tok:disabled { cursor:default; }
 .nx-digit-current.up { animation:nx-roll-up 250ms cubic-bezier(.23,1,.32,1) both; }
 .nx-digit-current.down { animation:nx-roll-down 250ms cubic-bezier(.23,1,.32,1) both; }
 .nx-focusable { transition:opacity 200ms cubic-bezier(.23,1,.32,1); }
-.nx-focus .nx-focusable, .nx-focus .nx-prow:not(.open), .nx-focus .nx-add { pointer-events:none; }
+.nx-focus .nx-focusable, .nx-focus .nx-prow:not(.open), .nx-focus .nx-add, .nx-focus ~ * .nx-deposit-cta, :has(.nx-focus) .nx-deposit-cta { pointer-events:none; }
 .nx-collapse > div { opacity:0; transform:translateY(-4px); transition:opacity 100ms,transform 100ms; }
 .nx-collapse.on { transition-duration:250ms; }
 .nx-collapse.on > div { opacity:1; transform:none; transition:opacity 150ms 50ms,transform 150ms 50ms; }

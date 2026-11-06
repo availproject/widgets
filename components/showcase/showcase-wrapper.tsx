@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import NetworkToggle from "../helpers/network-toggle";
 import { PreviewPanel } from "../helpers/preview-panel";
 import { Toggle } from "../ui/toggle";
 import { Check, X } from "lucide-react";
@@ -27,6 +28,7 @@ interface ShowcaseWrapperProps extends ToggleControlProps {
   toggle?: boolean;
   banner?: string;
   controls?: React.ReactNode;
+  showNetworkToggle?: boolean;
 }
 
 const ShowcaseWrapper = ({
@@ -42,6 +44,7 @@ const ShowcaseWrapper = ({
   onPressedChange,
   banner,
   controls,
+  showNetworkToggle = true,
   ...toggleProps
 }: ShowcaseWrapperProps) => {
   const resolvedToggle =
@@ -55,25 +58,30 @@ const ShowcaseWrapper = ({
 
   return (
     <div className="w-full flex flex-col gap-y-4">
-      {resolvedToggle || controls ? (
-        <div className="flex flex-wrap items-center justify-end gap-2 w-full">
-          {controls}
-          {resolvedToggle ? (
-            <Toggle
-              variant={variant}
-              size={size}
-              pressed={pressed}
-              defaultPressed={defaultPressed}
-              onPressedChange={onPressedChange}
-              {...toggleProps}
-            >
-              <p className="text-sm font-medium">{label}</p>
-              {isPressed ? (
-                <Check className="size-4" />
-              ) : (
-                <X className="size-4" />
-              )}
-            </Toggle>
+      {showNetworkToggle || resolvedToggle || controls ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+          {showNetworkToggle ? <NetworkToggle /> : <div />}
+          {resolvedToggle || controls ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {controls}
+              {resolvedToggle ? (
+                <Toggle
+                  variant={variant}
+                  size={size}
+                  pressed={pressed}
+                  defaultPressed={defaultPressed}
+                  onPressedChange={onPressedChange}
+                  {...toggleProps}
+                >
+                  <p className="text-sm font-medium">{label}</p>
+                  {isPressed ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <X className="size-4" />
+                  )}
+                </Toggle>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

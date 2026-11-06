@@ -54,6 +54,7 @@ interface DepositIdleFormProps {
   destinationLabel?: string;
   walletLabel?: string;
   maxSourceTokens?: number;
+  onEditingEmptyChange?: (isEditingEmpty: boolean) => void;
 }
 
 const uiFont = '"Geist", system-ui, sans-serif';
@@ -370,6 +371,7 @@ export function DepositIdleForm({
   destinationLabel = "Deposit",
   walletLabel,
   maxSourceTokens = 3,
+  onEditingEmptyChange,
 }: DepositIdleFormProps) {
   void _amount;
   void _amountMode;
@@ -442,7 +444,7 @@ export function DepositIdleForm({
 
   React.useEffect(() => {
     if (!openKey) return;
-    const onPointerDown = (event: PointerEvent) => {
+    const handleOutsideInteraction = (event: Event) => {
       const row = openRowRef.current;
       if (row) {
         if (typeof Node !== "undefined" && event.target instanceof Node) {
@@ -461,15 +463,26 @@ export function DepositIdleForm({
         // User should not be able to click outside the input field unless a value is entered.
         event.preventDefault();
         event.stopPropagation();
+        if (typeof (event as any).stopImmediatePropagation === "function") {
+          (event as any).stopImmediatePropagation();
+        }
         const input = row?.querySelector("input");
         input?.focus({ preventScroll: true });
         return;
       }
-      setOpenKey(null);
-      blurAmountField();
+      if (event.type === "pointerdown") {
+        setOpenKey(null);
+        blurAmountField();
+      }
     };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("pointerdown", handleOutsideInteraction, true);
+    document.addEventListener("mousedown", handleOutsideInteraction, true);
+    document.addEventListener("click", handleOutsideInteraction, true);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsideInteraction, true);
+      document.removeEventListener("mousedown", handleOutsideInteraction, true);
+      document.removeEventListener("click", handleOutsideInteraction, true);
+    };
   }, [openKey, fromTokens]);
 
   React.useEffect(() => {
@@ -531,10 +544,17 @@ export function DepositIdleForm({
   const quotedMinReceive = readDecimal(quoteMotion.value?.minReceiveAmount);
   const quotedReceiveUsd = readDecimal(quoteMotion.value?.receiveUsd);
   const showQuote = hasEnteredAmount && quotedReceive.gt(0) && !showQuoteShimmer && !hasQuoteError;
-  const isEditingEmptyAmount = fromTokens.some(
-    (token, index) =>
-      tokenKey(token, index) === openKey && !token.userAmount?.trim(),
+  const isEditingEmptyAmount = Boolean(
+    openKey &&
+      fromTokens.some(
+        (token, index) =>
+          tokenKey(token, index) === openKey && !token.userAmount?.trim(),
+      ),
   );
+
+  React.useEffect(() => {
+    onEditingEmptyChange?.(isEditingEmptyAmount);
+  }, [isEditingEmptyAmount, onEditingEmptyChange]);
 
   React.useEffect(() => {
     if (!newTokenKey) return;
