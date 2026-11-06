@@ -253,3 +253,58 @@ test("adaptIntentHook uses executeRequirement.token.amountRaw and amount (as usd
   assert.equal(adapted.intent.destination.minAmount, "2.876687");
   assert.equal(adapted.intent.destination.minAmountUsd, "2.876687");
 });
+
+test("adaptIntentHook preserves quote.output.amount for exactOutput swapAndExecute so destination coverage can calculate local funds", async () => {
+  const mockExactOutputIntent: SwapAndExecuteIntent = {
+    executionMode: "wallet",
+    executeRequirement: {
+      ...mockExecuteRequirement,
+      token: {
+        address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" as `0x${string}`,
+        symbol: "USDC",
+        decimals: 6,
+        amountRaw: BigInt(10000000), // Total execution: 10 USDC
+        amount: "10.0",
+        valueUsd: "10.00",
+      },
+    },
+    available: {
+      token: { amountRaw: BigInt(8990000), amount: "8.99", valueUsd: "8.99" },
+      gas: { amountRaw: BigInt(100000000000000), amount: "0.0001", valueUsd: "0.30" },
+    },
+    shortfall: {
+      token: { amountRaw: BigInt(1010000), amount: "1.01", valueUsd: "1.01" },
+      gas: { amountRaw: BigInt(0), amount: "0", valueUsd: "0" },
+    },
+    swapRequired: true,
+    quote: {
+      ...mockQuote,
+      tradeType: "exactOutput",
+      output: {
+        chainId: 10,
+        tokenAddress: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" as `0x${string}`,
+        amountRaw: BigInt(1010000), // Swap output: 1.01 USDC
+        amountUsd: "1.01",
+        minAmountRaw: BigInt(1010000),
+        minAmountUsd: "1.01",
+      },
+    } as any,
+  };
+
+  const mockHookData: SwapAndExecuteHookData = {
+    attemptId: "test-attempt-exact-output",
+    intent: mockExactOutputIntent,
+    allow: () => {},
+    deny: () => {},
+    refresh: async () => mockExactOutputIntent,
+  };
+
+  const adapted = adaptIntentHook(mockHookData, mockChains as any);
+
+  assert.equal(adapted.intent.swapRequired, true);
+  // Preserves quote.output amount (1.01) so getExactOutDestinationBalanceCoverage can see
+  // requestedAmount (10) - producedAmount (1.01) = 8.99 uncovered -> covered by destination balance (8.99)!
+  assert.equal(adapted.intent.destination.amount, "1.01");
+  assert.equal(adapted.intent.destination.value, "1.01");
+});
+
