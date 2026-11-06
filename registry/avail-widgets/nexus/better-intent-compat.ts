@@ -743,8 +743,7 @@ export const normalizeSwapAndExecuteIntent = (
       intent.quote.tradeType === "exactInput" ||
       (intent.quote as any).tradeType === "exactIn" ||
       (intent as any).tradeType === "exactInput" ||
-      (intent as any).tradeType === "exactIn" ||
-      Boolean(req?.token);
+      (intent as any).tradeType === "exactIn";
     const reqToken = req?.token;
     const outputDecimals = reqToken?.decimals || token?.decimals || 18;
     const hasPositiveReqAmount =

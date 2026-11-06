@@ -166,3 +166,145 @@ test("DepositIdleForm renders exact-in multi-token UI structure with destination
     }
   }
 });
+
+test("DepositExactOutIdleForm renders allocated sources without triggering quote refreshing", async () => {
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    const allocatedSources: SwapTokenOption[] = [
+      {
+        chainId: 8453,
+        chainName: "Base",
+        contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        symbol: "USDC",
+        name: "USD Coin",
+        decimals: 6,
+        balance: "50",
+        balanceInFiat: "$50.00",
+        userAmount: "10",
+        userAmountMode: "token",
+        userAmountUsd: "10.00",
+      },
+    ];
+
+    await act(async () => {
+      renderer = create(
+        <DepositExactOutIdleForm
+          amount="10"
+          amountMode="usd"
+          fromTokens={allocatedSources}
+          isQuoteRefreshing={false}
+          onAmountChange={() => {}}
+          onAmountModeToggle={() => {}}
+          onOpenSourcePicker={() => {}}
+          onSetPercent={() => {}}
+          tokenValue="10"
+          toToken={toToken}
+          totalBalance="100"
+          usdValue="10"
+        />
+      );
+    });
+
+    const json = JSON.stringify(renderer!.toJSON());
+    assert.ok(json.includes("Base"), "Exact out form should display the source chain");
+    assert.ok(json.includes("USDC"), "Exact out form should display USDC");
+    // Verify it doesn't show loading spinner when isQuoteRefreshing is false
+    assert.ok(!json.includes("animate-spin") || json.includes("Pay with"), "Should not show infinite loading spinner");
+  } finally {
+    if (renderer) {
+      await act(async () => {
+        renderer?.unmount();
+      });
+    }
+  }
+});
+
+test("Deposit exactOut quote input key excludes fluctuating target USD to prevent infinite quote loops", () => {
+  // Verify that deposit route config properly creates exactOutput normalized mode
+  const config: NexusWidgetConfig = {
+    mode: "deposit",
+    route: "exactOutput",
+    destination: {
+      chain: 10,
+      tokens: [
+        {
+          address: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+          symbol: "USDC",
+          decimals: 6,
+        },
+      ],
+    },
+    depositAddress: "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    executeDeposit: () => ({
+      to: "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      gas: BigInt(400_000),
+    }),
+  };
+
+  const normalized = normalizeNexusWidgetConfig(config);
+  assert.equal(normalized.depositRoute, "exactOutput");
+  assert.equal(normalized.activeMode, "deposit");
+});
+
+test("Deposit exactOut includes destination asset and external source in Pay With list", async () => {
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    const destinationCoveredToken: SwapTokenOption = {
+      chainId: 10,
+      chainName: "Optimism",
+      contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      balance: "8.99",
+      balanceInFiat: "$8.99",
+      userAmount: "8.99",
+      userAmountMode: "token",
+      userAmountUsd: "8.99",
+    };
+    const crossChainToken: SwapTokenOption = {
+      chainId: 42161,
+      chainName: "Arbitrum",
+      contractAddress: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      balance: "10.00",
+      balanceInFiat: "$10.00",
+      userAmount: "0.01",
+      userAmountMode: "token",
+      userAmountUsd: "0.01",
+    };
+
+    await act(async () => {
+      renderer = create(
+        <DepositExactOutIdleForm
+          amount="9"
+          amountMode="usd"
+          fromTokens={[destinationCoveredToken, crossChainToken]}
+          isQuoteRefreshing={false}
+          onAmountChange={() => {}}
+          onAmountModeToggle={() => {}}
+          onOpenSourcePicker={() => {}}
+          onSetPercent={() => {}}
+          tokenValue="9"
+          toToken={toToken}
+          totalBalance="95.42"
+          usdValue="9"
+        />
+      );
+    });
+
+    const json = JSON.stringify(renderer!.toJSON());
+    assert.ok(json.includes("Optimism"), "Pay with list should include Optimism destination asset");
+    assert.ok(json.includes("Arbitrum"), "Pay with list should include Arbitrum cross-chain asset");
+    assert.ok(json.includes("2 assets"), "Summary header should reflect both sources");
+  } finally {
+    if (renderer) {
+      await act(async () => {
+        renderer?.unmount();
+      });
+    }
+  }
+});
+
