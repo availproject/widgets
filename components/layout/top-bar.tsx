@@ -56,9 +56,14 @@ const NAV_ITEMS = [
         href: "/docs/components/swaps",
       },
       {
-        id: "deposit",
-        label: "Deposit",
+        id: "deposit-exact-output",
+        label: "Deposit (Exact Output)",
         href: "/docs/components/deposit",
+      },
+      {
+        id: "deposit-exact-input",
+        label: "Deposit (Exact Input)",
+        href: "/docs/components/deposit-exact-input",
       },
       {
         id: "send",

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildStatusRows, type NexusWidgetProgressEvent } from "../registry/avail-widgets/nexus-widget/components/nexus-widget-progress-screen";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { buildStatusRows, NexusWidgetProgressScreen, type NexusWidgetProgressEvent } from "../registry/avail-widgets/nexus-widget/components/nexus-widget-progress-screen";
+import { NexusWidgetThemeContext } from "../registry/avail-widgets/nexus-widget/theme-context";
 
 const chain = { id: 42161, name: "Arbitrum" };
 const token = { contractAddress: "0xusdc", symbol: "USDC" };
@@ -12,6 +15,65 @@ const plan = (steps: any[]): NexusWidgetProgressEvent => ({ id: "plan", name: "s
 const progress = (step: any, state: string): NexusWidgetProgressEvent => ({ id: `${step.id}:${state}`, name: "swap_plan_progress", step, event: { type: "plan_progress", state }, completed: state === "confirmed" || state === "completed" });
 const rows = (events: NexusWidgetProgressEvent[], failedStep?: any, steps: any[] = []) => buildStatusRows({ events, mode: "deposit", steps, failedStep, context: { destinationChain: "Arbitrum", destinationSymbol: "USDT", opportunityName: "Aave" } });
 const row = (events: NexusWidgetProgressEvent[], id: string) => rows(events).find((item) => item.id === id);
+
+const depositOnlyRows = (events: NexusWidgetProgressEvent[] = [], failedStep?: any, isRejected = false) =>
+  buildStatusRows({
+    events, failedStep, isRejected, mode: "deposit", steps: [],
+    context: { swapRequired: false, destinationSymbol: "USDC", opportunityName: "Aave" },
+  });
+
+test("no-swap deposit has one status from review through approval and submission", () => {
+  const approval = { id: "execute_approval", type: "APPROVAL", chain };
+  for (const events of [
+    [],
+    [plan([approval, execute])],
+    [plan([approval, execute]), progress(approval, "wallet_prompted")],
+    [plan([approval, execute]), progress(execute, "submitted")],
+  ]) {
+    const result = depositOnlyRows(events);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].id, "action");
+    assert.equal(result[0].label, "Deposit in progress");
+  }
+});
+
+test("no-swap deposit keeps completion and failure truthful in the single row", () => {
+  const confirmed = { ...execute, type: "TRANSACTION_CONFIRMED" };
+  assert.equal(depositOnlyRows([progress(confirmed, "confirmed")])[0].state, "completed");
+  assert.equal(depositOnlyRows([progress(confirmed, "confirmed")])[0].label, "USDC deposited to Aave");
+  assert.equal(depositOnlyRows([], execute)[0].state, "error");
+  assert.equal(depositOnlyRows([], execute)[0].label, "Deposit failed. Funds are in your wallet.");
+  assert.equal(depositOnlyRows([], execute, true)[0].label, "Deposit cancelled by user");
+});
+
+test("a skipped-swap event also collapses deposit progress without intent metadata", () => {
+  const result = rows([progress({ id: "skipped", type: "SWAP_SKIPPED" }, "completed")]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].label, "Deposit in progress");
+});
+
+test("missing swapRequired metadata does not hide a required swap", () => {
+  const result = rows([plan([source, destination, execute])]);
+  assert.ok(result.some((item) => item.id === "swapTokens"));
+  assert.ok(result.some((item) => item.id === "receiveToken"));
+});
+
+test("progress screen passes the reviewed no-swap flag to its rendered statuses", () => {
+  const html = renderToStaticMarkup(createElement(NexusWidgetProgressScreen, {
+    mode: "deposit",
+    intentData: {
+      swapRequired: false,
+      sources: [],
+      destination: {
+        chain: { id: 42161, name: "Arbitrum" },
+        token: { symbol: "USDC", decimals: 6 },
+        amount: "5",
+      },
+    } as any,
+  }));
+  assert.equal(html.match(/Deposit in progress/g)?.length, 1);
+  assert.doesNotMatch(html, /Swaps in progress|Swap tokens|Receiving USDC|Receive USDC/);
+});
 
 test("same-chain USDC to USDT deposit shows its destination permit before SDK progress", () => {
   const events = [plan([allowance, destination, execute])];
@@ -423,5 +485,225 @@ test("two tokens with generic ID (erc20_approval) both tracked and does not show
   swapRow = res.find((r) => r.id === "swapTokens");
   assert.equal(swapRow?.state, "inProgress");
 });
+
+test("progress screen uses light progress grid by default and dark grid in dark mode", () => {
+  const defaultHtml = renderToStaticMarkup(
+    createElement(NexusWidgetProgressScreen, {
+      mode: "swap",
+    })
+  );
+  assert.match(defaultHtml, /nexus-one\/progress-grid\.gif/);
+  assert.doesNotMatch(defaultHtml, /nexus-one\/progress-grid-dark\.gif/);
+
+  const darkHtml = renderToStaticMarkup(
+    createElement(
+      NexusWidgetThemeContext.Provider,
+      { value: { colorScheme: "dark" } as any },
+      createElement(NexusWidgetProgressScreen, {
+        mode: "swap",
+      })
+    )
+  );
+  assert.match(darkHtml, /nexus-one\/progress-grid-dark\.gif/);
+  assert.doesNotMatch(darkHtml, /nexus-one\/progress-grid\.gif"/);
+});
+
+test("multi-token deposit with 1 ERC20 and 2 native tokens shows native token deposit progress rows after intent", () => {
+  const usdtApproval = {
+    id: "approval:42161:0xusdt",
+    type: "ERC20_APPROVAL",
+    token: { symbol: "USDT", contractAddress: "0xusdt" },
+    chain: { id: 42161, name: "Arbitrum" },
+  };
+  const intentSignature = {
+    id: "intent-signature",
+    type: "INTENT_SIGNATURE",
+  };
+  const hypeNative = {
+    id: "native:999:1",
+    type: "NATIVE_TRANSACTION",
+    chainId: 999,
+    sourceIndex: 1,
+    symbol: "HYPE",
+  };
+  const ethNative = {
+    id: "native:8453:2",
+    type: "NATIVE_TRANSACTION",
+    chainId: 8453,
+    sourceIndex: 2,
+    symbol: "ETH",
+  };
+  const intentFulfillment = {
+    id: "intent-fulfillment",
+    type: "INTENT_FULFILLMENT",
+  };
+
+  const stepsList = [usdtApproval, intentSignature, hypeNative, ethNative, intentFulfillment];
+  const context = {
+    destinationChain: "Optimism",
+    destinationSymbol: "USDC",
+    opportunityName: "Aave",
+    intentSources: [
+      { chain: { id: 42161, name: "Arbitrum" }, token: { symbol: "USDT", contractAddress: "0xusdt" } },
+      { chain: { id: 999, name: "HyperEVM" }, token: { symbol: "HYPE" } },
+      { chain: { id: 8453, name: "Base" }, token: { symbol: "ETH" } },
+    ],
+  };
+
+  // Initial state: plan received
+  const events: NexusWidgetProgressEvent[] = [plan(stepsList)];
+  let res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+
+  assert.equal(res.find((r) => r.id === "approveTokens")?.label, "Approve tokens for deposit (1 of 1)");
+  assert.equal(res.find((r) => r.id === "approveTokens")?.state, "preapproval");
+  assert.equal(res.find((r) => r.id === "intentVerified")?.state, "default");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.state, "default");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.label, "Deposit native tokens (1 of 2)");
+
+  // 1. USDT approved
+  events.push(progress(usdtApproval, "completed"));
+  res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  assert.equal(res.find((r) => r.id === "approveTokens")?.state, "completed");
+  assert.equal(res.find((r) => r.id === "approveTokens")?.label, "Tokens approved for deposit (1 of 1)");
+  assert.equal(res.find((r) => r.id === "intentVerified")?.state, "preapproval");
+
+  // 2. Intent signed
+  events.push(progress(intentSignature, "completed"));
+  res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  assert.equal(res.find((r) => r.id === "intentVerified")?.state, "completed");
+  assert.equal(res.find((r) => r.id === "intentVerified")?.label, "Intent approved");
+  // Now native transactions is active for token 1 (HYPE)
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.state, "preapproval");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.label, "Deposit native tokens (1 of 2)");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.description, "Confirm HYPE deposit in wallet");
+  // Swaps not in progress yet
+  assert.equal(res.find((r) => r.id === "swapTokens")?.state, "default");
+
+  // 3. First native token (HYPE) completed
+  events.push(progress(hypeNative, "completed"));
+  res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.state, "preapproval");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.label, "Deposit native tokens (2 of 2)");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.description, "Confirm ETH deposit in wallet");
+  assert.equal(res.find((r) => r.id === "swapTokens")?.state, "default");
+
+  // 4. Second native token (ETH) completed
+  events.push(progress(ethNative, "completed"));
+  res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.state, "completed");
+  assert.equal(res.find((r) => r.id === "nativeTransactions")?.label, "Native tokens deposited (2 of 2)");
+  // Swaps now start
+  assert.equal(res.find((r) => r.id === "swapTokens")?.state, "inProgress");
+});
+
+test("native token transaction user rejection sets error on nativeTransactions row", () => {
+  const hypeNative = {
+    id: "native:999:1",
+    type: "NATIVE_TRANSACTION",
+    chainId: 999,
+    sourceIndex: 1,
+    symbol: "HYPE",
+  };
+  const stepsList = [{ id: "intent-signature", type: "INTENT_SIGNATURE" }, hypeNative];
+  const events: NexusWidgetProgressEvent[] = [
+    plan(stepsList),
+    progress({ id: "intent-signature", type: "INTENT_SIGNATURE" }, "completed"),
+    progress(hypeNative, "failed"),
+  ];
+  const res = buildStatusRows({
+    events,
+    mode: "deposit",
+    steps: [],
+    failedStep: hypeNative as any,
+    isRejected: true,
+    context: { destinationChain: "Optimism", destinationSymbol: "USDC", opportunityName: "Aave" },
+  });
+  const nativeRow = res.find((r) => r.id === "nativeTransactions");
+  assert.equal(nativeRow?.state, "error");
+  assert.equal(nativeRow?.description, "Rejected in wallet");
+});
+
+test("native transaction step resolves native token symbol (BNB) rather than mismatching ERC20 (USDT) on different chain", () => {
+  const bnbNative = {
+    id: "native:56:1",
+    type: "NATIVE_TRANSACTION",
+    kind: "native_source_deposit",
+    chainId: 56,
+    sourceIndex: 1,
+  };
+  const stepsList = [
+    { id: "intent-signature", type: "INTENT_SIGNATURE" },
+    { id: "native:8453:0", type: "NATIVE_TRANSACTION", kind: "native_source_deposit", chainId: 8453, sourceIndex: 0 },
+    bnbNative,
+  ];
+  const context = {
+    destinationChain: "Optimism",
+    destinationSymbol: "USDC",
+    opportunityName: "Aave",
+    fromTokens: [
+      { chainId: 8453, symbol: "ETH", contractAddress: "0x0000000000000000000000000000000000000000" },
+      { chainId: 42161, symbol: "USDT", contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9" },
+      { chainId: 56, symbol: "BNB", contractAddress: "0x0000000000000000000000000000000000000000" },
+    ],
+    intentSources: [
+      { chain: { id: 8453 }, token: { symbol: "ETH" } },
+      { chain: { id: 42161 }, token: { symbol: "USDT" } },
+      { chain: { id: 56 }, token: { symbol: "BNB" } },
+    ],
+  };
+
+  const events: NexusWidgetProgressEvent[] = [
+    plan(stepsList),
+    progress({ id: "intent-signature", type: "INTENT_SIGNATURE" }, "completed"),
+    progress(stepsList[1], "completed"),
+  ];
+
+  const res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  const nativeRow = res.find((r) => r.id === "nativeTransactions");
+  assert.equal(nativeRow?.label, "Deposit native tokens (2 of 2)");
+  assert.equal(nativeRow?.description, "Confirm BNB deposit in wallet");
+});
+
+test("native transaction step resolves native token symbol (BNB) even when fromTokens contains USDT on same chain (56)", () => {
+  const bnbNative = {
+    id: "native:56:1",
+    type: "NATIVE_TRANSACTION",
+    kind: "native_source_deposit",
+    chainId: 56,
+    sourceIndex: 1,
+  };
+  const stepsList = [
+    { id: "intent-signature", type: "INTENT_SIGNATURE" },
+    { id: "native:999:0", type: "NATIVE_TRANSACTION", kind: "native_source_deposit", chainId: 999, sourceIndex: 0 },
+    bnbNative,
+  ];
+  const context = {
+    destinationChain: "Optimism",
+    destinationSymbol: "USDC",
+    opportunityName: "Aave",
+    fromTokens: [
+      { chainId: 999, symbol: "HYPE", contractAddress: "0x0000000000000000000000000000000000000000" },
+      { chainId: 56, symbol: "USDT", contractAddress: "0x55d398326f99059ff775485246999027b3197955" },
+    ],
+    intentSources: [
+      { chain: { id: 999 }, token: { symbol: "HYPE" } },
+      { chain: { id: 56 }, token: { symbol: "USDT" } },
+    ],
+  };
+
+  const events: NexusWidgetProgressEvent[] = [
+    plan(stepsList),
+    progress({ id: "intent-signature", type: "INTENT_SIGNATURE" }, "completed"),
+    progress(stepsList[1], "completed"),
+  ];
+
+  const res = buildStatusRows({ events, mode: "deposit", steps: [], context });
+  const nativeRow = res.find((r) => r.id === "nativeTransactions");
+  assert.equal(nativeRow?.label, "Deposit native tokens (2 of 2)");
+  assert.equal(nativeRow?.description, "Confirm BNB deposit in wallet");
+});
+
+
+
 
 

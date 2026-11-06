@@ -1,9 +1,9 @@
 ---
-title: Deposit
-description: Route funds into a configured protocol or app action with Nexus intents.
+title: Deposit (Exact Output)
+description: Route exact funds into a configured protocol or app action with Nexus intents.
 component: true
 preview:
-  name: nexus-deposit
+  name: nexus-deposit-exact-output
   align: center
   hideCode: true
 links:
@@ -198,11 +198,14 @@ const depositConfig = {
 
 ## Configuration
 
-Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the destination deposit amount, pay-with sources are selected, and the flow submits through `swapAndExecute`.
+Deposit mode (`mode: "deposit"`) with `route: "exactOutput"` (or omitting `route`, as it defaults to `"exactOutput"`):
+- **Exact Output:** Users enter the exact destination deposit amount they want deposited into your protocol. Payment sources across all chains are automatically selected or customized to meet that exact requirement, executing through `bridgeAndExecute` or `swapAndExecute`.
+- For multi-token spend deposits where users specify input token amounts to deposit whatever is received, see [Deposit (Exact Input)](/docs/components/deposit-exact-input).
 
 | Prop                                                                               | Required | Description                                                                                                                                 |
 | ---------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `config.mode`                                                                      | Yes      | Must be `"deposit"`.                                                                                                                        |
+| `config.route`                                                                     | Optional | Set to `"exactOutput"` (or omit, defaults to `"exactOutput"`).                                                                              |
 | `config.destination.chain`                                                         | Yes      | Chain ID of the fixed destination network. Deposit destination chain cannot be changed by the user.                                         |
 | `config.destination.tokens`                                                        | Yes      | One or more accepted destination tokens. The token dropdown is limited to this list and is editable only when multiple tokens are supplied. |
 | `config.depositAddress`                                                            | Yes      | Smart contract address for the deposit target.                                                                                              |
@@ -212,13 +215,36 @@ Deposit uses only `mode: "deposit"`. This mode is exact-out: users enter the des
 | `config.validation.minAmount`                                                      | Optional | Minimum deposit amount. Must be `0` or greater.                                                                                             |
 | `config.validation.maxAmount`                                                      | Optional | Maximum deposit amount. Must be greater than `0`.                                                                                           |
 | `config.theme` | Optional | `"dark"`, `"light"`, or `"system"`. Defaults to light; system follows OS changes. Overrides `appearance.mode`. |
-| `config.appearance`                                                                | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`.                                                                    |
+| `config.appearance`                                                                | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`. Heading defaults to `"Deposit"`.                                    |
 | `connectedAddress`                                                                 | Optional | Wallet address to use. If omitted, the connected wagmi account is used.                                                                     |
 | `embed`                                                                            | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                                                               |
 | `open`, `onOpenChange`, `defaultOpen`                                              | Optional | Control the modal when `embed={false}`.                                                                                                     |
 | `onStart`, `onComplete`, `onError`, `onClose`, `onConnectClick`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectClick` to open your app/header wallet modal from the element CTA.                                         |
 
 Set `enableOnRamp: true` to offer wallet and local currency funding. Set it to `false` or omit it to open directly in the wallet deposit flow. The showcase Onramp toggle demonstrates both settings.
+
+### Route Example
+
+In exact-out deposit, users specify the exact amount they want to deposit on the destination protocol:
+
+```tsx
+<NexusWidget
+  config={{
+    mode: "deposit",
+    route: "exactOutput", // or omit, defaults to exactOutput
+    destination: {
+      chain: 42161,
+      tokens: [{ address: "0x...", symbol: "USDC", decimals: 6 }],
+    },
+    depositAddress: "0x...",
+    executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
+      to: "0x...",
+      gas: 400_000n,
+      data: "0x...",
+    }),
+  }}
+/>
+```
 
 ### `executeDeposit`
 

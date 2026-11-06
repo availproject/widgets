@@ -40,7 +40,7 @@ The examples below use npm imports (`@avail-project/widgets`). If you install fr
 1. Install dependencies:
 
 ```bash
-npm install @avail-project/nexus-core@2.2.3 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
+npm install @avail-project/nexus-core@3.2.0 decimal.js lucide-react viem wagmi class-variance-authority clsx tailwind-merge
 ```
 
 2. Copy the component source code into your project.

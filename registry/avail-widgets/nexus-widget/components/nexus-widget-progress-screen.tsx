@@ -5,19 +5,21 @@
 import Decimal from "decimal.js";
 import { Check, ChevronDown, Loader2, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { parseAmount as parseDecimal } from "../utils/amount";
+import { parseAmount as parseDecimal, isStablecoinSymbol } from "../utils/amount";
 import type {
   BridgeStepType,
   SwapStepType,
 } from "../../common/types/transaction-flow";
-import { getShortChainName } from "../../common/utils/constant";
+import { CHAIN_METADATA, getShortChainName } from "../../common/utils/constant";
 import {
   type NexusWidgetDepositOpportunityMetadata,
   type NexusWidgetMode,
 } from "../types";
+import { DepositCalculatedAmount } from "./deposit-idle-form";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
+import { useNexusWidgetThemeStyle } from "../theme-context";
 
 type ProgressSdkStep = SwapStepType | BridgeStepType;
 
@@ -60,10 +62,104 @@ const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
 const danger = "var(--nexus-widget-error-text, #E92C2C)";
 
+const PROGRESS_GRID_LIGHT_URL =
+  "https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif";
+const PROGRESS_GRID_DARK_URL =
+  "https://files.availproject.org/nexus-elements/nexus-one/progress-grid-dark.gif";
+
+function useIsDarkMode() {
+  const themeStyle = useNexusWidgetThemeStyle();
+  const [isDomDark, setIsDomDark] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined")
+      return;
+
+    const checkDark = () => {
+      const root = document.documentElement;
+      const body = document.body;
+      const isDarkClass = Boolean(
+        root?.classList?.contains("dark") || body?.classList?.contains("dark")
+      );
+      const isDataThemeDark =
+        root?.getAttribute?.("data-theme") === "dark" ||
+        root?.getAttribute?.("data-nexus-widget-theme") === "dark";
+      const prefersDark =
+        typeof window.matchMedia === "function"
+          ? Boolean(window.matchMedia("(prefers-color-scheme: dark)")?.matches)
+          : false;
+      return Boolean(isDarkClass || isDataThemeDark || prefersDark);
+    };
+
+    setIsDomDark(checkDark());
+
+    const mediaQuery =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : undefined;
+    const handleMediaChange = () => setIsDomDark(checkDark());
+    mediaQuery?.addEventListener?.("change", handleMediaChange);
+
+    const root = document.documentElement;
+    let observer: MutationObserver | undefined;
+    if (root && typeof MutationObserver !== "undefined") {
+      observer = new MutationObserver(() => {
+        setIsDomDark(checkDark());
+      });
+      observer.observe(root, {
+        attributes: true,
+        attributeFilter: ["class", "data-theme", "data-nexus-widget-theme"],
+      });
+    }
+
+    return () => {
+      mediaQuery?.removeEventListener?.("change", handleMediaChange);
+      observer?.disconnect();
+    };
+  }, []);
+
+  return themeStyle?.colorScheme === "dark" || isDomDark;
+}
+
 const formatDecimal = (value: unknown, decimals = 2) =>
-  (parseDecimal(value) ?? new Decimal(0)).toDecimalPlaces(decimals).toFixed();
+  (parseDecimal(value) ?? new Decimal(0))
+    .toDecimalPlaces(decimals, Decimal.ROUND_DOWN)
+    .toFixed();
 
 const formatUsd = (value: unknown) => `$${formatDecimal(value, 2)}`;
+
+function InfoIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg aria-hidden="true" fill="none" height={size} viewBox="0 0 16 16" width={size}>
+      <circle cx="8" cy="8" r="6.2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 7.2V11" stroke="currentColor" strokeLinecap="round" strokeWidth="1.3" />
+      <circle cx="8" cy="5.2" fill="currentColor" r=".8" />
+    </svg>
+  );
+}
+
+const formatSourceBreakdownAmount = (
+  rawAmount: string | Decimal | undefined | null,
+  decimals = 6,
+  symbol = "",
+) => {
+  const parsed =
+    rawAmount instanceof Decimal ? rawAmount : parseDecimal(rawAmount);
+  if (!parsed || !parsed.isFinite() || parsed.isZero()) return "0";
+  const maxDec = isStablecoinSymbol(symbol) ? 2 : Math.min(8, decimals);
+  const rounded = parsed.toDecimalPlaces(maxDec, Decimal.ROUND_DOWN);
+  if (isStablecoinSymbol(symbol)) {
+    return rounded.toFixed(2);
+  }
+  const str = rounded.toFixed();
+  return str.includes(".") ? str.replace(/\.?0+$/, "") : str;
+};
+
+const getBreakdownChainName = (chainId?: number, fallbackName?: string) => {
+  if (fallbackName && fallbackName !== "BNB") return fallbackName;
+  if (chainId === 56 || fallbackName === "BNB") return "BNB Chain";
+  return getShortChainName(chainId, fallbackName);
+};
 
 const unique = (values: Array<string | undefined>) =>
   Array.from(new Set(values.filter(Boolean) as string[]));
@@ -79,6 +175,7 @@ const getStepType = (step?: ProgressSdkStep) =>
 type ProgressStatusId =
   | "approveTokens"
   | "intentVerified"
+  | "nativeTransactions"
   | "swapTokens"
   | "receiveToken"
   | "action";
@@ -111,6 +208,7 @@ type ProgressListEventName =
 const STATUS_ORDER: ProgressStatusId[] = [
   "approveTokens",
   "intentVerified",
+  "nativeTransactions",
   "swapTokens",
   "receiveToken",
   "action",
@@ -171,6 +269,19 @@ const DESTINATION_SWAP_TYPES = [
 ];
 const BRIDGE_FILL_RECEIVE_TYPES = ["BRIDGE_FILL", "INTENT_FULFILLMENT"];
 
+const isNativeTransactionStep = (step?: ProgressSdkStep) => {
+  if (!step) return false;
+  const type = getStepType(step);
+  const id = String((step as any)?.id ?? (step as any)?.typeID ?? "").toLowerCase();
+  const kind = String((step as any)?.kind ?? "").toLowerCase();
+  return (
+    type === "NATIVE_TRANSACTION" ||
+    type.includes("NATIVE_TRANSACTION") ||
+    id.startsWith("native:") ||
+    kind === "native_source_deposit"
+  );
+};
+
 const getStatusForStep = (
   step: ProgressSdkStep | undefined,
   mode: NexusWidgetMode,
@@ -197,6 +308,10 @@ const getStatusForStep = (
     return "intentVerified";
   }
 
+  if (isNativeTransactionStep(step)) {
+    return "nativeTransactions";
+  }
+
   if (type.includes("SWAP_START")) {
     return "swapTokens";
   }
@@ -210,7 +325,6 @@ const getStatusForStep = (
     type.includes("BRIDGE_FILL") ||
     type.includes("BRIDGE_INTENT_SUBMISSION") ||
     type.includes("INTENT_SUBMISSION") ||
-    type.includes("NATIVE_TRANSACTION") ||
     type.includes("SWAP_COMPLETE") ||
     type.includes("SWAP_SKIPPED")
   ) {
@@ -321,7 +435,25 @@ const isSameStep = (left?: ProgressSdkStep, right?: ProgressSdkStep) => {
 
   const leftKey = getStepId(left);
   const rightKey = getStepId(right);
-  return Boolean(leftKey && leftKey === rightKey);
+  if (Boolean(leftKey && leftKey === rightKey)) {
+    return true;
+  }
+
+  if (
+    (leftType === "NATIVE_TRANSACTION" || leftType.includes("NATIVE_TRANSACTION")) &&
+    (rightType === "NATIVE_TRANSACTION" || rightType.includes("NATIVE_TRANSACTION")) &&
+    leftChain !== undefined &&
+    leftChain === rightChain
+  ) {
+    const leftSource = (left as any)?.sourceIndex;
+    const rightSource = (right as any)?.sourceIndex;
+    if (leftSource !== undefined && rightSource !== undefined) {
+      return leftSource === rightSource;
+    }
+    return true;
+  }
+
+  return false;
 };
 const getEventState = (event: NexusWidgetProgressEvent) =>
   String((event.event as { state?: string } | undefined)?.state ?? "").toLowerCase();
@@ -339,6 +471,7 @@ const getStepTokenAddress = (step?: ProgressSdkStep): string => {
 };
 
 export type BuildStatusRowsContext = {
+  swapRequired?: boolean;
   destinationChain?: string;
   destinationSymbol?: string;
   opportunityName?: string;
@@ -373,13 +506,58 @@ const getStepTokenSymbol = (
     (step as any).tokenSymbol ??
     step.token?.symbol ??
     (step as any).symbol;
+
+  const isNative = isNativeTransactionStep(step);
+  const chainId = getStepChainId(step);
+
+  // If this is a native transaction step, resolve the native token symbol for its chain
+  if (isNative) {
+    if (chainId !== undefined) {
+      const nativeCurrency = CHAIN_METADATA[chainId]?.nativeCurrency?.symbol;
+      if (nativeCurrency) return nativeCurrency;
+
+      const fromNative = context?.fromTokens?.find(
+        (t) =>
+          t.chainId === chainId &&
+          (!t.contractAddress ||
+            t.contractAddress === "0x0000000000000000000000000000000000000000" ||
+            t.contractAddress.toLowerCase() ===
+              "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+      );
+      if (fromNative?.symbol) return fromNative.symbol;
+
+      const sourceNative = context?.intentSources?.find(
+        (s) =>
+          s.chain?.id === chainId &&
+          (!s.token?.contractAddress ||
+            s.token.contractAddress === "0x0000000000000000000000000000000000000000" ||
+            s.token.contractAddress.toLowerCase() ===
+              "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+      );
+      if (sourceNative?.token?.symbol) return sourceNative.token.symbol;
+    }
+
+    if (
+      directSymbol &&
+      typeof directSymbol === "string" &&
+      directSymbol.trim() !== "" &&
+      !isStablecoinSymbol(directSymbol)
+    ) {
+      return directSymbol.trim();
+    }
+  }
+
   if (directSymbol && typeof directSymbol === "string" && directSymbol.trim() !== "") {
     return directSymbol.trim();
   }
-  const tokenAddress = getStepTokenAddress(step);
-  const chainId = getStepChainId(step);
 
-  if (tokenAddress) {
+  const tokenAddress = getStepTokenAddress(step);
+
+  if (
+    tokenAddress &&
+    tokenAddress !== "0x0000000000000000000000000000000000000000" &&
+    tokenAddress !== "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  ) {
     const fromMatch = context?.fromTokens?.find(
       (t) =>
         (chainId === undefined || t.chainId === undefined || t.chainId === chainId) &&
@@ -407,6 +585,51 @@ const getStepTokenSymbol = (
     ) {
       if (context?.opportunity?.tokenSymbol) return context.opportunity.tokenSymbol;
     }
+  }
+
+  // If sourceIndex is given, ensure the chain matches before trusting it
+  const sourceIndex = (step as any)?.sourceIndex;
+  if (
+    typeof sourceIndex === "number" &&
+    context?.intentSources?.[sourceIndex]?.token?.symbol
+  ) {
+    const candidateSource = context.intentSources[sourceIndex];
+    if (chainId === undefined || candidateSource?.chain?.id === chainId) {
+      if (candidateSource?.token?.symbol) {
+        return candidateSource.token.symbol;
+      }
+    }
+  }
+
+  if (chainId !== undefined) {
+    const sourceByChain = context?.intentSources?.find(
+      (s) =>
+        s.chain?.id === chainId &&
+        (!s.token?.contractAddress ||
+          s.token.contractAddress === "0x0000000000000000000000000000000000000000" ||
+          s.token.contractAddress.toLowerCase() ===
+            "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+    );
+    if (sourceByChain?.token?.symbol) return sourceByChain.token.symbol;
+
+    const fromByChain = context?.fromTokens?.find(
+      (t) =>
+        t.chainId === chainId &&
+        (!t.contractAddress ||
+          t.contractAddress === "0x0000000000000000000000000000000000000000" ||
+          t.contractAddress.toLowerCase() ===
+            "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+    );
+    if (fromByChain?.symbol) return fromByChain.symbol;
+
+    const fromAnyOnChain = context?.fromTokens?.find((t) => t.chainId === chainId);
+    if (fromAnyOnChain?.symbol) return fromAnyOnChain.symbol;
+
+    const sourceAnyOnChain = context?.intentSources?.find((s) => s.chain?.id === chainId);
+    if (sourceAnyOnChain?.token?.symbol) return sourceAnyOnChain.token.symbol;
+
+    const nativeCurrency = CHAIN_METADATA[chainId]?.nativeCurrency?.symbol;
+    if (nativeCurrency) return nativeCurrency;
   }
 
   if (context?.fromTokens && context.fromTokens.length === 1 && context.fromTokens[0]?.symbol) {
@@ -577,6 +800,126 @@ const getApprovalProgress = (
   };
 };
 
+const getNativeTransactionProgress = (
+  plan: ProgressSdkStep[],
+  events: NexusWidgetProgressEvent[],
+  steps: ProgressStep[],
+  failedStep?: ProgressSdkStep | null,
+  context?: BuildStatusRowsContext,
+) => {
+  const seen = new Set<string>();
+  const allCandidates: ProgressSdkStep[] = [
+    ...plan,
+    ...(events.map((e) => e.step).filter(Boolean) as ProgressSdkStep[]),
+  ];
+  const nativeSteps = allCandidates.flatMap((step, index) => {
+    if (!isNativeTransactionStep(step)) return [];
+    const stepId = step.id ? String(step.id) : "";
+    const key =
+      stepId ||
+      `${getStepType(step)}:${getStepChainId(step) ?? ""}:${(step as any)?.sourceIndex ?? index}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [step];
+  });
+
+  if (nativeSteps.length === 0) {
+    return {
+      total: 0,
+      completed: 0,
+      failed: false,
+      symbols: [] as string[],
+      activeStep: null as ProgressSdkStep | null,
+      activeSymbol: "",
+    };
+  }
+
+  const downstreamComplete =
+    hasCompletedType(events, steps, [
+      "INTENT_SUBMISSION",
+      "INTENT_FULFILLMENT",
+      "DESTINATION_SWAP",
+      "BRIDGE_FILL",
+      "TRANSACTION_SENT",
+      "TRANSACTION_CONFIRMED",
+      "SWAP_COMPLETE",
+    ]) ||
+    events.some(
+      (e) =>
+        !e.steps &&
+        stepMatches(e.step, [
+          "INTENT_SUBMISSION",
+          "INTENT_FULFILLMENT",
+          "DESTINATION_SWAP",
+          "BRIDGE_FILL",
+          "TRANSACTION_SENT",
+          "TRANSACTION_CONFIRMED",
+          "SWAP_COMPLETE",
+        ]) &&
+        (e.completed ||
+          ["submitted", "confirmed", "completed"].includes(getEventState(e))),
+    );
+
+  const items = nativeSteps.map((step) => {
+    const symbol = getStepTokenSymbol(step, context);
+    const directEvents = events.filter(
+      (e) => !e.steps && isSameStep(e.step, step),
+    );
+    const directCompleted =
+      steps.some((item) => item.completed && isSameStep(item.step, step)) ||
+      directEvents.some(
+        (e) =>
+          e.completed ||
+          ["submitted", "confirmed", "completed"].includes(getEventState(e)),
+      ) ||
+      downstreamComplete;
+    const directFailed =
+      !directCompleted &&
+      (isSameStep(failedStep ?? undefined, step) ||
+        directEvents.some((e) => getEventState(e) === "failed"));
+    return { step, symbol, completed: directCompleted, failed: directFailed };
+  });
+
+  // Infer completion if a later native transaction started or completed
+  for (let i = 0; i < items.length; i++) {
+    if (!items[i].completed) {
+      const laterActiveOrDone = items.slice(i + 1).some(
+        (later) =>
+          later.completed ||
+          events.some(
+            (e) =>
+              !e.steps &&
+              isSameStep(e.step, later.step) &&
+              [
+                "wallet_prompted",
+                "started",
+                "submitted",
+                "confirmed",
+                "completed",
+              ].includes(getEventState(e)),
+          ),
+      );
+      if (laterActiveOrDone) {
+        items[i].completed = true;
+      }
+    }
+  }
+
+  const completedCount = items.filter((item) => item.completed).length;
+  const failed = items.some((item) => item.failed);
+  const pending = items.filter((item) => !item.completed);
+  const activeItem = pending[0] ?? null;
+
+  return {
+    total: nativeSteps.length,
+    completed: completedCount,
+    failed,
+    symbols: items.map((i) => i.symbol).filter(Boolean),
+    activeStep: activeItem?.step ?? null,
+    activeSymbol: activeItem?.symbol ?? "",
+  };
+};
+
 const hasStartedStatus = (
   events: NexusWidgetProgressEvent[],
   id: ProgressStatusId,
@@ -643,6 +986,14 @@ export const buildStatusRows = ({
   const approvalTotal = approval.total;
   const approvalCompletedCount = approval.completed;
   if (approval.failed) failedStatus = "approveTokens";
+  const nativeTx = getNativeTransactionProgress(
+    currentPlan,
+    events,
+    steps,
+    failedStep,
+    context,
+  );
+  if (nativeTx.failed) failedStatus = "nativeTransactions";
   const refundEligibleFailure = Boolean(failedStep &&
     stepMatches(failedStep, REFUND_ELIGIBLE_SWAP_TYPES));
   const isExplicitSourceOnlyPlan =
@@ -700,6 +1051,29 @@ export const buildStatusRows = ({
     "TRANSACTION_CONFIRMED",
   ]);
 
+  // Composite intent review already knows whether funding needs a swap.
+  // Do not wait for the final swapSkipped result to hide nonexistent stages.
+  if (mode === "deposit" && (context.swapRequired === false || swapSkipped)) {
+    return [{
+      id: "action",
+      state: failedStep
+        ? "error"
+        : transactionConfirmed
+          ? "completed"
+          : transactionSent ? "inProgress" : "preapproval",
+      label: failedStep
+        ? isRejected
+          ? "Deposit cancelled by user"
+          : "Deposit failed. Funds are in your wallet."
+        : transactionConfirmed
+          ? `${destinationSymbol} deposited to ${opportunityName}`
+          : "Deposit in progress",
+      description: failedStep
+        ? isRejected ? "Rejected in wallet" : undefined
+        : !transactionSent && !transactionConfirmed ? "Approve in wallet" : undefined,
+    }];
+  }
+
   const intentVerifiedComplete =
     hasCompletedType(events, steps, [
       "INTENT_SIGNATURE",
@@ -712,7 +1086,7 @@ export const buildStatusRows = ({
     ]) ||
     hasStartedStatus(events, "swapTokens", mode, hasTransferAction) ||
     hasStartedStatus(events, "receiveToken", mode, hasTransferAction) ||
-    hasEventType(events, [
+    hasProgressEventType(events, [
       "SOURCE_SWAP",
       "SOURCE_SWAP_BATCH_TX",
       "SOURCE_SWAP_HASH",
@@ -811,7 +1185,63 @@ export const buildStatusRows = ({
       });
     }
 
+    if (nativeTx.total > 0) {
+      const nativeCurrent = Math.min(
+        nativeTx.total,
+        Math.max(1, nativeTx.completed + 1),
+      );
+      const nativeDone = nativeTx.completed >= nativeTx.total;
+      const activeSymbol = nativeTx.activeSymbol;
+      const state: ProgressStatusState =
+        failedStatus === "nativeTransactions"
+          ? "error"
+          : nativeDone
+            ? "completed"
+            : !intentVerifiedComplete
+              ? "default"
+              : "preapproval";
+
+      const promptDescription = activeSymbol
+        ? mode === "deposit"
+          ? `Confirm ${activeSymbol} deposit in wallet`
+          : `Confirm ${activeSymbol} in wallet`
+        : "Confirm in wallet";
+
+      pushRow({
+        id: "nativeTransactions",
+        state,
+        description:
+          state === "error" && isRejected
+            ? "Rejected in wallet"
+            : state === "preapproval"
+              ? promptDescription
+              : undefined,
+        label:
+          state === "completed"
+            ? mode === "deposit"
+              ? nativeTx.total === 1
+                ? "Native token deposited"
+                : `Native tokens deposited (${nativeTx.total} of ${nativeTx.total})`
+              : nativeTx.total === 1
+                ? "Native token transferred"
+                : `Native tokens transferred (${nativeTx.total} of ${nativeTx.total})`
+            : state === "error"
+              ? isRejected
+                ? "Deposit rejected"
+                : "Deposit failed"
+              : mode === "deposit"
+                ? nativeTx.total === 1
+                  ? `Deposit native token${activeSymbol ? ` (${activeSymbol})` : ""}`
+                  : `Deposit native tokens (${nativeCurrent} of ${nativeTx.total})`
+                : nativeTx.total === 1
+                  ? `Transfer native token${activeSymbol ? ` (${activeSymbol})` : ""}`
+                  : `Transfer native tokens (${nativeCurrent} of ${nativeTx.total})`,
+      });
+    }
+
     const approvalsSatisfied = !approval.blocksSwapExecution;
+    const nativeTransactionsSatisfied =
+      nativeTx.total === 0 || nativeTx.completed >= nativeTx.total;
     let state: ProgressStatusState = "default";
     if (failedStatus === "swapTokens") {
       state = "error";
@@ -819,6 +1249,7 @@ export const buildStatusRows = ({
       state = "completed";
     } else if (
       approvalsSatisfied &&
+      nativeTransactionsSatisfied &&
       (intentVerifiedComplete ||
         hasStartedStatus(events, "swapTokens", mode, hasTransferAction) ||
         hasEventType(events, [
@@ -827,7 +1258,6 @@ export const buildStatusRows = ({
           "SOURCE_SWAP_BATCH_TX",
           "SOURCE_SWAP_HASH",
           "SWAP_START",
-          "NATIVE_TRANSACTION",
           "INTENT_SUBMISSION",
         ]))
     ) {
@@ -1093,32 +1523,70 @@ export function NexusWidgetProgressScreen({
   failedStep,
   recipientAddress,
 }: NexusWidgetProgressScreenProps) {
+  const isDark = useIsDarkMode();
+  const progressGridUrl = isDark
+    ? PROGRESS_GRID_DARK_URL
+    : PROGRESS_GRID_LIGHT_URL;
   const intentSources = intentData?.sources ?? [];
   const intentDestination = intentData?.destination;
+  const destinationChainId = intentDestination?.chain.id ?? toToken?.chainId;
+  const destinationTokenAddress = (
+    intentDestination?.token.contractAddress ??
+    toToken?.contractAddress ??
+    ""
+  ).toLowerCase();
+  const destSymbol = (
+    intentDestination?.token.symbol ||
+    toToken?.symbol ||
+    ""
+  ).toUpperCase();
+
+  const isNativeAddr = (addr?: string) =>
+    !addr ||
+    addr.toLowerCase() === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" ||
+    addr.toLowerCase() === "0x0000000000000000000000000000000000000000";
+
   const destinationSourceToken = fromTokens.find((token) => {
-    const destinationChainId = intentDestination?.chain.id ?? toToken?.chainId;
-    const destinationTokenAddress = (
-      intentDestination?.token.contractAddress ??
-      toToken?.contractAddress ??
-      ""
-    ).toLowerCase();
+    const matchesChain =
+      destinationChainId !== undefined ? token.chainId === destinationChainId : true;
+    const tokenAddr = (token.contractAddress ?? "").toLowerCase();
+    const matchesAddress =
+      destinationTokenAddress !== "" && tokenAddr !== ""
+        ? tokenAddr === destinationTokenAddress ||
+          (isNativeAddr(tokenAddr) && isNativeAddr(destinationTokenAddress))
+        : false;
+    const matchesSymbol =
+      Boolean(token.symbol && destSymbol) &&
+      token.symbol.toUpperCase() === destSymbol;
     const tokenAmount =
       parseDecimal(token.userAmount) ?? parseDecimal(token.balance);
 
     return (
-      destinationChainId !== undefined &&
-      destinationTokenAddress !== "" &&
-      token.chainId === destinationChainId &&
-      token.contractAddress.toLowerCase() === destinationTokenAddress &&
+      matchesChain &&
+      (matchesAddress || matchesSymbol) &&
       Boolean(tokenAmount && tokenAmount.gt(0))
     );
   });
-  const sourceSymbols = unique([
-    ...(destinationSourceToken ? [destinationSourceToken.symbol] : []),
-    ...(intentSources.length > 0
-      ? intentSources.map((source) => source.token.symbol)
-      : fromTokens.map((token) => token.symbol)),
-  ]);
+
+  const allSourceSymbols: string[] = [];
+  if (destinationSourceToken?.symbol) {
+    allSourceSymbols.push(destinationSourceToken.symbol);
+  }
+  for (const s of intentSources) {
+    if (s.token?.symbol) allSourceSymbols.push(s.token.symbol);
+  }
+  for (const t of fromTokens) {
+    const amt = parseDecimal(t.userAmount);
+    if (amt && amt.gt(0) && t.symbol) {
+      allSourceSymbols.push(t.symbol);
+    }
+  }
+  const sourceSymbols = unique(
+    allSourceSymbols.length > 0
+      ? allSourceSymbols
+      : fromTokens.map((token) => token.symbol),
+  );
+
   const intentSourceUsd =
     intentSources.length > 0
       ? intentSources.reduce(
@@ -1143,26 +1611,57 @@ export function NexusWidgetProgressScreen({
             quotedDestinationAmount,
           )
         : undefined;
+
+  const destinationSourceUsd = (() => {
+    if (!destinationSourceToken) return undefined;
+    const userAmount = parseDecimal(destinationSourceToken.userAmount);
+    if (userAmount && userAmount.gt(0)) {
+      if (destinationSourceToken.userAmountMode === "usd") {
+        return userAmount;
+      }
+      if (destinationSourceToken.userAmountUsd) {
+        const quotedUsd = parseDecimal(destinationSourceToken.userAmountUsd);
+        if (quotedUsd && quotedUsd.gt(0)) return quotedUsd;
+      }
+      const balance = parseDecimal(destinationSourceToken.balance);
+      const fiat = parseDecimal(destinationSourceToken.balanceInFiat);
+      const price =
+        balance && balance.gt(0) && fiat && fiat.gt(0)
+          ? fiat.div(balance)
+          : destinationUsdRate;
+      if (price && price.gt(0)) {
+        return userAmount.mul(price);
+      }
+      return fiat ?? userAmount;
+    }
+    return undefined;
+  })();
+
   const destinationCoverageUsd =
-    (mode === "deposit" || mode === "send") &&
-    requestedDestinationAmount &&
-    requestedDestinationAmount.gt(0) &&
-    quotedDestinationAmount &&
-    requestedDestinationAmount.gt(quotedDestinationAmount) &&
-    destinationBalanceAmount &&
-    destinationBalanceAmount.gt(0) &&
-    destinationUsdRate &&
-    destinationUsdRate.gt(0)
-      ? Decimal.min(
-          requestedDestinationAmount.minus(quotedDestinationAmount),
-          destinationBalanceAmount,
-        ).mul(destinationUsdRate)
+    mode === "deposit" || mode === "send"
+      ? destinationSourceUsd ??
+        (requestedDestinationAmount &&
+        requestedDestinationAmount.gt(0) &&
+        quotedDestinationAmount &&
+        requestedDestinationAmount.gt(quotedDestinationAmount) &&
+        destinationBalanceAmount &&
+        destinationBalanceAmount.gt(0) &&
+        destinationUsdRate &&
+        destinationUsdRate.gt(0)
+          ? Decimal.min(
+              requestedDestinationAmount.minus(quotedDestinationAmount),
+              destinationBalanceAmount,
+            ).mul(destinationUsdRate)
+          : undefined)
       : undefined;
+
   const quotedDestinationUsd = parseDecimal(intentDestination?.value);
   const feeUsd = parseDecimal(totalFeeUsd);
+  const fromUsdProp = parseDecimal(fromAmountUsd);
   const sourceUsd =
     mode === "deposit" || mode === "send"
       ? [
+          fromUsdProp,
           destinationCoverageUsd !== undefined
             ? (intentSourceUsd ?? new Decimal(0)).plus(destinationCoverageUsd)
             : intentSourceUsd,
@@ -1190,15 +1689,41 @@ export function NexusWidgetProgressScreen({
             undefined,
           )
       : intentSourceUsd;
-  const destinationAmount =
-    (mode === "deposit" || mode === "send") && toAmount
-      ? toAmount
-      : (intentDestination?.amount ?? toAmount ?? "0");
   const destinationSymbol =
     intentDestination?.token.symbol ||
     toToken?.symbol ||
     opportunity?.tokenSymbol ||
     "";
+  const destinationAmount = (() => {
+    if (toAmount && toAmount !== "0" && toAmount !== "0.0") return toAmount;
+    if (
+      intentDestination?.amount &&
+      intentDestination.amount !== "0" &&
+      intentDestination.amount !== "0.0"
+    ) {
+      return intentDestination.amount;
+    }
+    const reqAmount = (intentData as any)?.executeRequirement?.token?.amount;
+    if (
+      reqAmount &&
+      String(reqAmount) !== "0" &&
+      String(reqAmount) !== "0.0"
+    ) {
+      return String(reqAmount);
+    }
+    const fallbackUsd =
+      parseDecimal(toAmountUsd) ??
+      parseDecimal((intentDestination as any)?.value) ??
+      (isStablecoinSymbol(destinationSymbol) ? sourceUsd : undefined);
+    if (
+      fallbackUsd &&
+      fallbackUsd.gt(0) &&
+      isStablecoinSymbol(destinationSymbol)
+    ) {
+      return fallbackUsd.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed();
+    }
+    return toAmount && toAmount !== "0" ? toAmount : "0";
+  })();
   const destinationChainName = getShortChainName(
     intentDestination?.chain.id ?? toToken?.chainId,
     intentDestination?.chain.name || toToken?.chainName || "",
@@ -1207,6 +1732,37 @@ export function NexusWidgetProgressScreen({
     mode === "deposit"
       ? opportunity?.title || opportunity?.protocol || destinationChainName
       : destinationChainName;
+
+  const augmentedIntentSources =
+    destinationSourceToken &&
+    !intentSources.some(
+      (s) =>
+        s.chain.id === destinationSourceToken.chainId &&
+        (s.token.contractAddress?.toLowerCase() ===
+          destinationSourceToken.contractAddress?.toLowerCase() ||
+          s.token.symbol?.toUpperCase() ===
+            destinationSourceToken.symbol?.toUpperCase()),
+    )
+      ? [
+          ...intentSources,
+          {
+            chain: {
+              id: destinationSourceToken.chainId ?? 0,
+              name: destinationSourceToken.chainName ?? "",
+              logo: destinationSourceToken.chainLogo ?? "",
+            },
+            token: {
+              contractAddress: destinationSourceToken.contractAddress,
+              symbol: destinationSourceToken.symbol,
+              decimals: destinationSourceToken.decimals,
+              logo: destinationSourceToken.logo ?? "",
+            },
+            amount: destinationSourceToken.userAmount ?? "0",
+            value: destinationSourceUsd?.toFixed() ?? "0",
+          },
+        ]
+      : intentSources;
+
   const statusRows = buildStatusRows({
     events: progressEvents,
     failedStep,
@@ -1214,10 +1770,11 @@ export function NexusWidgetProgressScreen({
     mode,
     steps: steps ?? [],
     context: {
+      swapRequired: intentData?.swapRequired,
       destinationChain: destinationChainName || destinationChain,
       destinationSymbol,
       fromTokens,
-      intentSources,
+      intentSources: augmentedIntentSources,
       opportunity: opportunity
         ? {
             chainId: opportunity.chainId,
@@ -1236,7 +1793,267 @@ export function NexusWidgetProgressScreen({
         : undefined,
     },
   });
-  const [stepsExpanded, setStepsExpanded] = useState(true);
+  const [stepsExpanded, setStepsExpanded] = useState(false);
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  const tooltipContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(hover:hover) and (pointer:fine)").matches
+    ) {
+      setIsTooltipOpen(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsTooltipOpen(false);
+    }, 120);
+  };
+
+  useEffect(() => {
+    if (!isTooltipOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (
+        tooltipContainerRef.current &&
+        !tooltipContainerRef.current.contains(e.target as Node)
+      ) {
+        setIsTooltipOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsTooltipOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isTooltipOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const sourceBreakdown = React.useMemo(() => {
+    const rows: Array<{
+      key: string;
+      chainId?: number;
+      tokenLogo: string;
+      chainLogo?: string;
+      symbol: string;
+      chainName: string;
+      amount: string;
+      value: string;
+    }> = [];
+
+    if (augmentedIntentSources.length > 0) {
+      for (let i = 0; i < augmentedIntentSources.length; i++) {
+        const s = augmentedIntentSources[i];
+        const fallback = fromTokens.find(
+          (t) =>
+            (t.chainId === s.chain?.id || !t.chainId || !s.chain?.id) &&
+            (t.contractAddress?.toLowerCase() ===
+              s.token?.contractAddress?.toLowerCase() ||
+              t.symbol?.toUpperCase() === s.token?.symbol?.toUpperCase()),
+        );
+        const symbol = s.token?.symbol || fallback?.symbol || "";
+        const decimals = s.token?.decimals ?? fallback?.decimals ?? 6;
+        const amountStr = formatSourceBreakdownAmount(s.amount, decimals, symbol);
+        const chainName =
+          getBreakdownChainName(s.chain?.id, s.chain?.name || fallback?.chainName) ||
+          (s.chain?.id ? CHAIN_METADATA[s.chain.id]?.name : "") ||
+          "";
+
+        let value = s.value;
+        if (!value || value === "0") {
+          const parsedAmt = parseDecimal(s.amount);
+          const fiat = parseDecimal(fallback?.balanceInFiat);
+          const bal = parseDecimal(fallback?.balance);
+          const price =
+            bal && bal.gt(0) && fiat && fiat.gt(0)
+              ? fiat.div(bal)
+              : undefined;
+          if (parsedAmt && price) {
+            value = parsedAmt.mul(price).toFixed(2);
+          } else if (fiat && fiat.gt(0)) {
+            value = fiat.toFixed(2);
+          }
+        }
+        if ((!value || value === "0") && fromAmountUsd && augmentedIntentSources.length === 1) {
+          value = fromAmountUsd;
+        }
+
+        rows.push({
+          key: `${s.chain?.id || ""}-${s.token?.contractAddress || symbol}-${i}`,
+          chainId: s.chain?.id,
+          tokenLogo: s.token?.logo || fallback?.logo || "",
+          chainLogo: s.chain?.logo || fallback?.chainLogo || "",
+          symbol,
+          chainName,
+          amount: amountStr,
+          value: value || "0",
+        });
+      }
+
+      // Also include any tokens configured in fromTokens with positive userAmount that aren't in augmentedIntentSources
+      for (const token of fromTokens) {
+        const userAmt = parseDecimal(token.userAmount);
+        if (!userAmt || !userAmt.gt(0)) continue;
+        const isAlreadyCovered = rows.some((row) => {
+          const matchesChain = row.chainId === token.chainId;
+          const matchesAddress =
+            row.tokenLogo && token.contractAddress
+              ? row.key.toLowerCase().includes(token.contractAddress.toLowerCase())
+              : false;
+          const matchesSymbol =
+            Boolean(row.symbol && token.symbol) &&
+            row.symbol.toUpperCase() === token.symbol.toUpperCase();
+          return matchesChain && (matchesAddress || matchesSymbol);
+        });
+
+        if (!isAlreadyCovered) {
+          const balance = parseDecimal(token.balance);
+          const fiat = parseDecimal(token.balanceInFiat);
+          const price =
+            balance && balance.gt(0) && fiat && fiat.gt(0)
+              ? fiat.div(balance)
+              : undefined;
+          const isUsd = token.userAmountMode === "usd";
+          const units = isUsd
+            ? price && price.gt(0)
+              ? userAmt.div(price)
+              : userAmt
+            : userAmt;
+          const val = isUsd
+            ? userAmt
+            : token.userAmountUsd
+              ? (parseDecimal(token.userAmountUsd) ?? userAmt)
+              : price && price.gt(0)
+                ? userAmt.mul(price)
+                : (fiat ?? userAmt);
+
+          rows.push({
+            key: `from-${token.chainId}-${token.contractAddress}-${token.symbol}`,
+            chainId: token.chainId,
+            tokenLogo: token.logo || "",
+            chainLogo: token.chainLogo || "",
+            symbol: token.symbol,
+            chainName:
+              getBreakdownChainName(token.chainId, token.chainName) ||
+              (token.chainId ? CHAIN_METADATA[token.chainId]?.name : "") ||
+              "",
+            amount: formatSourceBreakdownAmount(units, token.decimals ?? 6, token.symbol),
+            value: val ? val.toFixed(2) : "0",
+          });
+        }
+      }
+    } else {
+      // Fallback to fromTokens when augmentedIntentSources is empty
+      const positiveTokens = fromTokens.filter((t) => {
+        const amt = parseDecimal(t.userAmount);
+        return amt && amt.gt(0);
+      });
+      const tokensToUse = positiveTokens.length > 0 ? positiveTokens : fromTokens;
+
+      for (let i = 0; i < tokensToUse.length; i++) {
+        const token = tokensToUse[i];
+        const userAmt = parseDecimal(token.userAmount);
+        const balance = parseDecimal(token.balance);
+        const fiat = parseDecimal(token.balanceInFiat);
+        const price =
+          balance && balance.gt(0) && fiat && fiat.gt(0)
+            ? fiat.div(balance)
+            : undefined;
+        const isUsd = token.userAmountMode === "usd";
+        const units =
+          userAmt && userAmt.gt(0)
+            ? isUsd
+              ? price && price.gt(0)
+                ? userAmt.div(price)
+                : userAmt
+              : userAmt
+            : balance && balance.gt(0)
+              ? balance
+              : new Decimal(0);
+        let val =
+          userAmt && userAmt.gt(0)
+            ? isUsd
+              ? userAmt
+              : token.userAmountUsd
+                ? (parseDecimal(token.userAmountUsd) ?? userAmt)
+                : price && price.gt(0)
+                  ? userAmt.mul(price)
+                  : (fiat ?? userAmt)
+            : fiat ?? new Decimal(0);
+
+        if ((!val || val.isZero()) && fromAmountUsd && tokensToUse.length === 1) {
+          val = parseDecimal(fromAmountUsd) ?? val;
+        }
+
+        rows.push({
+          key: `fallback-${token.chainId}-${token.contractAddress}-${token.symbol}-${i}`,
+          chainId: token.chainId,
+          tokenLogo: token.logo || "",
+          chainLogo: token.chainLogo || "",
+          symbol: token.symbol,
+          chainName:
+            getBreakdownChainName(token.chainId, token.chainName) ||
+            (token.chainId ? CHAIN_METADATA[token.chainId]?.name : "") ||
+            "",
+          amount: formatSourceBreakdownAmount(units, token.decimals ?? 6, token.symbol),
+          value: val ? val.toFixed(2) : "0",
+        });
+      }
+    }
+
+    // Merge duplicate rows with same symbol and chain
+    const merged = new Map<string, typeof rows[0]>();
+    for (const r of rows) {
+      const mergeKey = `${r.chainId ?? r.chainName}-${r.symbol.toUpperCase()}`;
+      const existing = merged.get(mergeKey);
+      if (!existing) {
+        merged.set(mergeKey, { ...r });
+      } else {
+        const a1 = parseDecimal(existing.amount) ?? new Decimal(0);
+        const a2 = parseDecimal(r.amount) ?? new Decimal(0);
+        const v1 = parseDecimal(existing.value) ?? new Decimal(0);
+        const v2 = parseDecimal(r.value) ?? new Decimal(0);
+        existing.amount = formatSourceBreakdownAmount(a1.plus(a2), 6, r.symbol);
+        existing.value = v1.plus(v2).toFixed(2);
+      }
+    }
+    return Array.from(merged.values());
+  }, [augmentedIntentSources, fromTokens, fromAmountUsd]);
+
+  const displayLogos =
+    sourceBreakdown.length > 0
+      ? sourceBreakdown.slice(0, 4).map((r) => ({
+          key: r.key,
+          logo: r.tokenLogo,
+          symbol: r.symbol,
+        }))
+      : fromTokens.slice(0, 4).map((t, index) => ({
+          key: `${t.contractAddress}-${t.chainId}-${index}`,
+          logo: t.logo ?? "",
+          symbol: t.symbol,
+        }));
   const activeRow =
     statusRows.find(
       (row) => row.state === "preapproval" || row.state === "inProgress",
@@ -1246,7 +2063,12 @@ export function NexusWidgetProgressScreen({
     statusRows[statusRows.length - 1];
   const visibleRows = stepsExpanded ? statusRows : activeRow ? [activeRow] : [];
   const canExpand = statusRows.length > 1;
-  const getRowHeight = (row: ProgressStatusRow) => (row.description ? 47 : 40);
+  const getRowHeight = (row: ProgressStatusRow) =>
+    mode === "deposit"
+      ? 56
+      : row.description
+        ? 47
+        : 40;
   const collapsedStatusHeight = activeRow ? getRowHeight(activeRow) : 40;
   const expandedStatusHeight = statusRows.reduce(
     (sum, row) => sum + getRowHeight(row),
@@ -1258,21 +2080,361 @@ export function NexusWidgetProgressScreen({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "7px",
+        gap: mode === "deposit" ? "8px" : "7px",
         width: "100%",
       }}
     >
       <div
         style={{
-          background: "var(--nexus-widget-surface, #FFFFFE)",
-          border: `1px solid ${border}`,
-          borderRadius: "8px",
-          boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
+          background: "var(--nx-card, var(--nexus-widget-surface, #FFFFFE))",
+          border: mode === "deposit" ? "none" : `1px solid ${border}`,
+          borderRadius: mode === "deposit" ? "24px" : "8px",
+          boxShadow:
+            mode === "deposit"
+              ? "var(--nx-sh-card, #16161508 0 1px 2px, #1616150A 0 6px 18px)"
+              : "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           boxSizing: "border-box",
-          padding: "12px 13px 9px",
+          padding: mode === "deposit" ? "14px 12px 24px" : "12px 13px 9px",
           width: "100%",
         }}
       >
+        {mode === "deposit" ? (
+          <>
+            <div
+              style={{
+                color: "var(--nx-mute-2, #8C8C8B)",
+                fontFamily,
+                fontSize: "14px",
+                lineHeight: "18px",
+                textAlign: "center",
+              }}
+            >
+              {destinationChain || "Deposit"} receives
+            </div>
+            <div
+              style={{
+                alignItems: "baseline",
+                color: primary,
+                display: "flex",
+                fontFamily,
+                fontSize: "48px",
+                fontWeight: 300,
+                gap: "8px",
+                justifyContent: "center",
+                letterSpacing: "-0.03em",
+                lineHeight: "56px",
+                marginTop: "2px",
+              }}
+            >
+              <span>
+                <DepositCalculatedAmount
+                  value={(() => {
+                    const dec = isStablecoinSymbol(destinationSymbol)
+                      ? 2
+                      : Math.min(6, toToken?.decimals ?? 6);
+                    const formatted = formatDecimal(destinationAmount, dec);
+                    return formatted.startsWith("~") ? formatted : `~${formatted}`;
+                  })()}
+                />
+              </span>
+              <span
+                style={{
+                  color: "var(--nx-mute, #737372)",
+                  fontSize: "18px",
+                  fontWeight: 500,
+                  letterSpacing: "0",
+                  lineHeight: "22px",
+                }}
+              >
+                {destinationSymbol}
+              </span>
+            </div>
+            <div
+              style={{
+                color: "var(--nx-mute-2, #8C8C8B)",
+                fontFamily,
+                fontSize: "14px",
+                lineHeight: "18px",
+                textAlign: "center",
+              }}
+            >
+              ≈ {formatUsd(toAmountUsd ?? sourceUsd)}
+            </div>
+            <div
+              style={{
+                alignItems: "center",
+                color: "var(--nx-faint, #A3A3A2)",
+                display: "flex",
+                fontFamily,
+                fontSize: "12px",
+                gap: "4px",
+                justifyContent: "center",
+                lineHeight: "16px",
+                marginTop: "4px",
+              }}
+            >
+              on
+              {toToken?.chainLogo ? (
+                <img
+                  alt=""
+                  src={toToken.chainLogo}
+                  style={{ borderRadius: "999px", height: 12, width: 12 }}
+                />
+              ) : null}
+              {destinationChainName || destinationChain}
+            </div>
+            <div
+              style={{
+                background: "var(--nx-band, #F8F8F8)",
+                borderRadius: "18px",
+                marginTop: "8px",
+                padding: "12px 16px",
+              }}
+            >
+              <img
+                alt=""
+                aria-hidden="true"
+                src={progressGridUrl}
+                style={{
+                  display: "block",
+                  height: "167px",
+                  objectFit: "cover",
+                  width: "100%",
+                }}
+              />
+            </div>
+            <div
+              style={{
+                color: "var(--nx-mute-2, #8C8C8B)",
+                fontFamily,
+                fontSize: "14px",
+                lineHeight: "18px",
+                marginTop: "14px",
+                textAlign: "center",
+              }}
+            >
+              You Spend
+            </div>
+            <div
+              style={{
+                color: primary,
+                fontFamily,
+                fontSize: "36px",
+                fontWeight: 300,
+                letterSpacing: "-0.03em",
+                lineHeight: "42px",
+                textAlign: "center",
+              }}
+            >
+              {formatUsd(sourceUsd)}
+            </div>
+            <div
+              style={{
+                alignItems: "center",
+                display: "flex",
+                justifyContent: "center",
+                marginTop: "6px",
+                position: "relative",
+                width: "100%",
+              }}
+            >
+              <div
+                ref={tooltipContainerRef}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                style={{
+                  alignItems: "center",
+                  display: "inline-flex",
+                  justifyContent: "center",
+                  position: "relative",
+                }}
+              >
+                <div
+                  style={{
+                    alignItems: "center",
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  {displayLogos.map((token, index) =>
+                    token.logo ? (
+                      <img
+                        alt={token.symbol}
+                        key={token.key}
+                        src={token.logo}
+                        style={{
+                          background: "var(--nx-card, #FFFFFF)",
+                          borderRadius: "999px",
+                          height: 22,
+                          marginLeft: index === 0 ? 0 : -6,
+                          outline: "2px solid var(--nx-card, #FFFFFF)",
+                          width: 22,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        key={token.key}
+                        style={{
+                          background: "var(--nx-card, #FFFFFF)",
+                          borderRadius: "999px",
+                          height: 22,
+                          marginLeft: index === 0 ? 0 : -6,
+                          outline: "2px solid var(--nx-card, #FFFFFF)",
+                          width: 22,
+                        }}
+                      />
+                    ),
+                  )}
+                </div>
+
+                {sourceBreakdown.length > 0 ? (
+                  <button
+                    aria-expanded={isTooltipOpen}
+                    aria-label="View source tokens breakdown"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsTooltipOpen((v) => !v);
+                    }}
+                    style={{
+                      alignItems: "center",
+                      background: isTooltipOpen
+                        ? "var(--nx-shim, #EFEFEE)"
+                        : "transparent",
+                      border: "none",
+                      borderRadius: "999px",
+                      color: isTooltipOpen
+                        ? "var(--nx-ink, #161615)"
+                        : "var(--nx-faint, #A3A3A2)",
+                      cursor: "pointer",
+                      display: "grid",
+                      height: "18px",
+                      marginLeft: "6px",
+                      outline: "none",
+                      padding: 0,
+                      placeItems: "center",
+                      transition: "all 150ms ease",
+                      width: "18px",
+                    }}
+                    type="button"
+                  >
+                    <InfoIcon size={14} />
+                  </button>
+                ) : null}
+
+                {isTooltipOpen && sourceBreakdown.length > 0 ? (
+                  <div
+                    role="tooltip"
+                    style={{
+                      background: "var(--nx-pop, var(--nx-card, #FFFFFF))",
+                      border: "1px solid var(--nx-line-2, #EDEDED)",
+                      borderRadius: "16px",
+                      boxShadow:
+                        "0 8px 30px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--nx-pop-ring, rgba(22, 22, 21, 0.04))",
+                      boxSizing: "border-box",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                      left: "50%",
+                      maxHeight: "260px",
+                      maxWidth: "calc(100vw - 32px)",
+                      minWidth: "260px",
+                      overflowY: "auto",
+                      padding: "12px 14px",
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      transform: "translateX(-50%)",
+                      zIndex: 60,
+                    }}
+                  >
+                    {sourceBreakdown.map((row) => (
+                      <div
+                        key={row.key}
+                        style={{
+                          alignItems: "center",
+                          display: "flex",
+                          gap: "8px",
+                          justifyContent: "space-between",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <div
+                          style={{
+                            alignItems: "center",
+                            display: "flex",
+                            gap: "8px",
+                            minWidth: 0,
+                          }}
+                        >
+                          {row.tokenLogo ? (
+                            <img
+                              alt={row.symbol}
+                              src={row.tokenLogo}
+                              style={{
+                                borderRadius: "999px",
+                                display: "block",
+                                flexShrink: 0,
+                                height: 18,
+                                width: 18,
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                background: "var(--nx-line, #E8E8E7)",
+                                borderRadius: "999px",
+                                flexShrink: 0,
+                                height: 18,
+                                width: 18,
+                              }}
+                            />
+                          )}
+                          <span
+                            style={{
+                              color: "var(--nx-ink, #161615)",
+                              fontFamily,
+                              fontSize: "13px",
+                              fontWeight: 400,
+                              lineHeight: "18px",
+                            }}
+                          >
+                            {`${row.amount} ${row.symbol}`}
+                          </span>
+                          {row.chainName ? (
+                            <span
+                              style={{
+                                color: "var(--nx-mute-2, #8C8C8B)",
+                                fontFamily,
+                                fontSize: "13px",
+                                fontWeight: 400,
+                                lineHeight: "18px",
+                              }}
+                            >
+                              {row.chainName}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span
+                          style={{
+                            color: "var(--nx-ink, #161615)",
+                            fontFamily,
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            lineHeight: "18px",
+                            marginLeft: "16px",
+                            textAlign: "right",
+                          }}
+                        >
+                          {formatUsd(row.value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
         <div
           style={{
             color: muted,
@@ -1301,7 +2463,7 @@ export function NexusWidgetProgressScreen({
         <img
           alt=""
           aria-hidden="true"
-          src="https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif"
+          src={progressGridUrl}
           style={{
             display: "block",
             height: "148px",
@@ -1358,18 +2520,28 @@ export function NexusWidgetProgressScreen({
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
 
       <div
         aria-live="polite"
+        data-nexus-progress-card
         style={{
-          background: "var(--nexus-widget-surface, #FFFFFE)",
-          border: `1px solid ${border}`,
-          borderRadius: "8px",
-          boxShadow: "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
+          background: "var(--nx-card, var(--nexus-widget-surface, #FFFFFE))",
+          border: mode === "deposit" ? "none" : `1px solid ${border}`,
+          borderRadius: mode === "deposit" ? "24px" : "8px",
+          boxShadow:
+            mode === "deposit"
+              ? "var(--nx-sh-card, #16161508 0 1px 2px, #1616150A 0 6px 18px)"
+              : "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           boxSizing: "border-box",
           overflow: "hidden",
-          transition: "box-shadow 220ms ease, border-color 220ms ease",
+          padding: mode === "deposit" ? "12px 8px" : undefined,
+          transition:
+            mode === "deposit"
+              ? "grid-template-rows 250ms cubic-bezier(.2,0,0,1)"
+              : "box-shadow 220ms ease, border-color 220ms ease",
           width: "100%",
         }}
       >
@@ -1377,9 +2549,11 @@ export function NexusWidgetProgressScreen({
           style={{
             display: "grid",
             gridTemplateRows: "1fr",
-            maxHeight: stepsExpanded
-              ? `${Math.max(43, expandedStatusHeight)}px`
-              : `${collapsedStatusHeight}px`,
+            maxHeight: mode === "deposit"
+              ? undefined
+              : stepsExpanded
+                ? `${Math.max(43, expandedStatusHeight)}px`
+                : `${collapsedStatusHeight}px`,
             overflow: "hidden",
             transition: "max-height 220ms ease",
           }}
@@ -1391,38 +2565,48 @@ export function NexusWidgetProgressScreen({
               minHeight: 0,
             }}
           >
-            {visibleRows.map((row, index) => {
+            {(mode === "deposit" ? statusRows : visibleRows).map((row, index) => {
+              const visible = mode !== "deposit" || stepsExpanded || row.id === activeRow?.id;
               const isCompleted = row.state === "completed";
               const isError = row.state === "error";
               const isDefault = row.state === "default";
               const isLoading =
                 row.state === "preapproval" || row.state === "inProgress";
               const hasDescription = Boolean(row.description);
-              const rowColor = isDefault ? muted : isError ? danger : primary;
+              const rowColor = mode === "deposit"
+                ? isDefault ? "var(--nx-faint, #A3A3A2)" : isError ? "var(--nx-red, #D93636)" : "var(--nx-ink, #161615)"
+                : isDefault ? muted : isError ? danger : primary;
+              const statusBrand = mode === "deposit" ? "var(--nx-blue, #006BF4)" : brand;
+              const iconSize = mode === "deposit" ? 24 : 15;
 
               return (
+                <div key={row.id} className={mode === "deposit" ? `nx-step-presence${visible ? " on" : ""}` : undefined}
+                  style={mode !== "deposit" ? { display: "contents" } : undefined} inert={!visible} aria-hidden={!visible}>
+                <div style={mode !== "deposit" ? { display: "contents" } : undefined}>
                 <button
-                  key={row.id}
+                  data-nexus-progress-row={row.state}
+                  aria-expanded={canExpand && visible ? stepsExpanded : undefined}
                   onClick={() => {
                     if (canExpand) setStepsExpanded((current) => !current);
                   }}
                   style={{
-                    alignItems: hasDescription ? "flex-start" : "center",
+                    alignItems: mode === "deposit" ? "center" : hasDescription ? "flex-start" : "center",
                     appearance: "none",
                     background: "transparent",
                     border: "0",
                     borderTop:
-                      index > 0 && stepsExpanded ? `1px solid ${border}` : "0",
+                      mode !== "deposit" && index > 0 && stepsExpanded ? `1px solid ${border}` : "0",
                     boxSizing: "border-box",
                     color: rowColor,
                     cursor: canExpand ? "pointer" : "default",
-                    display: "flex",
+                    display: mode === "deposit" ? "grid" : "flex",
+                    gridTemplateColumns: mode === "deposit" ? `24px minmax(0, 1fr)${canExpand ? " 20px" : ""}` : undefined,
                     fontFamily,
-                    fontSize: "11px",
-                    fontWeight: 400,
-                    gap: "7px",
+                    fontSize: mode === "deposit" ? "16px" : "11px",
+                    fontWeight: mode === "deposit" ? 500 : 400,
+                    gap: mode === "deposit" ? "12px" : "7px",
                     minHeight: `${getRowHeight(row)}px`,
-                    padding: "8px 11px",
+                    padding: mode === "deposit" ? "8px 12px" : "8px 11px",
                     textAlign: "left",
                     transition:
                       "color 220ms ease, min-height 220ms ease, opacity 220ms ease",
@@ -1431,18 +2615,19 @@ export function NexusWidgetProgressScreen({
                   type="button"
                 >
                   {isCompleted || isError ? (
-                    <span
+                    <span key={row.state} className={mode === "deposit" ? "nx-step-icon" : undefined}
                       style={{
                         alignItems: "center",
-                        background: isError ? "var(--nexus-widget-error-background, #E92C2C)" : brand,
+                        background: isError ? mode === "deposit" ? "var(--nx-red, #D93636)" : "var(--nexus-widget-error-background, #E92C2C)" : statusBrand,
                         borderRadius: "999px",
                         color: isError
-                          ? "var(--nexus-widget-error-text, #FFFFFE)"
+                          ? mode === "deposit" ? "#FFFFFF" : "var(--nexus-widget-error-text, #FFFFFE)"
                           : "var(--nexus-widget-primary-foreground, #FFFFFE)",
                         display: "inline-flex",
-                        height: "15px",
+                        height: iconSize,
+                        flexShrink: 0,
                         justifyContent: "center",
-                        width: "15px",
+                        width: iconSize,
                       }}
                     >
                       {isError ? (
@@ -1455,14 +2640,25 @@ export function NexusWidgetProgressScreen({
                     <span
                       style={{
                         background: "var(--nexus-widget-surface, #FFFFFE)",
-                        border: "2px solid var(--nexus-widget-text-tertiary, #E8E8E7)",
+                        border: mode === "deposit" ? "1.5px solid var(--nx-ghost, #C4C4C2)" : "2px solid var(--nexus-widget-text-tertiary, #E8E8E7)",
                         borderRadius: "999px",
                         boxSizing: "border-box",
                         display: "inline-flex",
-                        height: "15px",
-                        width: "15px",
+                        height: iconSize,
+                        flexShrink: 0,
+                        width: iconSize,
                       }}
                     />
+                  ) : mode === "deposit" ? (
+                    <span aria-hidden="true" style={{
+                      animation: "nexusWidgetSpin 800ms linear infinite",
+                      border: "2px solid var(--nx-blue-soft, #E5F0FE)",
+                      borderTopColor: statusBrand,
+                      borderRadius: "50%",
+                      boxSizing: "border-box",
+                      width: iconSize,
+                      height: iconSize,
+                    }} />
                   ) : (
 	                    <Loader2
 	                      className="animate-spin"
@@ -1474,53 +2670,58 @@ export function NexusWidgetProgressScreen({
 	                      }}
 	                    />
                   )}
-                  <span
+                  <span key={`${row.state}-${row.label}`} className={mode === "deposit" ? "nx-step-text" : undefined}
                     style={{
                       display: "flex",
                       flexDirection: "column",
-                      gap: "3px",
-                      lineHeight: "18px",
+                      gap: mode === "deposit" ? "2px" : "3px",
+                      lineHeight: mode === "deposit" ? "20px" : "18px",
                       minWidth: 0,
                     }}
                   >
                     <span
                       style={{
                         color: rowColor,
-                        fontWeight: isLoading ? 600 : 400,
+                        fontWeight: mode === "deposit" ? 500 : isLoading ? 600 : 400,
+                        overflowWrap: "anywhere",
                       }}
                     >
                       {row.label}
                     </span>
                     {row.description && (
-                      <span
+                      <span key={row.description} className={mode === "deposit" ? "nx-step-text" : undefined}
                         style={{
-                          color: isLoading ? brand : muted,
-                          fontSize: "10px",
+                          color: isError && mode === "deposit" ? "var(--nx-red)" : isLoading ? statusBrand : mode === "deposit" ? "var(--nx-mute-2, #8C8C8B)" : muted,
+                          fontSize: mode === "deposit" ? "14px" : "10px",
                           fontWeight: 400,
-                          lineHeight: "13px",
+                          lineHeight: mode === "deposit" ? "18px" : "13px",
+                          overflowWrap: "anywhere",
                         }}
                       >
                         {row.description}
                       </span>
                     )}
                   </span>
-                  {canExpand && index === 0 && (
+                  {canExpand && (stepsExpanded ? index === 0 : row.id === activeRow?.id) && (
                     <ChevronDown
                       style={{
-                        color: muted,
+                        color: mode === "deposit" ? "var(--nx-ink-2, #3A3A39)" : muted,
                         flexShrink: 0,
-                        height: 16,
-                        marginLeft: "auto",
-                        marginTop: hasDescription ? 2 : 0,
+                        height: mode === "deposit" ? 12 : 16,
+                        justifySelf: "center",
+                        marginLeft: mode === "deposit" ? undefined : "auto",
+                        marginTop: mode === "deposit" ? 0 : hasDescription ? 2 : 0,
                         transform: stepsExpanded
                           ? "rotate(180deg)"
                           : "rotate(0deg)",
                         transition: "transform 220ms ease",
-                        width: 16,
+                        width: mode === "deposit" ? 12 : 16,
                       }}
                     />
                   )}
                 </button>
+                </div>
+                </div>
               );
             })}
           </div>

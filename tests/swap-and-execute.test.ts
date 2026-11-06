@@ -109,6 +109,7 @@ test("adaptIntentHook normalizes SwapAndExecuteHookData when swap is required", 
   const mockHookData: SwapAndExecuteHookData = {
     attemptId: "test-attempt-1",
     intent: {
+      executionMode: "wallet",
       executeRequirement: mockExecuteRequirement,
       available: {
         token: { amountRaw: BigInt(0), amount: "0", valueUsd: "0" },
@@ -156,6 +157,7 @@ test("adaptIntentHook normalizes SwapAndExecuteHookData when swap is skipped (fu
   let denied = false;
 
   const mockFullyFundedIntent: SwapAndExecuteIntent = {
+    executionMode: "wallet",
     executeRequirement: mockExecuteRequirement,
     available: {
       token: { amountRaw: BigInt(15000000), amount: "15.0", valueUsd: "15.00" },
@@ -194,4 +196,60 @@ test("adaptIntentHook normalizes SwapAndExecuteHookData when swap is skipped (fu
 
   adapted.deny();
   assert.equal(denied, true);
+});
+
+test("adaptIntentHook uses executeRequirement.token.amountRaw and amount (as usd) for exactInput swapAndExecute", async () => {
+  const mockExactInputIntent: SwapAndExecuteIntent = {
+    executionMode: "wallet",
+    executeRequirement: {
+      ...mockExecuteRequirement,
+      token: {
+        address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" as `0x${string}`,
+        symbol: "USDC",
+        decimals: 6,
+        amountRaw: BigInt(2876687),
+        amount: "2.876687",
+        valueUsd: "2.875645",
+      },
+    },
+    available: {
+      token: { amountRaw: BigInt(1410000), amount: "1.41", valueUsd: "1.41" },
+      gas: { amountRaw: BigInt(100000000000000), amount: "0.0001", valueUsd: "0.30" },
+    },
+    shortfall: {
+      token: { amountRaw: BigInt(1466687), amount: "1.466687", valueUsd: "1.466687" },
+      gas: { amountRaw: BigInt(0), amount: "0", valueUsd: "0" },
+    },
+    swapRequired: true,
+    quote: {
+      ...mockQuote,
+      tradeType: "exactInput",
+      output: {
+        chainId: 10,
+        tokenAddress: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" as `0x${string}`,
+        amountRaw: BigInt(1473545),
+        amountUsd: "1.472954",
+        minAmountRaw: BigInt(1466177),
+        minAmountUsd: "1.465589",
+      },
+    } as any,
+  };
+
+  const mockHookData: SwapAndExecuteHookData = {
+    attemptId: "test-attempt-exact-input",
+    intent: mockExactInputIntent,
+    allow: () => {},
+    deny: () => {},
+    refresh: async () => mockExactInputIntent,
+  };
+
+  const adapted = adaptIntentHook(mockHookData, mockChains as any);
+
+  assert.equal(adapted.intent.swapRequired, true);
+  // Uses executeRequirement.token.amountRaw instead of quote.output.amountRaw
+  assert.equal(adapted.intent.destination.amount, "2.876687");
+  // Uses executeRequirement.token.amount (as usd) instead of quote.output.amountUsd
+  assert.equal(adapted.intent.destination.value, "2.876687");
+  assert.equal(adapted.intent.destination.minAmount, "2.876687");
+  assert.equal(adapted.intent.destination.minAmountUsd, "2.876687");
 });

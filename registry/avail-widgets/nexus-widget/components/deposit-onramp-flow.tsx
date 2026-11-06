@@ -26,6 +26,8 @@ import {
   type WalletClient,
 } from "viem";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE, nexusWidgetTheme } from "../theme";
+import { useNexusWidgetThemeStyle } from "../theme-context";
+import { isStablecoinSymbol } from "../utils/amount";
 import type { NexusWidgetDepositOpportunityConfig } from "../types";
 import type { SwapTokenOption } from "./swap-asset-selector";
 import {
@@ -287,6 +289,8 @@ interface DepositOnrampFlowProps {
   primaryButtonForeground: string;
   toToken?: SwapTokenOption;
   walletClient?: WalletClient | null;
+  onBack?: () => void;
+  onClose?: () => void;
 }
 
 const ONRAMP_RETURN_PATH = "/onramp/complete";
@@ -312,8 +316,10 @@ const ONRAMP_CALLBACK_SUCCESS_MESSAGE = "nexus-onramp-success";
 const ONRAMP_CALLBACK_SUCCESS_ACK_MESSAGE = "nexus-onramp-success-received";
 const ONRAMP_CALLBACK_CHANNEL = "nexus-widgets:onramp";
 const ONRAMP_CALLBACK_STORAGE_KEY = "nexus-widgets:onramp:session";
-const ONRAMP_PROGRESS_ARTWORK_URL =
+const ONRAMP_PROGRESS_ARTWORK_LIGHT_URL =
   "https://files.availproject.org/nexus-elements/nexus-one/progress-grid.gif";
+const ONRAMP_PROGRESS_ARTWORK_DARK_URL =
+  "https://files.availproject.org/nexus-elements/nexus-one/progress-grid-dark.gif";
 const ONRAMP_SHEET_EDGE_OFFSET = "-16px";
 const ONRAMP_GENERIC_QUOTE_ERROR_MESSAGE =
   "We are facing some issues at the moment, try again later";
@@ -321,10 +327,10 @@ const theme = nexusWidgetTheme;
 const brand = "var(--foreground-brand)";
 
 const panelStyle: React.CSSProperties = {
-  backgroundColor: theme.colors.surface,
-  border: `1px solid ${theme.colors.border}`,
-  borderRadius: "12px",
-  boxShadow: theme.shadows.card,
+  backgroundColor: "var(--nx-card, #FFFFFF)",
+  border: "none",
+  borderRadius: "24px",
+  boxShadow: "var(--nx-sh-card, #16161508 0 1px 2px, #1616150A 0 6px 18px)",
   boxSizing: "border-box",
   overflow: "hidden",
   width: "100%",
@@ -425,10 +431,15 @@ const formatNumberDisplay = (value: unknown, maxDecimals = 2) => {
   return decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
 };
 
-const formatPlainNumberDisplay = (value: unknown, maxDecimals = 6) => {
+const formatPlainNumberDisplay = (
+  value: unknown,
+  maxDecimals = 6,
+  symbol?: string,
+) => {
   const parsed = parseDecimal(value);
   if (!parsed || parsed.isZero()) return "0";
-  return parsed.toDecimalPlaces(maxDecimals, Decimal.ROUND_DOWN).toFixed();
+  const decimals = isStablecoinSymbol(symbol) ? 2 : maxDecimals;
+  return parsed.toDecimalPlaces(decimals, Decimal.ROUND_DOWN).toFixed();
 };
 
 const ONRAMP_FOREX_RATES_CACHE_KEY = "nexus_onramp_forex_rates_usd";
@@ -1855,6 +1866,7 @@ function CountryMark({
 
 
 const useIsDarkMode = () => {
+  const themeStyle = useNexusWidgetThemeStyle();
   const [isDark, setIsDark] = React.useState(false);
 
   React.useEffect(() => {
@@ -1868,7 +1880,9 @@ const useIsDarkMode = () => {
       const isDarkClass = Boolean(
         root?.classList?.contains("dark") || body?.classList?.contains("dark"),
       );
-      const isDataThemeDark = root?.getAttribute?.("data-theme") === "dark";
+      const isDataThemeDark =
+        root?.getAttribute?.("data-theme") === "dark" ||
+        root?.getAttribute?.("data-nexus-widget-theme") === "dark";
       const prefersDark =
         typeof window.matchMedia === "function"
           ? Boolean(window.matchMedia("(prefers-color-scheme: dark)")?.matches)
@@ -1894,7 +1908,7 @@ const useIsDarkMode = () => {
       });
       observer.observe(root, {
         attributes: true,
-        attributeFilter: ["class", "data-theme"],
+        attributeFilter: ["class", "data-theme", "data-nexus-widget-theme"],
       });
     }
 
@@ -1904,7 +1918,7 @@ const useIsDarkMode = () => {
     };
   }, []);
 
-  return isDark;
+  return themeStyle?.colorScheme === "dark" || isDark;
 };
 
 function ProviderMark({ provider }: { provider?: string }) {
@@ -2736,14 +2750,20 @@ const getOnrampExplorerUrl = (
 };
 
 function OnrampStatusArtwork() {
+  const isDark = useIsDarkMode();
+  const artworkUrl = isDark
+    ? ONRAMP_PROGRESS_ARTWORK_DARK_URL
+    : ONRAMP_PROGRESS_ARTWORK_LIGHT_URL;
+
   return (
     <div
       aria-hidden="true"
       style={{
         alignItems: "center",
-        backgroundColor: "#FAFBFC",
-        backgroundImage:
-          "radial-gradient(circle at center, rgba(250, 251, 252, 0) 0 36%, rgba(250, 251, 252, 0.92) 72%, #FAFBFC 100%), repeating-linear-gradient(0deg, rgba(132, 132, 131, 0.09) 0 8px, transparent 8px 14px), repeating-linear-gradient(90deg, rgba(132, 132, 131, 0.09) 0 8px, transparent 8px 14px)",
+        backgroundColor: isDark ? "var(--nx-band, #1A1A18)" : "#FAFBFC",
+        backgroundImage: isDark
+          ? undefined
+          : "radial-gradient(circle at center, rgba(250, 251, 252, 0) 0 36%, rgba(250, 251, 252, 0.92) 72%, #FAFBFC 100%), repeating-linear-gradient(0deg, rgba(132, 132, 131, 0.09) 0 8px, transparent 8px 14px), repeating-linear-gradient(90deg, rgba(132, 132, 131, 0.09) 0 8px, transparent 8px 14px)",
         borderRadius: "10px",
         display: "flex",
         height: "150px",
@@ -2754,7 +2774,7 @@ function OnrampStatusArtwork() {
     >
       <img
         alt=""
-        src={ONRAMP_PROGRESS_ARTWORK_URL}
+        src={artworkUrl}
         style={{
           display: "block",
           height: "100%",
@@ -3828,6 +3848,8 @@ export function DepositOnrampFlow({
   primaryButtonForeground,
   toToken,
   walletClient,
+  onBack,
+  onClose,
 }: DepositOnrampFlowProps) {
   const {
     address: ownerAddress,
@@ -6006,9 +6028,99 @@ export function DepositOnrampFlow({
     walletActionPending ||
     (!hasConnectedWallet && walletChecking);
 
+  const cashHeader = (
+    <div className="nx-head" style={{ paddingLeft: 0, paddingRight: 0 }}>
+      <button
+        aria-label="Back"
+        onClick={onBack}
+        style={{
+          alignItems: "center",
+          background: "var(--nx-fill, #F3F3F3)",
+          border: "none",
+          borderRadius: "999px",
+          cursor: "pointer",
+          display: "grid",
+          flexShrink: 0,
+          height: 32,
+          placeItems: "center",
+          width: 32,
+        }}
+        type="button"
+      >
+        <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
+          <path d="M8.5 3L4.5 7L8.5 11" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
+        </svg>
+      </button>
+      <div style={{ color: "var(--nx-ink, #161615)", flex: 1, minWidth: 0, font: '500 18px/22px "Delight","Geist",system-ui,sans-serif' }}>
+        Deposit with cash
+      </div>
+      {!session?.sessionId && (
+        <button
+          aria-label="Select country"
+          aria-expanded={activeSheet === "country"}
+          onClick={() =>
+            setActiveSheet((prev) => (prev === "country" ? null : "country"))
+          }
+          style={{
+            alignItems: "center",
+            backgroundColor: theme.colors.surface,
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: "9px",
+            boxShadow: theme.shadows.iconButton,
+            boxSizing: "border-box",
+            cursor: "pointer",
+            display: "flex",
+            flexShrink: 0,
+            gap: "6px",
+            height: "32px",
+            justifyContent: "center",
+            paddingInline: "8px",
+          }}
+          type="button"
+        >
+          <CountryMark
+            countryCode={countryCode}
+            flagUrl={selectedCountryFlagUrl}
+            size={20}
+          />
+          <ChevronDown
+            aria-hidden="true"
+            color={theme.colors.icon}
+            size={15}
+            strokeWidth={1.8}
+          />
+        </button>
+      )}
+      {onClose ? (
+        <button
+          aria-label="Close"
+          onClick={onClose}
+          style={{
+            alignItems: "center",
+            background: "var(--nx-fill, #F3F3F3)",
+            border: "none",
+            borderRadius: "999px",
+            cursor: "pointer",
+            display: "grid",
+            flexShrink: 0,
+            height: 32,
+            placeItems: "center",
+            width: 32,
+          }}
+          type="button"
+        >
+          <svg fill="none" height="13" viewBox="0 0 13 13" width="13">
+            <path d="M3 3L10 10M10 3L3 10" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeWidth="1.5" />
+          </svg>
+        </button>
+      ) : null}
+    </div>
+  );
+
   if (session?.sessionId) {
     return (
       <>
+        {cashHeader}
         {error && (
           <div
             role="status"
@@ -6061,20 +6173,21 @@ export function DepositOnrampFlow({
         width: "100%",
       }}
     >
-      <div
-        style={{
-          alignItems: "center",
-          alignSelf: "flex-end",
-          display: "flex",
-          gap: "8px",
-          height: "32px",
-          marginTop: "-48px",
-          marginBottom: "4px",
-          position: "relative",
-          zIndex: 20,
-        }}
-      >
-        {shouldShowQuoteTimer && (
+      {cashHeader}
+      {shouldShowQuoteTimer && (
+        <div
+          style={{
+            alignItems: "center",
+            alignSelf: "flex-end",
+            display: "flex",
+            gap: "8px",
+            height: "32px",
+            marginTop: "0px",
+            marginBottom: "4px",
+            position: "relative",
+            zIndex: 20,
+          }}
+        >
           <div
             style={{
               alignItems: "center",
@@ -6105,42 +6218,8 @@ export function DepositOnrampFlow({
             )}
             {quotesLoading || routesLoading ? "..." : `${quoteRefreshSeconds}s`}
           </div>
-        )}
-
-        <button
-          aria-label="Select country"
-          onClick={() =>
-            setActiveSheet((prev) => (prev === "country" ? null : "country"))
-          }
-          style={{
-            alignItems: "center",
-            backgroundColor: theme.colors.surface,
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: "9px",
-            boxShadow: theme.shadows.iconButton,
-            boxSizing: "border-box",
-            cursor: "pointer",
-            display: "flex",
-            gap: "6px",
-            height: "32px",
-            justifyContent: "center",
-            paddingInline: "8px",
-          }}
-          type="button"
-        >
-          <CountryMark
-            countryCode={countryCode}
-            flagUrl={selectedCountryFlagUrl}
-            size={20}
-          />
-          <ChevronDown
-            aria-hidden="true"
-            color={theme.colors.icon}
-            size={15}
-            strokeWidth={1.8}
-          />
-        </button>
-      </div>
+        </div>
+      )}
 
       <div style={panelStyle}>
         <div
@@ -6305,7 +6384,7 @@ export function DepositOnrampFlow({
                 }}
               >
                 {receiveAmount
-                  ? formatPlainNumberDisplay(receiveAmount, 6)
+                  ? formatPlainNumberDisplay(receiveAmount, 6, toToken?.symbol)
                   : "0"}
               </div>
               <div
@@ -6538,18 +6617,18 @@ export function DepositOnrampFlow({
         onClick={() => void handlePrimaryAction()}
         style={{
           alignItems: "center",
-          backgroundColor: ctaDisabled ? theme.colors.surfaceCool : brand,
+          backgroundColor: ctaDisabled ? "var(--nx-cta-off, #EDEDED)" : "var(--nx-blue, #006BF4)",
           border: "none",
-          borderRadius: theme.radius.primaryButton,
-          boxShadow: ctaDisabled ? "none" : theme.shadows.primaryButton,
-          color: ctaDisabled ? theme.colors.muted : primaryButtonForeground,
+          borderRadius: "999px",
+          boxShadow: ctaDisabled ? "none" : "var(--nx-sh-cta)",
+          color: ctaDisabled ? "var(--nx-mute-2, #8C8C8B)" : "#FFFFFF",
           cursor: ctaDisabled ? "default" : "pointer",
           display: "flex",
           fontFamily: theme.fonts.sans,
-          fontSize: "14px",
+          fontSize: "16px",
           fontWeight: 500,
           gap: "8px",
-          height: "44px",
+          height: "56px",
           justifyContent: "center",
           lineHeight: "18px",
           width: "100%",
@@ -6588,7 +6667,7 @@ export function DepositOnrampFlow({
       {activeSheet === "fees" && (
         <Sheet
           onClose={() => setActiveSheet(null)}
-          title={`Buying ${formatPlainNumberDisplay(receiveAmount, 6)} ${toToken?.symbol ?? ""}`}
+          title={`Buying ${formatPlainNumberDisplay(receiveAmount, 6, toToken?.symbol)} ${toToken?.symbol ?? ""}`}
         >
           <div
             style={{
@@ -6628,7 +6707,7 @@ export function DepositOnrampFlow({
                 }}
               >
                 {receiveAmount
-                  ? `Cost of ${formatPlainNumberDisplay(receiveAmount, 6)} ${toToken?.symbol ?? ""}`.trim()
+                  ? `Cost of ${formatPlainNumberDisplay(receiveAmount, 6, toToken?.symbol)} ${toToken?.symbol ?? ""}`.trim()
                   : `Cost of ${toToken?.symbol ?? "tokens"}`}
               </span>
               <span
@@ -6764,7 +6843,7 @@ export function DepositOnrampFlow({
                     title={getProviderLabel(option.provider)}
                     value={
                       option.destinationAmount
-                        ? `${formatPlainNumberDisplay(option.destinationAmount, 6)} ${toToken?.symbol ?? ""}`
+                        ? `${formatPlainNumberDisplay(option.destinationAmount, 6, toToken?.symbol)} ${toToken?.symbol ?? ""}`
                         : undefined
                     }
                   />

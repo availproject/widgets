@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import ShowcaseWrapper from "./showcase-wrapper";
 import { NexusWidget } from "@/registry/avail-widgets/nexus-widget/nexus-widget";
+import type { NexusWidgetDepositRoute } from "@/registry/avail-widgets/nexus-widget/types";
 import { useWidgetPreviewTheme } from "../helpers/use-widget-preview-theme";
 import {
   encodeFunctionData,
@@ -59,63 +60,6 @@ const FLUID_ABI = [
   },
 ] as const;
 
-const MYSTIC_ABI = [
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "assets",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "onBehalf",
-        type: "address",
-      },
-    ],
-    name: "deposit",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-] as const;
-
-const ZENTRA_ABI = [
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "asset",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "onBehalfOf",
-        type: "address",
-      },
-      {
-        internalType: "uint16",
-        name: "referralCode",
-        type: "uint16",
-      },
-    ],
-    name: "supply",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-] as const;
 
 type DepositShowcaseToken = {
   address: `0x${string}`;
@@ -195,9 +139,6 @@ const getOpportunityTokenLabel = (opportunity: DepositShowcaseOpportunity) => {
 const getOpportunityLabel = (opportunity: DepositShowcaseOpportunity) =>
   opportunity.label ??
   `${opportunity.protocol} - ${getOpportunityTokenLabel(opportunity)} (${getChainLabel(opportunity.chainId)})`;
-
-const getOpportunityHeading = (opportunity: DepositShowcaseOpportunity) =>
-  opportunity.title ?? "Deposit";
 
 const resolveDepositAddress = (opportunity: DepositShowcaseOpportunity) => {
   const token = getOpportunityTokens(opportunity)[0];
@@ -364,76 +305,15 @@ const OPPORTUNITIES = {
       },
     }),
   },
-
-  // 5. Mystic on Citrea (ctUSD)
-  "mystic-citrea-ctusd": {
-    label: "Mystic ctUSD (onramp not supported)",
-    protocol: "Mystic",
-    depositTargetLogo:
-      "https://files.availproject.org/nexus-elements/mystic.png",
-    chainId: 4114,
-    tokenSymbol: "ctUSD",
-    tokenAddress: "0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D" as const,
-    tokenDecimals: 18,
-    tokenLogo: "https://files.availproject.org/nexus-elements/ctUSD.svg",
-    executeDeposit: (
-      symbol: string,
-      tokenAddress: `0x${string}`,
-      amount: bigint,
-      chainId: number,
-      user: `0x${string}`,
-    ) => ({
-      to: "0x72f8C254548839Fa1Db4156aE01d8C6ae5885EE4" as const,
-      gas: BigInt(400_000),
-      data: encodeFunctionData({
-        abi: MYSTIC_ABI,
-        functionName: "deposit",
-        args: [amount, user],
-      }),
-      tokenApproval: {
-        toTokenAddress: tokenAddress,
-        amount,
-        spender: "0x72f8C254548839Fa1Db4156aE01d8C6ae5885EE4" as const,
-      },
-    }),
-  },
-
-  // 6. Zentra on Citrea (wcBTC)
-  "zentra-citrea-wcbtc": {
-    label: "Zentra wcBTC (onramp not supported)",
-    protocol: "Zentra",
-    depositTargetLogo:
-      "https://zentrafinance.gitbook.io/zentra/~gitbook/image?url=https%3A%2F%2F2899070418-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Forganizations%252F1jzW9aBSq190MuRJKgIj%252Fsites%252Fsite_2l6Ro%252Ficon%252Fb8adwB6RA7Y6VJH3vGjh%252FZentra%2520%284%29.png%3Falt%3Dmedia%26token%3D8aa44578-e817-4c2f-b20e-abd25827d4fe&width=32&dpr=3&quality=100&sign=d18163fe&sv=2",
-    chainId: 4114,
-    tokenSymbol: "wcBTC",
-    tokenAddress: "0x3100000000000000000000000000000000000006" as const,
-    tokenDecimals: 18,
-    tokenLogo:
-      "https://assets.coingecko.com/coins/images/102172843/standard/cBTC.png",
-    executeDeposit: (
-      symbol: string,
-      tokenAddress: `0x${string}`,
-      amount: bigint,
-      chainId: number,
-      user: `0x${string}`,
-    ) => ({
-      to: "0xfb7908150b738e7dB9862007c66C9eb7850706F5" as const,
-      gas: BigInt(400_000),
-      data: encodeFunctionData({
-        abi: ZENTRA_ABI,
-        functionName: "supply",
-        args: [tokenAddress, amount, user, 0],
-      }),
-      tokenApproval: {
-        toTokenAddress: tokenAddress,
-        amount,
-        spender: "0xfb7908150b738e7dB9862007c66C9eb7850706F5" as const,
-      },
-    }),
-  },
 } as const;
 
-const NexusWidgetDepositShowcase = () => {
+export interface NexusWidgetDepositShowcaseProps {
+  initialRoute?: NexusWidgetDepositRoute;
+}
+
+const NexusWidgetDepositShowcase = (props?: any) => {
+  const initialRoute: NexusWidgetDepositRoute =
+    props?.initialRoute ?? "exactOutput";
   const { address } = useAccount();
   const theme = useWidgetPreviewTheme();
   const openConnectWallet = useConnectWalletClick();
@@ -444,6 +324,14 @@ const NexusWidgetDepositShowcase = () => {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [renderMode, setRenderMode] = useState<NexusWidgetRenderMode>("inline");
   const isPopupMode = renderMode === "popup";
+  const [depositRoute, setDepositRoute] =
+    useState<NexusWidgetDepositRoute>(initialRoute);
+
+  React.useEffect(() => {
+    if (props?.initialRoute) {
+      setDepositRoute(props.initialRoute);
+    }
+  }, [props?.initialRoute]);
   const [enableOnRamp, setEnableOnRamp] = useState(true);
 
   // Default sandbox configuration state
@@ -928,12 +816,13 @@ const NexusWidgetDepositShowcase = () => {
           }}
         >
           <NexusWidget
-            key={`${selectedOpt}-${renderMode}-${enableOnRamp}`}
+            key={`${selectedOpt}-${renderMode}-${enableOnRamp}-${depositRoute}`}
             embed={!isPopupMode}
             defaultOpen={isPopupMode}
             config={{
               theme,
               mode: "deposit",
+              route: depositRoute,
               destination: {
                 chain: currentOpportunity.chainId,
                 tokens: getRequiredOpportunityTokens(currentOpportunity),
@@ -944,7 +833,7 @@ const NexusWidgetDepositShowcase = () => {
               appearance: {
                 appLogoURL: currentOpportunity.depositTargetLogo,
                 appName: currentOpportunity.protocol,
-                heading: getOpportunityHeading(currentOpportunity),
+                heading: "Deposit",
               },
             }}
             connectedAddress={address}
@@ -1300,5 +1189,13 @@ const NexusWidgetDepositShowcase = () => {
     </ShowcaseWrapper>
   );
 };
+
+export const NexusWidgetDepositExactOutputShowcase = () => (
+  <NexusWidgetDepositShowcase initialRoute="exactOutput" />
+);
+
+export const NexusWidgetDepositExactInputShowcase = () => (
+  <NexusWidgetDepositShowcase initialRoute="exactInput" />
+);
 
 export default NexusWidgetDepositShowcase;

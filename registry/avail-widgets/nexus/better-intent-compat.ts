@@ -45,7 +45,7 @@ const EXTERNAL_INTENT_PROVIDERS: readonly IntentProvider[] = ["mayan", "relay"];
 const INTENT_ID_URL_PATTERN = /(?:^|\/)(0x[a-fA-F0-9]{64}|\d+)(?:\/)?$/;
 
 export const isBetterIntentProvider = (
-  value: unknown
+  value: unknown,
 ): value is IntentProvider =>
   typeof value === "string" &&
   (BETTER_INTENT_PROVIDERS as readonly string[]).includes(value);
@@ -61,7 +61,7 @@ export const formatIntentProviderName = (value: unknown): string | undefined =>
   isBetterIntentProvider(value) ? INTENT_PROVIDER_LABELS[value] : undefined;
 
 export const isExternalIntentProvider = (
-  value: unknown
+  value: unknown,
 ): value is IntentProvider =>
   typeof value === "string" &&
   (EXTERNAL_INTENT_PROVIDERS as readonly string[]).includes(value);
@@ -202,7 +202,7 @@ export type BridgeIntent = LegacyIntent;
 
 export const addIntentUsdValues = (
   intent: LegacyIntent,
-  getUsdRate: (symbol: string) => number
+  getUsdRate: (symbol: string) => number,
 ): LegacyIntent => {
   const destinationRate = getUsdRate(intent.destination.token.symbol);
   const destinationAmount = Number(intent.destination.amount);
@@ -280,7 +280,7 @@ export type NexusClientWithCompat = NexusClient & {
   convertTokenReadableAmountToBigInt?: (
     amount: string,
     tokenSymbol: string,
-    chainId: number
+    chainId: number,
   ) => bigint;
 };
 
@@ -322,7 +322,7 @@ export interface KnownTokenInfo {
 
 export const findKnownToken = (
   chainId: number | undefined,
-  address: string | undefined
+  address: string | undefined,
 ): KnownTokenInfo | undefined => {
   if (!(chainId && address)) {
     return undefined;
@@ -366,15 +366,15 @@ export const findKnownToken = (
 export const tokenByAddress = (
   chains: SupportedChainsAndTokensResult,
   chainId: number,
-  address: string
+  address: string,
 ): SupportedToken | KnownTokenInfo | undefined =>
   chainById(chains, chainId)?.tokens?.find((token) =>
-    sameAddress(token.contractAddress ?? token.address, address)
+    sameAddress(token.contractAddress ?? token.address, address),
   ) ?? findKnownToken(chainId, address);
 
 export const populateChainsWithTokens = (
   chains: SupportedChainsAndTokensResult,
-  tokens: IntentToken[] | null | undefined
+  tokens: IntentToken[] | null | undefined,
 ): SupportedChainsAndTokensResult => {
   if (!tokens || tokens.length === 0) {
     return chains;
@@ -394,7 +394,7 @@ export const populateChainsWithTokens = (
       return chain;
     }
     const existing = new Set(
-      chain.tokens.map((t) => (t.contractAddress ?? t.address).toLowerCase())
+      chain.tokens.map((t) => (t.contractAddress ?? t.address).toLowerCase()),
     );
     const merged = [...chain.tokens];
     for (const token of fetched) {
@@ -413,7 +413,7 @@ export const populateChainsWithTokens = (
 };
 
 export const normalizeSupportedChains = (
-  chains: RawSupportedChainInput[] | null | undefined
+  chains: RawSupportedChainInput[] | null | undefined,
 ): SupportedChainsAndTokensResult =>
   (chains ?? []).map((chain) => ({
     ...chain,
@@ -430,7 +430,7 @@ export const isTokenSupportedForRole = (
   chains: SupportedChainsAndTokensResult | null | undefined,
   role: "source" | "destination",
   chainId: number | undefined,
-  tokenAddress: string
+  tokenAddress: string,
 ): boolean => {
   if (!chains || chainId === undefined) {
     return true;
@@ -443,12 +443,12 @@ export const isTokenSupportedForRole = (
   const chainDirectional =
     role === "source" ? chain.asSource : chain.asDestination;
   const chainProviderIds = new Set(
-    (chainDirectional ?? chain.providers ?? []).map(getProviderId)
+    (chainDirectional ?? chain.providers ?? []).map(getProviderId),
   );
 
   const tokens = chain.tokens ?? [];
   const token = tokens.find((entry) =>
-    sameAddress(entry.contractAddress ?? entry.address, tokenAddress)
+    sameAddress(entry.contractAddress ?? entry.address, tokenAddress),
   );
 
   if (!token) {
@@ -461,7 +461,7 @@ export const isTokenSupportedForRole = (
   const tokenDirectional =
     role === "source" ? token.asSource : token.asDestination;
   const tokenProviderIds = (tokenDirectional ?? token.providers ?? []).map(
-    getProviderId
+    getProviderId,
   );
 
   // Route-constrained chain support comes from /chains, while token support
@@ -474,12 +474,12 @@ export const isTokenSupportedForRole = (
 };
 
 export type GetRouteSupportedChains = (
-  constraints: IntentRouteConstraints
+  constraints: IntentRouteConstraints,
 ) => Promise<SupportedChainsAndTokensResult>;
 
 export const normalizeIntentBalances = (
   balances: IntentBalance[],
-  chains: SupportedChainsAndTokensResult
+  chains: SupportedChainsAndTokensResult,
 ): TokenBalance[] => {
   const grouped = new Map<string, TokenBalance>();
 
@@ -527,7 +527,7 @@ export const normalizeIntentBalances = (
       existing.chainBalances.push(chainBalance);
       existing.balance = String(Number(existing.balance) + Number(readable));
       existing.value = String(
-        Number(existing.value) + Number(entry.valueUsd ?? 0)
+        Number(existing.value) + Number(entry.valueUsd ?? 0),
       );
       if (!isEntryVerified) {
         existing.verified = false;
@@ -551,13 +551,13 @@ export const normalizeIntentBalances = (
 
 export const normalizeIntentQuote = (
   quote: IntentQuote,
-  chains: SupportedChainsAndTokensResult
+  chains: SupportedChainsAndTokensResult,
 ): LegacyIntent => {
   const outputChain = chainById(chains, quote.output.chainId);
   const outputToken = tokenByAddress(
     chains,
     quote.output.chainId,
-    quote.output.tokenAddress
+    quote.output.tokenAddress,
   );
   const inputSymbol = quote.input[0]?.tokenSymbol;
   const knownInputMeta = inputSymbol
@@ -600,7 +600,7 @@ export const normalizeIntentQuote = (
     };
   });
   const sourceSymbols = new Set(
-    quote.input.map((entry) => entry.tokenSymbol.trim().toUpperCase())
+    quote.input.map((entry) => entry.tokenSymbol.trim().toUpperCase()),
   );
   const sourcesTotal =
     sourceSymbols.size === 1
@@ -610,10 +610,10 @@ export const normalizeIntentQuote = (
               total.plus(
                 formatUnits(
                   entry.totalRequiredRaw,
-                  sources[index]?.token.decimals ?? outputDecimals
-                )
+                  sources[index]?.token.decimals ?? outputDecimals,
+                ),
               ),
-            new Decimal(0)
+            new Decimal(0),
           )
           .toString()
       : undefined;
@@ -651,54 +651,54 @@ export const normalizeIntentQuote = (
     totalUsd: displayedFeeTotalUsd,
   };
 
-    return {
-      bridgeProvider: quote.provider ?? null,
-      destination: {
-        amount: formatUnits(quote.output.amountRaw, outputDecimals),
-        minAmount: formatUnits(quote.output.minAmountRaw, outputDecimals),
-        minAmountUsd: quote.output.minAmountUsd,
-        value: quote.output.amountUsd,
-        chain: {
-          id: quote.output.chainId,
-          logo: outputChain?.logo ?? "",
-          name: outputChain?.name ?? `Chain ${quote.output.chainId}`,
-        },
+  return {
+    bridgeProvider: quote.provider ?? null,
+    destination: {
+      amount: formatUnits(quote.output.amountRaw, outputDecimals),
+      minAmount: formatUnits(quote.output.minAmountRaw, outputDecimals),
+      minAmountUsd: quote.output.minAmountUsd,
+      value: quote.output.amountUsd,
+      chain: {
+        id: quote.output.chainId,
+        logo: outputChain?.logo ?? "",
+        name: outputChain?.name ?? `Chain ${quote.output.chainId}`,
+      },
+      token: {
+        contractAddress: quote.output.tokenAddress,
+        decimals: outputDecimals,
+        logo: outputToken?.logo ?? knownInputMeta?.logo,
+        symbol: outputToken?.symbol ?? inputSymbol ?? "",
+      },
+      gas: {
+        amount: "0",
+        value: "0",
         token: {
-          contractAddress: quote.output.tokenAddress,
-          decimals: outputDecimals,
-          logo: outputToken?.logo ?? knownInputMeta?.logo,
-          symbol: outputToken?.symbol ?? inputSymbol ?? "",
-        },
-        gas: {
-          amount: "0",
-          value: "0",
-          token: {
-            contractAddress: "0x0000000000000000000000000000000000000000",
-            decimals:
-              outputChain?.nativeCurrency?.decimals ??
-              CHAIN_METADATA[quote.output.chainId]?.nativeCurrency?.decimals ??
-              18,
-            symbol:
-              outputChain?.nativeCurrency?.symbol ??
-              CHAIN_METADATA[quote.output.chainId]?.nativeCurrency?.symbol ??
-              "",
-          },
+          contractAddress: "0x0000000000000000000000000000000000000000",
+          decimals:
+            outputChain?.nativeCurrency?.decimals ??
+            CHAIN_METADATA[quote.output.chainId]?.nativeCurrency?.decimals ??
+            18,
+          symbol:
+            outputChain?.nativeCurrency?.symbol ??
+            CHAIN_METADATA[quote.output.chainId]?.nativeCurrency?.symbol ??
+            "",
         },
       },
-      feesAndBuffer: {
-        buffer: "0",
-        bridge: bridgeFees,
-      },
-      fees: bridgeFees,
-      sources,
-      selectedSources: sources,
-      ...(sourcesTotal === undefined ? {} : { sourcesTotal }),
-    };
+    },
+    feesAndBuffer: {
+      buffer: "0",
+      bridge: bridgeFees,
+    },
+    fees: bridgeFees,
+    sources,
+    selectedSources: sources,
+    ...(sourcesTotal === undefined ? {} : { sourcesTotal }),
   };
+};
 
 const normalizeRefreshSources = (
   sources: number[] | IntentSource[] | undefined,
-  quote?: IntentQuote
+  quote?: IntentQuote,
 ): IntentSource[] | undefined => {
   if (!sources) {
     return undefined;
@@ -719,7 +719,7 @@ const normalizeRefreshSources = (
 
 export const normalizeSwapAndExecuteIntent = (
   intent: SwapAndExecuteIntent,
-  chains: SupportedChainsAndTokensResult
+  chains: SupportedChainsAndTokensResult,
 ): LegacyIntent => {
   const req = intent.executeRequirement;
   const chain = chainById(chains, req.chain.id);
@@ -739,12 +739,48 @@ export const normalizeSwapAndExecuteIntent = (
 
   if (intent.swapRequired && intent.quote) {
     const normalizedQuote = normalizeIntentQuote(intent.quote, chains);
+    const isExactInput =
+      intent.quote.tradeType === "exactInput" ||
+      (intent.quote as any).tradeType === "exactIn" ||
+      (intent as any).tradeType === "exactInput" ||
+      (intent as any).tradeType === "exactIn" ||
+      Boolean(req?.token);
+    const reqToken = req?.token;
+    const outputDecimals = reqToken?.decimals || token?.decimals || 18;
+    const hasPositiveReqAmount =
+      (reqToken?.amountRaw != null && BigInt(reqToken.amountRaw) > BigInt(0)) ||
+      (reqToken?.amount != null &&
+        String(reqToken.amount) !== "0" &&
+        String(reqToken.amount) !== "0.0" &&
+        Number(reqToken.amount) > 0);
+
+    const rawAmount =
+      reqToken?.amountRaw != null && BigInt(reqToken.amountRaw) > BigInt(0)
+        ? formatUnits(reqToken.amountRaw, outputDecimals)
+        : reqToken?.amount != null &&
+          String(reqToken.amount) !== "0" &&
+          Number(reqToken.amount) > 0
+          ? String(reqToken.amount)
+          : undefined;
+
+    const destination =
+      isExactInput && hasPositiveReqAmount
+        ? {
+            ...normalizedQuote.destination,
+            amount: rawAmount ?? String(reqToken?.amount ?? normalizedQuote.destination.amount),
+            minAmount: rawAmount ?? String(reqToken?.amount ?? normalizedQuote.destination.minAmount),
+            minAmountUsd: reqToken?.amount ?? rawAmount ?? normalizedQuote.destination.minAmountUsd,
+            value: reqToken?.amount ?? rawAmount ?? normalizedQuote.destination.value,
+            gas: executionGas,
+          }
+        : {
+            ...normalizedQuote.destination,
+            gas: executionGas,
+          };
+
     return {
       ...normalizedQuote,
-      destination: {
-        ...normalizedQuote.destination,
-        gas: executionGas,
-      },
+      destination,
       swapRequired: true,
       executeRequirement: intent.executeRequirement,
       available: intent.available,
@@ -754,6 +790,19 @@ export const normalizeSwapAndExecuteIntent = (
   }
 
   const outputDecimals = req.token.decimals || token?.decimals || 18;
+  const isExactInputNoSwap =
+    (intent as any).tradeType === "exactInput" ||
+    (intent as any).tradeType === "exactIn" ||
+    (intent as any).quote?.tradeType === "exactInput" ||
+    (intent as any).quote?.tradeType === "exactIn";
+  const rawNoSwapAmount =
+    isExactInputNoSwap && req.token?.amountRaw != null && BigInt(req.token.amountRaw) > BigInt(0)
+      ? formatUnits(req.token.amountRaw, outputDecimals)
+      : req.token.amount;
+  const exactInputValue =
+    isExactInputNoSwap && req.token?.amount != null && String(req.token.amount) !== "0" && Number(req.token.amount) > 0
+      ? req.token.amount
+      : req.token.valueUsd ?? rawNoSwapAmount;
   const zeroFees = {
     caGas: "0",
     caGasUsd: "0",
@@ -770,10 +819,10 @@ export const normalizeSwapAndExecuteIntent = (
   return {
     bridgeProvider: null,
     destination: {
-      amount: req.token.amount,
-      minAmount: req.token.amount,
-      minAmountUsd: req.token.valueUsd,
-      value: req.token.valueUsd,
+      amount: rawNoSwapAmount,
+      minAmount: rawNoSwapAmount,
+      minAmountUsd: exactInputValue,
+      value: exactInputValue,
       chain: {
         id: req.chain.id,
         logo: req.chain.logo ?? chain?.logo ?? "",
@@ -803,9 +852,14 @@ export const normalizeSwapAndExecuteIntent = (
 
 export const adaptIntentHook = (
   data: IntentHookData | SwapAndExecuteHookData | any,
-  chains: SupportedChainsAndTokensResult
+  chains: SupportedChainsAndTokensResult,
 ): LegacyIntentHookData => {
-  if (data && "intent" in data && data.intent && typeof data.intent === "object") {
+  if (
+    data &&
+    "intent" in data &&
+    data.intent &&
+    typeof data.intent === "object"
+  ) {
     if (
       "destination" in data.intent &&
       "sources" in data.intent &&
@@ -823,7 +877,10 @@ export const adaptIntentHook = (
       return {
         allow: swapAndExecuteData.allow,
         deny: swapAndExecuteData.deny,
-        intent: normalizeSwapAndExecuteIntent(swapAndExecuteData.intent, chains),
+        intent: normalizeSwapAndExecuteIntent(
+          swapAndExecuteData.intent,
+          chains,
+        ),
         refresh: async (sources) => {
           const quote = swapAndExecuteData.intent.swapRequired
             ? swapAndExecuteData.intent.quote
@@ -843,15 +900,17 @@ export const adaptIntentHook = (
     intent: normalizeIntentQuote(intentData.quote, chains),
     refresh: async (sources) =>
       normalizeIntentQuote(
-        await intentData.refresh(normalizeRefreshSources(sources, intentData.quote)),
-        chains
+        await intentData.refresh(
+          normalizeRefreshSources(sources, intentData.quote),
+        ),
+        chains,
       ),
   };
 };
 
 export const adaptAllowanceHook = (
   data: IntentAllowanceHookData,
-  chains: SupportedChainsAndTokensResult
+  chains: SupportedChainsAndTokensResult,
 ): LegacyAllowanceHookData => ({
   allow: data.allow,
   deny: data.deny,
@@ -860,7 +919,7 @@ export const adaptAllowanceHook = (
     const token = tokenByAddress(
       chains,
       allowance.chainId,
-      allowance.tokenAddress
+      allowance.tokenAddress,
     );
     const decimals = token?.decimals ?? 18;
     return {
@@ -932,7 +991,7 @@ export const convertTokenReadableAmountToBigInt = (
       ?.find((t) => t.symbol?.toUpperCase() === tokenSymbol.toUpperCase()) ??
     findKnownToken(
       chainId,
-      TOKEN_CONTRACT_ADDRESSES[tokenSymbol.toUpperCase()]?.[chainId]
+      TOKEN_CONTRACT_ADDRESSES[tokenSymbol.toUpperCase()]?.[chainId],
     );
   const decimals =
     token?.decimals ??
@@ -949,12 +1008,15 @@ export const resolveTokenContractAddress = (
   if (tokenSymbolOrAddress.startsWith("0x")) {
     return tokenSymbolOrAddress as `0x${string}`;
   }
-  const known = TOKEN_CONTRACT_ADDRESSES[tokenSymbolOrAddress.toUpperCase()]?.[chainId];
+  const known =
+    TOKEN_CONTRACT_ADDRESSES[tokenSymbolOrAddress.toUpperCase()]?.[chainId];
   if (known) return known;
 
   const found = chains
     ?.flatMap((c) => (c.id === chainId ? c.tokens : []))
-    ?.find((t) => t.symbol?.toUpperCase() === tokenSymbolOrAddress.toUpperCase());
+    ?.find(
+      (t) => t.symbol?.toUpperCase() === tokenSymbolOrAddress.toUpperCase(),
+    );
   if (found?.contractAddress) return found.contractAddress as `0x${string}`;
   if (found?.address) return found.address as `0x${string}`;
 

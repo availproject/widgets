@@ -248,7 +248,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react",
         "viem"
       ],
@@ -609,7 +609,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@3.2.0",
         "clsx",
         "decimal.js",
         "lucide-react",
@@ -808,7 +808,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react",
         "viem"
       ],
@@ -890,6 +890,21 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-animated-amount.tsx",
+          "target": "components/nexus/components/deposit-animated-amount.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-asset-selector.tsx",
+          "target": "components/nexus/components/deposit-asset-selector.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-exact-out-idle-form.tsx",
+          "target": "components/nexus/components/deposit-exact-out-idle-form.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/deposit-funding-method.tsx",
           "target": "components/nexus/components/deposit-funding-method.tsx",
           "type": "registry:component"
@@ -900,8 +915,18 @@
           "type": "registry:component"
         },
         {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-motion.tsx",
+          "target": "components/nexus/components/deposit-motion.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "registry/avail-widgets/nexus-widget/components/deposit-onramp-flow.tsx",
           "target": "components/nexus/components/deposit-onramp-flow.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/components/deposit-token-logo.tsx",
+          "target": "components/nexus/components/deposit-token-logo.tsx",
           "type": "registry:component"
         },
         {
@@ -1007,6 +1032,11 @@
         {
           "path": "registry/avail-widgets/nexus-widget/utils/citrea-tokens.ts",
           "target": "components/nexus/utils/citrea-tokens.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "registry/avail-widgets/nexus-widget/utils/deposit-execution.ts",
+          "target": "components/nexus/utils/deposit-execution.ts",
           "type": "registry:component"
         },
         {
@@ -1131,7 +1161,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@3.2.0",
         "decimal.js",
         "lucide-react",
         "viem",
@@ -1186,7 +1216,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@3.2.0",
         "decimal.js",
         "wagmi"
       ]
@@ -1440,7 +1470,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@3.2.0",
         "decimal.js",
         "lucide-react",
         "viem"
@@ -1654,7 +1684,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react",
         "viem"
       ],
@@ -1692,7 +1722,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1845,7 +1875,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@3.1.0",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react"
       ],
       "registryDependencies": [

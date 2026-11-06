@@ -59,6 +59,13 @@ interface UseDepositProps {
   onError?: (error: string) => void;
 }
 
+// This legacy flow requests a fixed destination amount; its source selection
+// identifies eligible tokens rather than assigning exact-input spend amounts.
+type ExactOutputDepositParams = Extract<
+  SwapAndExecuteParams,
+  { tradeType?: "exactOutput" }
+>;
+
 function parseUsdAmount(value?: string): number {
   if (!value) return 0;
   const parsed = Number.parseFloat(value.replace(/,/g, ""));
@@ -211,7 +218,7 @@ export function useDepositWidget(
    * Start the swap and execute flow with the SDK
    */
   const start = useCallback(
-    (inputs: SwapAndExecuteParams, targetAmountUsd?: number) => {
+    (inputs: ExactOutputDepositParams, targetAmountUsd?: number) => {
       if (!nexusSDK || !inputs || isProcessing) return;
 
       seed(SWAP_EXPECTED_STEPS);
@@ -237,13 +244,13 @@ export function useDepositWidget(
         return;
       }
 
-      const inputsWithSources: SwapAndExecuteParams = {
+      const inputsWithSources: ExactOutputDepositParams = {
         ...inputs,
         sources: fromSources,
       };
       let transactionSucceeded = false;
       nexusSDK
-        .swapAndExecute(inputsWithSources as any, {
+        .swapAndExecute(inputsWithSources, {
           onEvent: (rawEvent) => {
             const event = adaptIntentEvent(rawEvent);
             if (
@@ -536,7 +543,8 @@ export function useDepositWidget(
         return false;
       }
 
-      const newInputs: SwapAndExecuteParams = {
+      const newInputs: ExactOutputDepositParams = {
+        tradeType: "exactOutput",
         toChainId: destination.chainId,
         toTokenAddress: destination.tokenAddress,
         toAmountRaw: parsed,

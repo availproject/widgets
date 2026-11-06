@@ -14,5 +14,6 @@ npm install @avail-project/widgets viem wagmi @tanstack/react-query
 ```
 
 - [Swap and Bridge](/docs/components/swaps): `config.mode = "swap"` — swap and bridge assets through one unified intent flow.
-- [Deposit](/docs/components/deposit): `config.mode = "deposit"` — route funds into a configured protocol or app action.
+- [Deposit (Exact Output)](/docs/components/deposit): `config.mode = "deposit"`, `route = "exactOutput"` — enter exact deposit amount to execute into destination protocol.
+- [Deposit (Exact Input)](/docs/components/deposit-exact-input): `config.mode = "deposit"`, `route = "exactInput"` — multi-token spend deposit flow.
 - [Send](/docs/components/transfer): `config.mode = "send"` — send assets to a recipient.

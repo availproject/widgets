@@ -2,6 +2,7 @@
   "pages": [
     "swaps",
     "deposit",
+    "deposit-exact-input",
     "transfer"
   ]
 }

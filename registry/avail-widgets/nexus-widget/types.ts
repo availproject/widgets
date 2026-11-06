@@ -137,6 +137,8 @@ export interface NexusWidgetConfigBase {
   theme?: NexusWidgetTheme;
 }
 
+export type NexusWidgetDepositRoute = "exactInput" | "exactOutput";
+
 export interface NexusWidgetDepositConfig extends NexusWidgetConfigBase {
   depositAddress: Address;
   destination: NexusWidgetDepositDestination;
@@ -144,6 +146,8 @@ export interface NexusWidgetDepositConfig extends NexusWidgetConfigBase {
   enableOnRamp?: boolean;
   executeDeposit: NexusWidgetDepositOpportunityConfig["executeDeposit"];
   mode: "deposit";
+  /** Deposit route mode. Defaults to "exactOutput". */
+  route?: NexusWidgetDepositRoute;
   prefill?: NexusWidgetAmountPrefill;
   validation?: NexusWidgetValidation;
 }

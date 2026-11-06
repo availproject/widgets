@@ -9,14 +9,21 @@ import {
   formatSelectedTokenBalanceLabel,
   type SwapTokenOption,
 } from "../registry/avail-widgets/nexus-widget/components/swap-asset-selector";
-import { parseAmount } from "../registry/avail-widgets/nexus-widget/utils/amount";
+import {
+  formatTokenBalance,
+  formatUsdAmount,
+  isStablecoinSymbol,
+  parseAmount,
+} from "../registry/avail-widgets/nexus-widget/utils/amount";
 
 for (const symbol of ["USDT0", "USD₮0", "1INCH", "TOKEN2026", "USDC", "ETH"]) {
   test(`${symbol} never contributes digits to its balance`, () => {
     for (const amount of ["0", "10", "2.050856", "100.01"]) {
       for (const balance of [amount, `${amount} ${symbol}`]) {
         assert.equal(parseAmount(balance)?.toFixed(), amount);
-        assert.equal(formatSelectedTokenBalanceLabel({ balance, symbol }), `${amount} ${symbol}`);
+        const isStable = ["USDC", "USDT0", "USD₮0"].includes(symbol);
+        const expectedAmount = isStable && amount === "2.050856" ? "2.05" : amount;
+        assert.equal(formatSelectedTokenBalanceLabel({ balance, symbol }), `${expectedAmount} ${symbol}`);
       }
     }
   });
@@ -153,3 +160,26 @@ test("coverage never exceeds the remaining request or rounds a small balance up"
   assert.equal(coverage.amount.toFixed(), "0.0000000005");
   assert.equal(loadHelpers("0").getExactOutDestinationBalanceCoverage({ requestedAmount: new Decimal(100) }), null);
 });
+
+test("stable coins (USDC, USDT, DAI, EURC) format with only 2 decimal places using Decimal.ROUND_DOWN", () => {
+  for (const stable of ["USDC", "USDT", "DAI", "EURC", "USDC.e", "USD₮"]) {
+    assert.equal(isStablecoinSymbol(stable), true, `${stable} should be recognized as stablecoin`);
+    assert.equal(formatTokenBalance("5.154823", { symbol: stable, decimals: 6 }), "5.15");
+    // Verifies floor / ROUND_DOWN behavior: 5.159 must become 5.15, not 5.16
+    assert.equal(formatTokenBalance("5.159999", { symbol: stable, decimals: 6 }), "5.15");
+    assert.equal(formatSelectedTokenBalanceLabel({ balance: "5.154823", symbol: stable }), `5.15 ${stable}`);
+    assert.equal(formatSelectedTokenBalanceLabel({ balance: "5.159999", symbol: stable }), `5.15 ${stable}`);
+  }
+
+  // Non-stables (ETH, CBTC, etc.) preserve their precision up to 8 decimals
+  assert.equal(isStablecoinSymbol("CBTC"), false);
+  assert.equal(isStablecoinSymbol("ETH"), false);
+  assert.equal(formatTokenBalance("0.00001479", { symbol: "CBTC", decimals: 8 }), "0.00001479");
+  assert.equal(formatTokenBalance("0.00001479", { symbol: "ETH", decimals: 18 }), "0.00001479");
+  assert.equal(formatSelectedTokenBalanceLabel({ balance: "0.00001479", symbol: "CBTC" }), "0.00001479 CBTC");
+
+  // USD formatting floors with ROUND_DOWN
+  assert.equal(formatUsdAmount("5.159"), "$5.15");
+  assert.equal(formatUsdAmount("5.151"), "$5.15");
+});
+

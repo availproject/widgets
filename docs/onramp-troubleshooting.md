@@ -1,6 +1,6 @@
 # Onramp + Deposit diagnostics (2.2.1)
 
-Both package manifests and the shadcn registry pin `@avail-project/nexus-core` to `3.1.0`.
+Both package manifests and the shadcn registry pin `@avail-project/nexus-core` to `3.2.0` from npm. This release supplies the execution amount to `beforeExecute` for exact-input deposits.
 
 ## Fixed failure paths
 

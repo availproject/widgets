@@ -33,6 +33,14 @@ const SHOWCASE_MAP: Record<
   "nexus-swap": () => import("@/components/showcase/nexus-widget-swap-showcase"),
   "nexus-deposit": () =>
     import("@/components/showcase/nexus-widget-deposit-showcase"),
+  "nexus-deposit-exact-output": () =>
+    import("@/components/showcase/nexus-widget-deposit-showcase").then((m) => ({
+      default: m.NexusWidgetDepositExactOutputShowcase as React.ComponentType<unknown>,
+    })),
+  "nexus-deposit-exact-input": () =>
+    import("@/components/showcase/nexus-widget-deposit-showcase").then((m) => ({
+      default: m.NexusWidgetDepositExactInputShowcase as React.ComponentType<unknown>,
+    })),
   "nexus-widget": () => import("@/components/showcase/nexus-widget-showcase"),
   "nexus-widget-transfer": () =>
     import("@/components/showcase/nexus-widget-transfer-showcase"),
@@ -40,6 +48,14 @@ const SHOWCASE_MAP: Record<
     import("@/components/showcase/nexus-widget-swap-showcase"),
   "nexus-widget-deposit": () =>
     import("@/components/showcase/nexus-widget-deposit-showcase"),
+  "nexus-widget-deposit-exact-output": () =>
+    import("@/components/showcase/nexus-widget-deposit-showcase").then((m) => ({
+      default: m.NexusWidgetDepositExactOutputShowcase as React.ComponentType<unknown>,
+    })),
+  "nexus-widget-deposit-exact-input": () =>
+    import("@/components/showcase/nexus-widget-deposit-showcase").then((m) => ({
+      default: m.NexusWidgetDepositExactInputShowcase as React.ComponentType<unknown>,
+    })),
 };
 
 export function ComponentPreview({

@@ -247,7 +247,7 @@ test("all widget execution calls are wrapped and legacy analytics forwarding is 
     ts.forEachChild(node, walk);
   };
   walk(source);
-  assert.equal(count, 7);
+  assert.equal(count, 8);
 });
 
 test("failed sinks retry independently with identical IDs and stop at the retry limit", async () => {
@@ -817,7 +817,7 @@ test("records carry nexus.network, surface.version, session.id, attempt.id, and 
     await h.telemetry.flush();
     const startRecord = h.records[0];
     assert.equal(startRecord.properties["nexus.network"], "testnet");
-    assert.equal(startRecord.properties["surface.version"], "2.2.1");
+    assert.equal(startRecord.properties["surface.version"], "2.3.0");
     assert.equal(startRecord.properties["surface.name"], "nexus-widget");
     assert.ok(startRecord.properties["session.id"]);
     assert.equal(startRecord.properties.session_id, undefined);

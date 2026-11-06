@@ -1194,7 +1194,7 @@ export function SwapIdleForm({
                               fontSize: "29px",
                               fontWeight: 500,
                               lineHeight: "34px",
-                              marginRight: "4px",
+                              marginRight: "0px",
                             }}
                           >
                             $

@@ -6,6 +6,7 @@ import { Button } from "../../ui/button";
 import WidgetHeader from "./widget-header";
 import { ReceiveAmountDisplay } from "./receive-amount-display";
 import type { DepositWidgetContextValue } from "../types";
+import { conveysFundsAreSafeOrRefunded } from "../../nexus/intent-error-classifier";
 
 interface TransactionFailedContainerProps {
   widget: DepositWidgetContextValue;
@@ -57,6 +58,11 @@ const TransactionFailedContainer = ({
                   `It's not you, it's us. Everything seems to be in order from your
                 side, our engineers might have broken something.`}
               </p>
+              {!conveysFundsAreSafeOrRefunded(widget?.txError) && (
+                <p className="font-sans text-xs leading-4 text-destructive/80 mt-2">
+                  Any tokens collected will be refunded to your wallet
+                </p>
+              )}
               <p className="font-sans text-sm leading-5 text-destructive mt-3">
                 Retry in a bit?
               </p>

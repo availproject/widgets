@@ -4,7 +4,7 @@ import Decimal from "decimal.js";
 import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
-import { parseAmount as parseDecimal } from "../utils/amount";
+import { isStablecoinSymbol, parseAmount as parseDecimal } from "../utils/amount";
 import { type SwapTokenOption, UnverifiedBadge } from "./swap-asset-selector";
 
 const uiFont = '"Geist", system-ui, sans-serif';
@@ -13,15 +13,16 @@ const muted = "var(--nexus-widget-text-secondary, #848483)";
 const border = "var(--nexus-widget-border, #E8E8E7)";
 const brand = "var(--foreground-brand)";
 
-const formatToken = (value: unknown) => {
+const formatToken = (value: unknown, symbol?: string) => {
   const amount = parseDecimal(value) ?? new Decimal(0);
-  return amount.toDecimalPlaces(8).toFixed();
+  const maxDecimals = isStablecoinSymbol(symbol) ? 2 : 8;
+  return amount.toDecimalPlaces(maxDecimals, Decimal.ROUND_DOWN).toFixed();
 };
 
 const formatUsd = (value: unknown) => {
   const amount = parseDecimal(value) ?? new Decimal(0);
   if (amount.gt(0) && amount.lt(0.01)) return "<$0.01";
-  return `$${amount.toDecimalPlaces(2).toFixed()}`;
+  return `$${amount.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed(2)}`;
 };
 
 const getDisplayedUsdValue = (token: SwapTokenOption) =>
@@ -448,7 +449,7 @@ export function PayWithSources({
                       lineHeight: "18px",
                     }}
                   >
-                    {formatToken(token.userAmount || token.balance)}{" "}
+                    {formatToken(token.userAmount || token.balance, token.symbol)}{" "}
                     {token.symbol}
                   </span>
                   <span

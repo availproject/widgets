@@ -3,6 +3,7 @@
 import Decimal from "decimal.js";
 import React, { useMemo } from "react";
 import type { UserAsset } from "../../nexus/NexusProvider";
+import { isStablecoinSymbol } from "../utils/amount";
 import {
   formatTokenAmountDisplay,
   formatUsdBalanceLabel,
@@ -49,11 +50,13 @@ export function AmountInputUnified({
         .toDecimalPlaces(8, Decimal.ROUND_DOWN)
         .toFixed();
     }
+    const isStable = isStablecoinSymbol(tokenSymbol);
+    const maxDecimals = isStable ? 2 : 8;
     return unifiedBalances
       .reduce((acc, curr) => acc.add(curr.balance ?? 0), new Decimal(0))
-      .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+      .toDecimalPlaces(maxDecimals, Decimal.ROUND_DOWN)
       .toFixed();
-  }, [isUsdMode, unifiedBalances]);
+  }, [isUsdMode, tokenSymbol, unifiedBalances]);
   const totalBalanceLabel = useMemo(() => {
     if (!unifiedBalances || !unifiedBalances.length) return "0";
     if (isUsdMode) {
@@ -67,8 +70,8 @@ export function AmountInputUnified({
       (acc, curr) => acc.add(curr.balance ?? 0),
       new Decimal(0)
     );
-    return formatTokenAmountDisplay(amount);
-  }, [isUsdMode, unifiedBalances]);
+    return formatTokenAmountDisplay(amount, tokenSymbol);
+  }, [isUsdMode, tokenSymbol, unifiedBalances]);
 
   return (
     <div
@@ -101,7 +104,7 @@ export function AmountInputUnified({
                 {tokenIcon}
               </div>
             ) : (
-              <span className="leading-none text-gray-800 mr-1">$</span>
+              <span className="leading-none text-gray-800 mr-0">$</span>
             )}
             <input
               className="min-w-0 text-start bg-transparent border-none outline-none p-0 focus:ring-0 placeholder:text-gray-300 truncate tabular-nums"
