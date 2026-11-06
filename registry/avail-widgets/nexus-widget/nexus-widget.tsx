@@ -11722,6 +11722,7 @@ function NexusWidgetInner({
         setSourceSelectionTouched(true);
         setFromTokens([]);
         setAmount("");
+        setIsDepositEditingEmpty(false);
         setTxError(null);
         setSwapQuoteIssue(null);
         setQuoteRefreshing(false);

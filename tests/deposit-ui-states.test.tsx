@@ -603,6 +603,119 @@ test("DepositIdleForm does not dismiss open input when value is not entered", as
   }
 });
 
+test("DepositIdleForm allows clicking Back when amount is not entered", async () => {
+  const originals = Object.fromEntries(
+    ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+
+  let capturedPointerDown: ((e: any) => void) | undefined;
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: {
+      addEventListener(type: string, fn: any) {
+        if (type === "pointerdown") capturedPointerDown = fn;
+      },
+      removeEventListener() {},
+    },
+    window: { setTimeout, clearTimeout },
+  });
+
+  try {
+    let renderer: ReactTestRenderer | undefined;
+    let backClicked = false;
+    const emptyToken: SwapTokenOption = {
+      ...token,
+      userAmount: "",
+    };
+
+    await act(async () => {
+      renderer = create(
+        <DepositIdleForm
+          amount=""
+          amountMode="usd"
+          fromTokens={[emptyToken]}
+          destinationLabel="Aave"
+          onUpdateTokens={() => {}}
+          onAmountChange={() => {}}
+          onAmountModeToggle={() => {}}
+          onOpenSourcePicker={() => {}}
+          onSetPercent={() => {}}
+          onBack={() => {
+            backClicked = true;
+          }}
+          tokenValue="0"
+          usdValue="0"
+          totalBalance="500"
+          isQuoteRefreshing={false}
+          maxSourceTokens={3}
+        />
+      );
+    });
+
+    assert.ok(capturedPointerDown, "pointerdown listener should be registered");
+
+    // 1. Verify outside interaction listener does NOT prevent default when clicking Back button
+    const backButton = renderer!.root.findByProps({ "aria-label": "Back" });
+    assert.ok(backButton, "Back button should be rendered in header");
+
+    let prevented = false;
+    let stopped = false;
+    const backBtnElement = {
+      tagName: "BUTTON",
+      getAttribute(attr: string) {
+        if (attr === "aria-label") return "Back";
+        return null;
+      },
+      parentElement: null,
+    };
+    const svgElement = {
+      tagName: "svg",
+      getAttribute() {
+        return null;
+      },
+      parentElement: backBtnElement,
+    };
+    const pathElement = {
+      tagName: "path",
+      getAttribute() {
+        return null;
+      },
+      parentElement: svgElement,
+    };
+
+    const backEvent = {
+      target: pathElement,
+      composedPath() {
+        return [pathElement, svgElement, backBtnElement];
+      },
+      preventDefault() {
+        prevented = true;
+      },
+      stopPropagation() {
+        stopped = true;
+      },
+    };
+
+    capturedPointerDown!(backEvent);
+    assert.equal(prevented, false, "Clicking Back should NOT be prevented by outside interaction handler");
+    assert.equal(stopped, false, "Clicking Back should NOT stop propagation");
+
+    // 2. Clicking Back button triggers onBack callback
+    await act(async () => {
+      backButton.props.onClick();
+    });
+    assert.equal(backClicked, true, "onBack should be called when Back button is clicked");
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
 test("deposit receipt and progress screen include destination-chain source token when source matches destination", async () => {
   const originals = Object.fromEntries(
     ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [

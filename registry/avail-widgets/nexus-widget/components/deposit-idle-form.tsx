@@ -416,12 +416,19 @@ export function DepositIdleForm({
   }
 
   const blurAmountField = () => {
-    const active = document.activeElement;
+    const active = typeof document !== "undefined" ? document.activeElement : null;
     if (
+      typeof HTMLInputElement !== "undefined" &&
       active instanceof HTMLInputElement &&
       openRowRef.current?.contains(active)
     ) {
       active.blur();
+    } else if (
+      active &&
+      typeof (active as any).blur === "function" &&
+      openRowRef.current?.contains(active)
+    ) {
+      (active as any).blur();
     }
   };
 
@@ -448,6 +455,113 @@ export function DepositIdleForm({
     if (!openKey) return;
     if (isSourcePickerOpen) return;
 
+    const isInteractiveOrExempt = (target: EventTarget | null, event?: Event): boolean => {
+      if (!target) return false;
+
+      if (event && typeof (event as any).composedPath === "function") {
+        const path = (event as any).composedPath() as EventTarget[];
+        for (const el of path) {
+          if (el && typeof (el as any).getAttribute === "function") {
+            const elem = el as Element;
+            const tag = elem.tagName?.toUpperCase();
+            if (tag === "BUTTON" || tag === "A" || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+              return true;
+            }
+            const role = elem.getAttribute("role");
+            if (role === "button" || role === "dialog" || role === "radio" || role === "tab") {
+              return true;
+            }
+            const ariaLabel = elem.getAttribute("aria-label");
+            if (
+              ariaLabel === "Back" ||
+              ariaLabel === "Close" ||
+              ariaLabel === "Dismiss" ||
+              ariaLabel === "Transaction history"
+            ) {
+              return true;
+            }
+            const className = typeof elem.className === "string" ? elem.className : "";
+            if (
+              className.includes("nx-head") ||
+              className.includes("nx-pr-tok") ||
+              className.includes("nx-add-tok") ||
+              className.includes("nx-deposit-sheet") ||
+              className.includes("nx-deposit-scrim") ||
+              className.includes("nx-drawer") ||
+              className.includes("nx-asset-row") ||
+              className.includes("nx-sheet-grip") ||
+              className.includes("nx-asset-menu") ||
+              className.includes("nx-asset-controls")
+            ) {
+              return true;
+            }
+            if (typeof elem.hasAttribute === "function" && elem.hasAttribute("data-nexus-widget-sheet")) {
+              return true;
+            }
+          }
+        }
+      }
+
+      let curr: Element | null =
+        typeof Element !== "undefined" && target instanceof Element
+          ? target
+          : (target as any)?.parentElement ?? null;
+      while (curr) {
+        const tag = curr.tagName?.toUpperCase();
+        if (tag === "BUTTON" || tag === "A" || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+          return true;
+        }
+        const role = curr.getAttribute?.("role");
+        if (role === "button" || role === "dialog" || role === "radio" || role === "tab") {
+          return true;
+        }
+        const ariaLabel = curr.getAttribute?.("aria-label");
+        if (
+          ariaLabel === "Back" ||
+          ariaLabel === "Close" ||
+          ariaLabel === "Dismiss" ||
+          ariaLabel === "Transaction history"
+        ) {
+          return true;
+        }
+        const className = typeof curr.className === "string" ? curr.className : "";
+        if (
+          className.includes("nx-head") ||
+          className.includes("nx-pr-tok") ||
+          className.includes("nx-add-tok") ||
+          className.includes("nx-deposit-sheet") ||
+          className.includes("nx-deposit-scrim") ||
+          className.includes("nx-drawer") ||
+          className.includes("nx-asset-row") ||
+          className.includes("nx-sheet-grip") ||
+          className.includes("nx-asset-menu") ||
+          className.includes("nx-asset-controls")
+        ) {
+          return true;
+        }
+        if (typeof curr.hasAttribute === "function" && curr.hasAttribute("data-nexus-widget-sheet")) {
+          return true;
+        }
+        curr = curr.parentElement;
+      }
+
+      const targetEl = target as HTMLElement | null;
+      if (
+        targetEl &&
+        typeof targetEl.closest === "function" &&
+        targetEl.closest(
+          "button, a, input, select, textarea, [role='button'], [role='dialog'], [role='radio'], [role='tab'], " +
+          ".nx-head, .nx-pr-tok, .nx-add-tok, .nx-deposit-sheet, .nx-deposit-scrim, [data-nexus-widget-sheet], " +
+          ".nx-drawer, .nx-asset-row, .nx-sheet-grip, .nx-asset-menu, .nx-asset-controls, " +
+          "[aria-label='Back'], [aria-label='Close'], [aria-label='Dismiss'], [aria-label='Transaction history']"
+        )
+      ) {
+        return true;
+      }
+
+      return false;
+    };
+
     const handleOutsideInteraction = (event: Event) => {
       const row = openRowRef.current;
       if (row) {
@@ -462,17 +576,7 @@ export function DepositIdleForm({
         }
       }
 
-      const targetEl = event.target as HTMLElement | null;
-      if (
-        targetEl &&
-        typeof targetEl.closest === "function" &&
-        targetEl.closest(
-          "button, a, input, select, textarea, [role='button'], [role='dialog'], [role='radio'], " +
-          ".nx-pr-tok, .nx-add-tok, .nx-deposit-sheet, .nx-deposit-scrim, [data-nexus-widget-sheet], " +
-          ".nx-drawer, .nx-asset-row, .nx-sheet-grip, .nx-asset-menu, .nx-asset-controls, " +
-          "[aria-label='Back'], [aria-label='Close'], [aria-label='Dismiss']"
-        )
-      ) {
+      if (isInteractiveOrExempt(event.target, event)) {
         return;
       }
 
@@ -663,7 +767,7 @@ export function DepositIdleForm({
                 }}
                 type="button"
               >
-                <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
+                <svg fill="none" height="14" style={{ pointerEvents: "none" }} viewBox="0 0 14 14" width="14">
                   <path d="M8.5 3L4.5 7L8.5 11" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
                 </svg>
               </button>
@@ -683,7 +787,7 @@ export function DepositIdleForm({
                 style={{ alignItems: "center", background: "var(--nx-fill, #F3F3F3)", border: "none", borderRadius: "999px", cursor: "pointer", display: "grid", height: 32, placeItems: "center", width: 32 }}
                 type="button"
               >
-                <svg fill="none" height="13" viewBox="0 0 13 13" width="13">
+                <svg fill="none" height="13" style={{ pointerEvents: "none" }} viewBox="0 0 13 13" width="13">
                   <path d="M3 3L10 10M10 3L3 10" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeWidth="1.5" />
                 </svg>
               </button>
@@ -708,7 +812,17 @@ export function DepositIdleForm({
         <div className="nx-head" style={{ borderBottom: "1px solid var(--nx-line-2, #EDEDED)", gap: 8 }}>
           <button
             aria-label="Back"
-            onClick={onBack}
+            onClick={() => {
+              setOpenKey(null);
+              blurAmountField();
+              onBack?.();
+            }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onMouseDown={(event) => {
+              event.stopPropagation();
+            }}
             style={{
               alignItems: "center",
               background: "var(--nx-fill, #F3F3F3)",
@@ -723,7 +837,7 @@ export function DepositIdleForm({
             }}
             type="button"
           >
-            <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
+            <svg fill="none" height="14" style={{ pointerEvents: "none" }} viewBox="0 0 14 14" width="14">
               <path d="M8.5 3L4.5 7L8.5 11" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
             </svg>
           </button>
@@ -734,10 +848,16 @@ export function DepositIdleForm({
             <button
               aria-label="Transaction history"
               onClick={onOpenHistory}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onMouseDown={(event) => {
+                event.stopPropagation();
+              }}
               style={{ alignItems: "center", background: "var(--nx-fill, #F3F3F3)", border: "none", borderRadius: "999px", cursor: "pointer", display: "grid", height: 32, placeItems: "center", width: 32 }}
               type="button"
             >
-              <svg fill="none" height="15" viewBox="0 0 15 15" width="15">
+              <svg fill="none" height="15" style={{ pointerEvents: "none" }} viewBox="0 0 15 15" width="15">
                 <path d="M2.6 7.5a4.9 4.9 0 1 0 1.45-3.47M2.4 2.3v2.4h2.4M7.5 4.9v2.8l1.9 1.2" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.4" />
               </svg>
             </button>
@@ -764,10 +884,16 @@ export function DepositIdleForm({
             <button
               aria-label="Close"
               onClick={onClose}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onMouseDown={(event) => {
+                event.stopPropagation();
+              }}
               style={{ alignItems: "center", background: "var(--nx-fill, #F3F3F3)", border: "none", borderRadius: "999px", cursor: "pointer", display: "grid", height: 32, placeItems: "center", width: 32 }}
               type="button"
             >
-              <svg fill="none" height="13" viewBox="0 0 13 13" width="13">
+              <svg fill="none" height="13" style={{ pointerEvents: "none" }} viewBox="0 0 13 13" width="13">
                 <path d="M3 3L10 10M10 3L3 10" stroke="var(--nx-ink-2, #3A3A39)" strokeLinecap="round" strokeWidth="1.5" />
               </svg>
             </button>
