@@ -128,6 +128,39 @@ const formatDecimal = (value: unknown, decimals = 2) =>
 
 const formatUsd = (value: unknown) => `$${formatDecimal(value, 2)}`;
 
+function InfoIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg aria-hidden="true" fill="none" height={size} viewBox="0 0 16 16" width={size}>
+      <circle cx="8" cy="8" r="6.2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 7.2V11" stroke="currentColor" strokeLinecap="round" strokeWidth="1.3" />
+      <circle cx="8" cy="5.2" fill="currentColor" r=".8" />
+    </svg>
+  );
+}
+
+const formatSourceBreakdownAmount = (
+  rawAmount: string | Decimal | undefined | null,
+  decimals = 6,
+  symbol = "",
+) => {
+  const parsed =
+    rawAmount instanceof Decimal ? rawAmount : parseDecimal(rawAmount);
+  if (!parsed || !parsed.isFinite() || parsed.isZero()) return "0";
+  const maxDec = isStablecoinSymbol(symbol) ? 2 : Math.min(8, decimals);
+  const rounded = parsed.toDecimalPlaces(maxDec, Decimal.ROUND_DOWN);
+  if (isStablecoinSymbol(symbol)) {
+    return rounded.toFixed(2);
+  }
+  const str = rounded.toFixed();
+  return str.includes(".") ? str.replace(/\.?0+$/, "") : str;
+};
+
+const getBreakdownChainName = (chainId?: number, fallbackName?: string) => {
+  if (fallbackName && fallbackName !== "BNB") return fallbackName;
+  if (chainId === 56 || fallbackName === "BNB") return "BNB Chain";
+  return getShortChainName(chainId, fallbackName);
+};
+
 const unique = (values: Array<string | undefined>) =>
   Array.from(new Set(values.filter(Boolean) as string[]));
 
@@ -1761,6 +1794,266 @@ export function NexusWidgetProgressScreen({
     },
   });
   const [stepsExpanded, setStepsExpanded] = useState(false);
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  const tooltipContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(hover:hover) and (pointer:fine)").matches
+    ) {
+      setIsTooltipOpen(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsTooltipOpen(false);
+    }, 120);
+  };
+
+  useEffect(() => {
+    if (!isTooltipOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (
+        tooltipContainerRef.current &&
+        !tooltipContainerRef.current.contains(e.target as Node)
+      ) {
+        setIsTooltipOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsTooltipOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isTooltipOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const sourceBreakdown = React.useMemo(() => {
+    const rows: Array<{
+      key: string;
+      chainId?: number;
+      tokenLogo: string;
+      chainLogo?: string;
+      symbol: string;
+      chainName: string;
+      amount: string;
+      value: string;
+    }> = [];
+
+    if (augmentedIntentSources.length > 0) {
+      for (let i = 0; i < augmentedIntentSources.length; i++) {
+        const s = augmentedIntentSources[i];
+        const fallback = fromTokens.find(
+          (t) =>
+            (t.chainId === s.chain?.id || !t.chainId || !s.chain?.id) &&
+            (t.contractAddress?.toLowerCase() ===
+              s.token?.contractAddress?.toLowerCase() ||
+              t.symbol?.toUpperCase() === s.token?.symbol?.toUpperCase()),
+        );
+        const symbol = s.token?.symbol || fallback?.symbol || "";
+        const decimals = s.token?.decimals ?? fallback?.decimals ?? 6;
+        const amountStr = formatSourceBreakdownAmount(s.amount, decimals, symbol);
+        const chainName =
+          getBreakdownChainName(s.chain?.id, s.chain?.name || fallback?.chainName) ||
+          (s.chain?.id ? CHAIN_METADATA[s.chain.id]?.name : "") ||
+          "";
+
+        let value = s.value;
+        if (!value || value === "0") {
+          const parsedAmt = parseDecimal(s.amount);
+          const fiat = parseDecimal(fallback?.balanceInFiat);
+          const bal = parseDecimal(fallback?.balance);
+          const price =
+            bal && bal.gt(0) && fiat && fiat.gt(0)
+              ? fiat.div(bal)
+              : undefined;
+          if (parsedAmt && price) {
+            value = parsedAmt.mul(price).toFixed(2);
+          } else if (fiat && fiat.gt(0)) {
+            value = fiat.toFixed(2);
+          }
+        }
+        if ((!value || value === "0") && fromAmountUsd && augmentedIntentSources.length === 1) {
+          value = fromAmountUsd;
+        }
+
+        rows.push({
+          key: `${s.chain?.id || ""}-${s.token?.contractAddress || symbol}-${i}`,
+          chainId: s.chain?.id,
+          tokenLogo: s.token?.logo || fallback?.logo || "",
+          chainLogo: s.chain?.logo || fallback?.chainLogo || "",
+          symbol,
+          chainName,
+          amount: amountStr,
+          value: value || "0",
+        });
+      }
+
+      // Also include any tokens configured in fromTokens with positive userAmount that aren't in augmentedIntentSources
+      for (const token of fromTokens) {
+        const userAmt = parseDecimal(token.userAmount);
+        if (!userAmt || !userAmt.gt(0)) continue;
+        const isAlreadyCovered = rows.some((row) => {
+          const matchesChain = row.chainId === token.chainId;
+          const matchesAddress =
+            row.tokenLogo && token.contractAddress
+              ? row.key.toLowerCase().includes(token.contractAddress.toLowerCase())
+              : false;
+          const matchesSymbol =
+            Boolean(row.symbol && token.symbol) &&
+            row.symbol.toUpperCase() === token.symbol.toUpperCase();
+          return matchesChain && (matchesAddress || matchesSymbol);
+        });
+
+        if (!isAlreadyCovered) {
+          const balance = parseDecimal(token.balance);
+          const fiat = parseDecimal(token.balanceInFiat);
+          const price =
+            balance && balance.gt(0) && fiat && fiat.gt(0)
+              ? fiat.div(balance)
+              : undefined;
+          const isUsd = token.userAmountMode === "usd";
+          const units = isUsd
+            ? price && price.gt(0)
+              ? userAmt.div(price)
+              : userAmt
+            : userAmt;
+          const val = isUsd
+            ? userAmt
+            : token.userAmountUsd
+              ? (parseDecimal(token.userAmountUsd) ?? userAmt)
+              : price && price.gt(0)
+                ? userAmt.mul(price)
+                : (fiat ?? userAmt);
+
+          rows.push({
+            key: `from-${token.chainId}-${token.contractAddress}-${token.symbol}`,
+            chainId: token.chainId,
+            tokenLogo: token.logo || "",
+            chainLogo: token.chainLogo || "",
+            symbol: token.symbol,
+            chainName:
+              getBreakdownChainName(token.chainId, token.chainName) ||
+              (token.chainId ? CHAIN_METADATA[token.chainId]?.name : "") ||
+              "",
+            amount: formatSourceBreakdownAmount(units, token.decimals ?? 6, token.symbol),
+            value: val ? val.toFixed(2) : "0",
+          });
+        }
+      }
+    } else {
+      // Fallback to fromTokens when augmentedIntentSources is empty
+      const positiveTokens = fromTokens.filter((t) => {
+        const amt = parseDecimal(t.userAmount);
+        return amt && amt.gt(0);
+      });
+      const tokensToUse = positiveTokens.length > 0 ? positiveTokens : fromTokens;
+
+      for (let i = 0; i < tokensToUse.length; i++) {
+        const token = tokensToUse[i];
+        const userAmt = parseDecimal(token.userAmount);
+        const balance = parseDecimal(token.balance);
+        const fiat = parseDecimal(token.balanceInFiat);
+        const price =
+          balance && balance.gt(0) && fiat && fiat.gt(0)
+            ? fiat.div(balance)
+            : undefined;
+        const isUsd = token.userAmountMode === "usd";
+        const units =
+          userAmt && userAmt.gt(0)
+            ? isUsd
+              ? price && price.gt(0)
+                ? userAmt.div(price)
+                : userAmt
+              : userAmt
+            : balance && balance.gt(0)
+              ? balance
+              : new Decimal(0);
+        let val =
+          userAmt && userAmt.gt(0)
+            ? isUsd
+              ? userAmt
+              : token.userAmountUsd
+                ? (parseDecimal(token.userAmountUsd) ?? userAmt)
+                : price && price.gt(0)
+                  ? userAmt.mul(price)
+                  : (fiat ?? userAmt)
+            : fiat ?? new Decimal(0);
+
+        if ((!val || val.isZero()) && fromAmountUsd && tokensToUse.length === 1) {
+          val = parseDecimal(fromAmountUsd) ?? val;
+        }
+
+        rows.push({
+          key: `fallback-${token.chainId}-${token.contractAddress}-${token.symbol}-${i}`,
+          chainId: token.chainId,
+          tokenLogo: token.logo || "",
+          chainLogo: token.chainLogo || "",
+          symbol: token.symbol,
+          chainName:
+            getBreakdownChainName(token.chainId, token.chainName) ||
+            (token.chainId ? CHAIN_METADATA[token.chainId]?.name : "") ||
+            "",
+          amount: formatSourceBreakdownAmount(units, token.decimals ?? 6, token.symbol),
+          value: val ? val.toFixed(2) : "0",
+        });
+      }
+    }
+
+    // Merge duplicate rows with same symbol and chain
+    const merged = new Map<string, typeof rows[0]>();
+    for (const r of rows) {
+      const mergeKey = `${r.chainId ?? r.chainName}-${r.symbol.toUpperCase()}`;
+      const existing = merged.get(mergeKey);
+      if (!existing) {
+        merged.set(mergeKey, { ...r });
+      } else {
+        const a1 = parseDecimal(existing.amount) ?? new Decimal(0);
+        const a2 = parseDecimal(r.amount) ?? new Decimal(0);
+        const v1 = parseDecimal(existing.value) ?? new Decimal(0);
+        const v2 = parseDecimal(r.value) ?? new Decimal(0);
+        existing.amount = formatSourceBreakdownAmount(a1.plus(a2), 6, r.symbol);
+        existing.value = v1.plus(v2).toFixed(2);
+      }
+    }
+    return Array.from(merged.values());
+  }, [augmentedIntentSources, fromTokens, fromAmountUsd]);
+
+  const displayLogos =
+    sourceBreakdown.length > 0
+      ? sourceBreakdown.slice(0, 4).map((r) => ({
+          key: r.key,
+          logo: r.tokenLogo,
+          symbol: r.symbol,
+        }))
+      : fromTokens.slice(0, 4).map((t, index) => ({
+          key: `${t.contractAddress}-${t.chainId}-${index}`,
+          logo: t.logo ?? "",
+          symbol: t.symbol,
+        }));
   const activeRow =
     statusRows.find(
       (row) => row.state === "preapproval" || row.state === "inProgress",
@@ -1941,23 +2234,203 @@ export function NexusWidgetProgressScreen({
                 display: "flex",
                 justifyContent: "center",
                 marginTop: "6px",
+                position: "relative",
+                width: "100%",
               }}
             >
-              {fromTokens.slice(0, 4).map((token, index) => (
-                <img
-                  alt={token.symbol}
-                  key={`${token.contractAddress}-${token.chainId}-${index}`}
-                  src={token.logo}
+              <div
+                ref={tooltipContainerRef}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                style={{
+                  alignItems: "center",
+                  display: "inline-flex",
+                  justifyContent: "center",
+                  position: "relative",
+                }}
+              >
+                <div
                   style={{
-                    background: "var(--nx-card, #FFFFFF)",
-                    borderRadius: "999px",
-                    height: 22,
-                    marginLeft: index === 0 ? 0 : -6,
-                    outline: "2px solid var(--nx-card, #FFFFFF)",
-                    width: 22,
+                    alignItems: "center",
+                    display: "flex",
+                    justifyContent: "center",
                   }}
-                />
-              ))}
+                >
+                  {displayLogos.map((token, index) =>
+                    token.logo ? (
+                      <img
+                        alt={token.symbol}
+                        key={token.key}
+                        src={token.logo}
+                        style={{
+                          background: "var(--nx-card, #FFFFFF)",
+                          borderRadius: "999px",
+                          height: 22,
+                          marginLeft: index === 0 ? 0 : -6,
+                          outline: "2px solid var(--nx-card, #FFFFFF)",
+                          width: 22,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        key={token.key}
+                        style={{
+                          background: "var(--nx-card, #FFFFFF)",
+                          borderRadius: "999px",
+                          height: 22,
+                          marginLeft: index === 0 ? 0 : -6,
+                          outline: "2px solid var(--nx-card, #FFFFFF)",
+                          width: 22,
+                        }}
+                      />
+                    ),
+                  )}
+                </div>
+
+                {sourceBreakdown.length > 0 ? (
+                  <button
+                    aria-expanded={isTooltipOpen}
+                    aria-label="View source tokens breakdown"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsTooltipOpen((v) => !v);
+                    }}
+                    style={{
+                      alignItems: "center",
+                      background: isTooltipOpen
+                        ? "var(--nx-shim, #EFEFEE)"
+                        : "transparent",
+                      border: "none",
+                      borderRadius: "999px",
+                      color: isTooltipOpen
+                        ? "var(--nx-ink, #161615)"
+                        : "var(--nx-faint, #A3A3A2)",
+                      cursor: "pointer",
+                      display: "grid",
+                      height: "18px",
+                      marginLeft: "6px",
+                      outline: "none",
+                      padding: 0,
+                      placeItems: "center",
+                      transition: "all 150ms ease",
+                      width: "18px",
+                    }}
+                    type="button"
+                  >
+                    <InfoIcon size={14} />
+                  </button>
+                ) : null}
+
+                {isTooltipOpen && sourceBreakdown.length > 0 ? (
+                  <div
+                    role="tooltip"
+                    style={{
+                      background: "var(--nx-pop, var(--nx-card, #FFFFFF))",
+                      border: "1px solid var(--nx-line-2, #EDEDED)",
+                      borderRadius: "16px",
+                      boxShadow:
+                        "0 8px 30px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--nx-pop-ring, rgba(22, 22, 21, 0.04))",
+                      boxSizing: "border-box",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                      left: "50%",
+                      maxHeight: "260px",
+                      maxWidth: "calc(100vw - 32px)",
+                      minWidth: "260px",
+                      overflowY: "auto",
+                      padding: "12px 14px",
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      transform: "translateX(-50%)",
+                      zIndex: 60,
+                    }}
+                  >
+                    {sourceBreakdown.map((row) => (
+                      <div
+                        key={row.key}
+                        style={{
+                          alignItems: "center",
+                          display: "flex",
+                          gap: "8px",
+                          justifyContent: "space-between",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <div
+                          style={{
+                            alignItems: "center",
+                            display: "flex",
+                            gap: "8px",
+                            minWidth: 0,
+                          }}
+                        >
+                          {row.tokenLogo ? (
+                            <img
+                              alt={row.symbol}
+                              src={row.tokenLogo}
+                              style={{
+                                borderRadius: "999px",
+                                display: "block",
+                                flexShrink: 0,
+                                height: 18,
+                                width: 18,
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                background: "var(--nx-line, #E8E8E7)",
+                                borderRadius: "999px",
+                                flexShrink: 0,
+                                height: 18,
+                                width: 18,
+                              }}
+                            />
+                          )}
+                          <span
+                            style={{
+                              color: "var(--nx-ink, #161615)",
+                              fontFamily,
+                              fontSize: "13px",
+                              fontWeight: 400,
+                              lineHeight: "18px",
+                            }}
+                          >
+                            {`${row.amount} ${row.symbol}`}
+                          </span>
+                          {row.chainName ? (
+                            <span
+                              style={{
+                                color: "var(--nx-mute-2, #8C8C8B)",
+                                fontFamily,
+                                fontSize: "13px",
+                                fontWeight: 400,
+                                lineHeight: "18px",
+                              }}
+                            >
+                              {row.chainName}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span
+                          style={{
+                            color: "var(--nx-ink, #161615)",
+                            fontFamily,
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            lineHeight: "18px",
+                            marginLeft: "16px",
+                            textAlign: "right",
+                          }}
+                        >
+                          {formatUsd(row.value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </>
         ) : (

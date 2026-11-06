@@ -22,6 +22,7 @@ interface DepositIdleFormProps {
   isPredictive?: boolean;
   isQuoteRefreshing?: boolean;
   isSourcePickerDisabled?: boolean;
+  isSourcePickerOpen?: boolean;
   isTokenPickerDisabled?: boolean;
   hideDestinationTokenDropdownIcon?: boolean;
   onAmountChange: (val: string) => void;
@@ -347,6 +348,7 @@ export function DepositIdleForm({
   isBalanceLoading = false,
   isQuoteRefreshing = false,
   isSourcePickerDisabled = false,
+  isSourcePickerOpen = false,
   onAmountChange: _onAmountChange,
   onAmountModeToggle: _onAmountModeToggle,
   onOpenSourcePicker,
@@ -444,6 +446,8 @@ export function DepositIdleForm({
 
   React.useEffect(() => {
     if (!openKey) return;
+    if (isSourcePickerOpen) return;
+
     const handleOutsideInteraction = (event: Event) => {
       const row = openRowRef.current;
       if (row) {
@@ -457,6 +461,21 @@ export function DepositIdleForm({
           return;
         }
       }
+
+      const targetEl = event.target as HTMLElement | null;
+      if (
+        targetEl &&
+        typeof targetEl.closest === "function" &&
+        targetEl.closest(
+          "button, a, input, select, textarea, [role='button'], [role='dialog'], [role='radio'], " +
+          ".nx-pr-tok, .nx-add-tok, .nx-deposit-sheet, .nx-deposit-scrim, [data-nexus-widget-sheet], " +
+          ".nx-drawer, .nx-asset-row, .nx-sheet-grip, .nx-asset-menu, .nx-asset-controls, " +
+          "[aria-label='Back'], [aria-label='Close'], [aria-label='Dismiss']"
+        )
+      ) {
+        return;
+      }
+
       const token = fromTokens.find((item, index) => tokenKey(item, index) === openKey);
       const hasValue = Boolean(token?.userAmount?.trim() && readDecimal(token.userAmount).gt(0));
       if (!hasValue) {
@@ -483,7 +502,7 @@ export function DepositIdleForm({
       document.removeEventListener("mousedown", handleOutsideInteraction, true);
       document.removeEventListener("click", handleOutsideInteraction, true);
     };
-  }, [openKey, fromTokens]);
+  }, [openKey, fromTokens, isSourcePickerOpen]);
 
   React.useEffect(() => {
     let index = -1;
@@ -816,16 +835,6 @@ export function DepositIdleForm({
                 <div
                   className="nx-pr-top"
                   onClick={() => {
-                    if (openKey && openKey !== key) {
-                      const currentToken = fromTokens.find(
-                        (item, i) => tokenKey(item, i) === openKey,
-                      );
-                      const hasValue = Boolean(
-                        currentToken?.userAmount?.trim() &&
-                          readDecimal(currentToken.userAmount).gt(0),
-                      );
-                      if (!hasValue) return;
-                    }
                     setOpenKey(key);
                   }}
                 >
@@ -1010,16 +1019,6 @@ export function DepositIdleForm({
             aria-label={atCap ? "Token limit: show details" : undefined}
             disabled={isSourcePickerDisabled}
             onClick={() => {
-              if (openKey) {
-                const currentToken = fromTokens.find(
-                  (item, i) => tokenKey(item, i) === openKey,
-                );
-                const hasValue = Boolean(
-                  currentToken?.userAmount?.trim() &&
-                    readDecimal(currentToken.userAmount).gt(0),
-                );
-                if (!hasValue) return;
-              }
               if (!atCap) { onOpenSourcePicker(); return; }
               setCapNote(true);
               if (capTimer.current) clearTimeout(capTimer.current);

@@ -222,13 +222,14 @@ export function DepositSheetGrip({ onDismiss }: { onDismiss: () => void }) {
     }}
     onPointerUp={event => {
       if (start.current == null) return;
+      const wasTap = distance.current < 4;
       start.current = null;
       if (frame.current !== null) cancelAnimationFrame(frame.current);
       const sheet = event.currentTarget.parentElement;
       if (sheet) { sheet.style.transition = "transform 250ms cubic-bezier(.32,.72,0,1), opacity 250ms"; sheet.style.transform = "translateY(0)"; }
       const scrim = sheet?.previousElementSibling as HTMLElement | null;
       if (scrim) scrim.style.opacity = "1";
-      if (distance.current >= 90) onDismiss();
+      if (distance.current >= 90 || wasTap) onDismiss();
     }}
     onPointerCancel={event => {
       start.current = null;

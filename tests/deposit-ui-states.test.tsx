@@ -942,5 +942,118 @@ test("NexusWidgetProgressScreen and SwapReceiptPanel persist exact-in destinatio
   }
 });
 
+test("NexusWidgetProgressScreen renders info icon and displays sources breakdown tooltip on click/hover in deposit mode", async () => {
+  const originals = Object.fromEntries(
+    ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ]),
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+    window: {
+      setTimeout,
+      clearTimeout,
+      matchMedia: () => ({ matches: false }),
+    },
+  });
+
+  try {
+    const fromTokens: any[] = [
+      {
+        chainId: 56,
+        chainName: "BNB Chain",
+        contractAddress: "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+        symbol: "BNB",
+        decimals: 18,
+        logo: "https://example.com/bnb.png",
+        userAmount: "0.095",
+        userAmountMode: "token",
+        userAmountUsd: "57.02",
+        balance: "1.0",
+        balanceInFiat: "600.0",
+      },
+      {
+        chainId: 42161,
+        chainName: "Arbitrum",
+        contractAddress: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+        symbol: "USDC",
+        decimals: 6,
+        logo: "https://example.com/usdc.png",
+        userAmount: "10.33",
+        userAmountMode: "token",
+        userAmountUsd: "10.33",
+        balance: "100.0",
+        balanceInFiat: "100.0",
+      },
+      {
+        chainId: 10,
+        chainName: "Optimism",
+        contractAddress: "0x4200000000000000000000000000000000000006",
+        symbol: "ETH",
+        decimals: 18,
+        logo: "https://example.com/eth.png",
+        userAmount: "0.002",
+        userAmountMode: "token",
+        userAmountUsd: "5.13",
+        balance: "0.5",
+        balanceInFiat: "1500.0",
+      },
+    ];
+
+    let renderer: ReactTestRenderer | undefined;
+    await act(async () => {
+      renderer = create(
+        <NexusWidgetProgressScreen
+          mode="deposit"
+          fromTokens={fromTokens}
+          fromAmountUsd="72.48"
+          toAmount="72.00"
+          toAmountUsd="72.00"
+        />
+      );
+    });
+
+    const infoButton = renderer!.root.findByProps({
+      "aria-label": "View source tokens breakdown",
+    });
+    assert.ok(infoButton, "Info button should be rendered next to source tokens");
+
+    // Click to open tooltip
+    await act(async () => {
+      infoButton.props.onClick({ stopPropagation: () => {} });
+    });
+
+    const tooltip = renderer!.root.findByProps({ role: "tooltip" });
+    assert.ok(tooltip, "Tooltip popover should appear on click");
+
+    const tooltipJson = JSON.stringify(renderer!.toJSON());
+    assert.ok(tooltipJson.includes("0.095 BNB"), "Tooltip should show BNB amount and symbol");
+    assert.ok(tooltipJson.includes("BNB Chain"), "Tooltip should show BNB Chain name");
+    assert.ok(tooltipJson.includes("$57.02"), "Tooltip should show BNB USD value");
+
+    assert.ok(tooltipJson.includes("10.33 USDC"), "Tooltip should show USDC amount and symbol");
+    assert.ok(tooltipJson.includes("Arbitrum"), "Tooltip should show Arbitrum chain name");
+    assert.ok(tooltipJson.includes("$10.33"), "Tooltip should show USDC USD value");
+
+    assert.ok(tooltipJson.includes("0.002 ETH"), "Tooltip should show ETH amount and symbol");
+    assert.ok(tooltipJson.includes("Optimism"), "Tooltip should show Optimism chain name");
+    assert.ok(tooltipJson.includes("$5.13"), "Tooltip should show ETH USD value");
+
+    // Click again to dismiss
+    await act(async () => {
+      infoButton.props.onClick({ stopPropagation: () => {} });
+    });
+
+    assert.throws(() => renderer!.root.findByProps({ role: "tooltip" }), "Tooltip should be dismissed");
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
 
 

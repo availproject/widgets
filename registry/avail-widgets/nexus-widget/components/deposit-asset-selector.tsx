@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Info,
   Search,
+  X,
 } from "lucide-react";
 import { formatTokenBalance, formatUsdAmount as formatUsd, parseAmount } from "../utils/amount";
 import { LogoPair, TokenLogo } from "./deposit-token-logo";
@@ -387,6 +388,27 @@ export function DepositAssetSelector({
             </div>
           )}
         </div>
+        {onDismiss ? (
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onDismiss}
+            style={{
+              alignItems: "center",
+              background: "var(--nx-fill, #F3F3F3)",
+              border: "none",
+              borderRadius: "999px",
+              cursor: "pointer",
+              display: "grid",
+              flexShrink: 0,
+              height: 36,
+              placeItems: "center",
+              width: 36,
+            }}
+          >
+            <X size={15} style={{ color: "var(--nx-ink-2, #3A3A39)" }} />
+          </button>
+        ) : null}
       </div>
       <div className="nx-asset-list" aria-busy={isBalanceLoading}>
         {isBalanceLoading ? (

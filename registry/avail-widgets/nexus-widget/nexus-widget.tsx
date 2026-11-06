@@ -13528,6 +13528,7 @@ function NexusWidgetInner({
                         isPredictive={false}
                         isQuoteRefreshing={quoteRefreshing || intentLoading}
                         isSourcePickerDisabled={isSourcePickerRefreshDisabled}
+                        isSourcePickerOpen={swapStep === "choose-swap-asset"}
                         onAmountChange={handleDepositAmountChange}
                         onAmountModeToggle={handleDepositAmountModeToggle}
                         onOpenSourcePicker={(index) => {
@@ -14248,6 +14249,7 @@ function NexusWidgetInner({
                 activeMode === "deposit" ? "nx-deposit-scrim" : undefined
               }
               onClick={handleSourcePickerCancel}
+              onPointerDown={handleSourcePickerCancel}
               style={{
                 position: "absolute",
                 top: 0,
