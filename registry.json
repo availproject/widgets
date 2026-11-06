@@ -248,7 +248,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react",
         "viem"
       ],
@@ -609,7 +609,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
+        "@avail-project/nexus-core@3.2.0",
         "clsx",
         "decimal.js",
         "lucide-react",
@@ -808,7 +808,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react",
         "viem"
       ],
@@ -1161,7 +1161,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
+        "@avail-project/nexus-core@3.2.0",
         "decimal.js",
         "lucide-react",
         "viem",
@@ -1216,7 +1216,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
+        "@avail-project/nexus-core@3.2.0",
         "decimal.js",
         "wagmi"
       ]
@@ -1470,7 +1470,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
+        "@avail-project/nexus-core@3.2.0",
         "decimal.js",
         "lucide-react",
         "viem"
@@ -1684,7 +1684,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react",
         "viem"
       ],
@@ -1722,7 +1722,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react"
       ],
       "registryDependencies": [
@@ -1875,7 +1875,7 @@
         }
       ],
       "dependencies": [
-        "@avail-project/nexus-core@github:availproject/nexus-sdk#e646e3873e3e722c5cc28bd8c7e7fb1040785117",
+        "@avail-project/nexus-core@3.2.0",
         "lucide-react"
       ],
       "registryDependencies": [

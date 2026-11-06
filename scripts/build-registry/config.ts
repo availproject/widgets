@@ -11,7 +11,7 @@ const DEFAULT_CONFIG: RegistryConfig = {
   outputPath: "registry.json",
   peerDependencies: ["react", "react-dom"],
   pinnedDependencies: {
-    "@avail-project/nexus-core": "github:availproject/nexus-sdk#3.2.0-rc.1",
+    "@avail-project/nexus-core": "3.2.0",
   },
   aliases: {
     "@/lib/utils": "lib/utils.ts",
