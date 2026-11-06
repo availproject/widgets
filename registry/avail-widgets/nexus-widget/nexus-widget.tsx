@@ -4864,6 +4864,9 @@ function NexusWidgetInner({
     undefined,
   );
   const [fromTokensQuoteKey, setFromTokensQuoteKey] = useState("");
+  const isExactOutDeposit =
+    activeMode === "deposit" && depositRoute === "exactOutput";
+  const isExactOutSourceFlow = activeMode === "send" || isExactOutDeposit;
 
   useEffect(() => {
     setDepositFundingStep(activeMode === "deposit" ? "method" : "wallet");
@@ -7958,7 +7961,7 @@ function NexusWidgetInner({
           intent?.swap?.bridgeProvider,
       );
       const intentWithBridgeProvider =
-        activeMode === "deposit"
+        activeMode === "deposit" && depositRoute === "exactInput"
           ? stampDepositOutputAmounts(
               normalizeRenderableSwapIntentData(intent, bridgeProvider),
               data?.intent ?? data?.quote ?? data,
@@ -8032,7 +8035,7 @@ function NexusWidgetInner({
                     bridgeProvider,
                 );
                 const normalized =
-                  activeMode === "deposit"
+                  activeMode === "deposit" && depositRoute === "exactInput"
                     ? stampDepositOutputAmounts(
                         normalizeRenderableSwapIntentData(
                           refreshed,
@@ -9125,10 +9128,7 @@ function NexusWidgetInner({
     toToken?.symbol,
   ]);
   const lockedDestinationSourceTokens = useMemo<SwapTokenOption[]>(() => {
-    if (
-      (activeMode !== "deposit" && activeMode !== "send") ||
-      !toToken?.chainId
-    ) {
+    if (!isExactOutSourceFlow || !toToken?.chainId) {
       return [];
     }
     if (
@@ -9142,6 +9142,7 @@ function NexusWidgetInner({
     return heldDestinationToken ? [heldDestinationToken] : [];
   }, [
     activeMode,
+    isExactOutSourceFlow,
     requiredDestinationTokenAmount?.toFixed(),
     swapBalance,
     toToken?.chainId,
@@ -9156,7 +9157,7 @@ function NexusWidgetInner({
   const setSourcePickerDraftSelection = useCallback(
     (tokens: SwapTokenOption[]) => {
       const merged =
-        activeMode === "deposit" && lockedDestinationSourceTokens.length > 0
+        isExactOutSourceFlow && lockedDestinationSourceTokens.length > 0
           ? [
               ...lockedDestinationSourceTokens.map((t) => ({
                 ...t,
@@ -11381,7 +11382,7 @@ function NexusWidgetInner({
           activeIntent.intent?.bridgeProvider,
       );
       const updated =
-        activeMode === "deposit"
+        activeMode === "deposit" && depositRoute === "exactInput"
           ? stampDepositOutputAmounts(
               normalizeRenderableSwapIntentData(
                 updatedRaw,
@@ -12592,7 +12593,11 @@ function NexusWidgetInner({
     isConfiguredReceiveAssetDrawerActive
       ? getConfiguredReceiveSelectorRootHeight(configuredReceiveTokenCount)
       : isTokenAssetDrawerActive &&
-          !(activeMode === "deposit" && swapStep === "choose-swap-asset")
+          !(
+            activeMode === "deposit" &&
+            depositRoute === "exactInput" &&
+            swapStep === "choose-swap-asset"
+          )
         ? TOKEN_SELECTOR_MIN_ROOT_CONTENT_HEIGHT
         : 0;
   const isDrawerOverlayActive =
@@ -14257,7 +14262,9 @@ function NexusWidgetInner({
           >
             <div
               className={
-                activeMode === "deposit" ? "nx-deposit-scrim" : undefined
+                activeMode === "deposit" && depositRoute === "exactInput"
+                  ? "nx-deposit-scrim"
+                  : undefined
               }
               onClick={handleSourcePickerCancel}
               onPointerDown={handleSourcePickerCancel}
@@ -14268,7 +14275,7 @@ function NexusWidgetInner({
                 right: 0,
                 bottom: 0,
                 backgroundColor:
-                  activeMode === "deposit"
+                  activeMode === "deposit" && depositRoute === "exactInput"
                     ? "rgba(0,0,0,0.16)"
                     : "var(--nexus-widget-overlay, rgba(255,255,255,0.46))",
                 pointerEvents: "auto",
@@ -14278,7 +14285,7 @@ function NexusWidgetInner({
             />
             <div
               className={
-                activeMode === "deposit"
+                activeMode === "deposit" && depositRoute === "exactInput"
                   ? `nx-deposit-sheet${isSwapAssetDrawerClosing ? " closing" : ""}`
                   : isSwapAssetDrawerClosing
                     ? undefined
@@ -14289,27 +14296,29 @@ function NexusWidgetInner({
                 ...modalHeightTransitionStyle,
                 bottom: 0,
                 height:
-                  activeMode === "deposit"
+                  activeMode === "deposit" && depositRoute === "exactInput"
                     ? "78%"
                     : ASSET_SELECTOR_DRAWER_HEIGHT,
                 left: 0,
                 maxHeight:
-                  activeMode === "deposit"
+                  activeMode === "deposit" && depositRoute === "exactInput"
                     ? "78%"
                     : ASSET_SELECTOR_DRAWER_HEIGHT,
                 minHeight:
-                  activeMode === "deposit"
+                  activeMode === "deposit" && depositRoute === "exactInput"
                     ? "78%"
                     : ASSET_SELECTOR_DRAWER_HEIGHT,
                 position: "absolute",
                 right: 0,
                 width: "100%",
                 backgroundColor:
-                  activeMode === "deposit"
+                  activeMode === "deposit" && depositRoute === "exactInput"
                     ? "var(--nx-card, #FFFFFF)"
                     : "var(--nexus-widget-surface-inset, #FFFFFE)",
                 borderRadius:
-                  activeMode === "deposit" ? "24px 24px 0 0" : "12px 12px 0 0",
+                  activeMode === "deposit" && depositRoute === "exactInput"
+                    ? "24px 24px 0 0"
+                    : "12px 12px 0 0",
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
@@ -14324,7 +14333,7 @@ function NexusWidgetInner({
                 willChange: "height, max-height, transform, opacity",
               }}
             >
-              {activeMode === "deposit" ? (
+              {activeMode === "deposit" && depositRoute === "exactInput" ? (
                 <>
                   <DepositSheetGrip onDismiss={handleSourcePickerCancel} />
                   <DepositAssetSelector
@@ -14392,30 +14401,30 @@ function NexusWidgetInner({
               ) : (
                 <SwapAssetSelector
                   allowSelectedTokenRemoval={false}
-                  allowUnified={activeMode === "send" || activeMode === "swap"}
-                  autoSelectFilterTabs={activeMode === "send"}
+                  allowUnified={isExactOutSourceFlow || activeMode === "swap"}
+                  autoSelectFilterTabs={isExactOutSourceFlow}
                   editingAssetIndex={editingAssetIndex}
                   filterTabBehavior={
-                    activeMode === "send" ? "source-pool" : "select-all"
+                    isExactOutSourceFlow ? "source-pool" : "select-all"
                   }
                   hideCustomTab={activeMode === "swap"}
                   initialFilterTab={
-                    activeMode === "send"
+                    isExactOutSourceFlow
                       ? depositSourceFilter === "stablecoins"
                         ? "stables"
                         : depositSourceFilter
                       : "all"
                   }
-                  isMulti={activeMode === "send"}
+                  isMulti={isExactOutSourceFlow}
                   lockedTokens={lockedDestinationSourceTokens}
                   onBack={handleSourcePickerCancel}
                   onDone={
-                    activeMode === "send"
+                    isExactOutSourceFlow
                       ? commitSourcePickerDraft
                       : closeDrawerToIdle
                   }
                   onFilterTabSelect={
-                    activeMode === "send"
+                    isExactOutSourceFlow
                       ? handleSourcePickerFilterTabSelect
                       : undefined
                   }
@@ -14457,7 +14466,7 @@ function NexusWidgetInner({
                       }
                       setFromTokens(next);
                       closeDrawerToIdle();
-                    } else if (activeMode === "send") {
+                    } else if (isExactOutSourceFlow) {
                       if (!hasMinimumSourceUsdBalance(token)) return;
                       handleSourcePickerDraftSelectionChange([
                         { ...token, userAmount: "" },
@@ -14465,12 +14474,12 @@ function NexusWidgetInner({
                     }
                   }}
                   onSelectionChange={
-                    activeMode === "send"
+                    isExactOutSourceFlow
                       ? handleSourcePickerDraftSelectionChange
                       : undefined
                   }
                   onToggle={(token) => {
-                    const isDepositOrSendSourcePicker = activeMode === "send";
+                    const isDepositOrSendSourcePicker = isExactOutSourceFlow;
                     const prevTokens = isDepositOrSendSourcePicker
                       ? sourcePickerSelectedTokens
                       : fromTokens;
@@ -14625,7 +14634,7 @@ function NexusWidgetInner({
                   swapBalance={swapBalance}
                   swapSupportedChains={swapSupportedChainsAndTokens}
                   title={
-                    activeMode === "send"
+                    isExactOutSourceFlow
                       ? "Choose Assets to Pay with"
                       : "Choose assets to send"
                   }

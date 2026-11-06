@@ -245,3 +245,66 @@ test("Deposit exactOut quote input key excludes fluctuating target USD to preven
   assert.equal(normalized.depositRoute, "exactOutput");
   assert.equal(normalized.activeMode, "deposit");
 });
+
+test("Deposit exactOut includes destination asset and external source in Pay With list", async () => {
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    const destinationCoveredToken: SwapTokenOption = {
+      chainId: 10,
+      chainName: "Optimism",
+      contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      balance: "8.99",
+      balanceInFiat: "$8.99",
+      userAmount: "8.99",
+      userAmountMode: "token",
+      userAmountUsd: "8.99",
+    };
+    const crossChainToken: SwapTokenOption = {
+      chainId: 42161,
+      chainName: "Arbitrum",
+      contractAddress: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      balance: "10.00",
+      balanceInFiat: "$10.00",
+      userAmount: "0.01",
+      userAmountMode: "token",
+      userAmountUsd: "0.01",
+    };
+
+    await act(async () => {
+      renderer = create(
+        <DepositExactOutIdleForm
+          amount="9"
+          amountMode="usd"
+          fromTokens={[destinationCoveredToken, crossChainToken]}
+          isQuoteRefreshing={false}
+          onAmountChange={() => {}}
+          onAmountModeToggle={() => {}}
+          onOpenSourcePicker={() => {}}
+          onSetPercent={() => {}}
+          tokenValue="9"
+          toToken={toToken}
+          totalBalance="95.42"
+          usdValue="9"
+        />
+      );
+    });
+
+    const json = JSON.stringify(renderer!.toJSON());
+    assert.ok(json.includes("Optimism"), "Pay with list should include Optimism destination asset");
+    assert.ok(json.includes("Arbitrum"), "Pay with list should include Arbitrum cross-chain asset");
+    assert.ok(json.includes("2 assets"), "Summary header should reflect both sources");
+  } finally {
+    if (renderer) {
+      await act(async () => {
+        renderer?.unmount();
+      });
+    }
+  }
+});
+
