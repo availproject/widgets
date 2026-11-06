@@ -1446,12 +1446,19 @@ const stampDepositOutputAmounts = (
     ...(quoteOutput ? { quoteOutput } : {}),
   };
 
-  if (req?.token?.amountRaw != null || req?.token?.amount != null) {
+  const hasReqAmount =
+    (req?.token?.amountRaw != null && BigInt(req.token.amountRaw) > BigInt(0)) ||
+    (req?.token?.amount != null &&
+      String(req.token.amount) !== "0" &&
+      String(req.token.amount) !== "0.0" &&
+      Number(req.token.amount) > 0);
+
+  if (hasReqAmount) {
     const decimals = Number(
       req.token.decimals ?? normalized.destination.token.decimals ?? 18,
     );
     const amountStr =
-      req.token.amountRaw != null
+      req.token.amountRaw != null && BigInt(req.token.amountRaw) > BigInt(0)
         ? rawUnitsToDecimalString(req.token.amountRaw, decimals)
         : String(req.token.amount);
     const usdStr = String(req.token.amount ?? amountStr);
@@ -1466,25 +1473,28 @@ const stampDepositOutputAmounts = (
     };
   }
 
-  const output = readIntentOutput(rawSource);
-  if (output?.amountRaw == null) return baseWithMetadata;
-  const decimals = Number(
-    output.decimals ?? normalized.destination.token.decimals ?? 18,
-  );
-  return {
-    ...baseWithMetadata,
-    destination: {
-      ...normalized.destination,
-      amount: rawUnitsToDecimalString(output.amountRaw, decimals),
-      minAmount: rawUnitsToDecimalString(
-        output.minAmountRaw ?? output.amountRaw,
-        decimals,
-      ),
-      value: output.amountUsd
-        ? String(output.amountUsd)
-        : normalized.destination.value,
-    },
-  };
+  const output = readIntentOutput(rawSource) ?? readIntentOutput(normalized);
+  if (output?.amountRaw != null && BigInt(output.amountRaw) > BigInt(0)) {
+    const decimals = Number(
+      output.decimals ?? normalized.destination.token.decimals ?? 18,
+    );
+    return {
+      ...baseWithMetadata,
+      destination: {
+        ...normalized.destination,
+        amount: rawUnitsToDecimalString(output.amountRaw, decimals),
+        minAmount: rawUnitsToDecimalString(
+          output.minAmountRaw ?? output.amountRaw,
+          decimals,
+        ),
+        value: output.amountUsd
+          ? String(output.amountUsd)
+          : normalized.destination.value,
+      },
+    };
+  }
+
+  return baseWithMetadata;
 };
 
 const sortSwapTokensByUsdDesc = (tokens: SwapTokenOption[]) =>
@@ -3212,12 +3222,17 @@ export function SwapReceiptPanel({
     (isDeposit || isSend) && entry.requestedToValue && entry.requestedToValue !== "0"
       ? entry.requestedToValue
       : undefined;
-  const value = requestedExactOutValue || destination?.value;
+  const value =
+    requestedExactOutValue ||
+    (destination?.value && destination.value !== "0" && destination.value !== "0.0"
+      ? destination.value
+      : undefined);
   const rawDisplayAmount =
     requestedExactOutAmount ||
-    (amount && amount !== "0" ? amount : undefined) ||
+    (amount && amount !== "0" && amount !== "0.0" ? amount : undefined) ||
     ((entry.intentData as any)?.executeRequirement?.token?.amount &&
-    String((entry.intentData as any).executeRequirement.token.amount) !== "0"
+    String((entry.intentData as any).executeRequirement.token.amount) !== "0" &&
+    String((entry.intentData as any).executeRequirement.token.amount) !== "0.0"
       ? String((entry.intentData as any).executeRequirement.token.amount)
       : undefined) ||
     (value && isStablecoinSymbol(tokenSymbol) ? value : undefined);
@@ -7596,23 +7611,41 @@ function NexusWidgetInner({
       toToken: resolvedToToken,
       requestedToAmount:
         activeMode === "deposit" || activeMode === "send"
-          ? (previewDestinationAmount ??
-              (intentData?.destination?.amount && intentData.destination.amount !== "0"
+          ? ((previewDestinationAmount && previewDestinationAmount !== "0" && previewDestinationAmount !== "0.0"
+              ? previewDestinationAmount
+              : undefined) ??
+              (intentData?.destination?.amount &&
+              intentData.destination.amount !== "0" &&
+              intentData.destination.amount !== "0.0"
                 ? intentData.destination.amount
                 : undefined) ??
               ((intentData as any)?.executeRequirement?.token?.amount &&
-              String((intentData as any).executeRequirement.token.amount) !== "0"
+              String((intentData as any).executeRequirement.token.amount) !== "0" &&
+              String((intentData as any).executeRequirement.token.amount) !== "0.0"
                 ? String((intentData as any).executeRequirement.token.amount)
+                : undefined) ??
+              (previewDestinationUsdNumber &&
+              isStablecoinSymbol(
+                toToken?.symbol ??
+                  selectedOpportunity?.tokenSymbol ??
+                  intentData?.destination?.token?.symbol,
+              )
+                ? previewDestinationUsdNumber.toFixed(2)
                 : undefined))
           : undefined,
       requestedToValue:
         activeMode === "deposit" || activeMode === "send"
-          ? (previewToAmountUsd ??
-              (intentData?.destination?.value && intentData.destination.value !== "0"
+          ? ((previewToAmountUsd && previewToAmountUsd !== "0" && previewToAmountUsd !== "0.0"
+              ? previewToAmountUsd
+              : undefined) ??
+              (intentData?.destination?.value &&
+              intentData.destination.value !== "0" &&
+              intentData.destination.value !== "0.0"
                 ? intentData.destination.value
                 : undefined) ??
               ((intentData as any)?.executeRequirement?.token?.amount &&
-              String((intentData as any).executeRequirement.token.amount) !== "0"
+              String((intentData as any).executeRequirement.token.amount) !== "0" &&
+              String((intentData as any).executeRequirement.token.amount) !== "0.0"
                 ? String((intentData as any).executeRequirement.token.amount)
                 : undefined))
           : undefined,
@@ -7776,7 +7809,15 @@ function NexusWidgetInner({
       cacheDestinationUsdRateFromIntent(enrichedIntent);
       cachePredictiveBaselineFromIntent(enrichedIntent);
       setIntentData(enrichedIntent);
-      setIntentToAmount(enrichedIntent.destination?.amount || undefined);
+      const rawDestAmount = enrichedIntent.destination?.amount;
+      const validDestAmount =
+        rawDestAmount &&
+        rawDestAmount !== "0" &&
+        rawDestAmount !== "0.0" &&
+        (parseDecimalLoose(rawDestAmount)?.gt(0) ?? false)
+          ? rawDestAmount
+          : undefined;
+      setIntentToAmount(validDestAmount);
       setSwapQuoteIssue(null);
 
       if (
@@ -12217,13 +12258,15 @@ function NexusWidgetInner({
       ? previewExactOutDestinationAmount
           .toDecimalPlaces(toToken?.decimals ?? 18, Decimal.ROUND_DOWN)
           .toFixed()
-      : (intentToAmount ??
+      : ((intentToAmount && intentToAmount !== "0" && intentToAmount !== "0.0" ? intentToAmount : undefined) ??
           (intentData?.destination?.amount &&
-          intentData.destination.amount !== "0"
+          intentData.destination.amount !== "0" &&
+          intentData.destination.amount !== "0.0"
             ? intentData.destination.amount
             : undefined) ??
           ((intentData as any)?.executeRequirement?.token?.amount &&
-          String((intentData as any).executeRequirement.token.amount) !== "0"
+          String((intentData as any).executeRequirement.token.amount) !== "0" &&
+          String((intentData as any).executeRequirement.token.amount) !== "0.0"
             ? String((intentData as any).executeRequirement.token.amount)
             : undefined) ??
           (previewDestinationUsdNumber &&
@@ -12233,7 +12276,20 @@ function NexusWidgetInner({
               intentData?.destination?.token?.symbol,
           )
             ? previewDestinationUsdNumber.toFixed(2)
-            : undefined));
+            : undefined) ??
+          (previewDestinationUsdNumber &&
+          (() => {
+            const rate = getDepositTokenUsdRate();
+            return rate && rate.gt(0)
+              ? previewDestinationUsdNumber
+                  .div(rate)
+                  .toDecimalPlaces(
+                    Math.min(6, toToken?.decimals ?? 6),
+                    Decimal.ROUND_DOWN,
+                  )
+                  .toFixed()
+              : undefined;
+          })()));
   const previewFromAmountUsd =
     previewSourceUsdNumber && previewSourceUsdNumber.gt(0)
       ? previewSourceUsdNumber.toDecimalPlaces(6).toFixed()

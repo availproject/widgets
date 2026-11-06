@@ -1,9 +1,9 @@
 ---
-title: Deposit
-description: Route funds into a configured protocol or app action with Nexus intents.
+title: Deposit (Exact Output)
+description: Route exact funds into a configured protocol or app action with Nexus intents.
 component: true
 preview:
-  name: nexus-deposit
+  name: nexus-deposit-exact-output
   align: center
   hideCode: true
 links:
@@ -198,20 +198,20 @@ const depositConfig = {
 
 ## Configuration
 
-Deposit mode (`mode: "deposit"`) supports two routing models configured via `route`:
-- **`exactOutput` (default):** Users enter the exact destination deposit amount they want deposited. Payment sources are automatically selected or customized to meet that exact requirement, executing through `bridgeAndExecute` or `swapAndExecute`.
-- **`exactInput`:** Multi-token deposit flow where users select one or more source tokens and specify how much to spend. The widget aggregates total spend, computes estimated yield/receive amount, and executes through `swapAndExecute`.
+Deposit mode (`mode: "deposit"`) with `route: "exactOutput"` (or omitting `route`, as it defaults to `"exactOutput"`):
+- **Exact Output:** Users enter the exact destination deposit amount they want deposited into your protocol. Payment sources across all chains are automatically selected or customized to meet that exact requirement, executing through `bridgeAndExecute` or `swapAndExecute`.
+- For multi-token spend deposits where users specify input token amounts to deposit whatever is received, see [Deposit (Exact Input)](/docs/components/deposit-exact-input).
 
 | Prop                                                                               | Required | Description                                                                                                                                 |
 | ---------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `config.mode`                                                                      | Yes      | Must be `"deposit"`.                                                                                                                        |
-| `config.route`                                                                     | Optional | `"exactOutput" \| "exactInput"`. Defaults to `"exactOutput"`.                                                                               |
+| `config.route`                                                                     | Optional | Set to `"exactOutput"` (or omit, defaults to `"exactOutput"`).                                                                              |
 | `config.destination.chain`                                                         | Yes      | Chain ID of the fixed destination network. Deposit destination chain cannot be changed by the user.                                         |
 | `config.destination.tokens`                                                        | Yes      | One or more accepted destination tokens. The token dropdown is limited to this list and is editable only when multiple tokens are supplied. |
 | `config.depositAddress`                                                            | Yes      | Smart contract address for the deposit target.                                                                                              |
 | `config.executeDeposit`                                                            | Yes      | Callback builder returning `{ to, gas, data?, value?, tokenApproval? }` for the final app transaction. `gas` must be a positive `bigint`.   |
 | `config.enableOnRamp` | Optional | Defaults to `false`. Set `true` to display "Deposit with Cash" alongside wallet funding. |
-| `config.prefill.amount`                                                            | Optional | Prefills the deposit amount. Must be greater than `0`.                                                                                      |
+| `config.prefill.amount`                                                            | Optional | Prefills the exact output deposit amount. Must be greater than `0`.                                                                         |
 | `config.validation.minAmount`                                                      | Optional | Minimum deposit amount. Must be `0` or greater.                                                                                             |
 | `config.validation.maxAmount`                                                      | Optional | Maximum deposit amount. Must be greater than `0`.                                                                                           |
 | `config.theme` | Optional | `"dark"`, `"light"`, or `"system"`. Defaults to light; system follows OS changes. Overrides `appearance.mode`. |
@@ -223,9 +223,8 @@ Deposit mode (`mode: "deposit"`) supports two routing models configured via `rou
 
 Set `enableOnRamp: true` to offer wallet and local currency funding. Set it to `false` or omit it to open directly in the wallet deposit flow. The showcase Onramp toggle demonstrates both settings.
 
-### Route Examples
+### Route Example
 
-#### Exact Output (Default)
 In exact-out deposit, users specify the exact amount they want to deposit on the destination protocol:
 
 ```tsx
@@ -233,28 +232,6 @@ In exact-out deposit, users specify the exact amount they want to deposit on the
   config={{
     mode: "deposit",
     route: "exactOutput", // or omit, defaults to exactOutput
-    destination: {
-      chain: 42161,
-      tokens: [{ address: "0x...", symbol: "USDC", decimals: 6 }],
-    },
-    depositAddress: "0x...",
-    executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
-      to: "0x...",
-      gas: 400_000n,
-      data: "0x...",
-    }),
-  }}
-/>
-```
-
-#### Exact Input
-In exact-in deposit, users select their source tokens and amounts, spending exact input funds to deposit whatever amount is received:
-
-```tsx
-<NexusWidget
-  config={{
-    mode: "deposit",
-    route: "exactInput",
     destination: {
       chain: 42161,
       tokens: [{ address: "0x...", symbol: "USDC", decimals: 6 }],

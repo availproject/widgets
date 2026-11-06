@@ -1662,12 +1662,20 @@ export function NexusWidgetProgressScreen({
     opportunity?.tokenSymbol ||
     "";
   const destinationAmount = (() => {
-    if (toAmount && toAmount !== "0") return toAmount;
-    if (intentDestination?.amount && intentDestination.amount !== "0") {
+    if (toAmount && toAmount !== "0" && toAmount !== "0.0") return toAmount;
+    if (
+      intentDestination?.amount &&
+      intentDestination.amount !== "0" &&
+      intentDestination.amount !== "0.0"
+    ) {
       return intentDestination.amount;
     }
     const reqAmount = (intentData as any)?.executeRequirement?.token?.amount;
-    if (reqAmount && String(reqAmount) !== "0") {
+    if (
+      reqAmount &&
+      String(reqAmount) !== "0" &&
+      String(reqAmount) !== "0.0"
+    ) {
       return String(reqAmount);
     }
     const fallbackUsd =
@@ -1681,7 +1689,7 @@ export function NexusWidgetProgressScreen({
     ) {
       return fallbackUsd.toDecimalPlaces(2, Decimal.ROUND_DOWN).toFixed();
     }
-    return toAmount ?? "0";
+    return toAmount && toAmount !== "0" ? toAmount : "0";
   })();
   const destinationChainName = getShortChainName(
     intentDestination?.chain.id ?? toToken?.chainId,
@@ -1838,46 +1846,49 @@ export function NexusWidgetProgressScreen({
               </span>
               <span
                 style={{
-                  color: "var(--nx-mute-2, #8C8C8B)",
-                  fontSize: "20px",
-                  fontWeight: 400,
-                  letterSpacing: "-0.02em",
-                  lineHeight: "28px",
+                  color: "var(--nx-mute, #737372)",
+                  fontSize: "18px",
+                  fontWeight: 500,
+                  letterSpacing: "0",
+                  lineHeight: "22px",
                 }}
               >
-                ≈ {formatUsd(toAmountUsd ?? sourceUsd)}
+                {destinationSymbol}
               </span>
             </div>
             <div
               style={{
-                alignItems: "center",
-                color: "var(--nx-ink, #161615)",
-                display: "flex",
+                color: "var(--nx-mute-2, #8C8C8B)",
                 fontFamily,
                 fontSize: "14px",
-                gap: "6px",
+                lineHeight: "18px",
+                textAlign: "center",
+              }}
+            >
+              ≈ {formatUsd(toAmountUsd ?? sourceUsd)}
+            </div>
+            <div
+              style={{
+                alignItems: "center",
+                color: "var(--nx-faint, #A3A3A2)",
+                display: "flex",
+                fontFamily,
+                fontSize: "12px",
+                gap: "4px",
                 justifyContent: "center",
-                lineHeight: "20px",
+                lineHeight: "16px",
                 marginTop: "4px",
               }}
             >
-              {toToken?.logo ? (
-                <img
-                  alt=""
-                  src={toToken.logo}
-                  style={{ borderRadius: "999px", height: 20, width: 20 }}
-                />
-              ) : null}
-              <span>{destinationSymbol}</span>
-              <span style={{ color: "var(--nx-mute-2, #8C8C8B)" }}>on</span>
+              on
               {toToken?.chainLogo ? (
                 <img
                   alt=""
                   src={toToken.chainLogo}
-                  style={{ borderRadius: "999px", height: 20, width: 20 }}
+                  style={{ borderRadius: "999px", height: 12, width: 12 }}
                 />
               ) : null}
-              <span>{destinationChainName || destinationChain}</span>
+              {destinationChainName || destinationChain}
             </div>
             <div
               style={{

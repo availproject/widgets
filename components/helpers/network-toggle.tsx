@@ -54,20 +54,10 @@ const NetworkToggle = ({ disableTestnet = true }: NetworkToggleProps) => {
     window.location.reload();
   };
 
-  if (!mounted) {
-    return (
-      <div className="flex items-center space-x-2">
-        <SelectTrigger size="sm" className="w-[120px] h-8">
-          <SelectValue placeholder="Mainnet" />
-        </SelectTrigger>
-      </div>
-    );
-  }
-
   return (
     <div className="flex items-center space-x-2">
       <Select
-        value={currentNetwork as string}
+        value={(mounted ? currentNetwork : "mainnet") as string}
         onValueChange={handleNetworkChange}
       >
         <SelectTrigger size="sm" className="w-[120px] h-8">

@@ -747,21 +747,30 @@ export const normalizeSwapAndExecuteIntent = (
       Boolean(req?.token);
     const reqToken = req?.token;
     const outputDecimals = reqToken?.decimals || token?.decimals || 18;
+    const hasPositiveReqAmount =
+      (reqToken?.amountRaw != null && BigInt(reqToken.amountRaw) > BigInt(0)) ||
+      (reqToken?.amount != null &&
+        String(reqToken.amount) !== "0" &&
+        String(reqToken.amount) !== "0.0" &&
+        Number(reqToken.amount) > 0);
+
     const rawAmount =
-      reqToken?.amountRaw != null
+      reqToken?.amountRaw != null && BigInt(reqToken.amountRaw) > BigInt(0)
         ? formatUnits(reqToken.amountRaw, outputDecimals)
-        : reqToken?.amount != null && String(reqToken.amount) !== "0"
+        : reqToken?.amount != null &&
+          String(reqToken.amount) !== "0" &&
+          Number(reqToken.amount) > 0
           ? String(reqToken.amount)
           : undefined;
 
     const destination =
-      isExactInput && (rawAmount != null || reqToken?.amount != null)
+      isExactInput && hasPositiveReqAmount
         ? {
             ...normalizedQuote.destination,
             amount: rawAmount ?? String(reqToken?.amount ?? normalizedQuote.destination.amount),
             minAmount: rawAmount ?? String(reqToken?.amount ?? normalizedQuote.destination.minAmount),
-            minAmountUsd: reqToken?.amount ?? rawAmount,
-            value: reqToken?.amount ?? rawAmount,
+            minAmountUsd: reqToken?.amount ?? rawAmount ?? normalizedQuote.destination.minAmountUsd,
+            value: reqToken?.amount ?? rawAmount ?? normalizedQuote.destination.value,
             gas: executionGas,
           }
         : {
@@ -787,11 +796,11 @@ export const normalizeSwapAndExecuteIntent = (
     (intent as any).quote?.tradeType === "exactInput" ||
     (intent as any).quote?.tradeType === "exactIn";
   const rawNoSwapAmount =
-    isExactInputNoSwap && req.token?.amountRaw != null
+    isExactInputNoSwap && req.token?.amountRaw != null && BigInt(req.token.amountRaw) > BigInt(0)
       ? formatUnits(req.token.amountRaw, outputDecimals)
       : req.token.amount;
   const exactInputValue =
-    isExactInputNoSwap && req.token?.amount != null
+    isExactInputNoSwap && req.token?.amount != null && String(req.token.amount) !== "0" && Number(req.token.amount) > 0
       ? req.token.amount
       : req.token.valueUsd ?? rawNoSwapAmount;
   const zeroFees = {

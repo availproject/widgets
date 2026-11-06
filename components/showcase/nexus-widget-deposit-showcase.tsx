@@ -307,7 +307,13 @@ const OPPORTUNITIES = {
   },
 } as const;
 
-const NexusWidgetDepositShowcase = () => {
+export interface NexusWidgetDepositShowcaseProps {
+  initialRoute?: NexusWidgetDepositRoute;
+}
+
+const NexusWidgetDepositShowcase = (props?: any) => {
+  const initialRoute: NexusWidgetDepositRoute =
+    props?.initialRoute ?? "exactOutput";
   const { address } = useAccount();
   const theme = useWidgetPreviewTheme();
   const openConnectWallet = useConnectWalletClick();
@@ -319,7 +325,13 @@ const NexusWidgetDepositShowcase = () => {
   const [renderMode, setRenderMode] = useState<NexusWidgetRenderMode>("inline");
   const isPopupMode = renderMode === "popup";
   const [depositRoute, setDepositRoute] =
-    useState<NexusWidgetDepositRoute>("exactOutput");
+    useState<NexusWidgetDepositRoute>(initialRoute);
+
+  React.useEffect(() => {
+    if (props?.initialRoute) {
+      setDepositRoute(props.initialRoute);
+    }
+  }, [props?.initialRoute]);
   const [enableOnRamp, setEnableOnRamp] = useState(true);
 
   // Default sandbox configuration state
@@ -592,32 +604,6 @@ const NexusWidgetDepositShowcase = () => {
       connectLabel="Connect wallet to use Deposit"
       controls={
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 p-0.5 text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setDepositRoute("exactOutput")}
-              className={cn(
-                "px-3 py-1.5 rounded-md transition-all cursor-pointer font-medium",
-                depositRoute === "exactOutput"
-                  ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
-              )}
-            >
-              Deposit (Exact out)
-            </button>
-            <button
-              type="button"
-              onClick={() => setDepositRoute("exactInput")}
-              className={cn(
-                "px-3 py-1.5 rounded-md transition-all cursor-pointer font-medium",
-                depositRoute === "exactInput"
-                  ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
-              )}
-            >
-              Deposit (Exact In)
-            </button>
-          </div>
           <button
             type="button"
             aria-pressed={enableOnRamp}
@@ -1203,5 +1189,13 @@ const NexusWidgetDepositShowcase = () => {
     </ShowcaseWrapper>
   );
 };
+
+export const NexusWidgetDepositExactOutputShowcase = () => (
+  <NexusWidgetDepositShowcase initialRoute="exactOutput" />
+);
+
+export const NexusWidgetDepositExactInputShowcase = () => (
+  <NexusWidgetDepositShowcase initialRoute="exactInput" />
+);
 
 export default NexusWidgetDepositShowcase;

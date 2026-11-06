@@ -1,0 +1,278 @@
+---
+title: Deposit (Exact Input)
+description: Multi-token spend deposit flow where users select one or more source tokens to deposit into a configured protocol.
+component: true
+preview:
+  name: nexus-deposit-exact-input
+  align: center
+  hideCode: true
+links:
+  doc: https://docs.availproject.org/nexus/avail-nexus-sdk/bridge-methods/bridge-and-execute
+  api: https://docs.availproject.org/nexus/avail-nexus-sdk/api-reference#execute-operations
+---
+
+> **Network support:** Mainnet only. Testnet is not supported at the moment.
+
+<Callout type="info">
+  **Get the exact config for your protocol** using the [Avail Configurator](https://configurator.availproject.org/). It generates the complete `depositConfig` object for deposit and bridge modes based on your contract and token setup.
+</Callout>
+
+## Installation
+
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">NPM (Recommended)</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui (Power Users)</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm" className="mt-4">
+
+```bash
+npm install @avail-project/widgets viem wagmi @tanstack/react-query
+```
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
+
+```bash
+npx shadcn@latest add availproject/widgets/nexus
+```
+
+  </TabsContent>
+</Tabs>
+
+## Usage
+
+Wrap your app with the Nexus provider first. See [Get Started](/docs/get-started) for provider setup.
+
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">NPM</TabsTrigger>
+    <TabsTrigger value="shadcn">shadcn/ui</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm" className="mt-4">
+
+```tsx showLineNumbers
+import { NexusWidget } from "@avail-project/widgets";
+import { encodeFunctionData } from "viem";
+
+const APP_DEPOSIT_CONTRACT = "0x...";
+const DESTINATION_TOKEN = "0x...";
+const DESTINATION_CHAIN_ID = 42161;
+
+const APP_DEPOSIT_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "token", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "address", name: "user", type: "address" },
+    ],
+    name: "deposit",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
+const depositConfig = {
+  mode: "deposit",
+  route: "exactInput",
+  destination: {
+    chain: DESTINATION_CHAIN_ID,
+    tokens: [
+      {
+        address: DESTINATION_TOKEN,
+        symbol: "USDT",
+        decimals: 6,
+        logo: "https://example.com/usdt.svg",
+      },
+    ],
+  },
+  depositAddress: APP_DEPOSIT_CONTRACT,
+  executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) => ({
+    to: APP_DEPOSIT_CONTRACT,
+    gas: 400_000n,
+    data: encodeFunctionData({
+      abi: APP_DEPOSIT_ABI,
+      functionName: "deposit",
+      args: [tokenAddress, amount, user],
+    }),
+    tokenApproval: {
+      toTokenAddress: tokenAddress,
+      amount,
+      spender: APP_DEPOSIT_CONTRACT,
+    },
+  }),
+  appearance: {
+    appName: "Your App",
+    appLogoURL: "https://example.com/logo.svg",
+    heading: "Deposit",
+    mode: "system",
+    primaryColor: "#0A6BEB",
+  },
+} as const;
+
+<NexusWidget config={depositConfig} connectedAddress={address} />;
+```
+
+  </TabsContent>
+  <TabsContent value="shadcn" className="mt-4">
+
+```tsx showLineNumbers
+import { NexusWidget } from "@/components/nexus/nexus";
+import { encodeFunctionData } from "viem";
+
+const APP_DEPOSIT_CONTRACT = "0x...";
+const DESTINATION_TOKEN = "0x...";
+const DESTINATION_CHAIN_ID = 42161;
+
+const APP_DEPOSIT_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "token", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "address", name: "user", type: "address" },
+    ],
+    name: "deposit",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
+const depositConfig = {
+  mode: "deposit",
+  route: "exactInput",
+  enableOnRamp: true, // Optional; defaults to false (wallet funding only).
+  destination: {
+    chain: DESTINATION_CHAIN_ID,
+    tokens: [
+      {
+        address: DESTINATION_TOKEN,
+        symbol: "USDT",
+        decimals: 6,
+        logo: "https://example.com/usdt.svg",
+      },
+    ],
+  },
+  depositAddress: APP_DEPOSIT_CONTRACT,
+  executeDeposit: (_symbol, tokenAddress, amount, _chainId, user) => ({
+    to: APP_DEPOSIT_CONTRACT,
+    gas: 400_000n,
+    data: encodeFunctionData({
+      abi: APP_DEPOSIT_ABI,
+      functionName: "deposit",
+      args: [tokenAddress, amount, user],
+    }),
+    tokenApproval: {
+      toTokenAddress: tokenAddress,
+      amount,
+      spender: APP_DEPOSIT_CONTRACT,
+    },
+  }),
+  appearance: {
+    appName: "Your App",
+    appLogoURL: "https://example.com/logo.svg",
+    heading: "Deposit",
+    mode: "system",
+    primaryColor: "#0A6BEB",
+  },
+} as const;
+
+<NexusWidget config={depositConfig} connectedAddress={address} />;
+```
+
+  </TabsContent>
+</Tabs>
+
+## Configuration
+
+In `route: "exactInput"`, users select one or more tokens from any connected chains, choose custom amounts to spend, and the widget executes a multi-source swap-and-deposit to route all resulting proceeds into your deposit action.
+
+For exact destination deposit targets where users enter the exact amount they want the protocol to receive, see [Deposit (Exact Output)](/docs/components/deposit).
+
+| Prop                                                                               | Required | Description                                                                                                                                 |
+| ---------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config.mode`                                                                      | Yes      | Must be `"deposit"`.                                                                                                                        |
+| `config.route`                                                                     | Yes      | Set to `"exactInput"`.                                                                                                                      |
+| `config.destination.chain`                                                         | Yes      | Chain ID of the fixed destination network. Deposit destination chain cannot be changed by the user.                                         |
+| `config.destination.tokens`                                                        | Yes      | One or more accepted destination tokens. The token dropdown is limited to this list and is editable only when multiple tokens are supplied. |
+| `config.depositAddress`                                                            | Yes      | Smart contract address for the deposit target.                                                                                              |
+| `config.executeDeposit`                                                            | Yes      | Callback builder returning `{ to, gas, data?, value?, tokenApproval? }` for the final app transaction. `gas` must be a positive `bigint`.   |
+| `config.enableOnRamp` | Optional | Defaults to `false`. Set `true` to display "Deposit with Cash" alongside wallet funding. |
+| `config.theme` | Optional | `"dark"`, `"light"`, or `"system"`. Defaults to light; system follows OS changes. Overrides `appearance.mode`. |
+| `config.appearance`                                                                | Optional | Supports `heading`, `appName`, `appLogoURL`, `mode`, and `primaryColor`. Heading defaults to `"Deposit"`.                                    |
+| `connectedAddress`                                                                 | Optional | Wallet address to use. If omitted, the connected wagmi account is used.                                                                     |
+| `embed`                                                                            | Optional | Defaults to `true`. Set `false` to render as a modal surface.                                                                               |
+| `open`, `onOpenChange`, `defaultOpen`                                              | Optional | Control the modal when `embed={false}`.                                                                                                     |
+| `onStart`, `onComplete`, `onError`, `onClose`, `onConnectClick`, `onConnectWallet` | Optional | Host app callbacks. Use `onConnectClick` to open your app/header wallet modal from the element CTA.                                         |
+
+### Route Example
+
+```tsx
+<NexusWidget
+  config={{
+    mode: "deposit",
+    route: "exactInput",
+    destination: {
+      chain: 42161,
+      tokens: [{ address: "0x...", symbol: "USDC", decimals: 6 }],
+    },
+    depositAddress: "0x...",
+    executeDeposit: (symbol, tokenAddress, amount, chainId, user) => ({
+      to: "0x...",
+      gas: 400_000n,
+      data: "0x...",
+    }),
+  }}
+/>
+```
+
+### `executeDeposit`
+
+```ts
+type ExecuteDeposit = (
+  tokenSymbol: string,
+  tokenAddress: `0x${string}`,
+  amount: bigint,
+  chainId: number,
+  user: `0x${string}`,
+) => {
+  to: `0x${string}`;
+  gas: bigint;
+  data?: `0x${string}`;
+  value?: bigint;
+  tokenApproval?: {
+    toTokenAddress: `0x${string}`;
+    amount: bigint;
+    spender: `0x${string}`;
+  };
+};
+```
+
+## Modal Usage
+
+Render `embed={false}` to invoke Deposit from a button and show the element as a modal.
+
+```tsx showLineNumbers
+<NexusWidget
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  defaultOpen={false}
+/>
+```
+
+Control the modal from app state when needed.
+
+```tsx showLineNumbers
+const [open, setOpen] = useState(false);
+
+<NexusWidget
+  config={depositConfig}
+  connectedAddress={address}
+  embed={false}
+  open={open}
+  onOpenChange={setOpen}
+/>;
+```
+
