@@ -7798,7 +7798,7 @@ function NexusWidgetInner({
           : sortedIntentSourceTokens;
 
       lastSwapIntentRefreshAtRef.current = Date.now();
-      lastIntentSourceTokensRef.current = sortedIntentSourceTokens;
+      lastIntentSourceTokensRef.current = resolvedAutoSourceTokens;
       if (
         !sourceSelectionTouched &&
         (activeMode === "send" ||
@@ -7826,8 +7826,16 @@ function NexusWidgetInner({
         (activeMode === "send" ||
           (activeMode === "deposit" && swapType === "exactOut"))
       ) {
-        syncingIntentSourcesRef.current = true;
-        setFromTokens(resolvedAutoSourceTokens);
+        setFromTokens((current) => {
+          if (
+            getSourceTokenListSyncKey(current) ===
+            getSourceTokenListSyncKey(resolvedAutoSourceTokens)
+          ) {
+            return current;
+          }
+          syncingIntentSourcesRef.current = true;
+          return resolvedAutoSourceTokens;
+        });
       }
 
       try {
@@ -8674,7 +8682,7 @@ function NexusWidgetInner({
           sourceSelectionTouched ? "manual" : "auto",
           sourceSelectionRevision,
           exactOutQuoteSourceMode,
-          fromTokensQuoteKey,
+          swapType === "exactIn" ? fromTokensQuoteKey : "",
         ].join(":")
       : "",
     activeMode === "send"
@@ -9082,7 +9090,7 @@ function NexusWidgetInner({
     amount,
     depositAmountMode,
     destinationBalance,
-    fromTokensQuoteKey,
+    swapType === "exactIn" ? fromTokensQuoteKey : "",
     nexusSDK,
     selectedOpportunityIdentity,
     sourceSelectionRevision,
@@ -9107,7 +9115,7 @@ function NexusWidgetInner({
     depositQuoteAmountKey,
     depositSourceTargetUsdKey,
     depositUsdDecimal.toFixed(),
-    fromTokensQuoteKey,
+    swapType === "exactIn" ? fromTokensQuoteKey : "",
     selectedOpportunity?.chainId,
     selectedOpportunity?.tokenAddress,
     selectedOpportunity?.tokenSymbol,
@@ -11110,12 +11118,10 @@ function NexusWidgetInner({
 
     if (syncingIntentSourcesRef.current) {
       syncingIntentSourcesRef.current = false;
-      if (hasCurrentQuoteIntent) {
-        setIntentLoading(false);
-        setQuoteRefreshing(false);
-        setReceiveMaxCalculating(false);
-        return;
-      }
+      setIntentLoading(false);
+      setQuoteRefreshing(false);
+      setReceiveMaxCalculating(false);
+      return;
     }
 
     if (hasReceiveAmountQuoteIssue) {
@@ -11185,12 +11191,10 @@ function NexusWidgetInner({
 
     if (syncingIntentSourcesRef.current) {
       syncingIntentSourcesRef.current = false;
-      if (hasCurrentQuoteIntent) {
-        setIntentLoading(false);
-        setQuoteRefreshing(false);
-        setReceiveMaxCalculating(false);
-        return;
-      }
+      setIntentLoading(false);
+      setQuoteRefreshing(false);
+      setReceiveMaxCalculating(false);
+      return;
     }
 
     if (hasReceiveAmountQuoteIssue) {
@@ -11250,8 +11254,7 @@ function NexusWidgetInner({
     depositAmountMode,
     depositQuoteAmountKey,
     depositTokenAmountForQuote,
-    fromTokens,
-    fromTokensQuoteKey,
+    swapType === "exactIn" ? fromTokensQuoteKey : "",
     hasActiveQuoteIssue,
     hasCurrentQuoteIntent,
     hasReceiveAmountQuoteIssue,
@@ -11269,12 +11272,10 @@ function NexusWidgetInner({
 
     if (syncingIntentSourcesRef.current) {
       syncingIntentSourcesRef.current = false;
-      if (hasCurrentQuoteIntent) {
-        setIntentLoading(false);
-        setQuoteRefreshing(false);
-        setReceiveMaxCalculating(false);
-        return;
-      }
+      setIntentLoading(false);
+      setQuoteRefreshing(false);
+      setReceiveMaxCalculating(false);
+      return;
     }
 
     if (hasReceiveAmountQuoteIssue) {

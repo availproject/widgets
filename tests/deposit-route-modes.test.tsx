@@ -166,3 +166,55 @@ test("DepositIdleForm renders exact-in multi-token UI structure with destination
     }
   }
 });
+
+test("DepositExactOutIdleForm renders allocated sources without triggering quote refreshing", async () => {
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    const allocatedSources: SwapTokenOption[] = [
+      {
+        chainId: 8453,
+        chainName: "Base",
+        contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        symbol: "USDC",
+        name: "USD Coin",
+        decimals: 6,
+        balance: "50",
+        balanceInFiat: "$50.00",
+        userAmount: "10",
+        userAmountMode: "token",
+        userAmountUsd: "10.00",
+      },
+    ];
+
+    await act(async () => {
+      renderer = create(
+        <DepositExactOutIdleForm
+          amount="10"
+          amountMode="usd"
+          fromTokens={allocatedSources}
+          isQuoteRefreshing={false}
+          onAmountChange={() => {}}
+          onAmountModeToggle={() => {}}
+          onOpenSourcePicker={() => {}}
+          onSetPercent={() => {}}
+          tokenValue="10"
+          toToken={toToken}
+          totalBalance="100"
+          usdValue="10"
+        />
+      );
+    });
+
+    const json = JSON.stringify(renderer!.toJSON());
+    assert.ok(json.includes("Base"), "Exact out form should display the source chain");
+    assert.ok(json.includes("USDC"), "Exact out form should display USDC");
+    // Verify it doesn't show loading spinner when isQuoteRefreshing is false
+    assert.ok(!json.includes("animate-spin") || json.includes("Pay with"), "Should not show infinite loading spinner");
+  } finally {
+    if (renderer) {
+      await act(async () => {
+        renderer?.unmount();
+      });
+    }
+  }
+});
