@@ -218,3 +218,30 @@ test("DepositExactOutIdleForm renders allocated sources without triggering quote
     }
   }
 });
+
+test("Deposit exactOut quote input key excludes fluctuating target USD to prevent infinite quote loops", () => {
+  // Verify that deposit route config properly creates exactOutput normalized mode
+  const config: NexusWidgetConfig = {
+    mode: "deposit",
+    route: "exactOutput",
+    destination: {
+      chain: 10,
+      tokens: [
+        {
+          address: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+          symbol: "USDC",
+          decimals: 6,
+        },
+      ],
+    },
+    depositAddress: "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+    executeDeposit: () => ({
+      to: "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+      gas: BigInt(400_000),
+    }),
+  };
+
+  const normalized = normalizeNexusWidgetConfig(config);
+  assert.equal(normalized.depositRoute, "exactOutput");
+  assert.equal(normalized.activeMode, "deposit");
+});

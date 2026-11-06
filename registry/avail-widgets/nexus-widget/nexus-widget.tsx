@@ -8656,7 +8656,7 @@ function NexusWidgetInner({
   };
   const depositSourceTargetUsdKey =
     activeMode === "deposit"
-      ? (getDepositSourceTargetUsd()?.toFixed() ?? "")
+      ? (getDepositSourceTargetUsd()?.toDecimalPlaces(2).toFixed() ?? "")
       : "";
   const normalizedQuoteAmountKey = parseFiatNumber(amount)?.toFixed() ?? "";
   const quoteRecipientKey =
@@ -8677,7 +8677,6 @@ function NexusWidgetInner({
           depositAmountMode,
           depositQuoteAmountKey,
           selectedOpportunityIdentity,
-          depositSourceTargetUsdKey,
           depositSourceFilter,
           sourceSelectionTouched ? "manual" : "auto",
           sourceSelectionRevision,
@@ -8704,7 +8703,6 @@ function NexusWidgetInner({
           depositAmountMode,
           depositQuoteAmountKey,
           selectedOpportunityIdentity,
-          depositSourceTargetUsdKey,
         ].join(":")
       : "",
   ].join("|");
@@ -9114,7 +9112,7 @@ function NexusWidgetInner({
     depositSourceFilter,
     depositQuoteAmountKey,
     depositSourceTargetUsdKey,
-    depositUsdDecimal.toFixed(),
+    depositUsdDecimal.toDecimalPlaces(2).toFixed(),
     swapType === "exactIn" ? fromTokensQuoteKey : "",
     selectedOpportunity?.chainId,
     selectedOpportunity?.tokenAddress,
@@ -10601,6 +10599,7 @@ function NexusWidgetInner({
                 ...fromSourcesPayload,
               }
             : {
+                tradeType: "exactOutput" as const,
                 toChainId: toToken.chainId!,
                 toTokenAddress: toToken.contractAddress as `0x${string}`,
                 toAmountRaw: amountBigInt,
@@ -11105,6 +11104,17 @@ function NexusWidgetInner({
         setTxError(errorMessage);
         onError?.(errorMessage);
       }
+      if (!hasActiveExecution && !isUserRejected) {
+        const quoteIssue: SwapQuoteIssue = {
+          type: "quoteError",
+          message: errorMessage,
+          ctaLabel:
+            classified?.bucket === "insufficient_funds"
+              ? "Insufficient balance"
+              : "Quote unavailable",
+        };
+        setSwapQuoteIssue(quoteIssue);
+      }
     }
   };
 
@@ -11253,7 +11263,6 @@ function NexusWidgetInner({
     activeQuoteInputKey,
     depositAmountMode,
     depositQuoteAmountKey,
-    depositTokenAmountForQuote,
     swapType === "exactIn" ? fromTokensQuoteKey : "",
     hasActiveQuoteIssue,
     hasCurrentQuoteIntent,
