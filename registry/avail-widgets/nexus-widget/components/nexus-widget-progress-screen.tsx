@@ -2163,6 +2163,7 @@ export function NexusWidgetProgressScreen({
             <div
               style={{
                 alignItems: "center",
+                background: "transparent",
                 color: "var(--nx-faint, #A3A3A2)",
                 display: "flex",
                 fontFamily,
@@ -2175,11 +2176,21 @@ export function NexusWidgetProgressScreen({
             >
               on
               {toToken?.chainLogo ? (
-                <img
-                  alt=""
-                  src={toToken.chainLogo}
-                  style={{ borderRadius: "999px", height: 12, width: 12 }}
-                />
+                <span
+                  style={{
+                    alignItems: "center",
+                    display: "inline-flex",
+                    height: 12,
+                    justifyContent: "center",
+                    width: 12,
+                  }}
+                >
+                  <img
+                    alt=""
+                    src={toToken.chainLogo}
+                    style={{ borderRadius: "999px", height: 12, width: 12 }}
+                  />
+                </span>
               ) : null}
               {destinationChainName || destinationChain}
             </div>

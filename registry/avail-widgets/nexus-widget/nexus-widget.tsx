@@ -3641,7 +3641,23 @@ export function SwapReceiptPanel({
         <button
           className="nx-deposit-cta"
           onClick={onDone}
-          style={{ width: "100%" }}
+          style={{
+            alignItems: "center",
+            background: "var(--nx-blue, #006BF4)",
+            border: "none",
+            borderRadius: "999px",
+            boxShadow: "var(--nx-sh-cta)",
+            boxSizing: "border-box",
+            color: "#FFFFFF",
+            cursor: "pointer",
+            display: "flex",
+            fontFamily: uiFont,
+            fontSize: "16px",
+            fontWeight: 500,
+            height: "56px",
+            justifyContent: "center",
+            width: "100%",
+          }}
           type="button"
         >
           Done

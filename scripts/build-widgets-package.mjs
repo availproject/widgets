@@ -128,7 +128,7 @@ const tempInputCss = path.join(packageRoot, ".build-src", "tailwind-input.css");
 const distStylesCss = path.join(distRoot, "styles.css");
 writeFileSync(
   tempInputCss,
-  '@import "tailwindcss";\n@source "./**/*.{ts,tsx}";\n'
+  '@import "tailwindcss/utilities";\n@source "./**/*.{ts,tsx}";\n'
 );
 
 const localTailwindBin = path.join(
