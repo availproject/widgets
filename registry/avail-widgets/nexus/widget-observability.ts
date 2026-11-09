@@ -1,6 +1,8 @@
 /** One allocated identity, shared by widget consumers. SDK header forwarding is pending. */
 export interface NexusIdentity {
   clientId: string;
+  surfaceName?: string;
+  surfaceVersion?: string;
 }
 
 export type WidgetTelemetryEventName =

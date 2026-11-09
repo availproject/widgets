@@ -1,0 +1,74 @@
+/*
+ * Tailwind input for @avail-project/widgets/styles.css.
+ *
+ * Deliberately light: no preflight/reset, only the utilities the widget
+ * sources use, and every theme value is inlined into those utilities so no
+ * global :root variables are emitted that could collide with the host's own
+ * Tailwind theme.
+ */
+@import "tailwindcss/theme" layer(theme) theme(inline);
+@import "tailwindcss/utilities" layer(utilities);
+@source "./**/*.{ts,tsx}";
+
+/* Host `.dark` class (shadcn convention) instead of the OS preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* shadcn-style tokens used by ui/*, mapped onto the widget's own theme variables. */
+@theme inline {
+  --color-background: var(--nexus-widget-surface, #fff);
+  --color-foreground: var(--nexus-widget-text-strong, #161615);
+  --color-primary: var(--nexus-widget-primary, rgb(0, 107, 244));
+  --color-primary-foreground: var(--nexus-widget-primary-foreground, #fff);
+  --color-secondary: var(--nexus-widget-surface-raised, #f3f3f3);
+  --color-secondary-foreground: var(--nexus-widget-text-strong, #161615);
+  --color-muted: var(--nexus-widget-surface-inset, #f7f7f7);
+  --color-muted-foreground: var(--nexus-widget-text-secondary, #848483);
+  --color-accent: var(--nexus-widget-surface-hover, #f3f3f3);
+  --color-accent-foreground: var(--nexus-widget-text-strong, #161615);
+  --color-destructive: var(--nexus-widget-error-accent, #d32f2f);
+  --color-border: var(--nexus-widget-border, #e8e8e7);
+  --color-input: var(--nexus-widget-border-control, #e8e8e7);
+  --color-ring: var(--nexus-widget-border-unchecked, #a1a1a0);
+}
+
+/* Minimal enter/exit animations (the subset of tw-animate-css the widget uses). */
+@keyframes nexus-enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(0, var(--tw-enter-translate-y, 0), 0)
+      scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), 1);
+  }
+}
+@keyframes nexus-exit {
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    transform: scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), 1);
+  }
+}
+@utility animate-in {
+  animation: nexus-enter var(--tw-duration, 150ms) var(--tw-ease, ease);
+}
+@utility animate-out {
+  animation: nexus-exit var(--tw-duration, 150ms) var(--tw-ease, ease);
+}
+@utility fade-in {
+  --tw-enter-opacity: 0;
+}
+@utility fade-in-* {
+  --tw-enter-opacity: calc(--value(integer) / 100);
+}
+@utility fade-out-* {
+  --tw-exit-opacity: calc(--value(integer) / 100);
+}
+@utility zoom-in-* {
+  --tw-enter-scale: calc(--value(integer) / 100);
+}
+@utility zoom-out-* {
+  --tw-exit-scale: calc(--value(integer) / 100);
+}
+@utility slide-in-from-bottom-full {
+  --tw-enter-translate-y: 100%;
+}
+@utility slide-in-from-bottom-* {
+  --tw-enter-translate-y: calc(--value(integer) * 0.25rem);
+}

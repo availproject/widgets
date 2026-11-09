@@ -13,7 +13,14 @@ function deferred<T>() {
 const tick = () => new Promise<void>(resolve => setImmediate(resolve));
 
 // Run the actual provider callbacks with controlled SDK/network promises. No wallet/network traffic.
-function providerHarness(options: { init?: Promise<void>; swap?: Promise<any[]>; bridge?: Promise<any[]>; rates?: Promise<Record<string, string>> } = {}) {
+function providerHarness(options: {
+  init?: Promise<void>;
+  swap?: Promise<any[]>;
+  bridge?: Promise<any[]>;
+  rates?: Promise<Record<string, string>>;
+  stableConfig?: Record<string, any>;
+  onClientCreated?: (config: any) => void;
+} = {}) {
   const text = readFileSync(new URL("../registry/avail-widgets/nexus/NexusProvider.tsx", import.meta.url), "utf8");
   const source = ts.createSourceFile("provider.tsx", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const names = ["getOrCreateSdk", "readBridgeBalance", "readSwapBalance", "setupNexus", "initializeNexus", "deinitializeNexus", "attachEventHooks", "handleInit", "fetchBridgableBalance", "fetchSwapBalance"];
@@ -29,10 +36,11 @@ function providerHarness(options: { init?: Promise<void>; swap?: Promise<any[]>;
   const sdkRef = createSdkOwner<any>();
   const environment: Record<string, any> = {
     balanceUpdatesRef: { current: { bridge: 0, swap: 0 } },
-    sdkRef, stableConfig: { network: "mainnet", debug: false },
+    sdkRef, stableConfig: options.stableConfig ?? { network: "mainnet", debug: false },
     inFlightRequests: createInFlightRequests(),
     useCallback: (fn: unknown) => fn,
-    createNexusClient: () => {
+    createNexusClient: (cfg: any) => {
+      options.onClientCreated?.(cfg);
       counts.created++; counts.alive++; counts.maxAlive = Math.max(counts.maxAlive, counts.alive);
       let destroyed = false;
       return {
@@ -199,5 +207,33 @@ test("slow setup pricing cannot overwrite a newer manual balance refresh", async
     await connecting;
     assert.equal(h.state.SwapBalance[0].balance, "9");
     assert.equal((await h.api.fetchSwapBalance({ onlyIfMissing: true }))[0].balance, "9");
+  } finally { h.sdkRef.reset(); }
+});
+
+test("createNexusClient receives surfaceName 'nexus-widgets' and surfaceVersion matching package.json", async () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  let passedConfig: any = null;
+  const h = providerHarness({
+    onClientCreated: (cfg) => { passedConfig = cfg; },
+  });
+  try {
+    await h.api.getOrCreateSdk();
+    assert.ok(passedConfig);
+    assert.equal(passedConfig.surfaceName, "nexus-widgets");
+    assert.equal(passedConfig.surfaceVersion, pkg.version);
+  } finally { h.sdkRef.reset(); }
+});
+
+test("createNexusClient respects custom surfaceName and surfaceVersion when provided", async () => {
+  let passedConfig: any = null;
+  const h = providerHarness({
+    stableConfig: { network: "mainnet", debug: false, surfaceName: "custom-surface", surfaceVersion: "9.9.9" },
+    onClientCreated: (cfg) => { passedConfig = cfg; },
+  });
+  try {
+    await h.api.getOrCreateSdk();
+    assert.ok(passedConfig);
+    assert.equal(passedConfig.surfaceName, "custom-surface");
+    assert.equal(passedConfig.surfaceVersion, "9.9.9");
   } finally { h.sdkRef.reset(); }
 });

@@ -896,31 +896,23 @@ export function SwapIntentPreview({
       : (parseDecimal(bridgeFeeData?.totalUsd) ??
         parseDecimal(bridgeFeeData?.total));
   const collectionFeeNumber = parseDecimal(bridgeFeeData?.collection);
-  const fulfilmentFeeNumber = parseDecimal(bridgeFeeData?.fulfilment);
+  // Fulfilment fees are never part of the displayed fees.
+  const fulfillmentUsdNumber = parseDecimal(bridgeFeeData?.fulfillmentUsd);
 
-  // Execution gas fee: caGas = depositFee + fulfilmentFee using Decimal.js
+  // Execution (network) gas fee: deposit fee only, fulfilment excluded.
   const executionGasFeeNumber = (() => {
-    const caGasUsd = parseDecimal(bridgeFeeData?.caGasUsd);
-    if (caGasUsd !== undefined) return caGasUsd;
-
     const depositUsd = parseDecimal(bridgeFeeData?.depositUsd);
-    const fulfillmentUsd = parseDecimal(bridgeFeeData?.fulfillmentUsd);
-    if (depositUsd !== undefined || fulfillmentUsd !== undefined) {
-      return (depositUsd ?? new Decimal(0)).plus(
-        fulfillmentUsd ?? new Decimal(0),
-      );
+    if (depositUsd !== undefined) return depositUsd;
+
+    const caGasUsd = parseDecimal(bridgeFeeData?.caGasUsd);
+    if (caGasUsd !== undefined) {
+      return Decimal.max(caGasUsd.minus(fulfillmentUsdNumber ?? 0), 0);
     }
 
     const rawCaGas = parseDecimal(bridgeFeeData?.caGas);
     if (rawCaGas !== undefined) return rawCaGas;
 
-    if (collectionFeeNumber !== undefined || fulfilmentFeeNumber !== undefined) {
-      return (collectionFeeNumber ?? new Decimal(0)).plus(
-        fulfilmentFeeNumber ?? new Decimal(0),
-      );
-    }
-
-    return undefined;
+    return collectionFeeNumber;
   })();
 
   const protocolFeeNumber =
@@ -935,13 +927,17 @@ export function SwapIntentPreview({
     parseDecimal(destinationGasFeeUsd);
   const destinationGasSuppliedNumber =
     bridgeGasSuppliedNumber ?? destinationGasValueNumber;
+  const bridgeTotalWithoutFulfilment =
+    bridgeTotalNumber !== undefined && fulfillmentUsdNumber !== undefined
+      ? Decimal.max(bridgeTotalNumber.minus(fulfillmentUsdNumber), 0)
+      : bridgeTotalNumber;
   const bridgeTotalWithDestinationGas =
-    bridgeTotalNumber &&
+    bridgeTotalWithoutFulfilment &&
     !bridgeGasSuppliedNumber &&
     destinationGasValueNumber &&
     destinationGasValueNumber.gt(0)
-      ? bridgeTotalNumber.plus(destinationGasValueNumber)
-      : bridgeTotalNumber;
+      ? bridgeTotalWithoutFulfilment.plus(destinationGasValueNumber)
+      : bridgeTotalWithoutFulfilment;
   const swapBufferNumber = parseDecimal(intentData?.feesAndBuffer?.buffer);
   const bridgeComponentsTotalNumber = bridgeFeeData
     ? [

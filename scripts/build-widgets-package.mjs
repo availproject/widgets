@@ -126,10 +126,7 @@ if (existsSync(localTsc)) {
 // Extract & compile Tailwind styles used across widget sources
 const tempInputCss = path.join(packageRoot, ".build-src", "tailwind-input.css");
 const distStylesCss = path.join(distRoot, "styles.css");
-writeFileSync(
-  tempInputCss,
-  '@import "tailwindcss/utilities";\n@source "./**/*.{ts,tsx}";\n'
-);
+copy(path.join(packageRoot, "styles.input.css"), tempInputCss);
 
 const localTailwindBin = path.join(
   repoRoot,

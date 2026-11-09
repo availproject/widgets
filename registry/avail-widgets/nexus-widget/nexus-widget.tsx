@@ -4466,6 +4466,11 @@ export function NexusWidget(props: NexusWidgetProps) {
     normalizeNexusWidgetPrimaryColor(props.config.appearance?.primaryColor) ??
     NEXUS_WIDGET_DEFAULT_PRIMARY_COLOR;
   const primaryForeground = getReadableTextColor(primaryColor);
+  const widgetStateKey = `${props.config.mode ?? "swap"}:${
+    props.config.mode === "deposit" && props.config.route === "exactInput"
+      ? "exactInput"
+      : "exactOutput"
+  }`;
   const themeStyle = useMemo(
     () => ({
       ...getNexusWidgetThemeStyle(resolvedTheme === "dark"),
@@ -4544,7 +4549,8 @@ export function NexusWidget(props: NexusWidgetProps) {
           </div>
         }
       >
-        <NexusWidgetInner {...props} />
+        {/* Remount on mode / deposit-route change so all widget state resets. */}
+        <NexusWidgetInner key={widgetStateKey} {...props} />
       </ErrorBoundary>
     </NexusWidgetThemeContext.Provider>
   );
@@ -7863,31 +7869,23 @@ function NexusWidgetInner({
         const bridgeFeeData =
           bridgeFees && typeof bridgeFees === "object" ? bridgeFees : undefined;
         const collectionFee = parseFiatNumber(bridgeFeeData?.collection);
-        const fulfilmentFee = parseFiatNumber(bridgeFeeData?.fulfilment);
+        // Fulfilment fees are never part of the displayed fees.
+        const fulfillmentUsd = parseFiatNumber(bridgeFeeData?.fulfillmentUsd);
 
-        // Execution gas fee: caGas = depositFee + fulfilmentFee using Decimal.js
+        // Execution (network) gas fee: deposit fee only, fulfilment excluded.
         const executionGasFee = (() => {
-          const caGasUsd = parseFiatNumber(bridgeFeeData?.caGasUsd);
-          if (caGasUsd !== undefined) return caGasUsd;
-
           const depositUsd = parseFiatNumber(bridgeFeeData?.depositUsd);
-          const fulfillmentUsd = parseFiatNumber(bridgeFeeData?.fulfillmentUsd);
-          if (depositUsd !== undefined || fulfillmentUsd !== undefined) {
-            return (depositUsd ?? new Decimal(0)).plus(
-              fulfillmentUsd ?? new Decimal(0),
-            );
+          if (depositUsd !== undefined) return depositUsd;
+
+          const caGasUsd = parseFiatNumber(bridgeFeeData?.caGasUsd);
+          if (caGasUsd !== undefined) {
+            return Decimal.max(caGasUsd.minus(fulfillmentUsd ?? 0), 0);
           }
 
           const rawCaGas = parseFiatNumber(bridgeFeeData?.caGas);
           if (rawCaGas !== undefined) return rawCaGas;
 
-          if (collectionFee !== undefined || fulfilmentFee !== undefined) {
-            return (collectionFee ?? new Decimal(0)).plus(
-              fulfilmentFee ?? new Decimal(0),
-            );
-          }
-
-          return undefined;
+          return collectionFee;
         })();
 
         const bridgeGasSuppliedFee = parseFiatNumber(
@@ -7919,13 +7917,17 @@ function NexusWidgetInner({
             ? parseFiatNumber(bridgeFees)
             : (parseFiatNumber(bridgeFeeData?.totalUsd) ??
               parseFiatNumber(bridgeFeeData?.total));
+        const rawBridgeTotalWithoutFulfilment =
+          rawBridgeTotal !== undefined && fulfillmentUsd !== undefined
+            ? Decimal.max(rawBridgeTotal.minus(fulfillmentUsd), 0)
+            : rawBridgeTotal;
         const bridgeTotal =
-          rawBridgeTotal &&
+          rawBridgeTotalWithoutFulfilment &&
           !bridgeGasSuppliedFee &&
           destinationGasSuppliedFee &&
           destinationGasSuppliedFee.gt(0)
-            ? rawBridgeTotal.plus(destinationGasSuppliedFee)
-            : (rawBridgeTotal ??
+            ? rawBridgeTotalWithoutFulfilment.plus(destinationGasSuppliedFee)
+            : (rawBridgeTotalWithoutFulfilment ??
               (bridgeComponentsTotal && bridgeComponentsTotal.gt(0)
                 ? bridgeComponentsTotal
                 : destinationGasSuppliedFee));
