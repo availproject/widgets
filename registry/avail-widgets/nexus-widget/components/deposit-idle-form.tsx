@@ -706,16 +706,17 @@ export function DepositIdleForm({
     const parsed = readDecimal(value);
     return parsed.gt(0) ? parsed : undefined;
   };
+  // Fulfilment fees are never part of the displayed fees.
   const networkFeeUsd = (() => {
-    const direct = readFee("caGasUsd") ?? readFee("caGas");
-    if (direct) return direct;
     const deposit = readFee("depositUsd");
-    const fulfillment = readFee("fulfillmentUsd") ?? readFee("fulfilment");
-    const collection = readFee("collection");
-    if (deposit || fulfillment || collection) {
-      return (deposit ?? collection ?? new Decimal(0)).plus(fulfillment ?? 0);
+    if (deposit) return deposit;
+    const fulfillment = readFee("fulfillmentUsd");
+    const caGasUsd = readFee("caGasUsd");
+    if (caGasUsd) {
+      const net = caGasUsd.minus(fulfillment ?? 0);
+      return net.gt(0) ? net : undefined;
     }
-    return undefined;
+    return readFee("caGas") ?? readFee("collection");
   })();
   const solverFeeUsd = readFee("solverUsd") ?? readFee("solver");
   const protocolFeeUsd = readFee("protocolUsd") ?? readFee("protocol");
