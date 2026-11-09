@@ -124,7 +124,7 @@ export const NexusContext = createContext<NexusContextType | undefined>(
 );
 
 export const WIDGETS_SURFACE_NAME = "nexus-widgets";
-export const WIDGETS_VERSION = "2.3.2";
+export const WIDGETS_VERSION = "2.3.3";
 
 export interface NexusProviderConfig {
   network?: NexusNetwork;
@@ -602,7 +602,7 @@ const NexusProvider = ({
             network: stableConfig.network,
             debug: stableConfig.debug,
             surfaceName: stableConfig.surfaceName ?? "nexus-widgets",
-            surfaceVersion: stableConfig.surfaceVersion ?? "2.3.2",
+            surfaceVersion: stableConfig.surfaceVersion ?? "2.3.3",
           });
           attachSdkCompat(client, supportedChainsAndTokens);
           return client;
