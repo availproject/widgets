@@ -123,12 +123,17 @@ export const NexusContext = createContext<NexusContextType | undefined>(
   undefined,
 );
 
+export const WIDGETS_SURFACE_NAME = "nexus-widgets";
+export const WIDGETS_VERSION = "2.3.2";
+
 export interface NexusProviderConfig {
   network?: NexusNetwork;
   debug?: boolean;
   mode?: "deposit" | "swap" | "send";
   identity?: NexusIdentity;
   observability?: NexusObservabilityConfig;
+  surfaceName?: string;
+  surfaceVersion?: string;
 }
 
 export type NexusProviderProps = {
@@ -434,12 +439,28 @@ const NexusProvider = ({
     return getDefaultClientId();
   }, [rawClientId, isClientIdExplicitlySet]);
 
+  const resolvedSurfaceName =
+    config?.surfaceName ??
+    config?.identity?.surfaceName ??
+    WIDGETS_SURFACE_NAME;
+  const resolvedSurfaceVersion =
+    config?.surfaceVersion ??
+    config?.identity?.surfaceVersion ??
+    WIDGETS_VERSION;
+
   const resolvedIdentity = useMemo(
     () => ({
       ...config?.identity,
       clientId: resolvedClientId,
+      surfaceName: resolvedSurfaceName,
+      surfaceVersion: resolvedSurfaceVersion,
     }),
-    [config?.identity, resolvedClientId],
+    [
+      config?.identity,
+      resolvedClientId,
+      resolvedSurfaceName,
+      resolvedSurfaceVersion,
+    ],
   );
 
   // Telemetry changes must not destroy/reinitialize an in-flight wallet SDK.
@@ -449,8 +470,16 @@ const NexusProvider = ({
       clientId: resolvedClientId,
       network: configNetwork ?? defaultConfig?.network,
       debug: configDebug ?? defaultConfig?.debug,
+      surfaceName: resolvedSurfaceName,
+      surfaceVersion: resolvedSurfaceVersion,
     }),
-    [resolvedClientId, configNetwork, configDebug],
+    [
+      resolvedClientId,
+      configNetwork,
+      configDebug,
+      resolvedSurfaceName,
+      resolvedSurfaceVersion,
+    ],
   );
   const [widgetObservationHub] = useState(createWidgetObservationHub);
 
@@ -572,6 +601,8 @@ const NexusProvider = ({
             clientId: stableConfig.clientId,
             network: stableConfig.network,
             debug: stableConfig.debug,
+            surfaceName: stableConfig.surfaceName ?? "nexus-widgets",
+            surfaceVersion: stableConfig.surfaceVersion ?? "2.3.2",
           });
           attachSdkCompat(client, supportedChainsAndTokens);
           return client;
