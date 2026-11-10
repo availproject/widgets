@@ -33,6 +33,9 @@ const INSUFFICIENT_BALANCE_PATTERN =
   /insufficient balance|sources are not enough|source.+not enough/i;
 const INSUFFICIENT_GAS_PATTERN =
   /gas required exceeds allowance|insufficient funds for gas/i;
+const NO_PROVIDER_QUOTE_PATTERN = /no provider could quote/i;
+const QUOTE_UNAVAILABLE_INPUT_MESSAGE =
+  "Quote unavailable. Please modify the input asset(s) and try again";
 
 const quoteFailureMessages: Record<string, string> = {
   INPUT_BELOW_DEPOSIT_FEE:
@@ -414,10 +417,20 @@ export const classifyIntentError = (error: unknown): ClassifiedIntentError => {
     };
   }
 
-  return (
+  const classified =
     classifyQuoteFailure(error) ??
-    classifyNonQuoteError(value, String(value.code ?? ""), message)
-  );
+    classifyNonQuoteError(value, String(value.code ?? ""), message);
+
+  // Providers could not quote the selected input assets: ask to change them.
+  if (NO_PROVIDER_QUOTE_PATTERN.test(message)) {
+    return {
+      ...classified,
+      bucket: "quote_provider",
+      message: QUOTE_UNAVAILABLE_INPUT_MESSAGE,
+    };
+  }
+
+  return classified;
 };
 
 export const formatClassifiedIntentError = (

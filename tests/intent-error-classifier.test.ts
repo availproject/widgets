@@ -216,3 +216,16 @@ test("conveysFundsAreSafeOrRefunded correctly identifies when refund/safety reas
     true
   );
 });
+
+test("classifyIntentError rewrites the no-provider quote message", () => {
+  const classified = classifyIntentError(
+    new Error(
+      "No provider could quote this intent, please try removing or adding assets"
+    )
+  );
+  assert.equal(classified.bucket, "quote_provider");
+  assert.equal(
+    classified.message,
+    "Quote unavailable. Please modify the input asset(s) and try again"
+  );
+});
