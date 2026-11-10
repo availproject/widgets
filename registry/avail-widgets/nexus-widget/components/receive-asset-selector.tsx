@@ -43,6 +43,8 @@ interface ReceiveAssetSelectorProps {
     token: string;
   }[];
   additionalTokens?: SwapTokenOption[];
+  /** Balances worth less than this USD value are not shown. Pass 0 for no limit. */
+  minFiatBalance?: number;
   onBack: () => void;
   onSelect: (token: SwapTokenOption) => void;
 }
@@ -413,6 +415,7 @@ export function ReceiveAssetSelector({
   allowedChainIds,
   allowedPairs,
   additionalTokens,
+  minFiatBalance = 1,
   onSelect,
   onBack,
 }: ReceiveAssetSelectorProps) {
@@ -520,7 +523,7 @@ export function ReceiveAssetSelector({
         const key = getTokenBalanceKey(bd.chain?.id, bd.contractAddress);
         if (!key) continue;
         const fiatBalance = parseFiatValue(bd.balanceInFiat);
-        if (fiatBalance < 1) continue;
+        if (fiatBalance <= 0 || fiatBalance < minFiatBalance) continue;
 
         const symbol = bd.symbol ?? asset.symbol;
         const decimals = bd.decimals ?? asset.decimals ?? 18;
@@ -540,7 +543,7 @@ export function ReceiveAssetSelector({
       }
     }
     return map;
-  }, [swapBalance, swapSupportedChainsAndTokens]);
+  }, [minFiatBalance, swapBalance, swapSupportedChainsAndTokens]);
 
   const tokensWithBalances = useMemo(() => {
     const tokensByKey = new Map<string, SwapTokenOption>();

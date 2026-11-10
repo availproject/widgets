@@ -74,6 +74,8 @@ interface SwapAssetSelectorProps {
   initialFilterTab?: FilterTab;
   isMulti?: boolean;
   lockedTokens?: SwapTokenOption[];
+  /** Tokens worth less than this USD value are treated as below minimum. Pass 0 for no limit. */
+  minFiatThreshold?: number;
   onBack: () => void;
   onClearSelection?: () => void;
   onDone?: (tokens?: SwapTokenOption[]) => void;
@@ -661,7 +663,7 @@ function isNativeToken(t: SwapTokenOption) {
   return false;
 }
 
-const MIN_FIAT_THRESHOLD = 1;
+export const DEFAULT_MIN_FIAT_THRESHOLD = 1;
 const CHAIN_SELECTOR_CLOSE_MS = 220;
 const MODAL_HEIGHT_TRANSITION_MS = 260;
 const modalHeightTransitionStyle = {
@@ -1094,6 +1096,7 @@ export function SwapAssetSelector({
   lockedTokens = [],
   onSelectionChange,
   requiredUsd,
+  minFiatThreshold = DEFAULT_MIN_FIAT_THRESHOLD,
 }: SwapAssetSelectorProps) {
   const sdkSwapSupportedChainIds = useMemo(
     () => getSdkSwapSupportedChainIds(swapSupportedChains),
@@ -1253,7 +1256,7 @@ export function SwapAssetSelector({
 
       return mergeTokenOptions(
         result.filter(
-          (token) => getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD,
+          (token) => getTokenFiatValue(token) >= minFiatThreshold,
         ),
         lockedSelectedTokens,
       );
@@ -1320,7 +1323,7 @@ export function SwapAssetSelector({
       const fiat = getTokenFiatValue(t);
       if (
         showBelowMinimumInline ||
-        fiat >= MIN_FIAT_THRESHOLD ||
+        fiat >= minFiatThreshold ||
         isTokenSelectedForVisibility(t) ||
         isPrioritySearchMatch(t, query)
       )
@@ -1338,7 +1341,7 @@ export function SwapAssetSelector({
       if (
         !showBelowMinimumInline &&
         unifiedSym &&
-        getTokenFiatValue(token) < MIN_FIAT_THRESHOLD &&
+        getTokenFiatValue(token) < minFiatThreshold &&
         !isTokenSelectedForVisibility(token)
       ) {
         continue;
@@ -1392,7 +1395,7 @@ export function SwapAssetSelector({
         }
         if (group.isUnifiedCandidate) {
           return (
-            group.totalFiat >= MIN_FIAT_THRESHOLD ||
+            group.totalFiat >= minFiatThreshold ||
             hasSelectedToken ||
             hasSelectedUnified ||
             hasPrioritySearchMatch
@@ -1400,7 +1403,7 @@ export function SwapAssetSelector({
         }
         return group.tokens.some(
           (token) =>
-            getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
+            getTokenFiatValue(token) >= minFiatThreshold ||
             isTokenSelectedForVisibility(token) ||
             isPrioritySearchMatch(token, query),
         );
@@ -1580,7 +1583,7 @@ export function SwapAssetSelector({
         : 0;
     const isVisibleTokenRow = (token: SwapTokenOption) =>
       showBelowMinimumInline ||
-      getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
+      getTokenFiatValue(token) >= minFiatThreshold ||
       isTokenSelectedForVisibility(token) ||
       isPrioritySearchMatch(token, query);
 
@@ -1611,7 +1614,7 @@ export function SwapAssetSelector({
       const shouldHideUnifiedRow =
         anyIndividualSelectedInOther ||
         anyIndividualSelectedInCurrent ||
-        (group.totalFiat < MIN_FIAT_THRESHOLD &&
+        (group.totalFiat < minFiatThreshold &&
           !isUnifiedSelectedForVisibility(group.symbol));
       const shouldHideIndividualRows =
         unifiedSelectedInOther || unifiedSelectedInCurrent;
@@ -1762,7 +1765,7 @@ export function SwapAssetSelector({
     const selectableTargets = allTargetsSelected
       ? unlockedTargets
       : unlockedTargets.filter(
-          (target) => getTokenFiatValue(target) >= MIN_FIAT_THRESHOLD,
+          (target) => getTokenFiatValue(target) >= minFiatThreshold,
         );
     if (!allTargetsSelected && selectableTargets.length === 0) return;
 
@@ -1783,7 +1786,7 @@ export function SwapAssetSelector({
 
     const selectedInCurrent = isTokenSelectedInCurrentSlot(token);
     const locked = isLockedToken(token);
-    const isBelowMin = getTokenFiatValue(token) < MIN_FIAT_THRESHOLD;
+    const isBelowMin = getTokenFiatValue(token) < minFiatThreshold;
     const disabled =
       isDisabledByUnified || locked || (!selectedInCurrent && isBelowMin);
     return (
@@ -1913,7 +1916,7 @@ export function SwapAssetSelector({
       return group.tokens
         .filter(
           (token) =>
-            getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
+            getTokenFiatValue(token) >= minFiatThreshold ||
             isTokenSelectedForVisibility(token) ||
             isPrioritySearchMatch(token, query),
         )
@@ -1926,12 +1929,12 @@ export function SwapAssetSelector({
 
     const individualTokens = group.tokens.filter(
       (token) =>
-        getTokenFiatValue(token) >= MIN_FIAT_THRESHOLD ||
+        getTokenFiatValue(token) >= minFiatThreshold ||
         isTokenSelectedForVisibility(token) ||
         isPrioritySearchMatch(token, query),
     );
     const hasVisibleUnifiedRow =
-      (group.totalFiat >= MIN_FIAT_THRESHOLD ||
+      (group.totalFiat >= minFiatThreshold ||
         isUnifiedSelectedForVisibility(group.symbol)) &&
       !unifiedSelectedInOther;
     const visibleTokensCount = individualTokens.filter(
@@ -1957,7 +1960,7 @@ export function SwapAssetSelector({
       !isMulti &&
       (anyIndividualSelectedInOther ||
         anyIndividualSelectedInCurrent ||
-        (group.totalFiat < MIN_FIAT_THRESHOLD &&
+        (group.totalFiat < minFiatThreshold &&
           !isUnifiedSelectedForVisibility(group.symbol)));
     const shouldHideIndividualRows =
       !isMulti && (unifiedSelectedInOther || unifiedSelectedInCurrent);
@@ -1979,7 +1982,7 @@ export function SwapAssetSelector({
     const isGroupSelected = isMulti
       ? areAllChildrenSelected || isPartiallySelected
       : unifiedSelectedInCurrent;
-    const isGroupBelowMin = group.totalFiat < MIN_FIAT_THRESHOLD;
+    const isGroupBelowMin = group.totalFiat < minFiatThreshold;
     const isGroupSelectDisabled = !isGroupSelected && isGroupBelowMin;
 
     return (

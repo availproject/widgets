@@ -12712,6 +12712,53 @@ function NexusWidgetInner({
       </style>
       <style>{nexusWidgetInteractionStyles}</style>
       <style>{NEXUS_DEPOSIT_MOTION_CSS}</style>
+      {/* Exact-input deposit result screens hide the header (and its close
+          button), so modal mode (embed=false) needs its own way to dismiss. */}
+      {showCloseButton &&
+        isExactInDeposit &&
+        (swapStep === "success" || swapStep === "failed") && (
+          <button
+            aria-label="Close"
+            onClick={handleClose}
+            style={{
+              alignItems: "center",
+              backgroundColor: theme.primitives.iconButton.backgroundColor,
+              borderColor: theme.primitives.iconButton.borderColor,
+              borderRadius: theme.radius.iconButton,
+              borderStyle: "solid",
+              borderWidth: "1px",
+              boxShadow: theme.primitives.iconButton.boxShadow,
+              boxSizing: "border-box",
+              cursor: "pointer",
+              display: "flex",
+              height: "28px",
+              justifyContent: "center",
+              padding: 0,
+              position: "absolute",
+              right: "16px",
+              top: "16px",
+              width: "28px",
+              zIndex: 20,
+            }}
+            type="button"
+          >
+            <svg
+              fill="none"
+              height="14"
+              style={{ width: "14px", height: "14px", flexShrink: 0 }}
+              viewBox="0 0 16 16"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M4 4L12 12M12 4L4 12"
+                stroke={theme.colors.textStrong}
+                strokeLinecap="round"
+                strokeWidth="1.4"
+              />
+            </svg>
+          </button>
+        )}
       <div
         ref={rootContentRef}
         style={{
@@ -14435,6 +14482,7 @@ function NexusWidgetInner({
                   }
                   isMulti={isExactOutSourceFlow}
                   lockedTokens={lockedDestinationSourceTokens}
+                  minFiatThreshold={activeMode === "swap" ? 0 : undefined}
                   onBack={handleSourcePickerCancel}
                   onDone={
                     isExactOutSourceFlow
@@ -14733,6 +14781,7 @@ function NexusWidgetInner({
                 additionalTokens={configuredDestinationTokenOptions}
                 allowedChainIds={config.allowedDestinationChains}
                 allowedPairs={config.allowedDestinationPairs}
+                minFiatBalance={activeMode === "swap" ? 0 : undefined}
                 onBack={closeDrawerToIdle}
                 onSelect={(token) => {
                   const tokenChanged = !isSameTokenSelection(toToken, token);
