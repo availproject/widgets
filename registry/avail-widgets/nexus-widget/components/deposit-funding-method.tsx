@@ -584,7 +584,7 @@ export function DepositFundingMethod({
               Select a funding method
             </div>
           </div>
-          {onClose && onBack ? (
+          {onClose ? (
             <button
               aria-label="Close"
               onClick={onClose}
