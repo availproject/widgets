@@ -25,7 +25,7 @@ export function DepositAnimatedAmount({ value, entranceDelay }: { value: string;
       {frame.value.slice(0, numberStart)}
       <span className="nx-digit-group">
         {[...number].map((char, index) => {
-          if (!/\d/.test(char)) return <span key={`punct-${index}`}>{char}</span>;
+          if (!/\d/.test(char)) return <span className="nx-digit-window" key={`punct-${index}`}><span className="nx-digit-current">{char}</span></span>;
           const afterDecimal = index > whole.length;
           const place = afterDecimal ? index - whole.length - 1 : whole.slice(index).replaceAll(",", "").length - 1;
           const old = afterDecimal ? oldFraction[place] : oldWhole[oldWhole.length - place - 1];
