@@ -515,7 +515,7 @@ export function DepositAssetSelector({
                       flexShrink: 0,
                       borderRadius: 999,
                       background: "var(--nx-blue,#006BF4)",
-                      color: "#fff",
+                      color: "var(--nx-on-blue, #fff)",
                     }}
                   >
                     <Check size={12} />

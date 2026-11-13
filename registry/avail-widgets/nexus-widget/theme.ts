@@ -122,7 +122,7 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
   --nx-sh-shell:#FFFFFFB3 0 1px 0 inset, #1616150A 0 12px 40px;
   --nx-sh-edge:0 0 0 1px #1616150D, #1616151A 0 0 3px, #16161512 0 6px 20px;
   --nx-sh-card:#16161508 0 1px 2px, #1616150A 0 6px 18px;
-  --nx-sh-cta:#FFFFFF40 0 1px 0 inset, #006BF41A 0 3px 8px;
+  --nx-sh-cta:#FFFFFF40 0 1px 0 inset, color-mix(in srgb, var(--nx-blue) 10%, transparent) 0 3px 8px;
 }
 [data-nexus-widget-theme="dark"] {
   --nx-ink:#EDEDEC; --nx-ink-2:#CFCFCD; --nx-mute:#9C9C9A; --nx-mute-2:#878785; --nx-faint:#6E6E6C; --nx-ghost:#4A4A48;
@@ -133,7 +133,11 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
   --nx-sh-shell:#FFFFFF14 0 1px 0 inset, #FFFFFF0A 0 0 0 1px inset;
   --nx-sh-edge:0 0 0 1px #FFFFFF1C;
   --nx-sh-card:#00000040 0 1px 2px, #00000033 0 6px 18px;
-  --nx-sh-cta:#FFFFFF26 0 1px 0 inset, #2F86FF14 0 4px 10px;
+  --nx-sh-cta:#FFFFFF26 0 1px 0 inset, color-mix(in srgb, var(--nx-blue) 8%, transparent) 0 4px 10px;
+}
+[data-nexus-widget-root][data-nexus-widget-custom-primary] {
+  --nx-blue:var(--nexus-widget-primary); --nx-on-blue:var(--nexus-widget-primary-foreground, #fff);
+  --nx-blue-soft:color-mix(in srgb, var(--nexus-widget-primary) 12%, var(--nx-card));
 }
 @keyframes nx-scr-in { from { opacity:0; transform:translateX(16px) } to { opacity:1; transform:none } }
 @keyframes nx-scr-in-back { from { opacity:0; transform:translateX(-16px) } to { opacity:1; transform:none } }
@@ -215,7 +219,7 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-fees > div { display:flex; align-items:center; gap:6px; }
 .nx-fees b { font-weight:500; color:var(--nx-ink); }
 .nx-auto { background:var(--nx-blue-soft); color:var(--nx-blue); border-radius:999px; padding:3px 9px; font:500 12px/16px "Geist",system-ui,sans-serif; }
-.nx-deposit-cta { height:56px; border-radius:999px; background:var(--nx-blue); box-shadow:var(--nx-sh-cta); color:#fff; font:500 16px/20px "Geist",system-ui,sans-serif; }
+.nx-deposit-cta { height:56px; border-radius:999px; background:var(--nx-blue); box-shadow:var(--nx-sh-cta); color:var(--nx-on-blue, #fff); font:500 16px/20px "Geist",system-ui,sans-serif; }
 .nx-deposit-cta:active:not(:disabled) { transform:scale(.97); }
 .nx-deposit-cta:disabled { background:var(--nx-cta-off); color:var(--nx-mute-2); box-shadow:none; }
 @keyframes nx-value-in { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
