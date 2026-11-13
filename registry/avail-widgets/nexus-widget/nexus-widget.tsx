@@ -3648,7 +3648,7 @@ export function SwapReceiptPanel({
             borderRadius: "999px",
             boxShadow: "var(--nx-sh-cta)",
             boxSizing: "border-box",
-            color: "#FFFFFF",
+            color: "var(--nx-on-blue, #FFFFFF)",
             cursor: "pointer",
             display: "flex",
             fontFamily: uiFont,
@@ -12636,6 +12636,7 @@ function NexusWidgetInner({
     <div
       className={className}
       data-nexus-widget-root
+      data-nexus-widget-custom-primary={primaryColor ? "" : undefined}
       data-nexus-widget-theme={themeStyle.colorScheme}
       style={{
         ...themeStyle,

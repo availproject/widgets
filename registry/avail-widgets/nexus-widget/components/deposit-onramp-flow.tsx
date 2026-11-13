@@ -6621,7 +6621,7 @@ export function DepositOnrampFlow({
           border: "none",
           borderRadius: "999px",
           boxShadow: ctaDisabled ? "none" : "var(--nx-sh-cta)",
-          color: ctaDisabled ? "var(--nx-mute-2, #8C8C8B)" : "#FFFFFF",
+          color: ctaDisabled ? "var(--nx-mute-2, #8C8C8B)" : "var(--nx-on-blue, #FFFFFF)",
           cursor: ctaDisabled ? "default" : "pointer",
           display: "flex",
           fontFamily: theme.fonts.sans,
