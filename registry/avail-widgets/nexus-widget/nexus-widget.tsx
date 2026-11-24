@@ -75,7 +75,7 @@ import {
 } from "./components/deposit-motion";
 import {
   DepositIdleForm,
-  DepositCalculatedAmount,
+  DepositReceiveHero,
 } from "./components/deposit-idle-form";
 import { DepositExactOutIdleForm } from "./components/deposit-exact-out-idle-form";
 import { DepositOnrampFlow } from "./components/deposit-onramp-flow";
@@ -152,7 +152,10 @@ import { buildExactInputDeposit } from "./utils/deposit-execution";
 import {
   type DepositSourceFilter,
   getDepositSourceId,
+  isDepositHiddenSourceChain,
   resolveDepositSourceSelection,
+  withoutDepositHiddenChainOptions,
+  withoutDepositHiddenSourceChains,
 } from "./utils/deposit-source-selection";
 
 // ---------------------------------------------------------------------------
@@ -184,6 +187,12 @@ type SwapHistoryStatus =
 interface SwapHistoryEntry {
   autoRefundAvailable?: boolean;
   createdAt: number;
+  /**
+   * Deposit only: destination-token amount taken from the wallet's pre-swap
+   * balance (not swap proceeds). "0" means none was used. Undefined on
+   * entries recorded before this was tracked.
+   */
+  destinationBalanceUsedAmount?: string;
   durationSeconds?: number;
   endedAt?: number;
   error?: string;
@@ -1407,6 +1416,41 @@ const rawUnitsToDecimalString = (
     .div(new Decimal(10).pow(Number.isFinite(decimals) ? decimals : 18))
     .toFixed();
 
+const toRawBigInt = (value: unknown): bigint | undefined => {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isInteger(value)) return BigInt(value);
+  if (typeof value === "string" && /^\d+$/.test(value)) return BigInt(value);
+  return undefined;
+};
+
+/** Pre-swap destination balance a deposit uses, as a decimal string. */
+const formatDestinationBalanceUsed = (raw: bigint, decimals: number) =>
+  raw > BigInt(0) ? rawUnitsToDecimalString(raw, decimals) : "0";
+
+/**
+ * Exact-output deposit quote: the SDK funds `executeRequirement` from the
+ * wallet's existing destination balance (`available`) and swaps only the
+ * `shortfall`, so the pre-swap balance used is requirement minus shortfall.
+ */
+const readExactOutDestinationBalanceUsed = (
+  intent: any,
+  decimals: number,
+): string | undefined => {
+  const required = toRawBigInt(intent?.executeRequirement?.token?.amountRaw);
+  if (required === undefined) return undefined;
+  const available = toRawBigInt(intent?.available?.token?.amountRaw);
+  if (intent?.swapRequired === false) {
+    const used =
+      available !== undefined && available < required ? available : required;
+    return formatDestinationBalanceUsed(used, decimals);
+  }
+  const shortfall = toRawBigInt(intent?.shortfall?.token?.amountRaw);
+  if (shortfall === undefined) return undefined;
+  let used = required > shortfall ? required - shortfall : BigInt(0);
+  if (available !== undefined && available < used) used = available;
+  return formatDestinationBalanceUsed(used, decimals);
+};
+
 const readIntentOutput = (value: any) =>
   value?.output ?? value?.intent?.output ?? value?.quote?.output;
 
@@ -2154,8 +2198,22 @@ const getDisplayDestinationSourceRow = (
   let displayAmount: Decimal | null = null;
   let displayValue: Decimal | null = null;
 
+  // 0. The SDK-reported pre-swap balance used is authoritative: show the row
+  // only when some of the wallet's existing destination token was deposited.
+  const recordedUsed =
+    entry.destinationBalanceUsedAmount !== undefined
+      ? (parseDecimalLoose(entry.destinationBalanceUsedAmount) ??
+        new Decimal(0))
+      : undefined;
+  if (recordedUsed) {
+    if (recordedUsed.lte(0)) return null;
+    displayAmount = recordedUsed;
+    displayValue = rate ? recordedUsed.mul(rate) : null;
+  }
+
+  // Fallbacks for entries recorded before the SDK amount was tracked.
   // 1. If destinationFromToken has a positive userAmount
-  if (destinationFromToken) {
+  if (!recordedUsed && destinationFromToken) {
     const userAmount = parseDecimalLoose(destinationFromToken.userAmount);
     if (userAmount && userAmount.gt(0)) {
       if (destinationFromToken.userAmountMode === "usd") {
@@ -3283,9 +3341,11 @@ export function SwapReceiptPanel({
     const soft = success
       ? "var(--nx-green-soft, #EEF9F2)"
       : "var(--nx-red-band, #FEF6F6)";
-    const durationLabel =
-      typeof entry.durationSeconds === "number" && entry.durationSeconds > 0
-        ? `Completed in ${entry.durationSeconds}s`
+    const durationSeconds =
+      success &&
+      typeof entry.durationSeconds === "number" &&
+      entry.durationSeconds > 0
+        ? entry.durationSeconds
         : undefined;
     const explorerHost = (() => {
       if (!entry.finalExplorerUrl) return "";
@@ -3350,7 +3410,7 @@ export function SwapReceiptPanel({
           width: "100%",
         }}
       >
-        <div className="nx-card" style={{ padding: "8px 8px 16px" }}>
+        <div className="nx-card">
           <div
             style={{
               font: `500 20px/26px ${'"Delight","Geist",system-ui,sans-serif'}`,
@@ -3439,106 +3499,34 @@ export function SwapReceiptPanel({
               </div>
             </div>
           </div>
-          <div
-            style={{
-              alignItems: "center",
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              padding: "12px 12px 4px",
-            }}
+          <DepositReceiveHero
+            amount={displayAmount && displayAmount !== "0" ? displayAmount : "0"}
+            chainLogo={
+              entry.toToken?.chainLogo ||
+              CHAIN_METADATA[destination?.chain.id ?? entry.toToken?.chainId ?? 0]
+                ?.logo
+            }
+            chainName={chainName}
+            entranceDelay={success ? 350 : undefined}
+            label={
+              success ? `${depositVenue || "Deposit"} received` : failureHeadline
+            }
+            suffix={durationSeconds ? `${durationSeconds}s` : undefined}
+            tokenLogo={destinationLogo}
+            tokenSymbol={tokenSymbol}
+            usd={`≈ ${formatUsdDisplay(value)}`}
           >
-            <div
-              style={{
-                color: "var(--nx-mute-2, #8C8C8B)",
-                font: `400 14px/18px ${uiFont}`,
-              }}
-            >
-              {success
-                ? `${depositVenue || "Deposit"} Received`
-                : failureHeadline}
-            </div>
             {failureDescription || timeoutDescription ? (
-              <div
-                style={{
-                  color: "var(--nx-mute-2, #8C8C8B)",
-                  font: `400 13px/18px ${uiFont}`,
-                  maxWidth: 280,
-                  textAlign: "center",
-                }}
-              >
+              <div className="nx-hero-note">
                 {failureDescription || timeoutDescription}
               </div>
             ) : null}
             {showRefundReassurance ? (
-              <div
-                style={{
-                  color: "var(--nx-mute-2, #8C8C8B)",
-                  font: `400 13px/18px ${uiFont}`,
-                  maxWidth: 280,
-                  textAlign: "center",
-                }}
-              >
+              <div className="nx-hero-note">
                 Any tokens collected will be refunded to your wallet
               </div>
             ) : null}
-            <div style={{ alignItems: "baseline", display: "flex", gap: 8 }}>
-              <span
-                style={{
-                  font: `300 48px/56px ${uiFont}`,
-                  letterSpacing: "-0.03em",
-                }}
-              >
-                <DepositCalculatedAmount
-                  value={
-                    displayAmount && displayAmount !== "0"
-                      ? displayAmount.startsWith("~")
-                        ? displayAmount
-                        : `~${displayAmount}`
-                      : "~0"
-                  }
-                  entranceDelay={success ? 350 : undefined}
-                />
-              </span>
-              <span
-                style={{
-                  color: "var(--nx-mute, #737372)",
-                  font: `500 18px/22px ${uiFont}`,
-                }}
-              >
-                {tokenSymbol}
-              </span>
-            </div>
-            <div
-              style={{
-                color: "var(--nx-mute-2, #8C8C8B)",
-                font: `400 14px/18px ${uiFont}`,
-              }}
-            >
-              ≈ {formatUsdDisplay(value)}
-            </div>
-            <div
-              style={{
-                alignItems: "center",
-                color: "var(--nx-faint, #A3A3A2)",
-                display: "flex",
-                font: `400 12px/16px ${uiFont}`,
-                gap: 4,
-                marginTop: 4,
-              }}
-            >
-              on
-              {entry.toToken?.chainLogo ? (
-                <img
-                  alt=""
-                  src={entry.toToken.chainLogo}
-                  style={{ borderRadius: 999, height: 12, width: 12 }}
-                />
-              ) : null}
-              {chainName}
-              {durationLabel ? ` · ${durationLabel}` : ""}
-            </div>
-          </div>
+          </DepositReceiveHero>
         </div>
         <div
           className="nx-card nx-receipt-details"
@@ -4576,7 +4564,7 @@ function NexusWidgetInner({
   const {
     nexusSDK,
     bridgableBalance,
-    swapBalance,
+    swapBalance: providerSwapBalance,
     swapBalanceLoading,
     getFiatValue,
     resolveTokenUsdRate,
@@ -4591,6 +4579,35 @@ function NexusWidgetInner({
     observability,
     widgetObservationHub,
   } = useNexus();
+  const isDepositWidget = rawConfig.mode === "deposit";
+  // Deposit never funds from hidden chains (Citrea): drop their balances,
+  // tokens and chain chips before any deposit list or total reads them.
+  const swapBalance = useMemo(
+    () =>
+      isDepositWidget
+        ? withoutDepositHiddenSourceChains(providerSwapBalance)
+        : providerSwapBalance,
+    [isDepositWidget, providerSwapBalance],
+  );
+  // Without an allowlist the SDK funds exact-out deposits from any balance,
+  // so name the visible sources whenever the wallet holds hidden-chain funds.
+  const hasDepositHiddenSourceBalance = useMemo(
+    () =>
+      isDepositWidget &&
+      (providerSwapBalance ?? []).some((asset) =>
+        asset.breakdown?.some((source) =>
+          isDepositHiddenSourceChain(source.chain?.id),
+        ),
+      ),
+    [isDepositWidget, providerSwapBalance],
+  );
+  const sourcePickerSupportedChains = useMemo(
+    () =>
+      isDepositWidget
+        ? withoutDepositHiddenChainOptions(swapSupportedChainsAndTokens)
+        : swapSupportedChainsAndTokens,
+    [isDepositWidget, swapSupportedChainsAndTokens],
+  );
   const appConfig = useMemo(
     () => ({
       nexusNetwork: network ?? "mainnet",
@@ -5107,6 +5124,10 @@ function NexusWidgetInner({
   const activeQuoteInputKeyRef = useRef("");
 
   // Ref to store swap intent hook allow/deny callbacks
+  // Exact-output deposit: pre-swap destination balance the accepted quote uses.
+  const exactOutDestinationBalanceUsedRef = useRef<string | undefined>(
+    undefined,
+  );
   const swapIntentRef = useRef<{
     intent?: SwapIntentData;
     allow: () => void;
@@ -5641,6 +5662,7 @@ function NexusWidgetInner({
     swapRunIdRef.current += 1;
     swapIntentRef.current?.deny();
     swapIntentRef.current = null;
+    exactOutDestinationBalanceUsedRef.current = undefined;
     setIntentLoading(false);
     if (!options.keepError) {
       setTxError(null);
@@ -6948,6 +6970,7 @@ function NexusWidgetInner({
   const shouldSendExactOutSourceAllowlist = () => {
     if (activeMode === "deposit" || activeMode === "send") {
       return (
+        hasDepositHiddenSourceBalance ||
         sourceSelectionTouched ||
         depositSourceFilter !== "all" ||
         exactOutQuoteSourceModeRef.current === "selected"
@@ -7484,7 +7507,10 @@ function NexusWidgetInner({
 
   const refreshSelectedSourceBalances = useCallback(async () => {
     const refreshedBalance = await fetchSwapBalance();
-    const balances = refreshedBalance ?? swapBalance;
+    const balances =
+      (isDepositWidget
+        ? withoutDepositHiddenSourceChains(refreshedBalance)
+        : refreshedBalance) ?? swapBalance;
     if (!balances) return;
 
     setFromTokens((current) =>
@@ -7493,7 +7519,12 @@ function NexusWidgetInner({
         : patchSourceTokensWithBalances(current, balances),
     );
     setSourceSelectionRevision((current) => current + 1);
-  }, [fetchSwapBalance, patchSourceTokensWithBalances, swapBalance]);
+  }, [
+    fetchSwapBalance,
+    isDepositWidget,
+    patchSourceTokensWithBalances,
+    swapBalance,
+  ]);
 
   const receiveMaxSafetyMultiplier = new Decimal("0.9");
   const currentSwapEntry =
@@ -7634,6 +7665,14 @@ function NexusWidgetInner({
       intentData,
       fromTokens,
       toToken: resolvedToToken,
+      ...(activeMode === "deposit" &&
+      depositRoute === "exactOutput" &&
+      exactOutDestinationBalanceUsedRef.current !== undefined
+        ? {
+            destinationBalanceUsedAmount:
+              exactOutDestinationBalanceUsedRef.current,
+          }
+        : {}),
       requestedToAmount:
         activeMode === "deposit" || activeMode === "send"
           ? ((previewDestinationAmount && previewDestinationAmount !== "0" && previewDestinationAmount !== "0.0"
@@ -8084,6 +8123,13 @@ function NexusWidgetInner({
         deny,
         refresh: normalizedRefresh,
       };
+      if (activeMode === "deposit" && depositRoute === "exactOutput") {
+        exactOutDestinationBalanceUsedRef.current =
+          readExactOutDestinationBalanceUsed(
+            data?.intent,
+            Number(data?.intent?.executeRequirement?.token?.decimals ?? 18),
+          );
+      }
       swapIntentRef.current = {
         intent: intentWithBridgeProvider,
         allow,
@@ -9932,6 +9978,7 @@ function NexusWidgetInner({
     telemetry.supersedeQuote(swapIntentRef.current?.runId);
     swapIntentRef.current?.deny();
     swapIntentRef.current = null;
+    exactOutDestinationBalanceUsedRef.current = undefined;
     if (!background) {
       resetProgressEvents();
       swapStepsListRef.current = [];
@@ -10438,11 +10485,40 @@ function NexusWidgetInner({
                     return handleSwapIntentCallback(data, runId, quoteInputKey);
                   },
                 },
-                beforeExecute,
+                // executeAmountRaw includes tokens already on the
+                // destination chain; receivedAmountRaw is only the swap
+                // proceeds. The difference is the pre-swap balance used.
+                beforeExecute: (context) => {
+                  const executeRaw = toRawBigInt(context?.executeAmountRaw);
+                  const receivedRaw = toRawBigInt(context?.receivedAmountRaw);
+                  if (executeRaw !== undefined && receivedRaw !== undefined) {
+                    patchCurrentSwapHistoryEntry({
+                      destinationBalanceUsedAmount: formatDestinationBalanceUsed(
+                        executeRaw > receivedRaw
+                          ? executeRaw - receivedRaw
+                          : BigInt(0),
+                        toToken.decimals || 18,
+                      ),
+                    });
+                  }
+                  return beforeExecute(context);
+                },
               }),
           );
           if ((depositResult as any)?.swapSkipped) {
             appendSkippedSwapProgress();
+            // No swap ran, so the whole deposit came from the existing balance.
+            const executeRaw = toRawBigInt(
+              (depositResult as any)?.executeAmountRaw,
+            );
+            if (executeRaw !== undefined) {
+              patchCurrentSwapHistoryEntry({
+                destinationBalanceUsedAmount: formatDestinationBalanceUsed(
+                  executeRaw,
+                  toToken.decimals || 18,
+                ),
+              });
+            }
           }
           const depositSwapResult = getSdkSwapResult(depositResult);
           intentExplorerUrl = getSdkIntentExplorerUrlForNetwork(
@@ -10668,6 +10744,21 @@ function NexusWidgetInner({
           const swapSkipped = Boolean((result as any)?.swapSkipped);
           if (swapSkipped) {
             appendSkippedSwapProgress();
+          }
+          if (activeMode === "deposit") {
+            // A skipped swap means the deposit came entirely from the
+            // existing balance; otherwise keep what the accepted quote said.
+            const executeRaw = toRawBigInt((result as any)?.executeAmountRaw);
+            const destinationBalanceUsedAmount =
+              swapSkipped && executeRaw !== undefined
+                ? formatDestinationBalanceUsed(
+                    executeRaw,
+                    toToken.decimals || 18,
+                  )
+                : exactOutDestinationBalanceUsedRef.current;
+            if (destinationBalanceUsedAmount !== undefined) {
+              patchCurrentSwapHistoryEntry({ destinationBalanceUsedAmount });
+            }
           }
           if (
             !swapResult &&
@@ -12631,6 +12722,9 @@ function NexusWidgetInner({
 
   const isExactInDeposit =
     activeMode === "deposit" && depositRoute === "exactInput";
+  // Exact-in and exact-out deposits share one shell: padding, radius,
+  // background and shadow.
+  const isDepositShell = activeMode === "deposit";
 
   const widgetContent = (
     <div
@@ -12641,24 +12735,24 @@ function NexusWidgetInner({
       style={{
         ...themeStyle,
         backgroundColor:
-          isExactInDeposit
+          isDepositShell
             ? "var(--nx-shell, #F7F7F7)"
             : "var(--nexus-widget-background, #F9F9F8)",
         backgroundImage:
-          isExactInDeposit
+          isDepositShell
             ? "none"
             : "var(--nexus-widget-background-image, url(https://files.availproject.org/nexus-elements/nexus-one/card-bg.png))",
         backgroundPosition: "center",
         backgroundPositionX: "center",
         backgroundPositionY: "center",
         backgroundSize: "cover",
-        borderRadius: isExactInDeposit ? "30px" : "20px",
+        borderRadius: isDepositShell ? "30px" : "20px",
         border:
-          isExactInDeposit
+          isDepositShell
             ? "none"
             : "1px solid var(--nexus-widget-border, #E8E8E7)",
         boxShadow:
-          isExactInDeposit
+          isDepositShell
             ? "var(--nx-sh-edge), var(--nx-sh-shell)"
             : "var(--nexus-widget-root-shadow, none)",
         boxSizing: "border-box",
@@ -12668,9 +12762,9 @@ function NexusWidgetInner({
         fontSize: "12px",
         fontSynthesis: "none",
         fontVariantNumeric: "tabular-nums",
-        gap: isExactInDeposit ? "8px" : "16px",
+        gap: isDepositShell ? "8px" : "16px",
         height: displayedRootContentHeight
-          ? `${displayedRootContentHeight + (isExactInDeposit ? 16 : 32)}px`
+          ? `${displayedRootContentHeight + (isDepositShell ? 16 : 32)}px`
           : "fit-content",
         maxHeight: "90dvh",
         lineHeight: "17px",
@@ -12680,7 +12774,7 @@ function NexusWidgetInner({
           isDrawerOverlayActive || isPreviewIntentScreen ? "hidden" : "auto",
         overscrollBehavior:
           isDrawerOverlayActive || isPreviewIntentScreen ? "contain" : "auto",
-        padding: isExactInDeposit ? "8px" : "16px",
+        padding: isDepositShell ? "8px" : "16px",
         scrollbarColor: `${theme.colors.textEmpty} transparent`,
         scrollbarWidth: "thin",
         position: "relative",
@@ -12767,7 +12861,7 @@ function NexusWidgetInner({
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
-          gap: isExactInDeposit ? "8px" : "16px",
+          gap: isDepositShell ? "8px" : "16px",
           minHeight: 0,
           width: "100%",
         }}
@@ -12796,7 +12890,12 @@ function NexusWidgetInner({
               display: hideDepositHeader ? "none" : "flex",
               flexShrink: 0,
               justifyContent: "space-between",
-              padding: swapStep === "history" ? "20px" : 0,
+              padding:
+                swapStep === "history"
+                  ? "20px"
+                  : isDepositShell && !isExactInDeposit
+                    ? "8px 12px"
+                    : 0,
               width: "100%",
               position: "relative",
               zIndex: 10,
@@ -14699,7 +14798,7 @@ function NexusWidgetInner({
                     activeMode === "swap" && swapType === "exactIn"
                   }
                   swapBalance={swapBalance}
-                  swapSupportedChains={swapSupportedChainsAndTokens}
+                  swapSupportedChains={sourcePickerSupportedChains}
                   title={
                     isExactOutSourceFlow
                       ? "Choose Assets to Pay with"

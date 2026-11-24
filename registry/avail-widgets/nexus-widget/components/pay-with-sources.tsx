@@ -175,7 +175,17 @@ function SkeletonRow() {
   );
 }
 
+/** Card look shared with the exact-in deposit screens (`.nx-card`). */
+export const DEPOSIT_CARD_STYLE: React.CSSProperties = {
+  backgroundColor: "var(--nx-card, #FFFFFF)",
+  border: "none",
+  borderRadius: "24px",
+  boxShadow: "var(--nx-sh-card, #16161508 0 1px 2px, #1616150A 0 6px 18px)",
+};
+export const DEPOSIT_CARD_PADDING = "20px";
+
 export function PayWithSources({
+  variant = "default",
   fromTokens,
   onOpenSourcePicker,
   routeStatus,
@@ -193,6 +203,7 @@ export function PayWithSources({
   isSourcePickerDisabled?: boolean;
   reserveSourceRows?: boolean;
   isPredictive?: boolean;
+  variant?: "default" | "deposit";
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const isRouteLoading = routeStatus === "loading";
@@ -225,15 +236,20 @@ export function PayWithSources({
   return (
     <div
       style={{
-        backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
-        border: `1px solid ${border}`,
-        borderRadius: "14px",
-        boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
+        ...(variant === "deposit"
+          ? DEPOSIT_CARD_STYLE
+          : {
+              backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
+              border: `1px solid ${border}`,
+              borderRadius: "14px",
+              boxShadow:
+                "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
+            }),
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
         gap: "14px",
-        padding: "16px",
+        padding: variant === "deposit" ? DEPOSIT_CARD_PADDING : "16px",
         position: "relative",
         overflow: "hidden",
       }}

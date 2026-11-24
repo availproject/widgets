@@ -903,7 +903,7 @@ test("deposit receipt and progress screen include destination-chain source token
     // Progress screen must show "You Spend $3.89"
     assert.ok(progressJson.includes("$3.89"), "Progress screen should include $3.89 spend");
     assert.ok(
-      progressJson.includes('"Aave"') && progressJson.includes('" receives"'),
+      progressJson.includes("Aave receives"),
       "Progress screen should show Aave receives"
     );
     assert.ok(
@@ -1170,3 +1170,93 @@ test("NexusWidgetProgressScreen renders info icon and displays sources breakdown
 
 
 
+
+const withReceiptGlobals = async (run: () => Promise<void>) => {
+  const originals = Object.fromEntries(
+    ["document", "window", "IS_REACT_ACT_ENVIRONMENT"].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key),
+    ])
+  );
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    document: { addEventListener() {}, removeEventListener() {} },
+    window: { setTimeout, clearTimeout },
+  });
+  try {
+    await run();
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+};
+
+const OP_USDC = "0x0b2c639c533813f4aa9d7837caf62653d097ff85";
+
+// BNB and HYPE are swapped; the wallet already held USDC on Optimism.
+const buildPreSwapBalanceEntry = (overrides: Record<string, unknown>): any => ({
+  id: "deposit-pre-swap-balance",
+  status: "fulfilled",
+  mode: "deposit",
+  createdAt: Date.now(),
+  startedAt: Date.now() - 1000,
+  durationSeconds: 1,
+  fromTokens: [
+    { chainId: 56, contractAddress: "0x0000000000000000000000000000000000000000", symbol: "BNB", name: "BNB", decimals: 18, balance: "0.01", balanceInFiat: "7", userAmount: "0.5", userAmountMode: "usd", chainName: "BNB" },
+    { chainId: 999, contractAddress: "0x0000000000000000000000000000000000000000", symbol: "HYPE", name: "HYPE", decimals: 18, balance: "0.01", balanceInFiat: "0.5", userAmount: "0.1", userAmountMode: "usd", chainName: "HyperEVM" },
+  ],
+  toToken: { chainId: 10, contractAddress: OP_USDC, symbol: "USDC", name: "USD Coin", decimals: 6, balance: "5", balanceInFiat: "5" },
+  intentData: {
+    swapRequired: true,
+    destination: {
+      chain: { id: 10, name: "Optimism" },
+      token: { contractAddress: OP_USDC, symbol: "USDC", decimals: 6 },
+      amount: "0.51",
+      value: "0.51",
+    },
+    sources: [
+      { chain: { id: 56, name: "BNB" }, token: { contractAddress: "0x0000000000000000000000000000000000000000", symbol: "BNB" }, amount: "0.00071633", value: "0.5" },
+      { chain: { id: 999, name: "HyperEVM" }, token: { contractAddress: "0x0000000000000000000000000000000000000000", symbol: "HYPE" }, amount: "0.00118685", value: "0.1" },
+    ],
+  },
+  requestedToAmount: "0.75",
+  requestedToValue: "0.75",
+  opportunity: { title: "Aave", protocol: "Aave", chainId: 10, tokenSymbol: "USDC" },
+  ...overrides,
+});
+
+const renderReceiptJson = async (entry: any) => {
+  let renderer: ReactTestRenderer | undefined;
+  await act(async () => {
+    renderer = create(<SwapReceiptPanel entry={entry} onDone={() => {}} />);
+  });
+  return JSON.stringify(renderer!.toJSON());
+};
+
+test("deposit receipt lists the pre-swap destination balance the SDK used", async () => {
+  await withReceiptGlobals(async () => {
+    const json = await renderReceiptJson(
+      buildPreSwapBalanceEntry({ destinationBalanceUsedAmount: "0.24" })
+    );
+    assert.ok(
+      json.includes('"3"') && json.includes('" token"'),
+      "BNB, HYPE and the existing USDC should count as 3 tokens"
+    );
+    assert.ok(json.includes("$0.84"), "Deposited total should include the $0.24 of existing USDC");
+  });
+});
+
+test("deposit receipt omits the destination row when no pre-swap balance was used", async () => {
+  await withReceiptGlobals(async () => {
+    const json = await renderReceiptJson(
+      buildPreSwapBalanceEntry({ destinationBalanceUsedAmount: "0" })
+    );
+    assert.ok(
+      json.includes('"2"') && json.includes('" token"'),
+      "Only the swapped BNB and HYPE should be listed, even though the requested amount exceeds the swap output"
+    );
+    assert.ok(!json.includes("$0.84"), "Deposited total must not include an inferred destination balance");
+  });
+});

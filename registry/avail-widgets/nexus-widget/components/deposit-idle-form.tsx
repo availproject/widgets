@@ -316,6 +316,64 @@ export function DepositCalculatedAmount({ value, entranceDelay }: { value: strin
   return abbreviated ? <Tip label="Exact amount" trigger={content}><TipRow label="Exact amount" value={value} /></Tip> : content;
 }
 
+/**
+ * The "X receives" block shared by the deposit progress and result screens, so
+ * both match the idle form: label, ~amount with ≈ USD beside it, then
+ * "[token] SYMBOL on [chain] Chain".
+ */
+export function DepositReceiveHero({
+  label,
+  amount,
+  usd,
+  tokenSymbol,
+  tokenLogo,
+  chainName,
+  chainLogo,
+  suffix,
+  entranceDelay,
+  children,
+}: {
+  label: React.ReactNode;
+  amount: string;
+  usd: string;
+  tokenSymbol?: string;
+  tokenLogo?: string;
+  chainName?: string;
+  chainLogo?: string;
+  suffix?: string;
+  entranceDelay?: number;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="nx-hero nx-hero-static">
+      <div className="nx-who">{label}</div>
+      <span className="nx-amt-line">
+        <span className="nx-big">
+          <DepositCalculatedAmount entranceDelay={entranceDelay} value={amount} />
+        </span>
+        <span className="nx-usd">{usd}</span>
+      </span>
+      <div className="nx-meta">
+        {tokenSymbol ? (
+          <>
+            <TokenLogo label={tokenSymbol} size={20} src={tokenLogo} />
+            <span className="nx-meta-token">{tokenSymbol}</span>
+          </>
+        ) : null}
+        {chainName ? (
+          <>
+            <span className="nx-meta-on">on</span>
+            <TokenLogo label={chainName} size={20} src={chainLogo} />
+            <span>{chainName}</span>
+          </>
+        ) : null}
+        {suffix ? <span className="nx-meta-on">· {suffix}</span> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function Shimmer({ width, height }: { width: number; height: number }) {
   return (
     <span

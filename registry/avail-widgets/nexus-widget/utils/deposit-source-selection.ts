@@ -1,8 +1,83 @@
 // biome-ignore-all lint: NexusWidget registry component from shadcn registry.
 
+import Decimal from "decimal.js";
 import { type Hex, padHex } from "viem";
 import { CHAIN_METADATA } from "../../common";
 import type { UserAsset } from "../../nexus/NexusProvider";
+
+const CITREA_CHAIN_ID = 4114;
+
+/**
+ * Chains deposit mode never offers as a funding source, in both exact-in and
+ * exact-out. Swap and send are unaffected.
+ */
+export const DEPOSIT_HIDDEN_SOURCE_CHAIN_IDS: ReadonlySet<number> = new Set([
+  CITREA_CHAIN_ID,
+]);
+
+export const isDepositHiddenSourceChain = (chainId?: number | null) =>
+  chainId != null && DEPOSIT_HIDDEN_SOURCE_CHAIN_IDS.has(Number(chainId));
+
+const sumDecimal = <T,>(items: T[], pick: (item: T) => unknown) =>
+  items
+    .reduce((sum, item) => {
+      try {
+        const value = new Decimal(String(pick(item) ?? 0));
+        return value.isFinite() ? sum.plus(value) : sum;
+      } catch {
+        return sum;
+      }
+    }, new Decimal(0))
+    .toFixed();
+
+/** Removes hidden chains from wallet balances and recomputes each asset's totals. */
+export const withoutDepositHiddenSourceChains = (
+  assets: UserAsset[] | null,
+): UserAsset[] | null => {
+  if (!assets) return assets;
+
+  return assets.flatMap((asset) => {
+    const breakdown = asset.breakdown ?? [];
+    const visible = breakdown.filter(
+      (source) => !isDepositHiddenSourceChain(source.chain?.id),
+    );
+    if (visible.length === breakdown.length) return [asset];
+    if (visible.length === 0) return [];
+
+    return [
+      {
+        ...asset,
+        balance: sumDecimal(visible, (source) => source.balance),
+        balanceInFiat: Number(
+          sumDecimal(visible, (source) => source.balanceInFiat),
+        ),
+        breakdown: visible,
+        chainBalances: visible,
+        totalBalance: sumDecimal(
+          visible,
+          (source) => source.totalBalance ?? source.balance,
+        ),
+        totalBalanceInFiat: Number(
+          sumDecimal(
+            visible,
+            (source) => source.totalBalanceInFiat ?? source.balanceInFiat,
+          ),
+        ),
+        usableBalance: sumDecimal(
+          visible,
+          (source) => source.usableBalance ?? source.balance,
+        ),
+        value: sumDecimal(visible, (source) => source.value),
+      },
+    ];
+  });
+};
+
+/** Removes hidden chains from a supported-chain list shown in the source picker. */
+export const withoutDepositHiddenChainOptions = <T extends { id: number }>(
+  chains: T[] | null | undefined,
+): T[] | null | undefined =>
+  chains?.filter((chain) => !isDepositHiddenSourceChain(chain.id));
 
 export type DepositSourceFilter = "all" | "stablecoins" | "native" | "custom";
 

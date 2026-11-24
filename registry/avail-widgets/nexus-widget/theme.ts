@@ -184,6 +184,11 @@ export const NEXUS_DEPOSIT_MOTION_CSS = `
 .nx-arrive { animation: nx-arrive 200ms cubic-bezier(.23,1,.32,1) both; }
 .nx-usd { font:400 18px/22px "Geist",system-ui,sans-serif; color:var(--nx-mute-2); }
 .nx-meta { display:flex; align-items:center; gap:6px; font:400 15px/20px "Geist",system-ui,sans-serif; color:var(--nx-mute); }
+.nx-hero.nx-hero-static { padding:16px 12px 14px; cursor:auto; user-select:auto; }
+.nx-hero.nx-hero-static * { cursor:auto; }
+.nx-hero-static .nx-meta-token { font-weight:500; }
+.nx-hero-static .nx-meta-on { color:var(--nx-mute-2); }
+.nx-hero-note { color:var(--nx-mute-2); font:400 13px/18px "Geist",system-ui,sans-serif; max-width:280px; text-align:center; }
 .nx-warn { display:flex; align-items:center; gap:6px; font:400 13px/16px "Geist",system-ui,sans-serif; color:var(--nx-amber); animation:nx-slide-in 200ms cubic-bezier(.23,1,.32,1) both; }
 .nx-swap-div { height:1px; background:var(--nx-line-2); margin:0 14px; }
 .nx-spend { display:flex; align-items:center; padding:12px; font:400 16px/20px "Geist",system-ui,sans-serif; color:var(--nx-ink); }
