@@ -187,6 +187,12 @@ type SwapHistoryStatus =
 interface SwapHistoryEntry {
   autoRefundAvailable?: boolean;
   createdAt: number;
+  /**
+   * Deposit only: destination-token amount taken from the wallet's pre-swap
+   * balance (not swap proceeds). "0" means none was used. Undefined on
+   * entries recorded before this was tracked.
+   */
+  destinationBalanceUsedAmount?: string;
   durationSeconds?: number;
   endedAt?: number;
   error?: string;
@@ -1410,6 +1416,41 @@ const rawUnitsToDecimalString = (
     .div(new Decimal(10).pow(Number.isFinite(decimals) ? decimals : 18))
     .toFixed();
 
+const toRawBigInt = (value: unknown): bigint | undefined => {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isInteger(value)) return BigInt(value);
+  if (typeof value === "string" && /^\d+$/.test(value)) return BigInt(value);
+  return undefined;
+};
+
+/** Pre-swap destination balance a deposit uses, as a decimal string. */
+const formatDestinationBalanceUsed = (raw: bigint, decimals: number) =>
+  raw > BigInt(0) ? rawUnitsToDecimalString(raw, decimals) : "0";
+
+/**
+ * Exact-output deposit quote: the SDK funds `executeRequirement` from the
+ * wallet's existing destination balance (`available`) and swaps only the
+ * `shortfall`, so the pre-swap balance used is requirement minus shortfall.
+ */
+const readExactOutDestinationBalanceUsed = (
+  intent: any,
+  decimals: number,
+): string | undefined => {
+  const required = toRawBigInt(intent?.executeRequirement?.token?.amountRaw);
+  if (required === undefined) return undefined;
+  const available = toRawBigInt(intent?.available?.token?.amountRaw);
+  if (intent?.swapRequired === false) {
+    const used =
+      available !== undefined && available < required ? available : required;
+    return formatDestinationBalanceUsed(used, decimals);
+  }
+  const shortfall = toRawBigInt(intent?.shortfall?.token?.amountRaw);
+  if (shortfall === undefined) return undefined;
+  let used = required > shortfall ? required - shortfall : BigInt(0);
+  if (available !== undefined && available < used) used = available;
+  return formatDestinationBalanceUsed(used, decimals);
+};
+
 const readIntentOutput = (value: any) =>
   value?.output ?? value?.intent?.output ?? value?.quote?.output;
 
@@ -2157,8 +2198,22 @@ const getDisplayDestinationSourceRow = (
   let displayAmount: Decimal | null = null;
   let displayValue: Decimal | null = null;
 
+  // 0. The SDK-reported pre-swap balance used is authoritative: show the row
+  // only when some of the wallet's existing destination token was deposited.
+  const recordedUsed =
+    entry.destinationBalanceUsedAmount !== undefined
+      ? (parseDecimalLoose(entry.destinationBalanceUsedAmount) ??
+        new Decimal(0))
+      : undefined;
+  if (recordedUsed) {
+    if (recordedUsed.lte(0)) return null;
+    displayAmount = recordedUsed;
+    displayValue = rate ? recordedUsed.mul(rate) : null;
+  }
+
+  // Fallbacks for entries recorded before the SDK amount was tracked.
   // 1. If destinationFromToken has a positive userAmount
-  if (destinationFromToken) {
+  if (!recordedUsed && destinationFromToken) {
     const userAmount = parseDecimalLoose(destinationFromToken.userAmount);
     if (userAmount && userAmount.gt(0)) {
       if (destinationFromToken.userAmountMode === "usd") {
@@ -5069,6 +5124,10 @@ function NexusWidgetInner({
   const activeQuoteInputKeyRef = useRef("");
 
   // Ref to store swap intent hook allow/deny callbacks
+  // Exact-output deposit: pre-swap destination balance the accepted quote uses.
+  const exactOutDestinationBalanceUsedRef = useRef<string | undefined>(
+    undefined,
+  );
   const swapIntentRef = useRef<{
     intent?: SwapIntentData;
     allow: () => void;
@@ -5603,6 +5662,7 @@ function NexusWidgetInner({
     swapRunIdRef.current += 1;
     swapIntentRef.current?.deny();
     swapIntentRef.current = null;
+    exactOutDestinationBalanceUsedRef.current = undefined;
     setIntentLoading(false);
     if (!options.keepError) {
       setTxError(null);
@@ -7605,6 +7665,14 @@ function NexusWidgetInner({
       intentData,
       fromTokens,
       toToken: resolvedToToken,
+      ...(activeMode === "deposit" &&
+      depositRoute === "exactOutput" &&
+      exactOutDestinationBalanceUsedRef.current !== undefined
+        ? {
+            destinationBalanceUsedAmount:
+              exactOutDestinationBalanceUsedRef.current,
+          }
+        : {}),
       requestedToAmount:
         activeMode === "deposit" || activeMode === "send"
           ? ((previewDestinationAmount && previewDestinationAmount !== "0" && previewDestinationAmount !== "0.0"
@@ -8055,6 +8123,13 @@ function NexusWidgetInner({
         deny,
         refresh: normalizedRefresh,
       };
+      if (activeMode === "deposit" && depositRoute === "exactOutput") {
+        exactOutDestinationBalanceUsedRef.current =
+          readExactOutDestinationBalanceUsed(
+            data?.intent,
+            Number(data?.intent?.executeRequirement?.token?.decimals ?? 18),
+          );
+      }
       swapIntentRef.current = {
         intent: intentWithBridgeProvider,
         allow,
@@ -9903,6 +9978,7 @@ function NexusWidgetInner({
     telemetry.supersedeQuote(swapIntentRef.current?.runId);
     swapIntentRef.current?.deny();
     swapIntentRef.current = null;
+    exactOutDestinationBalanceUsedRef.current = undefined;
     if (!background) {
       resetProgressEvents();
       swapStepsListRef.current = [];
@@ -10409,11 +10485,40 @@ function NexusWidgetInner({
                     return handleSwapIntentCallback(data, runId, quoteInputKey);
                   },
                 },
-                beforeExecute,
+                // executeAmountRaw includes tokens already on the
+                // destination chain; receivedAmountRaw is only the swap
+                // proceeds. The difference is the pre-swap balance used.
+                beforeExecute: (context) => {
+                  const executeRaw = toRawBigInt(context?.executeAmountRaw);
+                  const receivedRaw = toRawBigInt(context?.receivedAmountRaw);
+                  if (executeRaw !== undefined && receivedRaw !== undefined) {
+                    patchCurrentSwapHistoryEntry({
+                      destinationBalanceUsedAmount: formatDestinationBalanceUsed(
+                        executeRaw > receivedRaw
+                          ? executeRaw - receivedRaw
+                          : BigInt(0),
+                        toToken.decimals || 18,
+                      ),
+                    });
+                  }
+                  return beforeExecute(context);
+                },
               }),
           );
           if ((depositResult as any)?.swapSkipped) {
             appendSkippedSwapProgress();
+            // No swap ran, so the whole deposit came from the existing balance.
+            const executeRaw = toRawBigInt(
+              (depositResult as any)?.executeAmountRaw,
+            );
+            if (executeRaw !== undefined) {
+              patchCurrentSwapHistoryEntry({
+                destinationBalanceUsedAmount: formatDestinationBalanceUsed(
+                  executeRaw,
+                  toToken.decimals || 18,
+                ),
+              });
+            }
           }
           const depositSwapResult = getSdkSwapResult(depositResult);
           intentExplorerUrl = getSdkIntentExplorerUrlForNetwork(
@@ -10639,6 +10744,21 @@ function NexusWidgetInner({
           const swapSkipped = Boolean((result as any)?.swapSkipped);
           if (swapSkipped) {
             appendSkippedSwapProgress();
+          }
+          if (activeMode === "deposit") {
+            // A skipped swap means the deposit came entirely from the
+            // existing balance; otherwise keep what the accepted quote said.
+            const executeRaw = toRawBigInt((result as any)?.executeAmountRaw);
+            const destinationBalanceUsedAmount =
+              swapSkipped && executeRaw !== undefined
+                ? formatDestinationBalanceUsed(
+                    executeRaw,
+                    toToken.decimals || 18,
+                  )
+                : exactOutDestinationBalanceUsedRef.current;
+            if (destinationBalanceUsedAmount !== undefined) {
+              patchCurrentSwapHistoryEntry({ destinationBalanceUsedAmount });
+            }
           }
           if (
             !swapResult &&
