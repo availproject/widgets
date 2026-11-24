@@ -5,7 +5,11 @@ import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import { parseAmount as parseDecimal } from "../utils/amount";
 import { useNexusWidgetThemeStyle } from "../theme-context";
 import React, { useRef, useState } from "react";
-import { PayWithSources as SharedPayWithSources } from "./pay-with-sources";
+import {
+  DEPOSIT_CARD_PADDING,
+  DEPOSIT_CARD_STYLE,
+  PayWithSources as SharedPayWithSources,
+} from "./pay-with-sources";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import {
   formatSelectedTokenBalanceLabel,
@@ -715,24 +719,19 @@ export function DepositExactOutIdleForm({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "10px",
+        gap: "8px",
         width: "100%",
       }}
     >
       <div
         className="nexus-focus-container"
         style={{
-          backgroundColor: "var(--nexus-widget-surface, #FFFFFE)",
-          borderColor: border,
-          borderRadius: "14px",
-          borderStyle: "solid",
-          borderWidth: "1px",
-          boxShadow: "var(--nexus-widget-shadow-soft, #1616150A) 0px 1px 2px",
+          ...DEPOSIT_CARD_STYLE,
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
           gap: "14px",
-          padding: "16px",
+          padding: DEPOSIT_CARD_PADDING,
         }}
       >
         <div
@@ -1047,6 +1046,7 @@ export function DepositExactOutIdleForm({
       </div>
 
       <SharedPayWithSources
+        variant="deposit"
         fromTokens={fromTokens}
         isPredictive={isPredictive}
         isSourcePickerDisabled={isSourcePickerDisabled}

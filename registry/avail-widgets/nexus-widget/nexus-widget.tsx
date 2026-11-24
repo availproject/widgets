@@ -75,7 +75,7 @@ import {
 } from "./components/deposit-motion";
 import {
   DepositIdleForm,
-  DepositCalculatedAmount,
+  DepositReceiveHero,
 } from "./components/deposit-idle-form";
 import { DepositExactOutIdleForm } from "./components/deposit-exact-out-idle-form";
 import { DepositOnrampFlow } from "./components/deposit-onramp-flow";
@@ -152,7 +152,10 @@ import { buildExactInputDeposit } from "./utils/deposit-execution";
 import {
   type DepositSourceFilter,
   getDepositSourceId,
+  isDepositHiddenSourceChain,
   resolveDepositSourceSelection,
+  withoutDepositHiddenChainOptions,
+  withoutDepositHiddenSourceChains,
 } from "./utils/deposit-source-selection";
 
 // ---------------------------------------------------------------------------
@@ -3283,9 +3286,11 @@ export function SwapReceiptPanel({
     const soft = success
       ? "var(--nx-green-soft, #EEF9F2)"
       : "var(--nx-red-band, #FEF6F6)";
-    const durationLabel =
-      typeof entry.durationSeconds === "number" && entry.durationSeconds > 0
-        ? `Completed in ${entry.durationSeconds}s`
+    const durationSeconds =
+      success &&
+      typeof entry.durationSeconds === "number" &&
+      entry.durationSeconds > 0
+        ? entry.durationSeconds
         : undefined;
     const explorerHost = (() => {
       if (!entry.finalExplorerUrl) return "";
@@ -3350,7 +3355,7 @@ export function SwapReceiptPanel({
           width: "100%",
         }}
       >
-        <div className="nx-card" style={{ padding: "8px 8px 16px" }}>
+        <div className="nx-card">
           <div
             style={{
               font: `500 20px/26px ${'"Delight","Geist",system-ui,sans-serif'}`,
@@ -3439,106 +3444,34 @@ export function SwapReceiptPanel({
               </div>
             </div>
           </div>
-          <div
-            style={{
-              alignItems: "center",
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              padding: "12px 12px 4px",
-            }}
+          <DepositReceiveHero
+            amount={displayAmount && displayAmount !== "0" ? displayAmount : "0"}
+            chainLogo={
+              entry.toToken?.chainLogo ||
+              CHAIN_METADATA[destination?.chain.id ?? entry.toToken?.chainId ?? 0]
+                ?.logo
+            }
+            chainName={chainName}
+            entranceDelay={success ? 350 : undefined}
+            label={
+              success ? `${depositVenue || "Deposit"} received` : failureHeadline
+            }
+            suffix={durationSeconds ? `${durationSeconds}s` : undefined}
+            tokenLogo={destinationLogo}
+            tokenSymbol={tokenSymbol}
+            usd={`≈ ${formatUsdDisplay(value)}`}
           >
-            <div
-              style={{
-                color: "var(--nx-mute-2, #8C8C8B)",
-                font: `400 14px/18px ${uiFont}`,
-              }}
-            >
-              {success
-                ? `${depositVenue || "Deposit"} Received`
-                : failureHeadline}
-            </div>
             {failureDescription || timeoutDescription ? (
-              <div
-                style={{
-                  color: "var(--nx-mute-2, #8C8C8B)",
-                  font: `400 13px/18px ${uiFont}`,
-                  maxWidth: 280,
-                  textAlign: "center",
-                }}
-              >
+              <div className="nx-hero-note">
                 {failureDescription || timeoutDescription}
               </div>
             ) : null}
             {showRefundReassurance ? (
-              <div
-                style={{
-                  color: "var(--nx-mute-2, #8C8C8B)",
-                  font: `400 13px/18px ${uiFont}`,
-                  maxWidth: 280,
-                  textAlign: "center",
-                }}
-              >
+              <div className="nx-hero-note">
                 Any tokens collected will be refunded to your wallet
               </div>
             ) : null}
-            <div style={{ alignItems: "baseline", display: "flex", gap: 8 }}>
-              <span
-                style={{
-                  font: `300 48px/56px ${uiFont}`,
-                  letterSpacing: "-0.03em",
-                }}
-              >
-                <DepositCalculatedAmount
-                  value={
-                    displayAmount && displayAmount !== "0"
-                      ? displayAmount.startsWith("~")
-                        ? displayAmount
-                        : `~${displayAmount}`
-                      : "~0"
-                  }
-                  entranceDelay={success ? 350 : undefined}
-                />
-              </span>
-              <span
-                style={{
-                  color: "var(--nx-mute, #737372)",
-                  font: `500 18px/22px ${uiFont}`,
-                }}
-              >
-                {tokenSymbol}
-              </span>
-            </div>
-            <div
-              style={{
-                color: "var(--nx-mute-2, #8C8C8B)",
-                font: `400 14px/18px ${uiFont}`,
-              }}
-            >
-              ≈ {formatUsdDisplay(value)}
-            </div>
-            <div
-              style={{
-                alignItems: "center",
-                color: "var(--nx-faint, #A3A3A2)",
-                display: "flex",
-                font: `400 12px/16px ${uiFont}`,
-                gap: 4,
-                marginTop: 4,
-              }}
-            >
-              on
-              {entry.toToken?.chainLogo ? (
-                <img
-                  alt=""
-                  src={entry.toToken.chainLogo}
-                  style={{ borderRadius: 999, height: 12, width: 12 }}
-                />
-              ) : null}
-              {chainName}
-              {durationLabel ? ` · ${durationLabel}` : ""}
-            </div>
-          </div>
+          </DepositReceiveHero>
         </div>
         <div
           className="nx-card nx-receipt-details"
@@ -4576,7 +4509,7 @@ function NexusWidgetInner({
   const {
     nexusSDK,
     bridgableBalance,
-    swapBalance,
+    swapBalance: providerSwapBalance,
     swapBalanceLoading,
     getFiatValue,
     resolveTokenUsdRate,
@@ -4591,6 +4524,35 @@ function NexusWidgetInner({
     observability,
     widgetObservationHub,
   } = useNexus();
+  const isDepositWidget = rawConfig.mode === "deposit";
+  // Deposit never funds from hidden chains (Citrea): drop their balances,
+  // tokens and chain chips before any deposit list or total reads them.
+  const swapBalance = useMemo(
+    () =>
+      isDepositWidget
+        ? withoutDepositHiddenSourceChains(providerSwapBalance)
+        : providerSwapBalance,
+    [isDepositWidget, providerSwapBalance],
+  );
+  // Without an allowlist the SDK funds exact-out deposits from any balance,
+  // so name the visible sources whenever the wallet holds hidden-chain funds.
+  const hasDepositHiddenSourceBalance = useMemo(
+    () =>
+      isDepositWidget &&
+      (providerSwapBalance ?? []).some((asset) =>
+        asset.breakdown?.some((source) =>
+          isDepositHiddenSourceChain(source.chain?.id),
+        ),
+      ),
+    [isDepositWidget, providerSwapBalance],
+  );
+  const sourcePickerSupportedChains = useMemo(
+    () =>
+      isDepositWidget
+        ? withoutDepositHiddenChainOptions(swapSupportedChainsAndTokens)
+        : swapSupportedChainsAndTokens,
+    [isDepositWidget, swapSupportedChainsAndTokens],
+  );
   const appConfig = useMemo(
     () => ({
       nexusNetwork: network ?? "mainnet",
@@ -6948,6 +6910,7 @@ function NexusWidgetInner({
   const shouldSendExactOutSourceAllowlist = () => {
     if (activeMode === "deposit" || activeMode === "send") {
       return (
+        hasDepositHiddenSourceBalance ||
         sourceSelectionTouched ||
         depositSourceFilter !== "all" ||
         exactOutQuoteSourceModeRef.current === "selected"
@@ -7484,7 +7447,10 @@ function NexusWidgetInner({
 
   const refreshSelectedSourceBalances = useCallback(async () => {
     const refreshedBalance = await fetchSwapBalance();
-    const balances = refreshedBalance ?? swapBalance;
+    const balances =
+      (isDepositWidget
+        ? withoutDepositHiddenSourceChains(refreshedBalance)
+        : refreshedBalance) ?? swapBalance;
     if (!balances) return;
 
     setFromTokens((current) =>
@@ -7493,7 +7459,12 @@ function NexusWidgetInner({
         : patchSourceTokensWithBalances(current, balances),
     );
     setSourceSelectionRevision((current) => current + 1);
-  }, [fetchSwapBalance, patchSourceTokensWithBalances, swapBalance]);
+  }, [
+    fetchSwapBalance,
+    isDepositWidget,
+    patchSourceTokensWithBalances,
+    swapBalance,
+  ]);
 
   const receiveMaxSafetyMultiplier = new Decimal("0.9");
   const currentSwapEntry =
@@ -12631,6 +12602,9 @@ function NexusWidgetInner({
 
   const isExactInDeposit =
     activeMode === "deposit" && depositRoute === "exactInput";
+  // Exact-in and exact-out deposits share one shell: padding, radius,
+  // background and shadow.
+  const isDepositShell = activeMode === "deposit";
 
   const widgetContent = (
     <div
@@ -12641,24 +12615,24 @@ function NexusWidgetInner({
       style={{
         ...themeStyle,
         backgroundColor:
-          isExactInDeposit
+          isDepositShell
             ? "var(--nx-shell, #F7F7F7)"
             : "var(--nexus-widget-background, #F9F9F8)",
         backgroundImage:
-          isExactInDeposit
+          isDepositShell
             ? "none"
             : "var(--nexus-widget-background-image, url(https://files.availproject.org/nexus-elements/nexus-one/card-bg.png))",
         backgroundPosition: "center",
         backgroundPositionX: "center",
         backgroundPositionY: "center",
         backgroundSize: "cover",
-        borderRadius: isExactInDeposit ? "30px" : "20px",
+        borderRadius: isDepositShell ? "30px" : "20px",
         border:
-          isExactInDeposit
+          isDepositShell
             ? "none"
             : "1px solid var(--nexus-widget-border, #E8E8E7)",
         boxShadow:
-          isExactInDeposit
+          isDepositShell
             ? "var(--nx-sh-edge), var(--nx-sh-shell)"
             : "var(--nexus-widget-root-shadow, none)",
         boxSizing: "border-box",
@@ -12668,9 +12642,9 @@ function NexusWidgetInner({
         fontSize: "12px",
         fontSynthesis: "none",
         fontVariantNumeric: "tabular-nums",
-        gap: isExactInDeposit ? "8px" : "16px",
+        gap: isDepositShell ? "8px" : "16px",
         height: displayedRootContentHeight
-          ? `${displayedRootContentHeight + (isExactInDeposit ? 16 : 32)}px`
+          ? `${displayedRootContentHeight + (isDepositShell ? 16 : 32)}px`
           : "fit-content",
         maxHeight: "90dvh",
         lineHeight: "17px",
@@ -12680,7 +12654,7 @@ function NexusWidgetInner({
           isDrawerOverlayActive || isPreviewIntentScreen ? "hidden" : "auto",
         overscrollBehavior:
           isDrawerOverlayActive || isPreviewIntentScreen ? "contain" : "auto",
-        padding: isExactInDeposit ? "8px" : "16px",
+        padding: isDepositShell ? "8px" : "16px",
         scrollbarColor: `${theme.colors.textEmpty} transparent`,
         scrollbarWidth: "thin",
         position: "relative",
@@ -12767,7 +12741,7 @@ function NexusWidgetInner({
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
-          gap: isExactInDeposit ? "8px" : "16px",
+          gap: isDepositShell ? "8px" : "16px",
           minHeight: 0,
           width: "100%",
         }}
@@ -12796,7 +12770,12 @@ function NexusWidgetInner({
               display: hideDepositHeader ? "none" : "flex",
               flexShrink: 0,
               justifyContent: "space-between",
-              padding: swapStep === "history" ? "20px" : 0,
+              padding:
+                swapStep === "history"
+                  ? "20px"
+                  : isDepositShell && !isExactInDeposit
+                    ? "8px 12px"
+                    : 0,
               width: "100%",
               position: "relative",
               zIndex: 10,
@@ -14699,7 +14678,7 @@ function NexusWidgetInner({
                     activeMode === "swap" && swapType === "exactIn"
                   }
                   swapBalance={swapBalance}
-                  swapSupportedChains={swapSupportedChainsAndTokens}
+                  swapSupportedChains={sourcePickerSupportedChains}
                   title={
                     isExactOutSourceFlow
                       ? "Choose Assets to Pay with"

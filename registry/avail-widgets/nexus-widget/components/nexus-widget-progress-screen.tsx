@@ -15,7 +15,7 @@ import {
   type NexusWidgetDepositOpportunityMetadata,
   type NexusWidgetMode,
 } from "../types";
-import { DepositCalculatedAmount } from "./deposit-idle-form";
+import { DepositReceiveHero } from "./deposit-idle-form";
 import { NEXUS_WIDGET_FAST_SPINNER_STYLE } from "../theme";
 import { type SwapTokenOption } from "./swap-asset-selector";
 import { type SwapIntentData } from "./swap-intent-preview";
@@ -2094,106 +2094,35 @@ export function NexusWidgetProgressScreen({
               ? "var(--nx-sh-card, #16161508 0 1px 2px, #1616150A 0 6px 18px)"
               : "0px 1px 12px 0px var(--nexus-widget-shadow-soft, #5B5B5B0D)",
           boxSizing: "border-box",
-          padding: mode === "deposit" ? "14px 12px 24px" : "12px 13px 9px",
+          padding: mode === "deposit" ? "8px 8px 24px" : "12px 13px 9px",
           width: "100%",
         }}
       >
         {mode === "deposit" ? (
           <>
-            <div
-              style={{
-                color: "var(--nx-mute-2, #8C8C8B)",
-                fontFamily,
-                fontSize: "14px",
-                lineHeight: "18px",
-                textAlign: "center",
-              }}
-            >
-              {destinationChain || "Deposit"} receives
-            </div>
-            <div
-              style={{
-                alignItems: "baseline",
-                color: primary,
-                display: "flex",
-                fontFamily,
-                fontSize: "48px",
-                fontWeight: 300,
-                gap: "8px",
-                justifyContent: "center",
-                letterSpacing: "-0.03em",
-                lineHeight: "56px",
-                marginTop: "2px",
-              }}
-            >
-              <span>
-                <DepositCalculatedAmount
-                  value={(() => {
-                    const dec = isStablecoinSymbol(destinationSymbol)
-                      ? 2
-                      : Math.min(6, toToken?.decimals ?? 6);
-                    const formatted = formatDecimal(destinationAmount, dec);
-                    return formatted.startsWith("~") ? formatted : `~${formatted}`;
-                  })()}
-                />
-              </span>
-              <span
-                style={{
-                  color: "var(--nx-mute, #737372)",
-                  fontSize: "18px",
-                  fontWeight: 500,
-                  letterSpacing: "0",
-                  lineHeight: "22px",
-                }}
-              >
-                {destinationSymbol}
-              </span>
-            </div>
-            <div
-              style={{
-                color: "var(--nx-mute-2, #8C8C8B)",
-                fontFamily,
-                fontSize: "14px",
-                lineHeight: "18px",
-                textAlign: "center",
-              }}
-            >
-              ≈ {formatUsd(toAmountUsd ?? sourceUsd)}
-            </div>
-            <div
-              style={{
-                alignItems: "center",
-                background: "transparent",
-                color: "var(--nx-faint, #A3A3A2)",
-                display: "flex",
-                fontFamily,
-                fontSize: "12px",
-                gap: "4px",
-                justifyContent: "center",
-                lineHeight: "16px",
-                marginTop: "4px",
-              }}
-            >
-              on
-              {toToken?.chainLogo ? (
-                <span
-                  style={{
-                    alignItems: "center",
-                    display: "inline-flex",
-                    height: 12,
-                    justifyContent: "center",
-                    width: 12,
-                  }}
-                >
-                  <img
-                    alt=""
-                    src={toToken.chainLogo}
-                    style={{ borderRadius: "999px", height: 12, width: 12 }}
-                  />
-                </span>
-              ) : null}
-              {destinationChainName || destinationChain}
-            </div>
+            <DepositReceiveHero
+              amount={(() => {
+                const dec = isStablecoinSymbol(destinationSymbol)
+                  ? 2
+                  : Math.min(6, toToken?.decimals ?? 6);
+                return formatDecimal(destinationAmount, dec);
+              })()}
+              chainLogo={
+                toToken?.chainLogo ||
+                CHAIN_METADATA[
+                  intentDestination?.chain.id ?? toToken?.chainId ?? 0
+                ]?.logo
+              }
+              chainName={destinationChainName || destinationChain}
+              label={`${destinationChain || "Deposit"} receives`}
+              tokenLogo={
+                intentDestination?.token.logo ||
+                toToken?.logo ||
+                opportunity?.tokenLogo
+              }
+              tokenSymbol={destinationSymbol}
+              usd={`≈ ${formatUsd(toAmountUsd ?? sourceUsd)}`}
+            />
             <div
               style={{
                 background: "var(--nx-band, #F8F8F8)",

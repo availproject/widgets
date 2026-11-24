@@ -903,7 +903,7 @@ test("deposit receipt and progress screen include destination-chain source token
     // Progress screen must show "You Spend $3.89"
     assert.ok(progressJson.includes("$3.89"), "Progress screen should include $3.89 spend");
     assert.ok(
-      progressJson.includes('"Aave"') && progressJson.includes('" receives"'),
+      progressJson.includes("Aave receives"),
       "Progress screen should show Aave receives"
     );
     assert.ok(
